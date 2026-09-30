@@ -2,8 +2,6 @@ import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { defineFrontComponent } from 'twenty-sdk/define';
 import {
-  AppPath,
-  navigate,
   openSidePanelPage,
   SidePanelPages,
   useColorScheme,
@@ -222,6 +220,12 @@ const NewMeasurement = () => {
       minHeight: '44px',
       padding: '8px 16px',
     },
+    link: {
+      alignItems: 'center',
+      boxSizing: 'border-box',
+      display: 'inline-flex',
+      textDecoration: 'none',
+    },
     area: { alignSelf: 'end', fontWeight: 600, paddingBottom: '10px' },
     error: { color: colors.danger, margin: '0 0 12px' },
   } satisfies Record<string, CSSProperties>;
@@ -321,12 +325,6 @@ const NewMeasurement = () => {
     setIsSaving(false);
   };
 
-  const openOrder = (orderId: string) =>
-    navigate(AppPath.RecordShowPage, {
-      objectNameSingular: 'order',
-      objectRecordId: orderId,
-    });
-
   const openItemForPhotos = (itemId: string) =>
     openSidePanelPage({
       page: SidePanelPages.ViewRecord,
@@ -352,13 +350,21 @@ const NewMeasurement = () => {
             </p>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-            <button
-              type="button"
-              style={styles.primaryButton}
-              onClick={() => openOrder(result.orderId)}
+            {/* Plain links load the page afresh: the host's cached order
+                lists do not see records created through the API, and the
+                SDK's client-side navigate would show them stale. */}
+            <a
+              href={`/object/order/${result.orderId}`}
+              style={{ ...styles.primaryButton, ...styles.link }}
             >
               Открыть заказ
-            </button>
+            </a>
+            <a
+              href="/objects/orders"
+              style={{ ...styles.secondaryButton, ...styles.link }}
+            >
+              К списку заказов
+            </a>
             <button
               type="button"
               style={styles.secondaryButton}
@@ -429,7 +435,9 @@ const NewMeasurement = () => {
           <input
             style={styles.input}
             value={draft.clientName}
-            onChange={(event) => updateDraft({ clientName: event.target.value })}
+            onChange={(event) =>
+              updateDraft({ clientName: event.target.value })
+            }
           />,
         )}
         {field(
