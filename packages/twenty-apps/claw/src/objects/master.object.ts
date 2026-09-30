@@ -23,7 +23,11 @@ export default defineObject({
       name: 'ratePerSquareMeter',
       label: 'Ставка за м²',
       icon: 'IconCurrency',
-      defaultValue: { amountMicros: String(DEFAULT_RATE_PER_SQUARE_METER * 1_000_000), currencyCode: "'UZS'" },
+      // SDK types amountMicros as string, but a string default warns as an unquoted literal; the server takes a number
+      defaultValue: {
+        amountMicros: (DEFAULT_RATE_PER_SQUARE_METER * 1_000_000) as unknown as string,
+        currencyCode: "'UZS'",
+      },
     },
     {
       universalIdentifier: IDS.master.penaltyPercentPerDay,
