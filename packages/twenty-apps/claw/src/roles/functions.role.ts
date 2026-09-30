@@ -10,4 +10,7 @@ export default defineApplicationRole({
   canUpdateAllObjectRecords: true,
   canSoftDeleteAllObjectRecords: false,
   canDestroyAllObjectRecords: false,
+  canBeAssignedToUsers: false,
+  canBeAssignedToAgents: false,
+  canBeAssignedToApiKeys: false,
 });
