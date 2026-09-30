@@ -12,7 +12,13 @@ export default defineObject({
   icon: 'IconPalette',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.design.name,
   fields: [
-    { universalIdentifier: IDS.design.name, type: FieldType.TEXT, name: 'name', label: 'Название', icon: 'IconAbc' },
+    {
+      universalIdentifier: IDS.design.name,
+      type: FieldType.TEXT,
+      name: 'name',
+      label: 'Название',
+      icon: 'IconAbc',
+    },
     {
       universalIdentifier: IDS.design.catalog,
       type: FieldType.SELECT,

@@ -6,11 +6,19 @@ import {
   RelationType,
 } from 'twenty-sdk/define';
 
+import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { IDS } from 'src/constants/universal-identifiers';
 
-const money = (universalIdentifier: string, name: string, label: string) => ({
-  universalIdentifier, type: FieldType.CURRENCY, name, label, icon: 'IconCurrency', isNullable: true,
-} as const);
+const money = (universalIdentifier: string, name: string, label: string) =>
+  ({
+    universalIdentifier,
+    type: FieldType.CURRENCY,
+    name,
+    label,
+    icon: 'IconCurrency',
+    isNullable: true,
+    universalSettings: FULL_MONEY_DISPLAY,
+  }) as const;
 
 export default defineObject({
   universalIdentifier: IDS.orderExtraService.object,
@@ -21,7 +29,14 @@ export default defineObject({
   icon: 'IconTool',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.orderExtraService.name,
   fields: [
-    { universalIdentifier: IDS.orderExtraService.name, type: FieldType.TEXT, name: 'name', label: 'Название', icon: 'IconAbc', isNullable: true },
+    {
+      universalIdentifier: IDS.orderExtraService.name,
+      type: FieldType.TEXT,
+      name: 'name',
+      label: 'Название',
+      icon: 'IconAbc',
+      isNullable: true,
+    },
     {
       universalIdentifier: IDS.orderExtraService.quantity,
       type: FieldType.NUMBER,
@@ -43,7 +58,11 @@ export default defineObject({
       icon: 'IconClipboardList',
       relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
       relationTargetFieldMetadataUniversalIdentifier: IDS.order.extraServices,
-      universalSettings: { relationType: RelationType.MANY_TO_ONE, onDelete: OnDeleteAction.CASCADE, joinColumnName: 'orderId' },
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.CASCADE,
+        joinColumnName: 'orderId',
+      },
     },
     {
       universalIdentifier: IDS.orderExtraService.extraService,
@@ -52,8 +71,13 @@ export default defineObject({
       label: 'Услуга',
       icon: 'IconTool',
       relationTargetObjectMetadataUniversalIdentifier: IDS.extraService.object,
-      relationTargetFieldMetadataUniversalIdentifier: IDS.extraService.orderExtraServices,
-      universalSettings: { relationType: RelationType.MANY_TO_ONE, onDelete: OnDeleteAction.SET_NULL, joinColumnName: 'extraServiceId' },
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.extraService.orderExtraServices,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'extraServiceId',
+      },
     },
   ],
 });

@@ -1,6 +1,7 @@
 import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
 
 import { EXTRA_SERVICE_UNIT_OPTIONS } from 'src/constants/select-options';
+import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { IDS } from 'src/constants/universal-identifiers';
 
 export default defineObject({
@@ -12,7 +13,13 @@ export default defineObject({
   icon: 'IconTool',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.extraService.name,
   fields: [
-    { universalIdentifier: IDS.extraService.name, type: FieldType.TEXT, name: 'name', label: 'Название', icon: 'IconAbc' },
+    {
+      universalIdentifier: IDS.extraService.name,
+      type: FieldType.TEXT,
+      name: 'name',
+      label: 'Название',
+      icon: 'IconAbc',
+    },
     {
       universalIdentifier: IDS.extraService.unit,
       type: FieldType.SELECT,
@@ -22,16 +29,34 @@ export default defineObject({
       defaultValue: "'FIXED'",
       options: EXTRA_SERVICE_UNIT_OPTIONS,
     },
-    { universalIdentifier: IDS.extraService.price, type: FieldType.CURRENCY, name: 'price', label: 'Цена', icon: 'IconCurrency', isNullable: true },
-    { universalIdentifier: IDS.extraService.cost, type: FieldType.CURRENCY, name: 'cost', label: 'Себестоимость', icon: 'IconCoin', isNullable: true },
+    {
+      universalIdentifier: IDS.extraService.price,
+      type: FieldType.CURRENCY,
+      name: 'price',
+      label: 'Цена',
+      icon: 'IconCurrency',
+      isNullable: true,
+      universalSettings: FULL_MONEY_DISPLAY,
+    },
+    {
+      universalIdentifier: IDS.extraService.cost,
+      type: FieldType.CURRENCY,
+      name: 'cost',
+      label: 'Себестоимость',
+      icon: 'IconCoin',
+      isNullable: true,
+      universalSettings: FULL_MONEY_DISPLAY,
+    },
     {
       universalIdentifier: IDS.extraService.orderExtraServices,
       type: FieldType.RELATION,
       name: 'orderExtraServices',
       label: 'В заказах',
       icon: 'IconClipboardList',
-      relationTargetObjectMetadataUniversalIdentifier: IDS.orderExtraService.object,
-      relationTargetFieldMetadataUniversalIdentifier: IDS.orderExtraService.extraService,
+      relationTargetObjectMetadataUniversalIdentifier:
+        IDS.orderExtraService.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.orderExtraService.extraService,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
   ],

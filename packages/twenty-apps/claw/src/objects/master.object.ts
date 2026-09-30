@@ -1,5 +1,6 @@
 import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
 
+import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { IDS } from 'src/constants/universal-identifiers';
 
 const DEFAULT_RATE_PER_SQUARE_METER = 0;
@@ -14,18 +15,40 @@ export default defineObject({
   icon: 'IconHammer',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.master.name,
   fields: [
-    { universalIdentifier: IDS.master.name, type: FieldType.TEXT, name: 'name', label: 'Имя', icon: 'IconUser' },
-    { universalIdentifier: IDS.master.phone, type: FieldType.TEXT, name: 'phone', label: 'Телефон', icon: 'IconPhone', isNullable: true },
-    { universalIdentifier: IDS.master.isActive, type: FieldType.BOOLEAN, name: 'isActive', label: 'Активен', icon: 'IconCheck', defaultValue: true },
+    {
+      universalIdentifier: IDS.master.name,
+      type: FieldType.TEXT,
+      name: 'name',
+      label: 'Имя',
+      icon: 'IconUser',
+    },
+    {
+      universalIdentifier: IDS.master.phone,
+      type: FieldType.TEXT,
+      name: 'phone',
+      label: 'Телефон',
+      icon: 'IconPhone',
+      isNullable: true,
+    },
+    {
+      universalIdentifier: IDS.master.isActive,
+      type: FieldType.BOOLEAN,
+      name: 'isActive',
+      label: 'Активен',
+      icon: 'IconCheck',
+      defaultValue: true,
+    },
     {
       universalIdentifier: IDS.master.ratePerSquareMeter,
       type: FieldType.CURRENCY,
+      universalSettings: FULL_MONEY_DISPLAY,
       name: 'ratePerSquareMeter',
       label: 'Ставка за м²',
       icon: 'IconCurrency',
       // SDK types amountMicros as string, but a string default warns as an unquoted literal; the server takes a number
       defaultValue: {
-        amountMicros: (DEFAULT_RATE_PER_SQUARE_METER * 1_000_000) as unknown as string,
+        amountMicros: (DEFAULT_RATE_PER_SQUARE_METER *
+          1_000_000) as unknown as string,
         currencyCode: "'UZS'",
       },
     },

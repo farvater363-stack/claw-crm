@@ -4,7 +4,10 @@ import {
 } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
-import { ADMIN_ONLY_FIELD_PERMISSIONS } from 'src/roles/admin-only-fields';
+import {
+  ADMIN_ONLY_FIELD_PERMISSIONS,
+  CALCULATED_FIELD_PERMISSIONS,
+} from 'src/roles/admin-only-fields';
 
 const readWrite = (objectUniversalIdentifier: string) => ({
   objectUniversalIdentifier,
@@ -19,7 +22,8 @@ export default defineRole({
   label: 'Менеджер',
   description: 'Ведёт заказы, назначает замерщиков и мастеров, правит прайс',
   icon: 'IconUserStar',
-  canReadAllObjectRecords: true,
+  // Orders, clients and catalogs only; companies and opportunities are not used.
+  canReadAllObjectRecords: false,
   canUpdateAllObjectRecords: false,
   canSoftDeleteAllObjectRecords: false,
   canDestroyAllObjectRecords: false,
@@ -39,5 +43,8 @@ export default defineRole({
     readWrite(STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.note.universalIdentifier),
     readWrite(STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.task.universalIdentifier),
   ],
-  fieldPermissions: ADMIN_ONLY_FIELD_PERMISSIONS,
+  fieldPermissions: [
+    ...ADMIN_ONLY_FIELD_PERMISSIONS,
+    ...CALCULATED_FIELD_PERMISSIONS,
+  ],
 });

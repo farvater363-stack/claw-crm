@@ -7,15 +7,35 @@ import {
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { todayInTashkent } from 'src/pricing/dates';
+import { orderNameToRestore } from 'src/recalc/assign-order-number';
 import { recalcOrder } from 'src/recalc/recalc-order';
 
-type UpdatedOrder = { status: string | null; installedAt: string | null };
+type UpdatedOrder = {
+  status: string | null;
+  installedAt: string | null;
+  name: string | null;
+  number: number | null;
+};
 
 const handler = async (
   payload: DatabaseEventPayload<ObjectRecordUpdateEvent<UpdatedOrder>>,
 ): Promise<void> => {
   const client = createRecalcClient();
   const { after, updatedFields } = payload.properties;
+
+  const restoredName = orderNameToRestore({
+    name: after.name ?? null,
+    number: after.number ?? null,
+  });
+
+  if (restoredName !== null) {
+    await client.mutation({
+      updateOrder: {
+        __args: { id: payload.recordId, data: { name: restoredName } },
+        id: true,
+      },
+    });
+  }
 
   if (
     updatedFields.includes('status') &&
@@ -39,11 +59,13 @@ const handler = async (
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderUpdated,
   name: 'on-order-updated',
-  description: 'Sets the installation date and recalculates the order',
+  description:
+    'Restores an emptied order name, sets the installation date and recalculates the order',
   timeoutSeconds: 30,
   databaseEventTriggerSettings: {
     eventName: 'order.updated',
     updatedFields: [
+      'name',
       'status',
       'prepayment',
       'productionStartDate',

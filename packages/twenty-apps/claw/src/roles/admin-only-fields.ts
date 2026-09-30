@@ -47,3 +47,30 @@ export const ADMIN_ONLY_FIELD_PERMISSIONS: FieldPermission[] = [
     IDS.master.penaltyPercentPerDay,
   ]),
 ];
+
+const readOnly = (
+  objectUniversalIdentifier: string,
+  fieldUniversalIdentifiers: string[],
+): FieldPermission[] =>
+  fieldUniversalIdentifiers.map((fieldUniversalIdentifier) => ({
+    objectUniversalIdentifier,
+    fieldUniversalIdentifier,
+    canReadFieldValue: true,
+    canUpdateFieldValue: false,
+  }));
+
+// The recalc triggers own these values; names stay writable because Twenty's
+// own create flow writes the label identifier.
+export const CALCULATED_FIELD_PERMISSIONS: FieldPermission[] = [
+  ...readOnly(IDS.order.object, [
+    IDS.order.number,
+    IDS.order.areaSquareMeters,
+    IDS.order.total,
+    IDS.order.balance,
+  ]),
+  ...readOnly(IDS.orderItem.object, [
+    IDS.orderItem.areaSquareMeters,
+    IDS.orderItem.lineTotal,
+  ]),
+  ...readOnly(IDS.orderExtraService.object, [IDS.orderExtraService.lineTotal]),
+];

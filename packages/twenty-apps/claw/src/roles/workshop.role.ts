@@ -1,7 +1,10 @@
 import { defineRole } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
-import { ADMIN_ONLY_FIELD_PERMISSIONS } from 'src/roles/admin-only-fields';
+import {
+  ADMIN_ONLY_FIELD_PERMISSIONS,
+  CALCULATED_FIELD_PERMISSIONS,
+} from 'src/roles/admin-only-fields';
 
 export default defineRole({
   universalIdentifier: IDS.role.workshop,
@@ -16,5 +19,8 @@ export default defineRole({
   canBeAssignedToUsers: true,
   canBeAssignedToAgents: false,
   canBeAssignedToApiKeys: false,
-  fieldPermissions: ADMIN_ONLY_FIELD_PERMISSIONS,
+  fieldPermissions: [
+    ...ADMIN_ONLY_FIELD_PERMISSIONS,
+    ...CALCULATED_FIELD_PERMISSIONS,
+  ],
 });

@@ -28,88 +28,93 @@ export const loadRecalcInput = async (
     'refreshPriceItemIds' | 'refreshPriceExtraServiceLineIds'
   >,
 ): Promise<RecalcInput | null> => {
-  const { orders, orderItems, orderExtraServices, priceListItems, extraServices } =
-    await client.query({
-      orders: {
-        __args: { filter: { id: { eq: orderId } }, first: 1 },
-        edges: {
-          node: {
-            id: true,
-            areaSquareMeters: true,
-            total: money,
-            prepayment: money,
-            balance: money,
-            costTotal: money,
-            margin: money,
-            marginPercent: true,
-            productionStartDate: true,
-            installationDeadline: true,
-            installedAt: true,
-            daysLate: true,
-            masterBonus: money,
-            masterPayCalculated: money,
-            masterPayTotal: money,
-            master: { ratePerSquareMeter: money, penaltyPercentPerDay: true },
-          },
+  const {
+    orders,
+    orderItems,
+    orderExtraServices,
+    priceListItems,
+    extraServices,
+  } = await client.query({
+    orders: {
+      __args: { filter: { id: { eq: orderId } }, first: 1 },
+      edges: {
+        node: {
+          id: true,
+          areaSquareMeters: true,
+          total: money,
+          prepayment: money,
+          balance: money,
+          costTotal: money,
+          margin: money,
+          marginPercent: true,
+          productionStartDate: true,
+          installationDeadline: true,
+          installedAt: true,
+          daysLate: true,
+          masterBonus: money,
+          masterPayCalculated: money,
+          masterPayTotal: money,
+          master: { ratePerSquareMeter: money, penaltyPercentPerDay: true },
         },
       },
-      orderItems: {
-        __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
-        edges: {
-          node: {
-            id: true,
-            name: true,
-            designId: true,
-            metal: true,
-            metalSize: true,
-            widthCm: true,
-            heightCm: true,
-            projectionCm: true,
-            quantity: true,
-            areaSquareMeters: true,
-            pricePerSquareMeter: money,
-            costPerSquareMeter: money,
-            lineTotal: money,
-            lineCost: money,
-          },
+    },
+    orderItems: {
+      __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
+      edges: {
+        node: {
+          id: true,
+          name: true,
+          designId: true,
+          metal: true,
+          metalSize: true,
+          widthCm: true,
+          heightCm: true,
+          projectionCm: true,
+          quantity: true,
+          areaSquareMeters: true,
+          pricePerSquareMeter: money,
+          costPerSquareMeter: money,
+          lineTotal: money,
+          lineCost: money,
         },
       },
-      orderExtraServices: {
-        __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
-        edges: {
-          node: {
-            id: true,
-            name: true,
-            extraServiceId: true,
-            quantity: true,
-            price: money,
-            cost: money,
-            lineTotal: money,
-            lineCost: money,
-          },
+    },
+    orderExtraServices: {
+      __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
+      edges: {
+        node: {
+          id: true,
+          name: true,
+          extraServiceId: true,
+          quantity: true,
+          price: money,
+          cost: money,
+          lineTotal: money,
+          lineCost: money,
         },
       },
-      priceListItems: {
-        __args: { first: PAGE_SIZE },
-        edges: {
-          node: {
-            designId: true,
-            metal: true,
-            metalSize: true,
-            pricePerSquareMeter: money,
-            materialCostPerSquareMeter: money,
-            manufacturingCostPerSquareMeter: money,
-            installationCostPerSquareMeter: money,
-          },
+    },
+    priceListItems: {
+      __args: { first: PAGE_SIZE },
+      edges: {
+        node: {
+          designId: true,
+          metal: true,
+          metalSize: true,
+          pricePerSquareMeter: money,
+          materialCostPerSquareMeter: money,
+          manufacturingCostPerSquareMeter: money,
+          installationCostPerSquareMeter: money,
         },
       },
-      extraServices: {
-        __args: { first: PAGE_SIZE },
-        edges: {
-          node: { id: true, name: true, unit: true, price: money, cost: money },
-        },
+    },
+    extraServices: {
+      __args: { first: PAGE_SIZE },
+      edges: {
+        node: { id: true, name: true, unit: true, price: money, cost: money },
       },
-    });
+    },
+  });
 
   const order = orders?.edges[0]?.node;
 
@@ -136,8 +141,10 @@ export const loadRecalcInput = async (
     },
     master: order.master
       ? {
-          ratePerSquareMeter: fromCurrency(order.master.ratePerSquareMeter) ?? 0,
-          penaltyPercentPerDay: toNumber(order.master.penaltyPercentPerDay) ?? 0,
+          ratePerSquareMeter:
+            fromCurrency(order.master.ratePerSquareMeter) ?? 0,
+          penaltyPercentPerDay:
+            toNumber(order.master.penaltyPercentPerDay) ?? 0,
         }
       : null,
     items: (orderItems?.edges ?? []).map(({ node }) => ({
