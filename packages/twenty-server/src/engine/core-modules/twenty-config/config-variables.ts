@@ -255,7 +255,7 @@ export class ConfigVariables {
       "Enable or disable requests to twenty-icons to get companies' icons",
     type: ConfigVariableType.BOOLEAN,
   })
-  ALLOW_REQUESTS_TO_TWENTY_ICONS = true;
+  ALLOW_REQUESTS_TO_TWENTY_ICONS = false;
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.MICROSOFT_AUTH,
@@ -923,7 +923,7 @@ export class ConfigVariables {
     type: ConfigVariableType.BOOLEAN,
   })
   @IsOptional()
-  TELEMETRY_ENABLED = true;
+  TELEMETRY_ENABLED = false;
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.LOGGING,
@@ -1689,11 +1689,20 @@ export class ConfigVariables {
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.ADVANCED_SETTINGS,
     description:
+      'Look up the latest published version on Docker Hub when an admin opens the version info in the admin panel.',
+    type: ConfigVariableType.BOOLEAN,
+  })
+  @IsOptional()
+  ADMIN_PANEL_VERSION_CHECK_ENABLED = false;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
       'Register the cron job that syncs the marketplace catalog from the npm registry. Disable to stop the automatic catalog import.',
     type: ConfigVariableType.BOOLEAN,
   })
   @IsOptional()
-  MARKETPLACE_CATALOG_SYNC_CRON_ENABLED = true;
+  MARKETPLACE_CATALOG_SYNC_CRON_ENABLED = false;
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.RATE_LIMITING,
