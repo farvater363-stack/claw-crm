@@ -12,6 +12,7 @@ import {
   SOURCE_OPTIONS,
 } from 'src/constants/select-options';
 import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
+import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 
 const text = (
@@ -71,7 +72,7 @@ export default defineObject({
   labelPlural: 'Заказы',
   icon: 'IconClipboardList',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.order.name,
-  fields: [
+  fields: withoutAuditOfAdminOnlyFields([
     {
       universalIdentifier: IDS.order.name,
       type: FieldType.TEXT,
@@ -227,5 +228,5 @@ export default defineObject({
         IDS.orderExtraService.order,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
-  ],
+  ]),
 });

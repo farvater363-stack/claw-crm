@@ -39,7 +39,18 @@ export default defineLogicFunction({
   timeoutSeconds: 30,
   databaseEventTriggerSettings: {
     eventName: 'orderItem.updated',
-    updatedFields: ['designId', 'metal', 'metalSize', 'widthCm', 'heightCm', 'projectionCm', 'quantity', 'pricePerSquareMeter', 'costPerSquareMeter', 'orderId'],
+    updatedFields: [
+      'designId',
+      'metal',
+      'metalSize',
+      'widthCm',
+      'heightCm',
+      'projectionCm',
+      'quantity',
+      'pricePerSquareMeter',
+      'costPerSquareMeter',
+      'orderId',
+    ],
   },
   handler,
 });

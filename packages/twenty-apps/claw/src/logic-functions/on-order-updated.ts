@@ -40,7 +40,7 @@ const handler = async (
   if (
     updatedFields.includes('status') &&
     after.status === 'INSTALLED' &&
-    after.installedAt === null
+    (after.installedAt ?? null) === null
   ) {
     await client.mutation({
       updateOrder: {

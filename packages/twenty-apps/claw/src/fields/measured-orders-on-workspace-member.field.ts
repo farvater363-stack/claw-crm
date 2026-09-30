@@ -15,8 +15,7 @@ export default defineField({
   name: 'measuredOrders',
   label: 'Замеры',
   icon: 'IconRuler2',
-  relationTargetObjectMetadataUniversalIdentifier:
-    IDS.order.object,
+  relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
   relationTargetFieldMetadataUniversalIdentifier: IDS.order.measurer,
   universalSettings: {
     relationType: RelationType.ONE_TO_MANY,

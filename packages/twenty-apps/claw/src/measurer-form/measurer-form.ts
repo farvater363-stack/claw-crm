@@ -154,8 +154,9 @@ export const toDateTimeLocalInputValue = (date: Date): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-const emptyToNull = <TValue extends string>(value: TValue | ''): TValue | null =>
-  value.trim() === '' ? null : (value.trim() as TValue);
+const emptyToNull = <TValue extends string>(
+  value: TValue | '',
+): TValue | null => (value.trim() === '' ? null : (value.trim() as TValue));
 
 export const buildMeasurementPayload = (
   draft: MeasurementDraft,
@@ -171,7 +172,10 @@ export const buildMeasurementPayload = (
 
   const floor = parseDecimalInput(draft.floor);
 
-  if (draft.floor.trim() !== '' && (floor === null || !Number.isInteger(floor))) {
+  if (
+    draft.floor.trim() !== '' &&
+    (floor === null || !Number.isInteger(floor))
+  ) {
     errors.push('Этаж должен быть целым числом');
   }
 
@@ -195,7 +199,12 @@ export const buildMeasurementPayload = (
     const projectionCm = parseDecimalInput(opening.projectionCm) ?? 0;
     const quantity = parseDecimalInput(opening.quantity);
 
-    if (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0) {
+    if (
+      widthCm === null ||
+      heightCm === null ||
+      widthCm <= 0 ||
+      heightCm <= 0
+    ) {
       errors.push(`${label}: укажите ширину и высоту больше 0`);
 
       return;

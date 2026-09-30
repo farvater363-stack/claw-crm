@@ -15,8 +15,7 @@ export default defineField({
   name: 'managedOrders',
   label: 'Заказы (менеджер)',
   icon: 'IconClipboardList',
-  relationTargetObjectMetadataUniversalIdentifier:
-    IDS.order.object,
+  relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
   relationTargetFieldMetadataUniversalIdentifier: IDS.order.manager,
   universalSettings: {
     relationType: RelationType.ONE_TO_MANY,

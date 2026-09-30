@@ -80,7 +80,10 @@ export type RecalcInput = {
 export type RecalcPlan = {
   orderUpdate: Partial<OrderSnapshot>;
   itemUpdates: { id: string; update: Partial<ItemSnapshot> }[];
-  extraServiceLineUpdates: { id: string; update: Partial<ExtraServiceLineSnapshot> }[];
+  extraServiceLineUpdates: {
+    id: string;
+    update: Partial<ExtraServiceLineSnapshot>;
+  }[];
 };
 
 const INSTALLATION_DAYS_AFTER_START = 7;
@@ -98,7 +101,12 @@ const diff = <TRecord extends object>(
 const multiplyOrNull = (...values: (number | null)[]): number | null =>
   values.some((value) => value === null)
     ? null
-    : Math.round(values.reduce<number>((product, value) => product * (value as number), 1));
+    : Math.round(
+        values.reduce<number>(
+          (product, value) => product * (value as number),
+          1,
+        ),
+      );
 
 const planItem = (
   item: ItemSnapshot,
@@ -115,17 +123,23 @@ const planItem = (
       })
     : null;
   const name = hasDimensions
-    ? [item.widthCm, item.heightCm, ...(projectionCm > 0 ? [projectionCm] : [])].join('×')
+    ? [
+        item.widthCm,
+        item.heightCm,
+        ...(projectionCm > 0 ? [projectionCm] : []),
+      ].join('×')
     : item.name;
 
   const entry = resolvePriceListEntry(priceList, item);
   const pricePerSquareMeter =
     shouldRefreshPrice || item.pricePerSquareMeter === null
-      ? (entry?.pricePerSquareMeter ?? (shouldRefreshPrice ? null : item.pricePerSquareMeter))
+      ? (entry?.pricePerSquareMeter ??
+        (shouldRefreshPrice ? null : item.pricePerSquareMeter))
       : item.pricePerSquareMeter;
   const costPerSquareMeter =
     shouldRefreshPrice || item.costPerSquareMeter === null
-      ? (entry?.costPerSquareMeter ?? (shouldRefreshPrice ? null : item.costPerSquareMeter))
+      ? (entry?.costPerSquareMeter ??
+        (shouldRefreshPrice ? null : item.costPerSquareMeter))
       : item.costPerSquareMeter;
   const quantity = item.quantity ?? 1;
 
@@ -145,7 +159,10 @@ const defaultQuantity = (
   orderAreaSquareMeters: number,
 ): number | null => {
   if (unit === 'FIXED') return 1;
-  if (unit === 'PER_SQUARE_METER') return orderAreaSquareMeters;
+  // Left empty until the order has an area, so it fills in once items arrive.
+  if (unit === 'PER_SQUARE_METER') {
+    return orderAreaSquareMeters > 0 ? orderAreaSquareMeters : null;
+  }
 
   return null;
 };
@@ -156,13 +173,19 @@ const planExtraServiceLine = (
   shouldRefreshPrice: boolean,
   orderAreaSquareMeters: number,
 ): ExtraServiceLineSnapshot => {
-  const service = catalog.find((entry) => entry.id === line.extraServiceId) ?? null;
+  const service =
+    catalog.find((entry) => entry.id === line.extraServiceId) ?? null;
   const price =
-    shouldRefreshPrice || line.price === null ? (service?.price ?? null) : line.price;
+    shouldRefreshPrice || line.price === null
+      ? (service?.price ?? null)
+      : line.price;
   const cost =
-    shouldRefreshPrice || line.cost === null ? (service?.cost ?? null) : line.cost;
+    shouldRefreshPrice || line.cost === null
+      ? (service?.cost ?? null)
+      : line.cost;
   const quantity =
-    line.quantity ?? defaultQuantity(service?.unit ?? null, orderAreaSquareMeters);
+    line.quantity ??
+    defaultQuantity(service?.unit ?? null, orderAreaSquareMeters);
 
   return {
     ...line,
@@ -180,12 +203,20 @@ const sumTreatingNullAsZero = (values: (number | null)[]): number =>
 
 export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
   const plannedItems = input.items.map((item) =>
-    planItem(item, input.priceList, input.refreshPriceItemIds.includes(item.id)),
+    planItem(
+      item,
+      input.priceList,
+      input.refreshPriceItemIds.includes(item.id),
+    ),
   );
 
   const hasLines = input.items.length + input.extraServiceLines.length > 0;
   const itemsAreaSquareMeters = roundTo(
-    sumTreatingNullAsZero(plannedItems.map((item) => (item.areaSquareMeters ?? 0) * (item.quantity ?? 1))),
+    sumTreatingNullAsZero(
+      plannedItems.map(
+        (item) => (item.areaSquareMeters ?? 0) * (item.quantity ?? 1),
+      ),
+    ),
     2,
   );
 
@@ -199,15 +230,22 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
   );
 
   const { order } = input;
-  const areaSquareMeters = hasLines ? itemsAreaSquareMeters : order.areaSquareMeters;
+  const areaSquareMeters = hasLines
+    ? itemsAreaSquareMeters
+    : order.areaSquareMeters;
   const total = hasLines
-    ? sumTreatingNullAsZero([...plannedItems, ...plannedLines].map((line) => line.lineTotal))
+    ? sumTreatingNullAsZero(
+        [...plannedItems, ...plannedLines].map((line) => line.lineTotal),
+      )
     : order.total;
   const costTotal = hasLines
-    ? sumTreatingNullAsZero([...plannedItems, ...plannedLines].map((line) => line.lineCost))
+    ? sumTreatingNullAsZero(
+        [...plannedItems, ...plannedLines].map((line) => line.lineCost),
+      )
     : order.costTotal;
 
-  const margin = total !== null && costTotal !== null ? total - costTotal : null;
+  const margin =
+    total !== null && costTotal !== null ? total - costTotal : null;
   const installationDeadline =
     order.installationDeadline ??
     (order.productionStartDate !== null
@@ -242,13 +280,18 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
     daysLate,
     masterPayCalculated,
     masterPayTotal:
-      masterPayCalculated !== null ? masterPayCalculated + (order.masterBonus ?? 0) : null,
+      masterPayCalculated !== null
+        ? masterPayCalculated + (order.masterBonus ?? 0)
+        : null,
   };
 
   return {
     orderUpdate: diff(order, nextOrder),
     itemUpdates: plannedItems
-      .map((planned, index) => ({ id: planned.id, update: diff(input.items[index], planned) }))
+      .map((planned, index) => ({
+        id: planned.id,
+        update: diff(input.items[index], planned),
+      }))
       .filter(({ update }) => Object.keys(update).length > 0),
     extraServiceLineUpdates: plannedLines
       .map((planned, index) => ({

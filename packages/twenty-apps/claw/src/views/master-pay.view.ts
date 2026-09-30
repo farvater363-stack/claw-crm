@@ -12,9 +12,15 @@ import { toViewFields } from 'src/utils/to-view-fields';
 
 const fields = toViewFields(
   [
-    IDS.order.name, IDS.order.master, IDS.order.installedAt, IDS.order.areaSquareMeters,
-    IDS.order.daysLate, IDS.order.masterPayCalculated, IDS.order.masterBonus,
-    IDS.order.masterPayTotal, IDS.order.masterPayPaid,
+    IDS.order.name,
+    IDS.order.master,
+    IDS.order.installedAt,
+    IDS.order.areaSquareMeters,
+    IDS.order.daysLate,
+    IDS.order.masterPayCalculated,
+    IDS.order.masterBonus,
+    IDS.order.masterPayTotal,
+    IDS.order.masterPayPaid,
   ],
   VIEW_PART_IDS.masterPayFields,
 ).map((field) =>

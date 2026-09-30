@@ -1,5 +1,6 @@
 import { type defineRole } from 'twenty-sdk/define';
 
+import { ADMIN_ONLY_FIELD_IDS_BY_OBJECT } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 
 type FieldPermission = NonNullable<
@@ -17,36 +18,11 @@ const hide = (
     canUpdateFieldValue: false,
   }));
 
-export const ADMIN_ONLY_FIELD_PERMISSIONS: FieldPermission[] = [
-  ...hide(IDS.order.object, [
-    IDS.order.costTotal,
-    IDS.order.margin,
-    IDS.order.marginPercent,
-    IDS.order.daysLate,
-    IDS.order.masterPayCalculated,
-    IDS.order.masterBonus,
-    IDS.order.masterPayTotal,
-    IDS.order.masterPayPaid,
-  ]),
-  ...hide(IDS.orderItem.object, [
-    IDS.orderItem.costPerSquareMeter,
-    IDS.orderItem.lineCost,
-  ]),
-  ...hide(IDS.orderExtraService.object, [
-    IDS.orderExtraService.cost,
-    IDS.orderExtraService.lineCost,
-  ]),
-  ...hide(IDS.priceListItem.object, [
-    IDS.priceListItem.materialCostPerSquareMeter,
-    IDS.priceListItem.manufacturingCostPerSquareMeter,
-    IDS.priceListItem.installationCostPerSquareMeter,
-  ]),
-  ...hide(IDS.extraService.object, [IDS.extraService.cost]),
-  ...hide(IDS.master.object, [
-    IDS.master.ratePerSquareMeter,
-    IDS.master.penaltyPercentPerDay,
-  ]),
-];
+export const ADMIN_ONLY_FIELD_PERMISSIONS: FieldPermission[] = Object.entries(
+  ADMIN_ONLY_FIELD_IDS_BY_OBJECT,
+).flatMap(([objectUniversalIdentifier, fieldUniversalIdentifiers]) =>
+  hide(objectUniversalIdentifier, fieldUniversalIdentifiers),
+);
 
 const readOnly = (
   objectUniversalIdentifier: string,

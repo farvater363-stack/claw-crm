@@ -18,8 +18,13 @@ export default defineView({
   position: 2,
   fields: toViewFields(
     [
-      IDS.order.name, IDS.order.status, IDS.order.clientName, IDS.order.address,
-      IDS.order.master, IDS.order.installationDeadline, IDS.order.finishedPhotos,
+      IDS.order.name,
+      IDS.order.status,
+      IDS.order.clientName,
+      IDS.order.address,
+      IDS.order.master,
+      IDS.order.installationDeadline,
+      IDS.order.finishedPhotos,
     ],
     VIEW_PART_IDS.productionFields,
   ),

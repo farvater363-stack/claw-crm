@@ -7,6 +7,7 @@ import {
 } from 'twenty-sdk/define';
 
 import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
+import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 
 const money = (universalIdentifier: string, name: string, label: string) =>
@@ -28,7 +29,7 @@ export default defineObject({
   labelPlural: 'Услуги в заказе',
   icon: 'IconTool',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.orderExtraService.name,
-  fields: [
+  fields: withoutAuditOfAdminOnlyFields([
     {
       universalIdentifier: IDS.orderExtraService.name,
       type: FieldType.TEXT,
@@ -79,5 +80,5 @@ export default defineObject({
         joinColumnName: 'extraServiceId',
       },
     },
-  ],
+  ]),
 });

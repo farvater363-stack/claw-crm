@@ -1,6 +1,7 @@
 import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
 
 import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
+import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 
 const DEFAULT_RATE_PER_SQUARE_METER = 0;
@@ -14,7 +15,7 @@ export default defineObject({
   labelPlural: 'Мастера',
   icon: 'IconHammer',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.master.name,
-  fields: [
+  fields: withoutAuditOfAdminOnlyFields([
     {
       universalIdentifier: IDS.master.name,
       type: FieldType.TEXT,
@@ -70,5 +71,5 @@ export default defineObject({
       relationTargetFieldMetadataUniversalIdentifier: IDS.order.master,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
-  ],
+  ]),
 });

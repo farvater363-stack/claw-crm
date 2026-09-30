@@ -11,6 +11,7 @@ import {
   METAL_SIZE_OPTIONS,
 } from 'src/constants/select-options';
 import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
+import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 
 const centimeters = (
@@ -45,7 +46,7 @@ export default defineObject({
   labelPlural: 'Позиции',
   icon: 'IconRuler',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.orderItem.name,
-  fields: [
+  fields: withoutAuditOfAdminOnlyFields([
     {
       universalIdentifier: IDS.orderItem.name,
       type: FieldType.TEXT,
@@ -152,5 +153,5 @@ export default defineObject({
         joinColumnName: 'designId',
       },
     },
-  ],
+  ]),
 });

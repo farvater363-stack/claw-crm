@@ -23,7 +23,9 @@ const handler = async (
 
   if (after.orderId) {
     await recalcOrder(client, after.orderId, {
-      refreshPriceExtraServiceLineIds: shouldRefreshPrice ? [payload.recordId] : [],
+      refreshPriceExtraServiceLineIds: shouldRefreshPrice
+        ? [payload.recordId]
+        : [],
     });
   }
 
@@ -35,7 +37,8 @@ const handler = async (
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderExtraServiceUpdated,
   name: 'on-order-extra-service-updated',
-  description: 'Recalculates an order when one of its extra service lines changes',
+  description:
+    'Recalculates an order when one of its extra service lines changes',
   timeoutSeconds: 30,
   databaseEventTriggerSettings: {
     eventName: 'orderExtraService.updated',

@@ -2,6 +2,7 @@ import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
 
 import { EXTRA_SERVICE_UNIT_OPTIONS } from 'src/constants/select-options';
 import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
+import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 
 export default defineObject({
@@ -12,7 +13,7 @@ export default defineObject({
   labelPlural: 'Доп. услуги',
   icon: 'IconTool',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.extraService.name,
-  fields: [
+  fields: withoutAuditOfAdminOnlyFields([
     {
       universalIdentifier: IDS.extraService.name,
       type: FieldType.TEXT,
@@ -59,5 +60,5 @@ export default defineObject({
         IDS.orderExtraService.extraService,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
-  ],
+  ]),
 });

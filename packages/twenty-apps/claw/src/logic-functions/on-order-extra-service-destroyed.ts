@@ -23,7 +23,8 @@ const handler = async (
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderExtraServiceDestroyed,
   name: 'on-order-extra-service-destroyed',
-  description: 'Recalculates an order after one of its extra service lines is destroyed',
+  description:
+    'Recalculates an order after one of its extra service lines is destroyed',
   timeoutSeconds: 30,
   databaseEventTriggerSettings: { eventName: 'orderExtraService.destroyed' },
   handler,

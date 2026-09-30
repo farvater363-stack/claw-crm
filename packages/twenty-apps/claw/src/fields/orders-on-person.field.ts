@@ -15,8 +15,7 @@ export default defineField({
   name: 'orders',
   label: 'Заказы',
   icon: 'IconClipboardList',
-  relationTargetObjectMetadataUniversalIdentifier:
-    IDS.order.object,
+  relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
   relationTargetFieldMetadataUniversalIdentifier: IDS.order.client,
   universalSettings: {
     relationType: RelationType.ONE_TO_MANY,

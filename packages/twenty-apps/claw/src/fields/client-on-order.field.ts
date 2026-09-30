@@ -10,8 +10,7 @@ import { IDS } from 'src/constants/universal-identifiers';
 
 export default defineField({
   universalIdentifier: IDS.order.client,
-  objectUniversalIdentifier:
-    IDS.order.object,
+  objectUniversalIdentifier: IDS.order.object,
   type: FieldType.RELATION,
   name: 'client',
   label: 'Клиент',
