@@ -1,4 +1,3 @@
-import { CoreApiClient } from 'twenty-client-sdk/core';
 import {
   defineLogicFunction,
   type DatabaseEventPayload,
@@ -7,6 +6,7 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { assignOrderNumber } from 'src/recalc/assign-order-number';
+import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { linkClientByPhone } from 'src/recalc/link-client-by-phone';
 import { recalcOrder } from 'src/recalc/recalc-order';
 
@@ -22,7 +22,7 @@ type CreatedOrder = {
 const handler = async (
   payload: DatabaseEventPayload<ObjectRecordCreateEvent<CreatedOrder>>,
 ): Promise<void> => {
-  const client = new CoreApiClient();
+  const client = createRecalcClient();
   const order = payload.properties.after;
   const data: Record<string, unknown> = {};
 

@@ -1,4 +1,3 @@
-import { CoreApiClient } from 'twenty-client-sdk/core';
 import {
   defineLogicFunction,
   type DatabaseEventPayload,
@@ -6,6 +5,7 @@ import {
 } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { todayInTashkent } from 'src/pricing/dates';
 import { recalcOrder } from 'src/recalc/recalc-order';
 
@@ -14,7 +14,7 @@ type UpdatedOrder = { status: string | null; installedAt: string | null };
 const handler = async (
   payload: DatabaseEventPayload<ObjectRecordUpdateEvent<UpdatedOrder>>,
 ): Promise<void> => {
-  const client = new CoreApiClient();
+  const client = createRecalcClient();
   const { after, updatedFields } = payload.properties;
 
   if (

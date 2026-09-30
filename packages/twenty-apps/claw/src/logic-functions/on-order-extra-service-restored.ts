@@ -1,4 +1,3 @@
-import { CoreApiClient } from 'twenty-client-sdk/core';
 import {
   defineLogicFunction,
   type DatabaseEventPayload,
@@ -6,6 +5,7 @@ import {
 } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { recalcOrder } from 'src/recalc/recalc-order';
 
 const handler = async (
@@ -16,7 +16,7 @@ const handler = async (
   const orderId = payload.properties.after?.orderId;
 
   if (orderId) {
-    await recalcOrder(new CoreApiClient(), orderId);
+    await recalcOrder(createRecalcClient(), orderId);
   }
 };
 
