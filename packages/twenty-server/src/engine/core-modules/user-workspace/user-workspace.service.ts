@@ -32,6 +32,7 @@ import { WorkspaceDiscoverability } from 'src/engine/core-modules/workspace/type
 import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
 import { type WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { workspaceValidator } from 'src/engine/core-modules/workspace/workspace.validate';
+import { DEFAULT_NEW_USER_LOCALE } from 'src/engine/core-modules/user/constants/default-new-user-locale.constant';
 import {
   PermissionsException,
   PermissionsExceptionCode,
@@ -47,8 +48,6 @@ import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system
 import { type WorkspaceMemberWorkspaceEntity } from 'src/modules/workspace-member/standard-objects/workspace-member.workspace-entity';
 import { assert } from 'src/utils/assert';
 import { getDomainFromEmailOrThrow } from 'src/utils/get-domain-from-email-or-throw';
-
-const CLAW_DEFAULT_LOCALE = 'ru-RU' as const;
 
 export class UserWorkspaceService {
   private readonly logger = new Logger(UserWorkspaceService.name);
@@ -152,7 +151,7 @@ export class UserWorkspaceService {
       userId,
       workspaceId,
       defaultAvatarUrl,
-      locale: locale ?? CLAW_DEFAULT_LOCALE,
+      locale: locale ?? DEFAULT_NEW_USER_LOCALE,
     });
 
     return queryRunner
@@ -203,7 +202,7 @@ export class UserWorkspaceService {
         userEmail: user.email,
         avatarUrl: userWorkspace.defaultAvatarUrl ?? null,
         locale: (user.locale ??
-          CLAW_DEFAULT_LOCALE) as keyof typeof APP_LOCALES,
+          DEFAULT_NEW_USER_LOCALE) as keyof typeof APP_LOCALES,
       });
 
       const workspaceMember = await workspaceMemberRepository.find({

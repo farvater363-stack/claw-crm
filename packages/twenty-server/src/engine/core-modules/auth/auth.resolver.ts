@@ -7,7 +7,6 @@ import { type Request } from 'express';
 import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
 import omit from 'lodash.omit';
 import { PermissionFlagType } from 'twenty-shared/constants';
-import { SOURCE_LOCALE } from 'twenty-shared/translations';
 import {
   FileFolder,
   TwoFactorAuthenticationStrategy,
@@ -480,7 +479,7 @@ export class AuthResolver {
       userId: user.id,
       email: user.email,
       workspace: undefined,
-      locale: signUpInput.locale ?? SOURCE_LOCALE,
+      locale: user.locale,
       verifyEmailRedirectPath: signUpInput.verifyEmailRedirectPath,
       verificationTrigger: EmailVerificationTrigger.SIGN_UP,
     });
@@ -571,7 +570,7 @@ export class AuthResolver {
       userId: user.id,
       email: user.email,
       workspace,
-      locale: signUpInput.locale ?? SOURCE_LOCALE,
+      locale: user.locale,
       verifyEmailRedirectPath: signUpInput.verifyEmailRedirectPath,
       verificationTrigger: EmailVerificationTrigger.SIGN_UP,
     });

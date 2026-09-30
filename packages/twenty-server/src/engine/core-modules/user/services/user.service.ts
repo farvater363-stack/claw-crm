@@ -4,7 +4,6 @@ import assert from 'assert';
 
 import { msg } from '@lingui/core/macro';
 import { isNonEmptyString } from '@sniptt/guards';
-import { SOURCE_LOCALE } from 'twenty-shared/translations';
 import { assertIsDefinedOrThrow, isDefined } from 'twenty-shared/utils';
 import {
   isWorkspaceProvisioned,
@@ -32,6 +31,7 @@ import {
   UpdateWorkspaceMemberEmailJob,
   UpdateWorkspaceMemberEmailJobData,
 } from 'src/engine/core-modules/user/jobs/update-workspace-member-email.job';
+import { DEFAULT_NEW_USER_LOCALE } from 'src/engine/core-modules/user/constants/default-new-user-locale.constant';
 import { WorkspaceMemberTranspiler } from 'src/engine/core-modules/user/services/workspace-member-transpiler.service';
 import { UserEntity } from 'src/engine/core-modules/user/user.entity';
 import { UserExceptionCode } from 'src/engine/core-modules/user/user.exception';
@@ -568,7 +568,7 @@ export class UserService {
       userId: user.id,
       email: normalizedEmail,
       workspace: workspaceDomainConfig,
-      locale: user.locale || SOURCE_LOCALE,
+      locale: user.locale || DEFAULT_NEW_USER_LOCALE,
       verifyEmailRedirectPath,
       verificationTrigger: EmailVerificationTrigger.EMAIL_UPDATE,
     });

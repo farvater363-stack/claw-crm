@@ -60,6 +60,7 @@ import { OnboardingService } from 'src/engine/core-modules/onboarding/onboarding
 import { TelemetryEventType } from 'src/engine/core-modules/telemetry/telemetry-event.type';
 import { TwentyConfigService } from 'src/engine/core-modules/twenty-config/twenty-config.service';
 import { UserWorkspaceService } from 'src/engine/core-modules/user-workspace/user-workspace.service';
+import { DEFAULT_NEW_USER_LOCALE } from 'src/engine/core-modules/user/constants/default-new-user-locale.constant';
 import { UserService } from 'src/engine/core-modules/user/services/user.service';
 import { UserEntity } from 'src/engine/core-modules/user/user.entity';
 import { WorkspaceInvitationService } from 'src/engine/core-modules/workspace-invitation/services/workspace-invitation.service';
@@ -123,7 +124,7 @@ export class SignInUpService {
       firstName: newUserPayload.firstName ?? '',
       lastName: newUserPayload.lastName ?? '',
       picture: newUserPayload.picture ?? '',
-      locale: newUserPayload.locale ?? 'en',
+      locale: DEFAULT_NEW_USER_LOCALE,
       isEmailVerified: newUserPayload.isEmailAlreadyVerified,
     };
 
