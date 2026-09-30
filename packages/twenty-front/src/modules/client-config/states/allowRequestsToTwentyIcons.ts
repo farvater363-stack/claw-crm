@@ -2,5 +2,5 @@ import { createAtomState } from '@/ui/utilities/state/jotai/utils/createAtomStat
 
 export const allowRequestsToTwentyIconsState = createAtomState<boolean>({
   key: 'allowRequestsToTwentyIcons',
-  defaultValue: true,
+  defaultValue: false,
 });

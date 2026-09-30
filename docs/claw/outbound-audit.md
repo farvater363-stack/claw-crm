@@ -59,10 +59,17 @@ placeholder text) and a scan for injected scripts.
 - Links to `twenty.com`, `docs.twenty.com`, `github.com`, social networks:
   plain anchors, contacted only if a user clicks them.
 - `twenty-icons.com` company/link logos: gated by the client-config flag
-  `allowRequestsToTwentyIcons`, now `false`. Some call sites hard-code
-  `allowRequestsToTwentyIcons: true` (for example
-  `RecordTableWidgetRelationPickerDropdownContent.tsx`); not reached by the
-  covered pages, so left alone.
+  `allowRequestsToTwentyIcons`, now `false`; the front-end state also defaults
+  to `false` so nothing is requested before client config loads. Every call
+  site that builds a `twenty-icons.com` URL reads the flag:
+  `RecordTableWidgetRelationPickerDropdownContent.tsx` (relation-table "add
+  new" picker), `LinkIconWithLinkOverlay.tsx` (navigation link favicons),
+  `BackgroundMockTableRow.tsx` (404 page backdrop),
+  `OnboardingImportPreviewCompanies.tsx` (onboarding import preview), and the
+  chip/identifier paths through `getImageIdentifierFieldValue`. The remaining
+  literal `allowRequestsToTwentyIcons: false` call sites
+  (`ObjectFilterDropdownActorSelect.tsx`, `FormWorkspaceMemberFilterValueInput.tsx`,
+  `EventRelationFieldDiffValues.tsx`) pass `false`, so they never request.
 - `chat-assets.frontapp.com`: only when `SUPPORT_DRIVER=FRONT`.
 - `challenges.cloudflare.com`, `www.google.com/recaptcha`: only when a captcha
   driver is configured.
