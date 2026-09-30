@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
-import { type APP_LOCALES, SOURCE_LOCALE } from 'twenty-shared/translations';
+import { type APP_LOCALES } from 'twenty-shared/translations';
 import { FileFolder, OpenRecordIn } from 'twenty-shared/types';
 import { assertIsDefinedOrThrow, isDefined } from 'twenty-shared/utils';
 import { IsNull, Not, type QueryRunner, type Repository } from 'typeorm';
@@ -47,6 +47,8 @@ import { buildSystemAuthContext } from 'src/engine/twenty-orm/utils/build-system
 import { type WorkspaceMemberWorkspaceEntity } from 'src/modules/workspace-member/standard-objects/workspace-member.workspace-entity';
 import { assert } from 'src/utils/assert';
 import { getDomainFromEmailOrThrow } from 'src/utils/get-domain-from-email-or-throw';
+
+const CLAW_DEFAULT_LOCALE = 'ru-RU' as const;
 
 export class UserWorkspaceService {
   private readonly logger = new Logger(UserWorkspaceService.name);
@@ -150,7 +152,7 @@ export class UserWorkspaceService {
       userId,
       workspaceId,
       defaultAvatarUrl,
-      locale: locale ?? SOURCE_LOCALE,
+      locale: locale ?? CLAW_DEFAULT_LOCALE,
     });
 
     return queryRunner
@@ -200,7 +202,8 @@ export class UserWorkspaceService {
         userId: user.id,
         userEmail: user.email,
         avatarUrl: userWorkspace.defaultAvatarUrl ?? null,
-        locale: (user.locale ?? SOURCE_LOCALE) as keyof typeof APP_LOCALES,
+        locale: (user.locale ??
+          CLAW_DEFAULT_LOCALE) as keyof typeof APP_LOCALES,
       });
 
       const workspaceMember = await workspaceMemberRepository.find({
