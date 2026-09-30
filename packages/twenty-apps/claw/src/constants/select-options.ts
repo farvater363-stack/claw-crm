@@ -1,5 +1,5 @@
-const toOptions = <TValue extends string>(
-  entries: ReadonlyArray<readonly [TValue, string, string]>,
+const toOptions = <TValue extends string, TColor extends string>(
+  entries: ReadonlyArray<readonly [TValue, string, TColor]>,
 ) =>
   entries.map(([value, label, color], position) => ({
     value,

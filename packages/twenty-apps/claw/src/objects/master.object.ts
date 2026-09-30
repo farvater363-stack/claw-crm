@@ -1,0 +1,47 @@
+import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
+
+import { IDS } from 'src/constants/universal-identifiers';
+
+const DEFAULT_RATE_PER_SQUARE_METER = 0;
+const DEFAULT_PENALTY_PERCENT_PER_DAY = 0;
+
+export default defineObject({
+  universalIdentifier: IDS.master.object,
+  nameSingular: 'master',
+  namePlural: 'masters',
+  labelSingular: 'Мастер',
+  labelPlural: 'Мастера',
+  icon: 'IconHammer',
+  labelIdentifierFieldMetadataUniversalIdentifier: IDS.master.name,
+  fields: [
+    { universalIdentifier: IDS.master.name, type: FieldType.TEXT, name: 'name', label: 'Имя', icon: 'IconUser' },
+    { universalIdentifier: IDS.master.phone, type: FieldType.TEXT, name: 'phone', label: 'Телефон', icon: 'IconPhone', isNullable: true },
+    { universalIdentifier: IDS.master.isActive, type: FieldType.BOOLEAN, name: 'isActive', label: 'Активен', icon: 'IconCheck', defaultValue: true },
+    {
+      universalIdentifier: IDS.master.ratePerSquareMeter,
+      type: FieldType.CURRENCY,
+      name: 'ratePerSquareMeter',
+      label: 'Ставка за м²',
+      icon: 'IconCurrency',
+      defaultValue: { amountMicros: String(DEFAULT_RATE_PER_SQUARE_METER * 1_000_000), currencyCode: "'UZS'" },
+    },
+    {
+      universalIdentifier: IDS.master.penaltyPercentPerDay,
+      type: FieldType.NUMBER,
+      name: 'penaltyPercentPerDay',
+      label: 'Штраф за день просрочки, %',
+      icon: 'IconPercentage',
+      defaultValue: DEFAULT_PENALTY_PERCENT_PER_DAY,
+    },
+    {
+      universalIdentifier: IDS.master.orders,
+      type: FieldType.RELATION,
+      name: 'orders',
+      label: 'Заказы',
+      icon: 'IconClipboardList',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.order.master,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+  ],
+});
