@@ -144,5 +144,9 @@ export const IDS = {
     onOrderExtraServiceCreated: '62f43032-294f-48da-94ce-40adb6d21121',
     onOrderExtraServiceUpdated: '1cf4d162-e6ac-4b8b-9d74-0aa0a23c6f8d',
     onOrderExtraServiceDeleted: 'd18db867-6b10-46d7-ba00-1f02f70594c3',
+    onOrderItemRestored: 'eb2ff068-ce40-4f51-aca6-15011d0921a3',
+    onOrderItemDestroyed: 'dd855d8a-deef-4e44-b8da-1f4e29c13e1a',
+    onOrderExtraServiceRestored: 'ffa6b17e-ca1e-4b2e-9b0a-8c9da283ac0a',
+    onOrderExtraServiceDestroyed: 'c7b4ad82-a426-41d7-a4a4-5658340d8290',
   },
 } as const;
