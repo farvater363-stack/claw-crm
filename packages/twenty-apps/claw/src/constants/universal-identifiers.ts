@@ -134,6 +134,13 @@ export const IDS = {
     priceList: '19714acd-d450-4a1f-a73e-a74266399b6c',
     extraServices: '7084db31-ff82-4fae-831a-180eafb45cee',
     masters: 'f1ae7b6b-2645-48bd-b2cd-8118e871672e',
+    newMeasurement: 'd9580fb9-a409-4e83-92a5-42f87706486e',
+  },
+  measurerForm: {
+    frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',
+    pageLayout: '43c41f16-a21c-4a2f-ab5b-c5fcf85cfe5e',
+    pageLayoutTab: 'd0188e8e-e3fa-466d-b6eb-6c4b5d3ffaae',
+    pageLayoutWidget: '7ebd5c31-94d3-4db2-be4d-66862455b4a0',
   },
   logicFunction: {
     onOrderCreated: '9f84f9bb-0b71-4991-8531-fc479be51150',
