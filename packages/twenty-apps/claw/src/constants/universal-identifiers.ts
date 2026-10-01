@@ -74,6 +74,7 @@ export const IDS = {
     master: '1b5558f2-b1d7-4d2e-8786-7841d96d5acb',
     items: '347c8e36-7ae5-427c-b2ae-937f3fb6a4fa',
     extraServices: '9e8f6aa6-10cd-4bb6-97d2-1343318004e2',
+    deadlineState: 'bd2ab2ec-985f-462d-a041-b302839bf836',
   },
   orderItem: {
     object: 'c54a858f-68e0-4901-b5ca-78baedeceb83',
@@ -155,5 +156,6 @@ export const IDS = {
     onOrderItemDestroyed: 'dd855d8a-deef-4e44-b8da-1f4e29c13e1a',
     onOrderExtraServiceRestored: 'ffa6b17e-ca1e-4b2e-9b0a-8c9da283ac0a',
     onOrderExtraServiceDestroyed: 'c7b4ad82-a426-41d7-a4a4-5658340d8290',
+    refreshDeadlineStates: '9e890c57-2c80-4630-85c4-775845b94f93',
   },
 } as const;

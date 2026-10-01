@@ -1,6 +1,10 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
-import { type ExtraServiceUnit } from 'src/constants/select-options';
+import {
+  type DeadlineState,
+  type ExtraServiceUnit,
+} from 'src/constants/select-options';
+import { todayInTashkent } from 'src/pricing/dates';
 import { type RecalcInput } from 'src/pricing/plan-order-recalc';
 import { fromCurrency } from 'src/recalc/money';
 
@@ -54,6 +58,8 @@ export const loadRecalcInput = async (
           masterBonus: money,
           masterPayCalculated: money,
           masterPayTotal: money,
+          status: true,
+          deadlineState: true,
           master: { ratePerSquareMeter: money, penaltyPercentPerDay: true },
         },
       },
@@ -138,6 +144,8 @@ export const loadRecalcInput = async (
       masterBonus: fromCurrency(order.masterBonus),
       masterPayCalculated: fromCurrency(order.masterPayCalculated),
       masterPayTotal: fromCurrency(order.masterPayTotal),
+      status: order.status ?? null,
+      deadlineState: (order.deadlineState ?? null) as DeadlineState | null,
     },
     master: order.master
       ? {
@@ -191,6 +199,7 @@ export const loadRecalcInput = async (
       price: fromCurrency(node.price),
       cost: fromCurrency(node.cost),
     })),
+    today: todayInTashkent(),
     ...refresh,
   };
 };

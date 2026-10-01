@@ -73,3 +73,11 @@ export type ExtraServiceUnit =
 export const DESIGN_CATALOG_OPTIONS = toOptions([
   ['MAIN', 'Основной', 'gray'],
 ] as const);
+
+export const DEADLINE_STATE_OPTIONS = toOptions([
+  ['ON_TIME', 'В срок', 'green'],
+  ['DUE_TODAY', 'Срок сегодня', 'orange'],
+  ['OVERDUE', 'Просрочен', 'red'],
+] as const);
+
+export type DeadlineState = (typeof DEADLINE_STATE_OPTIONS)[number]['value'];

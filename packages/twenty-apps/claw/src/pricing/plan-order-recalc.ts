@@ -1,4 +1,8 @@
-import { type ExtraServiceUnit } from 'src/constants/select-options';
+import {
+  type DeadlineState,
+  type ExtraServiceUnit,
+} from 'src/constants/select-options';
+import { computeDeadlineState } from 'src/pricing/compute-deadline-state';
 import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
 import { computeMasterPay } from 'src/pricing/compute-master-pay';
 import { addDays, computeDaysLate } from 'src/pricing/dates';
@@ -59,6 +63,8 @@ export type OrderSnapshot = {
   masterBonus: number | null;
   masterPayCalculated: number | null;
   masterPayTotal: number | null;
+  status: string | null;
+  deadlineState: DeadlineState | null;
 };
 
 export type MasterSnapshot = {
@@ -73,6 +79,7 @@ export type RecalcInput = {
   extraServiceCatalog: ExtraServiceCatalogEntry[];
   priceList: PriceListEntry[];
   master: MasterSnapshot | null;
+  today: string;
   refreshPriceItemIds: string[];
   refreshPriceExtraServiceLineIds: string[];
 };
@@ -278,6 +285,11 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
         : null,
     installationDeadline,
     daysLate,
+    deadlineState: computeDeadlineState({
+      status: order.status,
+      deadline: installationDeadline,
+      today: input.today,
+    }),
     masterPayCalculated,
     masterPayTotal:
       masterPayCalculated !== null

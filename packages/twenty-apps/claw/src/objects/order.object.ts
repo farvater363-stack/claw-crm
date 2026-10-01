@@ -7,6 +7,7 @@ import {
 } from 'twenty-sdk/define';
 
 import {
+  DEADLINE_STATE_OPTIONS,
   DISTRICT_OPTIONS,
   ORDER_STATUS_OPTIONS,
   SOURCE_OPTIONS,
@@ -139,6 +140,15 @@ export default defineObject({
       'Срок установки',
     ),
     date(IDS.order.installedAt, 'installedAt', 'Фактическая установка'),
+    {
+      universalIdentifier: IDS.order.deadlineState,
+      type: FieldType.SELECT,
+      name: 'deadlineState',
+      label: 'Состояние срока',
+      icon: 'IconAlarm',
+      isNullable: true,
+      options: DEADLINE_STATE_OPTIONS,
+    },
     decimal(
       IDS.order.areaSquareMeters,
       'areaSquareMeters',

@@ -43,6 +43,7 @@ export const CALCULATED_FIELD_PERMISSIONS: FieldPermission[] = [
     IDS.order.areaSquareMeters,
     IDS.order.total,
     IDS.order.balance,
+    IDS.order.deadlineState,
   ]),
   ...readOnly(IDS.orderItem.object, [
     IDS.orderItem.areaSquareMeters,
