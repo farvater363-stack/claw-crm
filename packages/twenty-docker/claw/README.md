@@ -52,6 +52,8 @@ docker compose pull && docker compose up -d
 docker compose ps
 ```
 
+The first start creates the database and runs every upgrade step, which takes a few minutes; `docker compose ps` shows the server as `starting` until it is ready.
+
 If the pull is refused, the image is still private: on GitHub open the `claw-crm` package settings and change its visibility to public.
 
 Open `https://<domain>` **right away** and sign up: the first sign-up creates the workspace and its admin. After that, new people can only join by invitation.
