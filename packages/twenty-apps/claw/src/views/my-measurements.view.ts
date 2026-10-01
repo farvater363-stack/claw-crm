@@ -22,10 +22,10 @@ export default defineView({
   universalIdentifier: IDS.view.myMeasurements,
   name: 'Мои замеры',
   objectUniversalIdentifier: IDS.order.object,
-  type: ViewType.TABLE,
+  type: ViewType.KANBAN,
   icon: 'IconRuler2',
   position: 1,
-  // Sections by status in option order: «Замер назначен» above «Замер выполнен».
+  // Two columns in option order: «Замер назначен», then «Замер выполнен».
   mainGroupByFieldMetadataUniversalIdentifier: IDS.order.status,
   groups: ORDER_STATUS_OPTIONS.map((option, position) => ({
     universalIdentifier: VIEW_PART_IDS.myMeasurementsGroups[position],
