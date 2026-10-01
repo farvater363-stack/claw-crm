@@ -1,6 +1,7 @@
 import {
   defineRole,
   STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
+  SystemPermissionFlag,
 } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
@@ -57,4 +58,7 @@ export default defineRole({
     ...ADMIN_ONLY_FIELD_PERMISSIONS,
     ...CALCULATED_FIELD_PERMISSIONS,
   ],
+  // Photos of openings go into orderItem.photos; without it every upload is
+  // rejected, from the form and from the record page alike.
+  permissionFlagUniversalIdentifiers: [SystemPermissionFlag.UPLOAD_FILE],
 });
