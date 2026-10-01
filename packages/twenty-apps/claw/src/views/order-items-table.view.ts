@@ -12,7 +12,7 @@ const COLUMN_WIDTHS = {
   design: 150,
   metal: 100,
   metalSize: 150,
-  widthCm: 110,
+  widthCm: 125,
   heightCm: 110,
   projectionCm: 100,
   quantity: 120,
