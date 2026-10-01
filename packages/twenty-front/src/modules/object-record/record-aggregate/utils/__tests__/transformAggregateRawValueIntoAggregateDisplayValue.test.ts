@@ -169,6 +169,72 @@ describe('transformAggregateRawValueIntoAggregateDisplayValue', () => {
     ).toBe('230.4k');
   });
 
+  it('keeps the short currency format when the field asks for it', () => {
+    const mockCurrencyFieldMetadataItem = {
+      id: '123',
+      name: 'amount',
+      label: 'Amount',
+      type: FieldMetadataType.CURRENCY,
+      settings: { format: 'short' },
+    } as FieldMetadataItem;
+
+    expect(
+      transformAggregateRawValueIntoAggregateDisplayValue({
+        aggregateFieldMetadataItem: mockCurrencyFieldMetadataItem,
+        aggregateOperation: AggregateOperations.SUM,
+        aggregateRawValue: 230440000000,
+        dateFormat: DateFormat.DAY_FIRST,
+        timeFormat: TimeFormat.HOUR_24,
+        localeCatalog: enUS,
+        timeZone: 'UTC',
+      }),
+    ).toBe('230.4k');
+  });
+
+  it('uses the field decimals for full currency totals', () => {
+    const mockCurrencyFieldMetadataItem = {
+      id: '123',
+      name: 'amount',
+      label: 'Amount',
+      type: FieldMetadataType.CURRENCY,
+      settings: { format: 'full', decimals: 0 },
+    } as FieldMetadataItem;
+
+    expect(
+      transformAggregateRawValueIntoAggregateDisplayValue({
+        aggregateFieldMetadataItem: mockCurrencyFieldMetadataItem,
+        aggregateOperation: AggregateOperations.SUM,
+        aggregateRawValue: 2300000000000,
+        dateFormat: DateFormat.DAY_FIRST,
+        timeFormat: TimeFormat.HOUR_24,
+        localeCatalog: enUS,
+        timeZone: 'UTC',
+      }),
+    ).toBe('2,300,000');
+  });
+
+  it('shows full currency totals when the field format is full', () => {
+    const mockCurrencyFieldMetadataItem = {
+      id: '123',
+      name: 'amount',
+      label: 'Amount',
+      type: FieldMetadataType.CURRENCY,
+      settings: { format: 'full' },
+    } as FieldMetadataItem;
+
+    expect(
+      transformAggregateRawValueIntoAggregateDisplayValue({
+        aggregateFieldMetadataItem: mockCurrencyFieldMetadataItem,
+        aggregateOperation: AggregateOperations.SUM,
+        aggregateRawValue: 230440000000,
+        dateFormat: DateFormat.DAY_FIRST,
+        timeFormat: TimeFormat.HOUR_24,
+        localeCatalog: enUS,
+        timeZone: 'UTC',
+      }),
+    ).toBe('230,440');
+  });
+
   it('should return correct number formatted value', () => {
     expect(
       transformAggregateRawValueIntoAggregateDisplayValue({
@@ -285,7 +351,7 @@ describe('transformAggregateRawValueIntoAggregateDisplayValue', () => {
         localeCatalog: enUS,
         timeZone: 'UTC',
       }),
-    ).toBe('1 Jan, 2000');
+    ).toBe('01.01.2000');
   });
 
   it('should return correct DATE_TIME formatted value', () => {
@@ -305,6 +371,6 @@ describe('transformAggregateRawValueIntoAggregateDisplayValue', () => {
         localeCatalog: enUS,
         timeZone: 'UTC',
       }),
-    ).toBe('1 Jan, 2000 12:00');
+    ).toBe('01.01.2000 12:00');
   });
 });

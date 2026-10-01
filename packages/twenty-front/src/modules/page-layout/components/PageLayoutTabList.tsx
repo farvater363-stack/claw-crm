@@ -38,6 +38,8 @@ import { PageLayoutComponentInstanceContext } from '@/page-layout/states/context
 import { pageLayoutTabSettingsOpenTabIdComponentState } from '@/page-layout/states/pageLayoutTabSettingsOpenTabIdComponentState';
 import { type PageLayoutAddTabStrategy } from '@/page-layout/types/PageLayoutAddTabStrategy';
 import { type PageLayoutTab } from '@/page-layout/types/PageLayoutTab';
+import { PageLayoutTabNotesCountPill } from '@/page-layout/components/PageLayoutTabNotesCountPill';
+import { type TargetRecordIdentifier } from '@/ui/layout/contexts/TargetRecordIdentifier';
 import { type PageLayoutWidget } from '@/page-layout/types/PageLayoutWidget';
 import { type PageLayoutWidgetDndData } from '@/page-layout/types/PageLayoutWidgetDndData';
 import { shouldEnableTabEditingFeatures } from '@/page-layout/utils/shouldEnableTabEditingFeatures';
@@ -51,6 +53,7 @@ import { themeCssVariables } from 'twenty-ui/theme';
 import {
   PageLayoutTabLayoutMode,
   PageLayoutType,
+  WidgetType,
 } from '~/generated-metadata/graphql';
 
 const StyledNodeDimension = styled(NodeDimension)`
@@ -117,6 +120,7 @@ type PageLayoutTabListProps = Omit<TabListProps, 'tabs'> & {
   addTabStrategy?: PageLayoutAddTabStrategy;
   behaveAsLinks: boolean;
   pageLayoutType: PageLayoutType;
+  targetRecordIdentifier?: TargetRecordIdentifier;
 };
 
 export const PageLayoutTabList = ({
@@ -132,6 +136,7 @@ export const PageLayoutTabList = ({
   addTabStrategy,
   isReorderEnabled,
   pageLayoutType,
+  targetRecordIdentifier,
 }: PageLayoutTabListProps) => {
   const { getIcon } = useIcons();
   const { t } = useLingui();
@@ -142,6 +147,11 @@ export const PageLayoutTabList = ({
     id: tab.id,
     title: tab.title,
     Icon: isDefined(tab.icon) ? getIcon(tab.icon) : undefined,
+    pill:
+      isDefined(targetRecordIdentifier) &&
+      tab.widgets.some((widget) => widget.type === WidgetType.NOTES) ? (
+        <PageLayoutTabNotesCountPill targetRecord={targetRecordIdentifier} />
+      ) : undefined,
   }));
 
   const navigate = useNavigate();

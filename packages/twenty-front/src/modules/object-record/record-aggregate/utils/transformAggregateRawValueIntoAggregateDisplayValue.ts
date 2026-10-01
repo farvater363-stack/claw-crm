@@ -63,9 +63,20 @@ export const transformAggregateRawValueIntoAggregateDisplayValue = ({
     switch (aggregateFieldMetadataItem.type) {
       case FieldMetadataType.CURRENCY: {
         const amount = Number(aggregateRawValue) / 1_000_000;
-        return chartNumberFormat === ChartNumberFormat.FULL
-          ? formatNumber(amount, { decimals: 2, format: numberFormat })
-          : formatToShortNumber(amount);
+        const { format, decimals } = aggregateFieldMetadataItem.settings ?? {};
+        // Charts pass their own format; board and table totals follow the field's
+        // display setting, short when unset (same as CurrencyDisplay).
+        const isShort =
+          chartNumberFormat === ChartNumberFormat.SHORT ||
+          (!isDefined(chartNumberFormat) &&
+            (!isDefined(format) || format === 'short'));
+
+        return isShort
+          ? formatToShortNumber(amount)
+          : formatNumber(amount, {
+              decimals: decimals ?? 2,
+              format: numberFormat,
+            });
       }
 
       case FieldMetadataType.NUMBER: {

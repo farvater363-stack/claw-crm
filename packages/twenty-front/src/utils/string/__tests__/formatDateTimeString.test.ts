@@ -50,7 +50,7 @@ describe('formatDateTimeString', () => {
 
   it('should format date as datetime when displayFormat is USER_SETTINGS', () => {
     const mockDate = '2023-01-01T12:00:00Z';
-    const mockFormattedDate = '1 Jan, 2023 12:00';
+    const mockFormattedDate = '01.01.2023 12:00';
 
     jest.mock('@/localization/utils/formatDateISOStringToDateTime', () => ({
       formatDateISOStringToDateTime: jest
@@ -98,7 +98,7 @@ describe('formatDateTimeString', () => {
 
   it('should format date as datetime by default when displayFormat is not provided', () => {
     const mockDate = '2023-01-01T12:00:00Z';
-    const mockFormattedDate = '1 Jan, 2023 12:00';
+    const mockFormattedDate = '01.01.2023 12:00';
 
     jest.mock('@/localization/utils/formatDateISOStringToDateTime', () => ({
       formatDateISOStringToDateTime: jest

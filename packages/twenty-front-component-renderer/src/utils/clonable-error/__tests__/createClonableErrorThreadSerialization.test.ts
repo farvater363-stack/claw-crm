@@ -130,6 +130,18 @@ describe('createClonableErrorThreadSerialization', () => {
     );
   });
 
+  it('should pass File objects in event payloads through to the clone untouched', () => {
+    const serialization = createClonableErrorThreadSerialization();
+    const file = new File(['png'], 'photo.png', { type: 'image/png' });
+
+    const serialized = serialization.serialize(
+      { type: 'change', files: [file] },
+      createDetachedThread(),
+    ) as { files: File[] };
+
+    expect(serialized.files[0]).toBe(file);
+  });
+
   it('should deserialize a marked payload into an Error', () => {
     const serialization = createClonableErrorThreadSerialization();
 

@@ -149,4 +149,34 @@ describe('useOpenCreateActivityDrawer', () => {
     });
     expect(jotaiStore.get(activityTargetableEntityArrayState.atom)).toEqual([]);
   });
+
+  it('should create a titled note without opening the side panel', async () => {
+    const { result } = renderHook(
+      () =>
+        useOpenCreateActivityDrawer({
+          activityObjectNameSingular: CoreObjectNameSingular.Note,
+        }),
+      { wrapper: Wrapper },
+    );
+
+    await act(async () => {
+      await result.current({
+        targetableObjects: [
+          {
+            id: 'company-id',
+            targetObjectNameSingular: CoreObjectNameSingular.Company,
+          },
+        ],
+        title: 'Call before arriving',
+        shouldOpenInSidePanel: false,
+      });
+    });
+
+    expect(mockCreateOneNote).toHaveBeenCalledWith({
+      title: 'Call before arriving',
+      position: 'last',
+    });
+    expect(mockCreateManyNoteTargets).toHaveBeenCalledTimes(1);
+    expect(mockOpenRecordInSidePanel).not.toHaveBeenCalled();
+  });
 });

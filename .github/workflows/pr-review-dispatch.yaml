@@ -13,7 +13,9 @@ concurrency:
 
 jobs:
   dispatch:
+    # Dispatches to twentyhq/twenty-factory, which forks cannot reach.
     if: >
+      github.repository == 'twentyhq/twenty' &&
       github.event.pull_request.draft == false &&
       (github.event.action != 'labeled' || startsWith(github.event.label.name, 'pr-review-'))
     runs-on: ubuntu-latest

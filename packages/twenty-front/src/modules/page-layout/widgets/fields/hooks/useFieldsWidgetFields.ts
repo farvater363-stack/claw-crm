@@ -4,8 +4,9 @@ import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/Enriche
 import { useMemo } from 'react';
 import { isDefined } from 'twenty-shared/utils';
 
-// Remove with the workspace workflow and workflowVersion objects, once the
-// core migration owns them.
+// Remove the workflow filter with the workspace workflow and workflowVersion
+// objects, once the core migration owns them. Fields the role cannot read are
+// left out so their labels do not render as empty rows.
 export const useFieldsWidgetFields = (
   objectMetadataItem: EnrichedObjectMetadataItem | undefined,
 ): FieldMetadataItem[] => {
@@ -17,7 +18,7 @@ export const useFieldsWidgetFields = (
   return useMemo(
     () =>
       isDefined(objectMetadataItem)
-        ? objectMetadataItem.fields.filter(
+        ? objectMetadataItem.readableFields.filter(
             (field) => !hiddenFieldMetadataIdsOrNames.includes(field.name),
           )
         : [],

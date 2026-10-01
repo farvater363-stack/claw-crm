@@ -1,3 +1,5 @@
+import { allowRequestsToTwentyIconsState } from '@/client-config/states/allowRequestsToTwentyIcons';
+import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { RecordPickerLoadingSkeletonList } from '@/object-record/record-picker/components/RecordPickerLoadingSkeletonList';
 import { RecordPickerNoRecordFoundMenuItem } from '@/object-record/record-picker/components/RecordPickerNoRecordFoundMenuItem';
 import { RecordTableWidgetRelationPickerMenuItem } from '@/object-record/record-table-widget/components/RecordTableWidgetRelationPickerMenuItem';
@@ -26,6 +28,10 @@ export const RecordTableWidgetRelationPickerDropdownContent = ({
 }: RecordTableWidgetRelationPickerDropdownContentProps) => {
   const [searchFilter, setSearchFilter] = useState('');
 
+  const allowRequestsToTwentyIcons = useAtomStateValue(
+    allowRequestsToTwentyIconsState,
+  );
+
   const dropdownId = useAvailableComponentInstanceIdOrThrow(
     DropdownComponentInstanceContext,
   );
@@ -34,7 +40,7 @@ export const RecordTableWidgetRelationPickerDropdownContent = ({
     searchFilterText: searchFilter,
     selectedIds: [],
     objectNameSingular,
-    allowRequestsToTwentyIcons: true,
+    allowRequestsToTwentyIcons,
     filter: recordsFilter,
   });
 

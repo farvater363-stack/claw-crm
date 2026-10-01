@@ -65,7 +65,7 @@ export const useFormatPreferences = () => {
             break;
           case 'numberFormat':
             resolvedValue = NumberFormat[
-              detectNumberFormat()
+              detectNumberFormat(currentWorkspaceMember.locale)
             ] as WorkspaceMemberFormatPreferences[K];
             break;
           case 'calendarStartDay':
@@ -130,7 +130,10 @@ export const useFormatPreferences = () => {
               resolvedUpdates.timeFormat = TimeFormat[detectTimeFormat()];
               break;
             case 'numberFormat':
-              resolvedUpdates.numberFormat = NumberFormat[detectNumberFormat()];
+              resolvedUpdates.numberFormat =
+                NumberFormat[
+                  detectNumberFormat(currentWorkspaceMember?.locale)
+                ];
               break;
             case 'calendarStartDay':
               resolvedUpdates.calendarStartDay =

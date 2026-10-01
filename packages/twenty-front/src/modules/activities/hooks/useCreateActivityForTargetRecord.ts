@@ -33,10 +33,18 @@ export const useCreateActivityForTargetRecord = ({
   const createActivity = () =>
     openCreateActivityDrawer({ targetableObjects: [targetRecord] });
 
+  const createActivityWithTitle = (title: string) =>
+    openCreateActivityDrawer({
+      targetableObjects: [targetRecord],
+      title,
+      shouldOpenInSidePanel: false,
+    });
+
   return {
     canCreateActivity:
       canUpdateObjectRecords &&
       !isObjectMetadataReadOnly({ objectMetadataItem }),
     createActivity,
+    createActivityWithTitle,
   };
 };

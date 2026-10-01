@@ -10,19 +10,13 @@ type NoteListProps = {
   notes: Note[];
 };
 
-const StyledContainer = styled.div`
-  align-items: flex-start;
-  align-self: stretch;
+const StyledNoteContainer = styled.div`
   display: flex;
   flex-direction: column;
-  justify-content: center;
-`;
-
-const StyledNoteContainer = styled.div`
-  display: grid;
-  gap: ${themeCssVariables.spacing[4]};
-  grid-auto-rows: 1fr;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: ${themeCssVariables.spacing[2]};
+  // An open side panel can squeeze this column to a few pixels; scroll
+  // instead of wrapping the note text one letter per line.
+  min-width: 240px;
   width: 100%;
 `;
 
@@ -31,17 +25,11 @@ export const NoteList = ({ notes }: NoteListProps) => {
     <>
       {notes.length > 0 && (
         <FieldDescriptionTooltipProvider>
-          <StyledContainer>
-            <StyledNoteContainer>
-              {notes.map((note) => (
-                <NoteTile
-                  key={note.id}
-                  note={note}
-                  isSingleNote={notes.length === 1}
-                />
-              ))}
-            </StyledNoteContainer>
-          </StyledContainer>
+          <StyledNoteContainer>
+            {notes.map((note) => (
+              <NoteTile key={note.id} note={note} />
+            ))}
+          </StyledNoteContainer>
         </FieldDescriptionTooltipProvider>
       )}
     </>

@@ -1,3 +1,5 @@
+import { allowRequestsToTwentyIconsState } from '@/client-config/states/allowRequestsToTwentyIcons';
+import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { styled } from '@linaria/react';
 
 import { type BackgroundMockCompany } from '@/sign-in-background-mock/constants/BackgroundMockCompanies';
@@ -98,7 +100,13 @@ export const BackgroundMockTableRow = ({
 }: BackgroundMockTableRowProps) => {
   const theme = useTheme();
 
-  const logoUrl = getLogoUrlFromDomainName(company.domainName);
+  const allowRequestsToTwentyIcons = useAtomStateValue(
+    allowRequestsToTwentyIconsState,
+  );
+
+  const logoUrl = allowRequestsToTwentyIcons
+    ? getLogoUrlFromDomainName(company.domainName)
+    : undefined;
 
   return (
     <StyledRow>

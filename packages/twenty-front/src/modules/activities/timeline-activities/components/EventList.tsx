@@ -12,6 +12,9 @@ import { type ActivityTargetableObject } from '@/activities/types/ActivityTarget
 import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
 import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
 import { useLingui } from '@lingui/react/macro';
+import { format } from 'date-fns';
+import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
+import { dateLocaleState } from '~/localization/states/dateLocaleState';
 
 import { themeCssVariables } from 'twenty-ui/theme';
 
@@ -34,6 +37,7 @@ const StyledTimelineContainer = styled.div`
 
 export const EventList = ({ events, targetableObject }: EventListProps) => {
   const { t } = useLingui();
+  const dateLocale = useAtomStateValue(dateLocaleState);
 
   const mainObjectMetadataItem = useObjectMetadataItem({
     objectNameSingular: targetableObject.targetObjectNameSingular,
@@ -79,8 +83,8 @@ export const EventList = ({ events, targetableObject }: EventListProps) => {
           mainObjectMetadataItem={mainObjectMetadataItem}
           key={group.year.toString() + group.month}
           group={group}
-          month={new Date(group.items[0].happensAt).toLocaleString('default', {
-            month: 'long',
+          month={format(new Date(group.items[0].happensAt), 'LLLL', {
+            locale: dateLocale.localeCatalog,
           })}
           year={
             index === 0 || group.year !== groupedEvents[index - 1].year

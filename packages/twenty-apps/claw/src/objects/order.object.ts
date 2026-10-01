@@ -1,0 +1,238 @@
+import {
+  defineObject,
+  FieldType,
+  NumberDataType,
+  OnDeleteAction,
+  RelationType,
+} from 'twenty-sdk/define';
+
+import {
+  CANCEL_REASON_OPTIONS,
+  DEADLINE_STATE_OPTIONS,
+  DISTRICT_OPTIONS,
+  ORDER_STATUS_OPTIONS,
+  SOURCE_OPTIONS,
+} from 'src/constants/select-options';
+import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
+import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
+import { IDS } from 'src/constants/universal-identifiers';
+
+const text = (
+  universalIdentifier: string,
+  name: string,
+  label: string,
+  icon: string,
+) =>
+  ({
+    universalIdentifier,
+    type: FieldType.TEXT,
+    name,
+    label,
+    icon,
+    isNullable: true,
+  }) as const;
+const money = (universalIdentifier: string, name: string, label: string) =>
+  ({
+    universalIdentifier,
+    type: FieldType.CURRENCY,
+    name,
+    label,
+    icon: 'IconCurrency',
+    isNullable: true,
+    universalSettings: FULL_MONEY_DISPLAY,
+  }) as const;
+const date = (universalIdentifier: string, name: string, label: string) =>
+  ({
+    universalIdentifier,
+    type: FieldType.DATE,
+    name,
+    label,
+    icon: 'IconCalendar',
+    isNullable: true,
+  }) as const;
+const decimal = (
+  universalIdentifier: string,
+  name: string,
+  label: string,
+  icon: string,
+) =>
+  ({
+    universalIdentifier,
+    type: FieldType.NUMBER,
+    name,
+    label,
+    icon,
+    isNullable: true,
+    universalSettings: { decimals: 2, dataType: NumberDataType.FLOAT },
+  }) as const;
+
+export default defineObject({
+  universalIdentifier: IDS.order.object,
+  nameSingular: 'order',
+  namePlural: 'orders',
+  labelSingular: 'Заказ',
+  labelPlural: 'Заказы',
+  icon: 'IconClipboardList',
+  labelIdentifierFieldMetadataUniversalIdentifier: IDS.order.name,
+  fields: withoutAuditOfAdminOnlyFields([
+    {
+      universalIdentifier: IDS.order.name,
+      type: FieldType.TEXT,
+      name: 'name',
+      label: '№',
+      icon: 'IconHash',
+    },
+    {
+      universalIdentifier: IDS.order.status,
+      type: FieldType.SELECT,
+      name: 'status',
+      label: 'Статус',
+      icon: 'IconProgress',
+      defaultValue: "'NEW'",
+      options: ORDER_STATUS_OPTIONS,
+    },
+    {
+      universalIdentifier: IDS.order.cancelReason,
+      type: FieldType.SELECT,
+      name: 'cancelReason',
+      label: 'Причина отмены',
+      icon: 'IconCircleX',
+      isNullable: true,
+      options: CANCEL_REASON_OPTIONS,
+    },
+    text(IDS.order.clientName, 'clientName', 'Имя', 'IconUser'),
+    text(IDS.order.clientPhone, 'clientPhone', 'Телефон', 'IconPhone'),
+    {
+      universalIdentifier: IDS.order.district,
+      type: FieldType.SELECT,
+      name: 'district',
+      label: 'Район',
+      icon: 'IconMapPin',
+      isNullable: true,
+      options: DISTRICT_OPTIONS,
+    },
+    // `address` is a reserved metadata name
+    text(IDS.order.address, 'addressLine', 'Адрес', 'IconHome'),
+    {
+      universalIdentifier: IDS.order.floor,
+      type: FieldType.NUMBER,
+      name: 'floor',
+      label: 'Этаж',
+      icon: 'IconStairs',
+      isNullable: true,
+    },
+    {
+      universalIdentifier: IDS.order.measurementDate,
+      type: FieldType.DATE_TIME,
+      name: 'measurementDate',
+      label: 'Дата замера',
+      icon: 'IconCalendarEvent',
+      isNullable: true,
+    },
+    {
+      universalIdentifier: IDS.order.source,
+      type: FieldType.SELECT,
+      name: 'source',
+      label: 'Источник',
+      icon: 'IconSpeakerphone',
+      isNullable: true,
+      options: SOURCE_OPTIONS,
+    },
+    text(IDS.order.comment, 'comment', 'Комментарий', 'IconMessage'),
+    date(IDS.order.productionStartDate, 'productionStartDate', 'Начало'),
+    date(IDS.order.installationDeadline, 'installationDeadline', 'Срок'),
+    date(IDS.order.readyAt, 'readyAt', 'Готов'),
+    date(IDS.order.installedAt, 'installedAt', 'Установка'),
+    {
+      universalIdentifier: IDS.order.deadlineState,
+      type: FieldType.SELECT,
+      name: 'deadlineState',
+      label: 'По сроку',
+      icon: 'IconAlarm',
+      isNullable: true,
+      options: DEADLINE_STATE_OPTIONS,
+    },
+    decimal(
+      IDS.order.areaSquareMeters,
+      'areaSquareMeters',
+      'Площадь, м²',
+      'IconRuler',
+    ),
+    money(IDS.order.total, 'total', 'Итого'),
+    money(IDS.order.prepayment, 'prepayment', 'Предоплата'),
+    money(IDS.order.balance, 'balance', 'Остаток'),
+    money(IDS.order.costTotal, 'costTotal', 'Себестоимость'),
+    money(IDS.order.margin, 'margin', 'Маржа'),
+    decimal(
+      IDS.order.marginPercent,
+      'marginPercent',
+      'Маржа, %',
+      'IconPercentage',
+    ),
+    {
+      universalIdentifier: IDS.order.daysLate,
+      type: FieldType.NUMBER,
+      name: 'daysLate',
+      label: 'Дней просрочки',
+      icon: 'IconClockExclamation',
+      isNullable: true,
+    },
+    money(IDS.order.masterPayCalculated, 'masterPayCalculated', 'ЗП расчётная'),
+    money(IDS.order.masterPenalty, 'masterPenalty', 'Штраф'),
+    money(IDS.order.masterBonus, 'masterBonus', 'Премия'),
+    money(IDS.order.masterPayTotal, 'masterPayTotal', 'ЗП итого'),
+    {
+      universalIdentifier: IDS.order.number,
+      type: FieldType.NUMBER,
+      name: 'number',
+      label: 'Номер (число)',
+      icon: 'IconHash',
+      isNullable: true,
+    },
+    {
+      universalIdentifier: IDS.order.finishedPhotos,
+      type: FieldType.FILES,
+      name: 'finishedPhotos',
+      label: 'Фото работы',
+      icon: 'IconPhoto',
+      isNullable: true,
+      universalSettings: { maxNumberOfValues: 10 },
+    },
+    {
+      universalIdentifier: IDS.order.master,
+      type: FieldType.RELATION,
+      name: 'master',
+      label: 'Мастер',
+      icon: 'IconHammer',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.master.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.master.orders,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'masterId',
+      },
+    },
+    {
+      universalIdentifier: IDS.order.items,
+      type: FieldType.RELATION,
+      name: 'items',
+      label: 'Позиции',
+      icon: 'IconRuler',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.orderItem.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.orderItem.order,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+    {
+      universalIdentifier: IDS.order.extraServices,
+      type: FieldType.RELATION,
+      name: 'extraServices',
+      label: 'Доп. услуги',
+      icon: 'IconTool',
+      relationTargetObjectMetadataUniversalIdentifier:
+        IDS.orderExtraService.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.orderExtraService.order,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+  ]),
+});
