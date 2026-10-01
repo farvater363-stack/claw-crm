@@ -48,6 +48,9 @@ export default defineRole({
     ...ADMIN_ONLY_FIELD_PERMISSIONS,
     ...CALCULATED_FIELD_PERMISSIONS,
   ],
-  // Managers attach design, order and item photos; without it every upload is rejected.
-  permissionFlagUniversalIdentifiers: [SystemPermissionFlag.UPLOAD_FILE],
+  // Without these, uploads to photo fields are rejected and Download is hidden.
+  permissionFlagUniversalIdentifiers: [
+    SystemPermissionFlag.UPLOAD_FILE,
+    SystemPermissionFlag.DOWNLOAD_FILE,
+  ],
 });
