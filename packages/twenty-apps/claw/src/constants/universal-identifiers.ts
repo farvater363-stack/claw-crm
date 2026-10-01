@@ -157,6 +157,12 @@ export const IDS = {
     newMeasurement: 'd9580fb9-a409-4e83-92a5-42f87706486e',
     allOrders: 'ae5debb5-3b25-4a50-bb34-99a2c561ef57',
   },
+  payroll: {
+    frontComponent: '66997114-3e6d-4d6c-9405-64be5ad17a66',
+    pageLayout: 'f877846f-ce69-4d5d-935c-9c9cf131ff1b',
+    pageLayoutTab: '0f94716c-f3f2-4017-a287-dcd9f4716281',
+    pageLayoutWidget: '1bf95483-bd85-4cd8-82cf-58994d0539bd',
+  },
   measurerForm: {
     frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',
     pageLayout: '43c41f16-a21c-4a2f-ab5b-c5fcf85cfe5e',
