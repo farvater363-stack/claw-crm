@@ -5,7 +5,10 @@ import {
   type SOURCE_OPTIONS,
 } from 'src/constants/select-options';
 import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
-import { normalizeUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
+import {
+  normalizeUzbekPhone,
+  toStoredUzbekPhone,
+} from 'src/pricing/normalize-uzbek-phone';
 import { roundTo } from 'src/pricing/round';
 
 type District = (typeof DISTRICT_OPTIONS)[number]['value'];
@@ -98,12 +101,6 @@ export const formatUzbekNationalPhone = (raw: string): string => {
   }
 
   return groups.join(' ');
-};
-
-export const toStoredUzbekPhone = (value: string): string | null => {
-  const national = normalizeUzbekPhone(value);
-
-  return national === null ? null : `+998${national}`;
 };
 
 export const parseDecimalInput = (value: string): number | null => {

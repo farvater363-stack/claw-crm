@@ -11,3 +11,9 @@ export const normalizeUzbekPhone = (raw: string): string | null => {
 
   return national.length === NATIONAL_NUMBER_LENGTH ? national : null;
 };
+
+export const toStoredUzbekPhone = (value: string): string | null => {
+  const national = normalizeUzbekPhone(value);
+
+  return national === null ? null : `+${UZBEK_COUNTRY_CODE}${national}`;
+};

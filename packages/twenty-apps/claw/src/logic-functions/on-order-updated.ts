@@ -7,6 +7,7 @@ import {
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { todayInTashkent } from 'src/pricing/dates';
+import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { orderNameToRestore } from 'src/recalc/assign-order-number';
 import { recalcOrder } from 'src/recalc/recalc-order';
 
@@ -15,6 +16,7 @@ type UpdatedOrder = {
   installedAt: string | null;
   name: string | null;
   number: number | null;
+  clientPhone: string | null;
 };
 
 const handler = async (
@@ -35,6 +37,20 @@ const handler = async (
         id: true,
       },
     });
+  }
+
+  if (updatedFields.includes('clientPhone')) {
+    const storedPhone = toStoredUzbekPhone(after.clientPhone ?? '');
+
+    // Unparseable numbers stay as typed so nothing the manager entered is lost.
+    if (storedPhone !== null && storedPhone !== after.clientPhone) {
+      await client.mutation({
+        updateOrder: {
+          __args: { id: payload.recordId, data: { clientPhone: storedPhone } },
+          id: true,
+        },
+      });
+    }
   }
 
   if (
@@ -60,12 +76,13 @@ export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderUpdated,
   name: 'on-order-updated',
   description:
-    'Restores an emptied order name, sets the installation date and recalculates the order',
+    'Restores an emptied order name, normalizes the client phone, sets the installation date and recalculates the order',
   timeoutSeconds: 30,
   databaseEventTriggerSettings: {
     eventName: 'order.updated',
     updatedFields: [
       'name',
+      'clientPhone',
       'status',
       'prepayment',
       'productionStartDate',
