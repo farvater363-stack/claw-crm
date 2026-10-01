@@ -112,6 +112,16 @@ export const takePhotosWithinLimit = <TPhoto>(
   };
 };
 
+export const buildOpeningPhotoLabel = (
+  openingNumber: number,
+  photoNumber: number,
+  fileName: string,
+): string => {
+  const extension = /\.[a-z0-9]+$/i.exec(fileName)?.[0].toLowerCase() ?? '';
+
+  return `Проём ${openingNumber}, фото ${photoNumber}${extension}`;
+};
+
 export const describePhotoUploadFailure = (openingNumbers: number[]) =>
   `Заказ сохранён, но не все фото загрузились: ${openingNumbers.length === 1 ? 'проём' : 'проёмы'} № ${openingNumbers.join(', ')}. Добавьте их кнопкой «Добавить фото».`;
 

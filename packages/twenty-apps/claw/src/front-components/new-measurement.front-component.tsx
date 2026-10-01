@@ -23,6 +23,7 @@ import {
   computeOpeningAreaSquareMeters,
   computeOpeningQuote,
   computeOpeningsTotalAreaSquareMeters,
+  buildOpeningPhotoLabel,
   createEmptyOpening,
   describePhotoUploadFailure,
   formatUzbekNationalPhone,
@@ -209,29 +210,36 @@ const fetchPhotosFieldMetadataId = async (): Promise<string | null> => {
   );
 };
 
-// Returns how many photos ended up attached to the item.
 const attachOpeningPhotos = async (
-  itemId: string,
+  item: SavedItem,
   photos: OpeningPhoto[],
   fieldMetadataId: string,
 ): Promise<number> => {
   const uploaded: { fileId: string; label: string }[] = [];
 
-  for (const photo of photos) {
+  for (const [index, photo] of photos.entries()) {
     const result = await uploadFile(photo.file, {
       fieldMetadataId,
       fileName: photo.file.name,
     });
 
     if (result.status === 'uploaded') {
-      uploaded.push({ fileId: result.file.fileId, label: photo.file.name });
+      uploaded.push({
+        fileId: result.file.fileId,
+        // A tablet camera names every shot image.jpg.
+        label: buildOpeningPhotoLabel(
+          item.openingNumber,
+          index + 1,
+          photo.file.name,
+        ),
+      });
     }
   }
 
   if (uploaded.length > 0) {
     await new CoreApiClient().mutation({
       updateOrderItem: {
-        __args: { id: itemId, data: { photos: uploaded } },
+        __args: { id: item.id, data: { photos: uploaded } },
         id: true,
       },
     });
@@ -274,6 +282,7 @@ const NewMeasurement = () => {
     openingKey: string;
     skippedCount: number;
   } | null>(null);
+  const [photoPickCount, setPhotoPickCount] = useState(0);
 
   useEffect(() => {
     if (userId === null) return;
@@ -424,51 +433,59 @@ const NewMeasurement = () => {
       openings: current.openings.filter((opening) => opening.key !== key),
     }));
 
-  const addPhotos = async (opening: OpeningDraft, files: File[]) => {
-    const picked: OpeningPhoto[] = [];
-
-    // One at a time: decoding several camera photos at once can exhaust a
-    // tablet's memory.
-    for (const file of files.filter((candidate) =>
-      candidate.type.startsWith('image/'),
-    )) {
-      picked.push({
-        key: createPhotoKey(),
-        file,
-        thumbnailUrl: await createThumbnailUrl(file),
-      });
-    }
-
-    const { skippedCount } = takePhotosWithinLimit(opening.photos, picked);
-
-    setPhotoLimitNotice(
-      skippedCount > 0 ? { openingKey: opening.key, skippedCount } : null,
-    );
-    setDraft((current) => ({
-      ...current,
-      openings: current.openings.map((candidate) =>
-        candidate.key === opening.key
-          ? {
-              ...candidate,
-              photos: takePhotosWithinLimit(candidate.photos, picked).photos,
-            }
-          : candidate,
-      ),
-    }));
-  };
-
-  const removePhoto = (openingKey: string, photoKey: string) =>
+  const updateOpeningPhotos = (
+    openingKey: string,
+    update: (photos: OpeningPhoto[]) => OpeningPhoto[],
+  ) =>
     setDraft((current) => ({
       ...current,
       openings: current.openings.map((opening) =>
         opening.key === openingKey
-          ? {
-              ...opening,
-              photos: opening.photos.filter((photo) => photo.key !== photoKey),
-            }
+          ? { ...opening, photos: update(opening.photos) }
           : opening,
       ),
     }));
+
+  // Photos join the draft before their thumbnails exist, so a save started
+  // while thumbnails are still being drawn still uploads them.
+  const addPhotos = async (opening: OpeningDraft, files: File[]) => {
+    setPhotoPickCount((count) => count + 1);
+
+    const { photos, skippedCount } = takePhotosWithinLimit(
+      opening.photos,
+      files
+        .filter((file) => file.type.startsWith('image/'))
+        .map((file) => ({ key: createPhotoKey(), file, thumbnailUrl: null })),
+    );
+    const added = photos.slice(opening.photos.length);
+
+    setPhotoLimitNotice(
+      skippedCount > 0 ? { openingKey: opening.key, skippedCount } : null,
+    );
+    updateOpeningPhotos(
+      opening.key,
+      (current) => takePhotosWithinLimit(current, added).photos,
+    );
+
+    // One at a time: decoding several camera photos at once can exhaust a
+    // tablet's memory.
+    for (const photo of added) {
+      const thumbnailUrl = await createThumbnailUrl(photo.file);
+
+      updateOpeningPhotos(opening.key, (current) =>
+        current.map((candidate) =>
+          candidate.key === photo.key
+            ? { ...candidate, thumbnailUrl }
+            : candidate,
+        ),
+      );
+    }
+  };
+
+  const removePhoto = (openingKey: string, photoKey: string) =>
+    updateOpeningPhotos(openingKey, (photos) =>
+      photos.filter((photo) => photo.key !== photoKey),
+    );
 
   const resetForm = () => {
     setDraft(createEmptyDraft());
@@ -555,7 +572,7 @@ const NewMeasurement = () => {
 
         if (photosFieldMetadataId !== null) {
           item.photoCount = await attachOpeningPhotos(
-            item.id,
+            item,
             photos,
             photosFieldMetadataId,
           ).catch(() => 0);
@@ -993,7 +1010,7 @@ const NewMeasurement = () => {
                         camera and the gallery. Re-keyed per pick so choosing
                         the same file again still fires onChange. */}
                     <input
-                      key={opening.photos.map((photo) => photo.key).join()}
+                      key={photoPickCount}
                       type="file"
                       accept="image/*"
                       multiple
