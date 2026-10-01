@@ -1,29 +1,30 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import { OPEN_STATUSES } from 'src/pricing/compute-deadline-state';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { recalcOrder } from 'src/recalc/recalc-order';
 
 const PAGE_SIZE = 500;
-const FINISHED_STATUSES = ['READY', 'INSTALLED', 'CLOSED', 'CANCELLED'];
 
 // The state depends on today's date, so it goes stale overnight without any edit.
-// ponytail: one full recalc per open order; fine for tens of orders, batch the update if it grows to thousands.
+// ponytail: one full recalc per open order, capped at PAGE_SIZE open orders; batch the update and paginate if open orders grow to hundreds.
 const handler = async (): Promise<void> => {
   const client = createRecalcClient();
   const { orders } = await client.query({
     orders: {
       __args: {
-        filter: { installationDeadline: { is: 'NOT_NULL' } },
+        filter: {
+          installationDeadline: { is: 'NOT_NULL' },
+          status: { in: OPEN_STATUSES },
+        },
         first: PAGE_SIZE,
       },
-      edges: { node: { id: true, status: true } },
+      edges: { node: { id: true } },
     },
   });
 
   for (const { node } of orders?.edges ?? []) {
-    if (FINISHED_STATUSES.includes(node.status ?? '')) continue;
-
     await recalcOrder(client, node.id);
   }
 };
