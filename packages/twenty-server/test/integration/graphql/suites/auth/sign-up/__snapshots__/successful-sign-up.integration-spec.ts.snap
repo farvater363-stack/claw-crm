@@ -14,7 +14,7 @@ exports[`Successful User Sign Up (integration) should sign up, delete and signup
   "id": Any<String>,
   "isEmailVerified": false,
   "lastName": "",
-  "locale": "en",
+  "locale": "ru-RU",
   "updatedAt": Any<String>,
 }
 `;
@@ -47,7 +47,7 @@ exports[`Successful User Sign Up (integration) should sign up, delete and signup
   "id": Any<String>,
   "isEmailVerified": false,
   "lastName": "",
-  "locale": "en",
+  "locale": "ru-RU",
   "updatedAt": Any<String>,
 }
 `;
