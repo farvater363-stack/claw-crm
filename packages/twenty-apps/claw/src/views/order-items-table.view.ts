@@ -19,6 +19,7 @@ const COLUMN_WIDTHS = {
   areaSquareMeters: 120,
   pricePerSquareMeter: 130,
   lineTotal: 130,
+  notes: 240,
   costPerSquareMeter: 200,
   lineCost: 170,
 } as const satisfies Record<keyof typeof ids.itemsTableFields, number>;

@@ -148,6 +148,10 @@ export const IDS = {
     pageLayoutTab: 'd0188e8e-e3fa-466d-b6eb-6c4b5d3ffaae',
     pageLayoutWidget: '7ebd5c31-94d3-4db2-be4d-66862455b4a0',
   },
+  measurementNotes: {
+    frontComponent: '74aa9d07-1296-4578-a9e4-a623002c5b4b',
+    orderPageWidget: '4102beab-e8d1-4e1a-a324-982bf1a35ed3',
+  },
   logicFunction: {
     onOrderCreated: '9f84f9bb-0b71-4991-8531-fc479be51150',
     onOrderUpdated: 'c3672a4c-6d41-4174-81b8-639b406da5d7',

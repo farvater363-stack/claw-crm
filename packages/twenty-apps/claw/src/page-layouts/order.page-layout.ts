@@ -28,6 +28,15 @@ const tab = (
   ],
 });
 
+const notesTab = tab(
+  ids.notesTab,
+  ids.notesWidget,
+  'Заметки',
+  'IconNotes',
+  30,
+  'NOTES',
+);
+
 export default definePageLayout({
   universalIdentifier: ids.layout,
   name: 'Карточка заказа',
@@ -102,7 +111,23 @@ export default definePageLayout({
       20,
       'TIMELINE',
     ),
-    tab(ids.notesTab, ids.notesWidget, 'Заметки', 'IconNotes', 30, 'NOTES'),
+    {
+      ...notesTab,
+      // The notes list fills the tab, so the SDK requires it to come last.
+      widgets: [
+        {
+          universalIdentifier: IDS.measurementNotes.orderPageWidget,
+          title: 'Из замера',
+          type: 'FRONT_COMPONENT',
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              IDS.measurementNotes.frontComponent,
+          },
+        },
+        ...notesTab.widgets,
+      ],
+    },
     tab(ids.filesTab, ids.filesWidget, 'Файлы', 'IconPaperclip', 40, 'FILES'),
   ],
 });

@@ -142,6 +142,7 @@ export const VIEW_PART_IDS = {
       areaSquareMeters: 'd47062f3-2aed-4ad1-a96d-c40b6540eaf6',
       pricePerSquareMeter: '2f7ad13a-acd2-4179-a620-85ae4c3a2802',
       lineTotal: 'faa1abe5-faf7-4efc-8b84-625899928658',
+      notes: 'ea52cae8-4f8b-46ac-be59-3ed156526927',
       costPerSquareMeter: '46449fce-4964-4463-8b22-f019865a1168',
       lineCost: '90dc8d45-2b5c-478b-819d-370247f035c1',
     },
