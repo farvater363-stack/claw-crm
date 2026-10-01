@@ -191,24 +191,15 @@ describe('serializeEvent', () => {
     });
   });
 
-  it('should serialize target files', () => {
+  it('should pass the selected File objects through', () => {
+    const file = new File(['png'], 'a.png', { type: 'image/png' });
+
     const result = serializeEvent({
       type: 'change',
-      target: {
-        files: {
-          length: 1,
-          0: {
-            name: 'a.png',
-            size: 1,
-            type: 'image/png',
-            lastModified: 1,
-          },
-        },
-      },
+      target: { files: { length: 1, 0: file } },
     });
 
-    expect(result.files).toEqual([
-      { name: 'a.png', size: 1, type: 'image/png', lastModified: 1 },
-    ]);
+    expect(result.files).toEqual([file]);
+    expect(result.files?.[0]).toBe(file);
   });
 });

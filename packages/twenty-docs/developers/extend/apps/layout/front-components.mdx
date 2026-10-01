@@ -943,6 +943,8 @@ The portal gap is why Radix, Headless UI, MUI and react-select popovers render n
 
 Mouse, pointer, touch, drag, keyboard, focus, `input`/`change`/`submit`, `scroll`/`wheel`/`contextmenu` and `animationend`/`transitionend` cross to the host, plus a few per element: `load`/`error` on `img`, clipboard and composition on `input`/`textarea`, media on `video`/`audio`, `toggle` on `details`/`dialog`. Anything else (`onAuxClick`, `onSelect`, `onInvalid`, `onReset`, `onAnimationStart`, pointer capture, `onLoad` off `img`) is dropped without warning.
 
+On an `input` of type `file`, `event.target.files` is an array of the selected `File` objects (not a `FileList`), so `file.arrayBuffer()` and `FileReader` work and a file can go straight to the `uploadFile` host function.
+
 `document.addEventListener()` and `window.addEventListener()` register without error and never fire, which is why a drag stops as soon as the pointer leaves the element it started on. `event.preventDefault()` does not cross either; form submission, `dragover`/`drop` and link clicks are already guarded for you.
 
 ### Attributes and styling
@@ -976,7 +978,6 @@ An orange dot in the workspace header indicates active capture. Hover over or se
 
 ### Other gaps
 
-- **File contents.** An `input` of type `file` gives your handler file metadata only, not the bytes, so `FileReader` is not available. To upload a `Blob` your code already holds — e.g. one produced by `MediaRecorder` — use the `uploadFile` host function.
 - **Drag-and-drop payloads.** Drag events fire, but `event.dataTransfer` is `undefined`.
 - **Node built-ins.** `fs`, `path` and `node:crypto` fail the build, so move that work into a [logic function](/developers/extend/apps/logic/logic-functions). Web Crypto replaces `node:crypto`, and `fetch`, `TextEncoder` and `URL` are available too, see [global scope](#global-scope) — but nothing replaces `fs`: the sandbox has no filesystem.
 - **`iframe`** is always re-sandboxed without `allow-same-origin`, so an embed relying on its own session renders logged out. It has no `onLoad` either.
