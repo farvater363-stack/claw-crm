@@ -38,6 +38,7 @@ export const IDS = {
     ratePerSquareMeter: '5977ce99-14c6-4a4b-b83b-17eae59305ec',
     penaltyPercentPerDay: '81a8a168-a60e-45bf-87c6-144f10e019d2',
     orders: '94d21b66-42f7-4902-a25c-0db5fe109736',
+    payments: 'ccd6a0a5-f553-4a48-b221-306827316aac',
   },
   order: {
     object: '8ab9a340-059c-4dd3-a96f-a8a83a5f3c32',
@@ -109,6 +110,15 @@ export const IDS = {
     order: '72ee4b00-c57e-4588-b61d-86a549a44022',
     extraService: '3f52757d-611f-418d-9288-c591742d4fae',
   },
+  masterPayment: {
+    object: '97af6485-78d1-4250-9b8f-7b7af9d9a6e4',
+    name: '36cd0e40-6266-43bc-8e71-bf6c320719e2',
+    master: 'e777e580-031d-4637-99e5-819bce778a6e',
+    paidOn: '615deeec-d503-4cd7-ace4-453a0a57dff9',
+    amount: '78959f73-5a65-4454-8a1e-f7d1f2fb6ca1',
+    kind: 'c85d5ab4-90cd-44e4-81c1-b5576611d568',
+    comment: '0402873b-1b1a-4189-8e3d-9e2e668388f5',
+  },
   person: {
     orders: '096afa4c-cf9a-49b7-a6b8-c84412d088a6',
   },
@@ -142,6 +152,8 @@ export const IDS = {
     priceList: '19714acd-d450-4a1f-a73e-a74266399b6c',
     extraServices: '7084db31-ff82-4fae-831a-180eafb45cee',
     masters: 'f1ae7b6b-2645-48bd-b2cd-8118e871672e',
+    masterPayments: '7ccac197-4231-4128-9385-7e00cc414e86',
+    payroll: '2e98d495-7d32-4a64-abaf-7866fa2206b5',
     newMeasurement: 'd9580fb9-a409-4e83-92a5-42f87706486e',
     allOrders: 'ae5debb5-3b25-4a50-bb34-99a2c561ef57',
   },

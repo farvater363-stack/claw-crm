@@ -89,3 +89,11 @@ export const CANCEL_REASON_OPTIONS = toOptions([
   ['COMPETITOR', 'Конкурент', 'red'],
   ['OTHER', 'Другое', 'gray'],
 ] as const);
+
+export const MASTER_PAYMENT_KIND_OPTIONS = toOptions([
+  ['ADVANCE', 'Аванс', 'yellow'],
+  ['SETTLEMENT', 'Расчёт', 'green'],
+] as const);
+
+export type MasterPaymentKind =
+  (typeof MASTER_PAYMENT_KIND_OPTIONS)[number]['value'];
