@@ -14,6 +14,8 @@ defaults:
 
 jobs:
   dispatch-tag:
+    # Dispatches to twentyhq/twenty-infra, which forks cannot reach.
+    if: github.repository == 'twentyhq/twenty'
     timeout-minutes: 3
     runs-on: ubuntu-latest
     steps:
