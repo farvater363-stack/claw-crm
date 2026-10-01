@@ -1,9 +1,11 @@
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
+import { MetadataApiClient } from 'twenty-client-sdk/metadata';
 import { defineFrontComponent } from 'twenty-sdk/define';
 import {
   openSidePanelPage,
   SidePanelPages,
+  uploadFile,
   useColorScheme,
   useUserId,
 } from 'twenty-sdk/front-component';
@@ -21,11 +23,16 @@ import {
   computeOpeningAreaSquareMeters,
   computeOpeningQuote,
   computeOpeningsTotalAreaSquareMeters,
+  buildOpeningPhotoLabel,
   createEmptyOpening,
+  describePhotoUploadFailure,
   formatUzbekNationalPhone,
+  MAX_PHOTOS_PER_OPENING,
   type MeasurementDraft,
   type OpeningDraft,
   type QuotePriceEntry,
+  type OpeningPhoto,
+  takePhotosWithinLimit,
   toDateTimeLocalInputValue,
   UZBEK_PHONE_PREFIX,
 } from 'src/measurer-form/measurer-form';
@@ -33,17 +40,24 @@ import { fromCurrency } from 'src/recalc/money';
 
 type Design = { id: string; name: string };
 
-type SavedItem = { id: string; openingNumber: number; label: string };
+type SavedItem = {
+  id: string;
+  openingNumber: number;
+  label: string;
+  photoCount: number;
+};
 
 type SaveResult = {
   orderId: string;
   orderName: string | null;
   items: SavedItem[];
   failedOpeningNumbers: number[];
+  photoFailureOpeningNumbers: number[];
 };
 
 const ORDER_NAME_POLL_ATTEMPTS = 20;
 const ORDER_NAME_POLL_INTERVAL_MS = 750;
+const THUMBNAIL_MAX_SIDE_PX = 160;
 
 const PALETTE = {
   light: {
@@ -72,6 +86,8 @@ const PALETTE = {
 // need to be unique within this page.
 let openingKeySequence = 0;
 const createOpeningKey = () => `opening-${openingKeySequence++}`;
+let photoKeySequence = 0;
+const createPhotoKey = () => `photo-${photoKeySequence++}`;
 
 const createEmptyDraft = (): MeasurementDraft => ({
   clientName: '',
@@ -138,6 +154,100 @@ const loadFormContext = async (userId: string) => {
   };
 };
 
+const readAsDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+// A tablet photo is several MB; previewing it at full size would push every
+// one through the sandbox bridge as a data URL.
+const createThumbnailUrl = async (file: File): Promise<string | null> => {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(
+      1,
+      THUMBNAIL_MAX_SIDE_PX / Math.max(bitmap.width, bitmap.height),
+    );
+    const canvas = new OffscreenCanvas(
+      Math.max(1, Math.round(bitmap.width * scale)),
+      Math.max(1, Math.round(bitmap.height * scale)),
+    );
+
+    canvas
+      .getContext('2d')
+      ?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+
+    return await readAsDataUrl(
+      await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 }),
+    );
+  } catch {
+    return null;
+  }
+};
+
+// uploadFile needs this workspace's id for orderItem.photos, which differs
+// from the universalIdentifier the app declares.
+const fetchPhotosFieldMetadataId = async (): Promise<string | null> => {
+  const { objects } = await new MetadataApiClient().query({
+    objects: {
+      __args: {
+        paging: { first: 1 },
+        filter: { universalIdentifier: { eq: IDS.orderItem.object } },
+      },
+      edges: { node: { fieldsList: { id: true, universalIdentifier: true } } },
+    },
+  });
+
+  return (
+    objects.edges[0]?.node.fieldsList?.find(
+      (field) => field.universalIdentifier === IDS.orderItem.photos,
+    )?.id ?? null
+  );
+};
+
+const attachOpeningPhotos = async (
+  item: SavedItem,
+  photos: OpeningPhoto[],
+  fieldMetadataId: string,
+): Promise<number> => {
+  const uploaded: { fileId: string; label: string }[] = [];
+
+  for (const [index, photo] of photos.entries()) {
+    const result = await uploadFile(photo.file, {
+      fieldMetadataId,
+      fileName: photo.file.name,
+    });
+
+    if (result.status === 'uploaded') {
+      uploaded.push({
+        fileId: result.file.fileId,
+        // A tablet camera names every shot image.jpg.
+        label: buildOpeningPhotoLabel(
+          item.openingNumber,
+          index + 1,
+          photo.file.name,
+        ),
+      });
+    }
+  }
+
+  if (uploaded.length > 0) {
+    await new CoreApiClient().mutation({
+      updateOrderItem: {
+        __args: { id: item.id, data: { photos: uploaded } },
+        id: true,
+      },
+    });
+  }
+
+  return uploaded.length;
+};
+
 // The on-order-created trigger numbers the order a moment after it exists.
 const waitForOrderName = async (orderId: string): Promise<string | null> => {
   for (let attempt = 0; attempt < ORDER_NAME_POLL_ATTEMPTS; attempt++) {
@@ -168,6 +278,11 @@ const NewMeasurement = () => {
   const [errors, setErrors] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [result, setResult] = useState<SaveResult | null>(null);
+  const [photoLimitNotice, setPhotoLimitNotice] = useState<{
+    openingKey: string;
+    skippedCount: number;
+  } | null>(null);
+  const [photoPickCount, setPhotoPickCount] = useState(0);
 
   useEffect(() => {
     if (userId === null) return;
@@ -257,6 +372,42 @@ const NewMeasurement = () => {
     },
     area: { alignSelf: 'end', fontWeight: 600, paddingBottom: '10px' },
     error: { color: colors.danger, margin: '0 0 12px' },
+    thumbnail: {
+      alignItems: 'center',
+      background: colors.surface,
+      border: `1px solid ${colors.border}`,
+      borderRadius: '6px',
+      boxSizing: 'border-box',
+      display: 'flex',
+      height: '88px',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      padding: 0,
+      position: 'relative',
+      width: '88px',
+    },
+    removePhotoButton: {
+      background: 'rgba(0, 0, 0, 0.6)',
+      border: 'none',
+      borderRadius: '50%',
+      color: '#ffffff',
+      cursor: 'pointer',
+      fontSize: '18px',
+      height: '32px',
+      lineHeight: '32px',
+      padding: 0,
+      position: 'absolute',
+      right: '4px',
+      top: '4px',
+      width: '32px',
+    },
+    visuallyHidden: {
+      height: '1px',
+      opacity: 0,
+      overflow: 'hidden',
+      position: 'absolute',
+      width: '1px',
+    },
   } satisfies Record<string, CSSProperties>;
 
   const updateDraft = (changes: Partial<MeasurementDraft>) =>
@@ -282,10 +433,65 @@ const NewMeasurement = () => {
       openings: current.openings.filter((opening) => opening.key !== key),
     }));
 
+  const updateOpeningPhotos = (
+    openingKey: string,
+    update: (photos: OpeningPhoto[]) => OpeningPhoto[],
+  ) =>
+    setDraft((current) => ({
+      ...current,
+      openings: current.openings.map((opening) =>
+        opening.key === openingKey
+          ? { ...opening, photos: update(opening.photos) }
+          : opening,
+      ),
+    }));
+
+  // Photos join the draft before their thumbnails exist, so a save started
+  // while thumbnails are still being drawn still uploads them.
+  const addPhotos = async (opening: OpeningDraft, files: File[]) => {
+    setPhotoPickCount((count) => count + 1);
+
+    const { photos, skippedCount } = takePhotosWithinLimit(
+      opening.photos,
+      files
+        .filter((file) => file.type.startsWith('image/'))
+        .map((file) => ({ key: createPhotoKey(), file, thumbnailUrl: null })),
+    );
+    const added = photos.slice(opening.photos.length);
+
+    setPhotoLimitNotice(
+      skippedCount > 0 ? { openingKey: opening.key, skippedCount } : null,
+    );
+    updateOpeningPhotos(
+      opening.key,
+      (current) => takePhotosWithinLimit(current, added).photos,
+    );
+
+    // One at a time: decoding several camera photos at once can exhaust a
+    // tablet's memory.
+    for (const photo of added) {
+      const thumbnailUrl = await createThumbnailUrl(photo.file);
+
+      updateOpeningPhotos(opening.key, (current) =>
+        current.map((candidate) =>
+          candidate.key === photo.key
+            ? { ...candidate, thumbnailUrl }
+            : candidate,
+        ),
+      );
+    }
+  };
+
+  const removePhoto = (openingKey: string, photoKey: string) =>
+    updateOpeningPhotos(openingKey, (photos) =>
+      photos.filter((photo) => photo.key !== photoKey),
+    );
+
   const resetForm = () => {
     setDraft(createEmptyDraft());
     setErrors([]);
     setResult(null);
+    setPhotoLimitNotice(null);
   };
 
   const handleSave = async () => {
@@ -342,15 +548,51 @@ const NewMeasurement = () => {
           id: createOrderItem.id,
           openingNumber: index + 1,
           label: `${item.widthCm}×${item.heightCm}${item.projectionCm > 0 ? `×${item.projectionCm}` : ''} см, ${item.quantity} шт`,
+          photoCount: 0,
         });
       } catch {
         failedOpeningNumbers.push(index + 1);
       }
     }
 
+    // Photos go up only once their item exists, so a failed upload never
+    // costs the measurer the order.
+    const photoFailureOpeningNumbers: number[] = [];
+    const itemsWithPhotos = items.filter(
+      (item) => draft.openings[item.openingNumber - 1].photos.length > 0,
+    );
+
+    if (itemsWithPhotos.length > 0) {
+      const photosFieldMetadataId = await fetchPhotosFieldMetadataId().catch(
+        () => null,
+      );
+
+      for (const item of itemsWithPhotos) {
+        const photos = draft.openings[item.openingNumber - 1].photos;
+
+        if (photosFieldMetadataId !== null) {
+          item.photoCount = await attachOpeningPhotos(
+            item,
+            photos,
+            photosFieldMetadataId,
+          ).catch(() => 0);
+        }
+
+        if (item.photoCount < photos.length) {
+          photoFailureOpeningNumbers.push(item.openingNumber);
+        }
+      }
+    }
+
     const orderName = await waitForOrderName(orderId).catch(() => null);
 
-    setResult({ orderId, orderName, items, failedOpeningNumbers });
+    setResult({
+      orderId,
+      orderName,
+      items,
+      failedOpeningNumbers,
+      photoFailureOpeningNumbers,
+    });
     setIsSaving(false);
   };
 
@@ -376,6 +618,11 @@ const NewMeasurement = () => {
               Заказ создан, но не сохранены проёмы №{' '}
               {result.failedOpeningNumbers.join(', ')}. Откройте заказ и
               добавьте их вручную.
+            </p>
+          )}
+          {result.photoFailureOpeningNumbers.length > 0 && (
+            <p role="alert" style={styles.error}>
+              {describePhotoUploadFailure(result.photoFailureOpeningNumbers)}
             </p>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
@@ -420,6 +667,7 @@ const NewMeasurement = () => {
               >
                 <span>
                   Проём {item.openingNumber}: {item.label}
+                  {item.photoCount > 0 && `, фото: ${item.photoCount}`}
                 </span>
                 <button
                   type="button"
@@ -716,6 +964,72 @@ const NewMeasurement = () => {
               />,
               styles.wide,
             )}
+            <div style={styles.wide}>
+              <div style={{ ...styles.label, marginBottom: '6px' }}>
+                Фото: {opening.photos.length} из {MAX_PHOTOS_PER_OPENING}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {opening.photos.map((photo, photoIndex) => (
+                  <div key={photo.key} style={styles.thumbnail}>
+                    {photo.thumbnailUrl === null ? (
+                      <span style={{ fontSize: '12px', padding: '4px' }}>
+                        {photo.file.name}
+                      </span>
+                    ) : (
+                      <img
+                        src={photo.thumbnailUrl}
+                        alt={`Фото ${photoIndex + 1}, проём ${index + 1}`}
+                        style={{
+                          height: '100%',
+                          objectFit: 'cover',
+                          width: '100%',
+                        }}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      aria-label={`Удалить фото ${photoIndex + 1}, проём ${index + 1}`}
+                      style={styles.removePhotoButton}
+                      onClick={() => removePhoto(opening.key, photo.key)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {opening.photos.length < MAX_PHOTOS_PER_OPENING && (
+                  <label
+                    style={{
+                      ...styles.secondaryButton,
+                      ...styles.thumbnail,
+                      color: colors.accent,
+                      flexDirection: 'column',
+                    }}
+                  >
+                    + Фото
+                    {/* No capture attribute: tablets then offer both the
+                        camera and the gallery. Re-keyed per pick so choosing
+                        the same file again still fires onChange. */}
+                    <input
+                      key={photoPickCount}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      aria-label={`Добавить фото, проём ${index + 1}`}
+                      style={styles.visuallyHidden}
+                      onChange={(event) =>
+                        addPhotos(opening, Array.from(event.target.files ?? []))
+                      }
+                    />
+                  </label>
+                )}
+              </div>
+              {photoLimitNotice?.openingKey === opening.key && (
+                <p role="status" style={{ ...styles.error, margin: '8px 0 0' }}>
+                  Не больше {MAX_PHOTOS_PER_OPENING} фото на проём: лишние (
+                  {photoLimitNotice.skippedCount}) не добавлены.
+                </p>
+              )}
+            </div>
           </section>
         );
       })}

@@ -22,6 +22,15 @@ type MetalSize = (typeof METAL_SIZE_OPTIONS)[number]['value'];
 
 export const UZBEK_PHONE_PREFIX = '+998';
 
+// Matches maxNumberOfValues on orderItem.photos.
+export const MAX_PHOTOS_PER_OPENING = 5;
+
+export type OpeningPhoto = {
+  key: string;
+  file: File;
+  thumbnailUrl: string | null;
+};
+
 // Inputs keep raw strings so a half-typed value ("1,") survives re-render.
 export type OpeningDraft = {
   key: string;
@@ -33,6 +42,7 @@ export type OpeningDraft = {
   projectionCm: string;
   quantity: string;
   notes: string;
+  photos: OpeningPhoto[];
 };
 
 export type MeasurementDraft = {
@@ -87,7 +97,33 @@ export const createEmptyOpening = (key: string): OpeningDraft => ({
   projectionCm: '0',
   quantity: '1',
   notes: '',
+  photos: [],
 });
+
+export const takePhotosWithinLimit = <TPhoto>(
+  current: TPhoto[],
+  picked: TPhoto[],
+): { photos: TPhoto[]; skippedCount: number } => {
+  const room = Math.max(0, MAX_PHOTOS_PER_OPENING - current.length);
+
+  return {
+    photos: [...current, ...picked.slice(0, room)],
+    skippedCount: Math.max(0, picked.length - room),
+  };
+};
+
+export const buildOpeningPhotoLabel = (
+  openingNumber: number,
+  photoNumber: number,
+  fileName: string,
+): string => {
+  const extension = /\.[a-z0-9]+$/i.exec(fileName)?.[0].toLowerCase() ?? '';
+
+  return `Проём ${openingNumber}, фото ${photoNumber}${extension}`;
+};
+
+export const describePhotoUploadFailure = (openingNumbers: number[]) =>
+  `Заказ сохранён, но не все фото загрузились: ${openingNumbers.length === 1 ? 'проём' : 'проёмы'} № ${openingNumbers.join(', ')}. Добавьте их кнопкой «Добавить фото».`;
 
 // Runs on blur, never per keystroke: the sandboxed input echoes values back
 // asynchronously, so rewriting it while the measurer types moves the caret.
