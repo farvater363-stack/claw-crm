@@ -50,6 +50,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+      # A first start creates the database and runs every upgrade, which takes minutes.
+      start_period: 10m
     restart: always
 
   worker:
