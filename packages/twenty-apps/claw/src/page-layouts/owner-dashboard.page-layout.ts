@@ -1,13 +1,17 @@
 import {
   AggregateOperations,
   definePageLayout,
+  ObjectRecordGroupByDateGranularity,
   PageLayoutTabLayoutMode,
   type PageLayoutWidgetGridPosition,
 } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
 import {
+  CANCELLED_IN_LAST_TWELVE_MONTHS,
   CHART_DEFAULTS,
+  DECIDED_ORDERS,
+  READY_IN_LAST_TWELVE_MONTHS,
   READY_THIS_MONTH,
 } from 'src/page-layouts/owner-dashboard-filters';
 
@@ -23,6 +27,13 @@ const grid = (
   rowSpan,
   columnSpan,
 });
+
+const BAR_DEFAULTS = {
+  ...CHART_DEFAULTS,
+  layout: 'VERTICAL',
+  axisNameDisplay: 'NONE',
+  color: 'auto',
+} as const;
 
 export default definePageLayout({
   universalIdentifier: IDS.ownerDashboard.pageLayout,
@@ -109,6 +120,152 @@ export default definePageLayout({
             aggregateOperation: AggregateOperations.AVG,
             numberFormat: 'FULL',
             filter: READY_THIS_MONTH,
+            ...CHART_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.revenueByMonthWidget,
+          title: 'Выручка по месяцам',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(2, 0, 6, 6),
+          configuration: {
+            configurationType: 'BAR_CHART',
+            aggregateFieldMetadataUniversalIdentifier: IDS.order.total,
+            aggregateOperation: AggregateOperations.SUM,
+            primaryAxisGroupByFieldMetadataUniversalIdentifier:
+              IDS.order.readyAt,
+            primaryAxisDateGranularity:
+              ObjectRecordGroupByDateGranularity.MONTH,
+            primaryAxisOrderBy: 'FIELD_ASC',
+            filter: READY_IN_LAST_TWELVE_MONTHS,
+            ...BAR_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.marginByMonthWidget,
+          title: 'Маржа по месяцам',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(2, 6, 6, 6),
+          configuration: {
+            configurationType: 'BAR_CHART',
+            aggregateFieldMetadataUniversalIdentifier: IDS.order.margin,
+            aggregateOperation: AggregateOperations.SUM,
+            primaryAxisGroupByFieldMetadataUniversalIdentifier:
+              IDS.order.readyAt,
+            primaryAxisDateGranularity:
+              ObjectRecordGroupByDateGranularity.MONTH,
+            primaryAxisOrderBy: 'FIELD_ASC',
+            filter: READY_IN_LAST_TWELVE_MONTHS,
+            ...BAR_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.areaByMonthWidget,
+          title: 'м² по месяцам',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(8, 0, 6, 6),
+          configuration: {
+            configurationType: 'BAR_CHART',
+            aggregateFieldMetadataUniversalIdentifier:
+              IDS.order.areaSquareMeters,
+            aggregateOperation: AggregateOperations.SUM,
+            primaryAxisGroupByFieldMetadataUniversalIdentifier:
+              IDS.order.readyAt,
+            primaryAxisDateGranularity:
+              ObjectRecordGroupByDateGranularity.MONTH,
+            primaryAxisOrderBy: 'FIELD_ASC',
+            filter: READY_IN_LAST_TWELVE_MONTHS,
+            ...BAR_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.revenueBySourceWidget,
+          title: 'Выручка по источникам',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(8, 6, 6, 6),
+          configuration: {
+            configurationType: 'BAR_CHART',
+            aggregateFieldMetadataUniversalIdentifier: IDS.order.total,
+            aggregateOperation: AggregateOperations.SUM,
+            primaryAxisGroupByFieldMetadataUniversalIdentifier:
+              IDS.order.source,
+            primaryAxisOrderBy: 'VALUE_DESC',
+            omitNullValues: true,
+            filter: READY_IN_LAST_TWELVE_MONTHS,
+            ...BAR_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.conversionBySourceWidget,
+          title: 'Конверсия по источникам',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(14, 0, 6, 6),
+          configuration: {
+            configurationType: 'BAR_CHART',
+            aggregateFieldMetadataUniversalIdentifier: IDS.order.readyAt,
+            aggregateOperation: AggregateOperations.PERCENTAGE_NOT_EMPTY,
+            primaryAxisGroupByFieldMetadataUniversalIdentifier:
+              IDS.order.source,
+            primaryAxisOrderBy: 'VALUE_DESC',
+            omitNullValues: true,
+            filter: DECIDED_ORDERS,
+            ...BAR_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.conversionByMeasurerWidget,
+          title: 'Конверсия по замерщикам',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(14, 6, 6, 6),
+          configuration: {
+            configurationType: 'BAR_CHART',
+            aggregateFieldMetadataUniversalIdentifier: IDS.order.readyAt,
+            aggregateOperation: AggregateOperations.PERCENTAGE_NOT_EMPTY,
+            primaryAxisGroupByFieldMetadataUniversalIdentifier:
+              IDS.order.measurer,
+            primaryAxisOrderBy: 'VALUE_DESC',
+            omitNullValues: true,
+            filter: DECIDED_ORDERS,
+            ...BAR_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.revenueByDistrictWidget,
+          title: 'Выручка по районам',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(20, 0, 6, 6),
+          configuration: {
+            configurationType: 'BAR_CHART',
+            aggregateFieldMetadataUniversalIdentifier: IDS.order.total,
+            aggregateOperation: AggregateOperations.SUM,
+            primaryAxisGroupByFieldMetadataUniversalIdentifier:
+              IDS.order.district,
+            primaryAxisOrderBy: 'VALUE_DESC',
+            omitNullValues: true,
+            filter: READY_IN_LAST_TWELVE_MONTHS,
+            ...BAR_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.cancellationsByReasonWidget,
+          title: 'Отмены по причинам',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(20, 6, 6, 6),
+          configuration: {
+            configurationType: 'PIE_CHART',
+            aggregateFieldMetadataUniversalIdentifier: IDS.order.name,
+            aggregateOperation: AggregateOperations.COUNT,
+            groupByFieldMetadataUniversalIdentifier: IDS.order.cancelReason,
+            displayLegend: true,
+            filter: CANCELLED_IN_LAST_TWELVE_MONTHS,
             ...CHART_DEFAULTS,
           },
         },
