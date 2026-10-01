@@ -127,6 +127,7 @@ export const IDS = {
     orderItemsTable: '4d5ec168-0807-4260-95c2-5180fdc79159',
     orderExtraServicesTable: '90c9a437-18e4-4d2f-ae50-482889c7dc8b',
     orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d',
+    allOrders: '8e7883c5-d382-4a79-9acb-2ef4974ceb48',
   },
   navigation: {
     orders: '0625f589-566d-41cd-8637-04a507db25d8',
@@ -139,6 +140,7 @@ export const IDS = {
     extraServices: '7084db31-ff82-4fae-831a-180eafb45cee',
     masters: 'f1ae7b6b-2645-48bd-b2cd-8118e871672e',
     newMeasurement: 'd9580fb9-a409-4e83-92a5-42f87706486e',
+    allOrders: 'ae5debb5-3b25-4a50-bb34-99a2c561ef57',
   },
   measurerForm: {
     frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',

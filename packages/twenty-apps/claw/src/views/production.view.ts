@@ -25,8 +25,12 @@ export default defineView({
       IDS.order.master,
       IDS.order.installationDeadline,
       IDS.order.finishedPhotos,
+      IDS.order.deadlineState,
     ],
-    VIEW_PART_IDS.productionFields,
+    [
+      ...VIEW_PART_IDS.productionFields,
+      VIEW_PART_IDS.productionDeadlineStateField,
+    ],
   ),
   filters: [
     {
