@@ -7,6 +7,7 @@ import {
   computeOpeningAreaSquareMeters,
   computeOpeningQuote,
   computeOpeningsTotalAreaSquareMeters,
+  computeVisorTotal,
   createEmptyOpening,
   describePhotoUploadFailure,
   formatUzbekNationalPhone,
@@ -37,6 +38,8 @@ const draft = (overrides: Partial<MeasurementDraft>): MeasurementDraft => ({
       quantity: '2',
     }),
   ],
+  visorServiceId: '',
+  visorLengthMeters: '',
   ...overrides,
 });
 
@@ -134,6 +137,7 @@ describe('buildMeasurementPayload', () => {
           notes: 'угловое',
         },
       ],
+      visor: null,
     });
   });
 
@@ -169,7 +173,7 @@ describe('buildMeasurementPayload', () => {
   it('requires at least one opening and a whole quantity', () => {
     expect(
       buildMeasurementPayload(draft({ openings: [] }), 'member-1'),
-    ).toEqual({ isValid: false, errors: ['Добавьте хотя бы один проём'] });
+    ).toEqual({ isValid: false, errors: ['Добавьте проём или козырёк'] });
 
     expect(
       buildMeasurementPayload(
@@ -308,5 +312,64 @@ describe('buildOpeningPhotoLabel', () => {
       'Проём 2, фото 3.jpg',
     );
     expect(buildOpeningPhotoLabel(1, 1, 'scan')).toBe('Проём 1, фото 1');
+  });
+});
+
+describe('visor', () => {
+  it('adds the visor as an extra service line, length in metres', () => {
+    const result = buildMeasurementPayload(
+      draft({ visorServiceId: 'visor-1', visorLengthMeters: '2,5' }),
+      'member-1',
+    );
+
+    expect(result.isValid && result.visor).toEqual({
+      extraServiceId: 'visor-1',
+      quantity: 2.5,
+    });
+  });
+
+  it('allows a visor-only order', () => {
+    const result = buildMeasurementPayload(
+      draft({
+        openings: [],
+        visorServiceId: 'visor-1',
+        visorLengthMeters: '3',
+      }),
+      'member-1',
+    );
+
+    expect(result.isValid && result.items).toEqual([]);
+  });
+
+  it('requires a positive length once a visor is chosen', () => {
+    expect(
+      buildMeasurementPayload(
+        draft({ visorServiceId: 'visor-1', visorLengthMeters: '' }),
+        'member-1',
+      ),
+    ).toEqual({
+      isValid: false,
+      errors: ['Козырёк: укажите длину в метрах больше 0'],
+    });
+  });
+
+  it('prices the visor per running metre', () => {
+    const options = [
+      { id: 'visor-1', name: 'Козырёк пластик 50', price: 180_000 },
+      { id: 'visor-2', name: 'Козырёк туника 50', price: null },
+    ];
+
+    expect(
+      computeVisorTotal(
+        { visorServiceId: 'visor-1', visorLengthMeters: '2,5' },
+        options,
+      ),
+    ).toBe(450_000);
+    expect(
+      computeVisorTotal(
+        { visorServiceId: 'visor-2', visorLengthMeters: '2' },
+        options,
+      ),
+    ).toBeNull();
   });
 });
