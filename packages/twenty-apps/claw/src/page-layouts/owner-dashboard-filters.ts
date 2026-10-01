@@ -28,7 +28,7 @@ export const CHART_DEFAULTS = {
   displayDataLabel: true,
 } as const;
 
-const relative = (period: string) => `${period};;${TIME_ZONE};;`;
+export const relative = (period: string) => `${period};;${TIME_ZONE};;`;
 
 const NOT_CANCELLED: ChartRecordFilter = {
   fieldMetadataUniversalIdentifier: IDS.order.status,

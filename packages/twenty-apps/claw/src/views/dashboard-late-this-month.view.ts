@@ -7,6 +7,7 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { VIEW_PART_IDS } from 'src/constants/view-part-identifiers';
+import { relative } from 'src/page-layouts/owner-dashboard-filters';
 import { toKeyedViewFields } from 'src/utils/to-view-fields';
 
 const ids = VIEW_PART_IDS.ownerDashboard;
@@ -41,12 +42,13 @@ export default defineView({
       universalIdentifier: ids.lateFilterReadyAt,
       fieldMetadataUniversalIdentifier: IDS.order.readyAt,
       operand: ViewFilterOperand.IS_RELATIVE,
-      value: 'THIS_1_MONTH;;Asia/Tashkent;;',
+      value: relative('THIS_1_MONTH'),
     },
     {
       universalIdentifier: ids.lateFilterDaysLate,
       fieldMetadataUniversalIdentifier: IDS.order.daysLate,
       operand: ViewFilterOperand.GREATER_THAN_OR_EQUAL,
+      // Whole days: «at least 1» is «more than 0».
       value: '1',
     },
     {
