@@ -1,6 +1,7 @@
 import { CustomResolverFetchMoreLoader } from '@/activities/components/CustomResolverFetchMoreLoader';
 import { SkeletonLoader } from '@/activities/components/SkeletonLoader';
 import { NoteList } from '@/activities/notes/components/NoteList';
+import { NoteQuickAddForm } from '@/activities/notes/components/NoteQuickAddForm';
 import { type Note } from '@/activities/types/Note';
 import { AnimatedPlaceholder } from '@/ui/feedback/empty-state/components/AnimatedPlaceholder/AnimatedPlaceholder';
 import { EmptyState } from '@/ui/feedback/empty-state/components/EmptyState';
@@ -23,6 +24,7 @@ type NotesCardContentProps = {
   loading: boolean;
   notes: Note[];
   onCreateNote: (() => void) | undefined;
+  onAddNote: ((title: string) => Promise<void>) | undefined;
   onLastRowVisible: () => Promise<void>;
 };
 
@@ -30,6 +32,7 @@ export const NotesCardContent = ({
   loading,
   notes,
   onCreateNote,
+  onAddNote,
   onLastRowVisible,
 }: NotesCardContentProps) => {
   const isNotesEmpty = notes.length === 0;
@@ -61,6 +64,7 @@ export const NotesCardContent = ({
 
   return (
     <StyledNotesContainer>
+      {isDefined(onAddNote) && <NoteQuickAddForm onAddNote={onAddNote} />}
       <NoteList notes={notes} />
       <CustomResolverFetchMoreLoader
         loading={loading}

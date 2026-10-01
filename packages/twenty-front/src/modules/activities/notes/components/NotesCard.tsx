@@ -16,7 +16,7 @@ export const NotesCard = () => {
     }
   };
 
-  const { canCreateActivity, createActivity } =
+  const { canCreateActivity, createActivity, createActivityWithTitle } =
     useCreateActivityForTargetRecord({
       targetRecord,
       activityObjectNameSingular: CoreObjectNameSingular.Note,
@@ -29,6 +29,7 @@ export const NotesCard = () => {
         loading={loading}
         notes={notes}
         onCreateNote={canCreateActivity ? createActivity : undefined}
+        onAddNote={canCreateActivity ? createActivityWithTitle : undefined}
         onLastRowVisible={handleLastRowVisible}
       />
     </>

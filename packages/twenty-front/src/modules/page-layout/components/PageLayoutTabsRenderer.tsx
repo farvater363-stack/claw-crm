@@ -224,6 +224,7 @@ export const PageLayoutTabsRenderer = () => {
       addTabStrategy={addTabStrategy}
       isReorderEnabled={canEnableTabEditing}
       pageLayoutType={currentPageLayout.type}
+      targetRecordIdentifier={targetRecordIdentifier}
     />
   );
 

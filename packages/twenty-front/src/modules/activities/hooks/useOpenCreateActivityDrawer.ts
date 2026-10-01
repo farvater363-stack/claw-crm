@@ -52,11 +52,16 @@ export const useOpenCreateActivityDrawer = ({
   const openCreateActivityDrawer = async ({
     targetableObjects,
     customAssignee,
+    title,
+    shouldOpenInSidePanel = true,
   }: {
     targetableObjects: ActivityTargetableObject[];
     customAssignee?: WorkspaceMember;
+    title?: string;
+    shouldOpenInSidePanel?: boolean;
   }) => {
     const activity = await createOneActivity({
+      ...(isDefined(title) ? { title } : {}),
       ...(activityObjectNameSingular === CoreObjectNameSingular.Task
         ? {
             assigneeId: customAssignee?.id,
@@ -103,11 +108,13 @@ export const useOpenCreateActivityDrawer = ({
       supportedTargets.map(({ targetableObject }) => targetableObject),
     );
 
-    openRecordInSidePanel({
-      recordId: activity.id,
-      objectNameSingular: activityObjectNameSingular,
-      isNewRecord: true,
-    });
+    if (shouldOpenInSidePanel) {
+      openRecordInSidePanel({
+        recordId: activity.id,
+        objectNameSingular: activityObjectNameSingular,
+        isNewRecord: true,
+      });
+    }
 
     setIsUpsertingActivityInDB(false);
   };

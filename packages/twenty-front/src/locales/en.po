@@ -25123,6 +25123,16 @@ msgstr "Write a description"
 msgid "Write a description for this agent"
 msgstr "Write a description for this agent"
 
+#. js-lingui-id: 6HR4XM
+#: src/modules/activities/notes/components/NoteQuickAddForm.tsx
+msgid "Write a note"
+msgstr "Write a note"
+
+#. js-lingui-id: xZmwEU
+#: src/modules/activities/notes/components/NoteQuickAddForm.tsx
+msgid "Write a note…"
+msgstr "Write a note…"
+
 #. js-lingui-id: zeCIJi
 #: src/modules/settings/logic-functions/components/tabs/SettingsLogicFunctionCodeEditorTab.tsx
 msgid "Write your function (in typescript) below"
