@@ -79,6 +79,8 @@ export const IDS = {
     readyAt: 'd94dd2d9-c383-44d7-8e57-6c354cec9735',
     masterPenalty: '35d2b49a-ce2c-40e5-9223-2062c5068e80',
     cancelReason: '874cc84a-6a9a-43ba-9379-2d081bb0e54c',
+    // Twenty's deterministic id for the built-in createdAt of this app's order object.
+    createdAt: '187b9cd2-2f7c-55cc-ba12-5a1cbeec7bbf',
   },
   orderItem: {
     object: 'c54a858f-68e0-4901-b5ca-78baedeceb83',
@@ -141,6 +143,9 @@ export const IDS = {
     orderExtraServicesTable: '90c9a437-18e4-4d2f-ae50-482889c7dc8b',
     orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d',
     allOrders: '8e7883c5-d382-4a79-9acb-2ef4974ceb48',
+    dashboardOverdue: '174f3195-48cc-45cb-9fb3-3a0c9d8ee9a1',
+    dashboardOwesUs: '9d20587f-8238-40fa-a04d-7fa4e28e5858',
+    dashboardLateThisMonth: 'f1e21b5b-c6ad-46a1-a84b-27efeae70485',
   },
   navigation: {
     orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: the sidebar uses allOrders; ids are never reused.
@@ -167,6 +172,21 @@ export const IDS = {
     pageLayout: '260281fc-4390-42d0-90f7-91afdeacd969',
     pageLayoutTab: 'a6c9f937-a218-47db-8286-ee395627fcb8',
     revenueThisMonthWidget: 'fcba88b3-7a38-4230-b248-89a3dcedc3d4',
+    marginThisMonthWidget: 'e6c04afb-f3cd-46a7-9ed5-a44cada06a9d',
+    areaThisMonthWidget: '94aac39d-1aab-4df4-bd43-4ac2e728453e',
+    readyCountThisMonthWidget: '7dfeea7b-0288-4f12-b5cf-c67a4ff3cb85',
+    averageOrderThisMonthWidget: '85421a06-249f-4190-a406-7595c8db798e',
+    revenueByMonthWidget: '1f9a9197-5e66-4883-8fe6-2a267bc97856',
+    marginByMonthWidget: 'd3d286a9-67c4-45e8-9952-5ccff1e1bcf7',
+    areaByMonthWidget: '04277db7-ea1e-40ac-a127-d2bfb69b2c73',
+    revenueBySourceWidget: 'fd279ba9-e3a7-4f98-8bc0-2ce8849ba4e5',
+    conversionBySourceWidget: '7e348d2a-ff8e-457d-8c23-b9f9c7bc2780',
+    conversionByMeasurerWidget: '9c8da5f3-0f2a-482b-8158-3db44aae3086',
+    revenueByDistrictWidget: '7e65269f-9395-4af9-a942-c8546c016c83',
+    cancellationsByReasonWidget: 'c3db056b-4ba5-404c-94f3-efda6c8516ea',
+    overdueTableWidget: '284f3def-3ffe-44a9-a448-f6dda376928d',
+    owesUsTableWidget: '6192770d-28fe-4660-93f4-03b9ae9fe5c7',
+    lateThisMonthTableWidget: 'a312ac6a-2983-4b55-922f-cb29ea7c024c',
   },
   measurerForm: {
     frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',
