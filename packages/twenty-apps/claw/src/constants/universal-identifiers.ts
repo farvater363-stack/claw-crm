@@ -163,6 +163,11 @@ export const IDS = {
     pageLayoutTab: '0f94716c-f3f2-4017-a287-dcd9f4716281',
     pageLayoutWidget: '1bf95483-bd85-4cd8-82cf-58994d0539bd',
   },
+  ownerDashboard: {
+    pageLayout: '260281fc-4390-42d0-90f7-91afdeacd969',
+    pageLayoutTab: 'a6c9f937-a218-47db-8286-ee395627fcb8',
+    revenueThisMonthWidget: 'fcba88b3-7a38-4230-b248-89a3dcedc3d4',
+  },
   measurerForm: {
     frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',
     pageLayout: '43c41f16-a21c-4a2f-ab5b-c5fcf85cfe5e',
