@@ -1,6 +1,11 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
 const ORDER_NUMBER_DIGITS = 4;
+// Imported Excel orders keep their own numbers (1-28); new orders start here.
+const FIRST_ORDER_NUMBER = 1001;
+
+export const nextOrderNumber = (lastNumber: number | null): number =>
+  Math.max((lastNumber ?? 0) + 1, FIRST_ORDER_NUMBER);
 
 export const formatOrderName = (number: number): string =>
   `№${String(number).padStart(ORDER_NUMBER_DIGITS, '0')}`;
@@ -33,7 +38,10 @@ export const assignOrderNumber = async (
     },
   });
 
-  const number = Number(orders?.edges[0]?.node?.number ?? 0) + 1;
+  const lastNumber = orders?.edges[0]?.node?.number;
+  const number = nextOrderNumber(
+    lastNumber === null || lastNumber === undefined ? null : Number(lastNumber),
+  );
 
   return { number, name: formatOrderName(number) };
 };
