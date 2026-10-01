@@ -25,7 +25,12 @@ const handler = async (): Promise<void> => {
   });
 
   for (const { node } of orders?.edges ?? []) {
-    await recalcOrder(client, node.id);
+    // One broken order must not leave the rest of the board with yesterday's states.
+    try {
+      await recalcOrder(client, node.id);
+    } catch (error) {
+      console.error(`refresh-deadline-states: order ${node.id} failed`, error);
+    }
   }
 };
 
