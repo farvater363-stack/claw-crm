@@ -6,6 +6,7 @@ import { AggregateOperations } from '@/object-record/record-table/constants/Aggr
 import { getRecordAggregateDisplayLabel } from '@/object-record/record-index/utils/getRecordndexAggregateDisplayLabel';
 
 import { convertAggregateOperationToExtendedAggregateOperation } from '@/object-record/utils/convertAggregateOperationToExtendedAggregateOperation';
+import { CHART_NUMBER_FORMAT_DEFAULT } from '@/page-layout/widgets/graph/constants/ChartNumberFormatDefault';
 import { buildRatioNumeratorFilter } from '@/page-layout/widgets/graph/graph-widget-aggregate-chart/utils/buildRatioNumeratorFilter';
 import { computeRatioDisplayValue } from '@/page-layout/widgets/graph/graph-widget-aggregate-chart/utils/computeRatioDisplayValue';
 import { useGraphWidgetQueryCommon } from '@/page-layout/widgets/graph/hooks/useGraphWidgetQueryCommon';
@@ -165,7 +166,8 @@ export const useGraphWidgetAggregateQuery = ({
       timeFormat,
       timeZone,
       numberFormat,
-      chartNumberFormat: configuration.numberFormat ?? undefined,
+      chartNumberFormat:
+        configuration.numberFormat ?? CHART_NUMBER_FORMAT_DEFAULT,
     });
 
   return {
