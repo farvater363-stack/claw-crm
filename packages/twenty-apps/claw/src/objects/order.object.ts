@@ -182,14 +182,6 @@ export default defineObject({
     money(IDS.order.masterBonus, 'masterBonus', 'Премия'),
     money(IDS.order.masterPayTotal, 'masterPayTotal', 'ЗП итого'),
     {
-      universalIdentifier: IDS.order.masterPayPaid,
-      type: FieldType.BOOLEAN,
-      name: 'masterPayPaid',
-      label: 'ЗП выплачена',
-      icon: 'IconCash',
-      defaultValue: false,
-    },
-    {
       universalIdentifier: IDS.order.number,
       type: FieldType.NUMBER,
       name: 'number',

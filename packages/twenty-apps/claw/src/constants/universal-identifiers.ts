@@ -65,7 +65,7 @@ export const IDS = {
     masterPayCalculated: 'c005661c-4776-45d6-b1df-059ad1e16361',
     masterBonus: '5685ad74-ade0-43ae-a01a-dd52f1e381e3',
     masterPayTotal: '52abc943-23aa-4124-a082-d9a7f75f3926',
-    masterPayPaid: '70bd7edf-4777-424b-bf2b-e8a36b62836e',
+    masterPayPaid: '70bd7edf-4777-424b-bf2b-e8a36b62836e', // Retired: replaced by masterPayment; ids are never reused.
     finishedPhotos: '6b04cb33-43a9-469d-9a6a-ea292aa5fe71',
     comment: 'ed094a90-c3ca-47c2-ab65-33e0732a91af',
     client: 'e392b98e-243e-4aa2-b6a8-ba55e7f39260',
@@ -126,7 +126,7 @@ export const IDS = {
     ordersKanban: 'dfcc304e-6ee3-49be-820a-abc525d06583',
     myMeasurements: '73cb55eb-1511-4fc2-bbb2-f14457334c48',
     production: '2c99e8c5-38ee-4475-86bf-01b011ab8559',
-    masterPay: 'b4cc6845-8918-4861-af82-179ea79985ea',
+    masterPay: 'b4cc6845-8918-4861-af82-179ea79985ea', // Retired: replaced by masterPayment; ids are never reused.
     orderItemsTable: '4d5ec168-0807-4260-95c2-5180fdc79159',
     orderExtraServicesTable: '90c9a437-18e4-4d2f-ae50-482889c7dc8b',
     orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d',
