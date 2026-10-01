@@ -4,6 +4,8 @@ import {
 } from 'src/constants/select-options';
 import { toCurrency } from 'src/recalc/money';
 
+const MAX_AMOUNT = 1_000_000_000;
+
 export const buildPaymentInput = ({
   kind,
   masterId,
@@ -23,10 +25,11 @@ export const buildPaymentInput = ({
   const digits = amount.replace(/\s/g, '');
   const parsed = /^\d+$/.test(digits) ? Number(digits) : 0;
 
-  if (parsed <= 0) {
+  if (parsed <= 0 || parsed > MAX_AMOUNT) {
     return {
       isValid: false as const,
-      error: 'Сумма должна быть целым числом больше 0',
+      error:
+        'Сумма должна быть целым числом больше 0 и не больше 1 000 000 000',
     };
   }
 

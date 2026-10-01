@@ -35,6 +35,7 @@ type LoadState =
       masters: { id: string; name: string }[];
       orders: PayrollOrder[];
       payments: PayrollPayment[];
+      skippedPaymentCount: number;
     };
 
 type PaymentForm = {
@@ -45,7 +46,8 @@ type PaymentForm = {
   comment: string;
 };
 
-const PAGE_SIZE = 1000;
+// Twenty caps a page at 200 records.
+const PAGE_SIZE = 200;
 
 const PALETTE = {
   light: {
@@ -95,56 +97,137 @@ const describeError = (error: unknown) =>
 const isAccessError = (error: unknown) =>
   /permission|Cannot query field/i.test(describeError(error));
 
+type PageFetcher<TNode> = (after: string | undefined) => Promise<
+  | {
+      edges?: { node: TNode }[];
+      pageInfo?: { hasNextPage?: boolean; endCursor?: string | null };
+    }
+  | undefined
+>;
+
+const fetchAllPages = async <TNode,>(
+  fetchPage: PageFetcher<TNode>,
+): Promise<TNode[]> => {
+  const nodes: TNode[] = [];
+  let after: string | undefined;
+
+  for (;;) {
+    const page = await fetchPage(after);
+
+    nodes.push(...(page?.edges ?? []).map(({ node }) => node));
+
+    const endCursor = page?.pageInfo?.endCursor;
+
+    if (!page?.pageInfo?.hasNextPage || !endCursor) return nodes;
+
+    after = endCursor;
+  }
+};
+
+const PAGE_INFO = { hasNextPage: true, endCursor: true } as const;
+
+// Throws on any failure except an access error on payments, which is the owner check.
 const loadPayrollData = async (): Promise<
-  Extract<LoadState, { status: 'ready' }>
+  Extract<LoadState, { status: 'ready' | 'forbidden' }>
 > => {
   const client = new CoreApiClient();
-  const { masterPayments } = await client.query({
-    masterPayments: {
-      __args: { first: PAGE_SIZE },
-      edges: {
-        node: {
-          id: true,
-          masterId: true,
-          paidOn: true,
-          amount: { amountMicros: true, currencyCode: true },
-          kind: true,
-          comment: true,
+  let paymentNodes;
+
+  try {
+    paymentNodes = await fetchAllPages(async (after) => {
+      const { masterPayments } = await client.query({
+        masterPayments: {
+          __args: { first: PAGE_SIZE, after },
+          edges: {
+            node: {
+              id: true,
+              masterId: true,
+              paidOn: true,
+              amount: { amountMicros: true, currencyCode: true },
+              kind: true,
+              comment: true,
+            },
+          },
+          pageInfo: PAGE_INFO,
         },
+      });
+
+      return masterPayments;
+    });
+  } catch (error) {
+    if (isAccessError(error)) return { status: 'forbidden' };
+
+    throw error;
+  }
+
+  const masterNodes = await fetchAllPages(async (after) => {
+    const { masters } = await client.query({
+      masters: {
+        __args: { first: PAGE_SIZE, after },
+        edges: { node: { id: true, name: true } },
+        pageInfo: PAGE_INFO,
       },
-    },
+    });
+
+    return masters;
   });
-  const { masters, orders } = await client.query({
-    masters: {
-      __args: { first: 200 },
-      edges: { node: { id: true, name: true } },
-    },
-    orders: {
-      __args: { filter: { readyAt: { is: 'NOT_NULL' } }, first: PAGE_SIZE },
-      edges: {
-        node: {
-          id: true,
-          name: true,
-          masterId: true,
-          readyAt: true,
-          status: true,
-          areaSquareMeters: true,
-          masterPayCalculated: { amountMicros: true },
-          masterPenalty: { amountMicros: true },
-          masterBonus: { amountMicros: true },
-          masterPayTotal: { amountMicros: true },
+  const orderNodes = await fetchAllPages(async (after) => {
+    const { orders } = await client.query({
+      orders: {
+        __args: {
+          filter: { readyAt: { is: 'NOT_NULL' } },
+          first: PAGE_SIZE,
+          after,
         },
+        edges: {
+          node: {
+            id: true,
+            name: true,
+            masterId: true,
+            readyAt: true,
+            status: true,
+            areaSquareMeters: true,
+            masterPayCalculated: { amountMicros: true },
+            masterPenalty: { amountMicros: true },
+            masterBonus: { amountMicros: true },
+            masterPayTotal: { amountMicros: true },
+          },
+        },
+        pageInfo: PAGE_INFO,
       },
-    },
+    });
+
+    return orders;
   });
+
+  const payments: PayrollPayment[] = [];
+  let skippedPaymentCount = 0;
+
+  for (const node of paymentNodes) {
+    const amount = fromCurrency(node.amount);
+
+    if (!node.masterId || !node.paidOn || amount === null) {
+      skippedPaymentCount += 1;
+      continue;
+    }
+
+    payments.push({
+      id: node.id,
+      masterId: node.masterId,
+      paidOn: String(node.paidOn).slice(0, 10),
+      amount,
+      kind: node.kind ? String(node.kind) : null,
+      comment: node.comment ?? null,
+    });
+  }
 
   return {
     status: 'ready',
-    masters: (masters?.edges ?? []).map(({ node }) => ({
+    masters: masterNodes.map((node) => ({
       id: node.id,
       name: node.name ?? '',
     })),
-    orders: (orders?.edges ?? []).flatMap(({ node }) =>
+    orders: orderNodes.flatMap((node) =>
       node.masterId && node.readyAt
         ? [
             {
@@ -166,20 +249,8 @@ const loadPayrollData = async (): Promise<
           ]
         : [],
     ),
-    payments: (masterPayments?.edges ?? []).flatMap(({ node }) =>
-      node.masterId && node.paidOn
-        ? [
-            {
-              id: node.id,
-              masterId: node.masterId,
-              paidOn: String(node.paidOn).slice(0, 10),
-              amount: fromCurrency(node.amount) ?? 0,
-              kind: node.kind ? String(node.kind) : null,
-              comment: node.comment ?? null,
-            },
-          ]
-        : [],
-    ),
+    payments,
+    skippedPaymentCount,
   };
 };
 
@@ -192,23 +263,21 @@ const Payroll = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const reload = async () => {
-    try {
-      setLoad(await loadPayrollData());
-    } catch (error) {
-      setLoad(
-        isAccessError(error)
-          ? { status: 'forbidden' }
-          : {
-              status: 'error',
-              message: `Не удалось загрузить данные: ${describeError(error)}`,
-            },
-      );
-    }
-  };
+  const [reloadError, setReloadError] = useState<string | null>(null);
 
   useEffect(() => {
-    void reload();
+    const loadInitially = async () => {
+      try {
+        setLoad(await loadPayrollData());
+      } catch (error) {
+        setLoad({
+          status: 'error',
+          message: `Не удалось загрузить данные: ${describeError(error)}`,
+        });
+      }
+    };
+
+    void loadInitially();
   }, []);
 
   const cell: CSSProperties = {
@@ -274,15 +343,28 @@ const Payroll = () => {
 
     setIsSaving(true);
     setFormError(null);
+    setReloadError(null);
 
     try {
       await new CoreApiClient().mutation({
         createMasterPayment: { __args: { data: result.data }, id: true },
       });
-      await reload();
-      setForm(null);
     } catch (error) {
       setFormError(`Не удалось сохранить: ${describeError(error)}`);
+      setIsSaving(false);
+
+      return;
+    }
+
+    setForm(null);
+
+    // The payment is saved; a failed refresh keeps the old table instead of an error page.
+    try {
+      setLoad(await loadPayrollData());
+    } catch (error) {
+      setReloadError(
+        `Выплата сохранена, но данные не обновились: ${describeError(error)}`,
+      );
     } finally {
       setIsSaving(false);
     }
@@ -337,6 +419,9 @@ const Payroll = () => {
           ›
         </button>
       </div>
+      {reloadError !== null && (
+        <p style={{ color: colors.danger }}>{reloadError}</p>
+      )}
       {rows.length === 0 ? (
         <p style={{ color: colors.muted }}>
           За этот месяц нет начислений и выплат
@@ -360,15 +445,23 @@ const Payroll = () => {
           <tbody>
             {rows.map((row) => (
               <Fragment key={row.masterId}>
-                <tr
-                  style={{ cursor: 'pointer' }}
-                  onClick={() =>
-                    setExpandedMasterId(
-                      expandedMasterId === row.masterId ? null : row.masterId,
-                    )
-                  }
-                >
-                  <td style={leftCell}>{row.masterName}</td>
+                <tr>
+                  <td style={leftCell}>
+                    <button
+                      type="button"
+                      style={{ ...linkButton, color: colors.text }}
+                      onClick={() =>
+                        setExpandedMasterId(
+                          expandedMasterId === row.masterId
+                            ? null
+                            : row.masterId,
+                        )
+                      }
+                    >
+                      {expandedMasterId === row.masterId ? '▾' : '▸'}{' '}
+                      {row.masterName}
+                    </button>
+                  </td>
                   <td style={cell}>{formatSquareMeters(row.squareMeters)}</td>
                   <td style={cell}>{formatMoney(row.basePay)}</td>
                   <td style={cell}>{formatMoney(row.penalty)}</td>
@@ -383,20 +476,18 @@ const Payroll = () => {
                     <button
                       type="button"
                       style={button}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openForm('ADVANCE', row.masterId, row.owed);
-                      }}
+                      onClick={() =>
+                        openForm('ADVANCE', row.masterId, row.owed)
+                      }
                     >
                       Выдать аванс
                     </button>{' '}
                     <button
                       type="button"
                       style={button}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openForm('SETTLEMENT', row.masterId, row.owed);
-                      }}
+                      onClick={() =>
+                        openForm('SETTLEMENT', row.masterId, row.owed)
+                      }
                     >
                       Рассчитать
                     </button>
@@ -419,7 +510,6 @@ const Payroll = () => {
                         <strong>{kindLabel(form.kind)}</strong>
                         <input
                           style={input}
-                          inputMode="numeric"
                           placeholder="Сумма"
                           value={form.amount}
                           onChange={(event) =>
@@ -579,6 +669,12 @@ const Payroll = () => {
             </tr>
           </tbody>
         </table>
+      )}
+      {load.skippedPaymentCount > 0 && (
+        <p style={{ color: colors.danger }}>
+          Не учтено выплат без даты, суммы или мастера:{' '}
+          {load.skippedPaymentCount} — исправьте в списке «Выплаты»
+        </p>
       )}
     </div>
   );
