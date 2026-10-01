@@ -6,7 +6,7 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
-import { todayInTashkent } from 'src/pricing/dates';
+import { readyAtOnStatusChange, todayInTashkent } from 'src/pricing/dates';
 import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { orderNameToRestore } from 'src/recalc/assign-order-number';
 import { recalcOrder } from 'src/recalc/recalc-order';
@@ -14,6 +14,7 @@ import { recalcOrder } from 'src/recalc/recalc-order';
 type UpdatedOrder = {
   status: string | null;
   installedAt: string | null;
+  readyAt: string | null;
   name: string | null;
   number: number | null;
   clientPhone: string | null;
@@ -23,7 +24,7 @@ const handler = async (
   payload: DatabaseEventPayload<ObjectRecordUpdateEvent<UpdatedOrder>>,
 ): Promise<void> => {
   const client = createRecalcClient();
-  const { after, updatedFields } = payload.properties;
+  const { before, after, updatedFields } = payload.properties;
 
   const restoredName = orderNameToRestore({
     name: after.name ?? null,
@@ -53,16 +54,34 @@ const handler = async (
     }
   }
 
-  if (
-    updatedFields.includes('status') &&
+  const statusChanged = updatedFields.includes('status');
+
+  const installedAt =
+    statusChanged &&
     after.status === 'INSTALLED' &&
     (after.installedAt ?? null) === null
-  ) {
+      ? todayInTashkent()
+      : null;
+
+  const readyAt = statusChanged
+    ? readyAtOnStatusChange({
+        status: after.status ?? null,
+        previousStatus: before.status ?? null,
+        readyAt: after.readyAt ?? null,
+        today: todayInTashkent(),
+      })
+    : null;
+
+  // One mutation, so INSTALLED does not fire the trigger twice.
+  if (installedAt !== null || readyAt !== null) {
     await client.mutation({
       updateOrder: {
         __args: {
           id: payload.recordId,
-          data: { installedAt: todayInTashkent() },
+          data: {
+            ...(installedAt !== null && { installedAt }),
+            ...(readyAt !== null && { readyAt }),
+          },
         },
         id: true,
       },
@@ -88,6 +107,7 @@ export default defineLogicFunction({
       'productionStartDate',
       'installationDeadline',
       'installedAt',
+      'readyAt',
       'masterId',
       'masterBonus',
       'areaSquareMeters',

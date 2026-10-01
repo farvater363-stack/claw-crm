@@ -11,6 +11,7 @@ const CURRENCY_FIELDS = new Set([
   'margin',
   'masterBonus',
   'masterPayCalculated',
+  'masterPenalty',
   'masterPayTotal',
   'pricePerSquareMeter',
   'costPerSquareMeter',

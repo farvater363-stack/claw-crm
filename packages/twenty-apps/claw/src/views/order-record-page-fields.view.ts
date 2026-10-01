@@ -64,7 +64,7 @@ export default defineView({
     },
   ],
   fields: toKeyedViewFields([
-    ...section(groups.order, ['name', 'status']),
+    ...section(groups.order, ['name', 'status', 'cancelReason']),
     ...section(groups.client, [
       'clientName',
       'clientPhone',
@@ -89,6 +89,7 @@ export default defineView({
       'productionStartDate',
       'installationDeadline',
       'deadlineState',
+      'readyAt',
       'installedAt',
       'finishedPhotos',
     ]),
@@ -96,9 +97,9 @@ export default defineView({
     ...section(groups.pay, [
       'daysLate',
       'masterPayCalculated',
+      'masterPenalty',
       'masterBonus',
       'masterPayTotal',
-      'masterPayPaid',
     ]),
     { field: order.number, viewField: fields.number, isVisible: false },
   ]),

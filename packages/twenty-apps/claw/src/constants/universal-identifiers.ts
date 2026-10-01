@@ -38,6 +38,7 @@ export const IDS = {
     ratePerSquareMeter: '5977ce99-14c6-4a4b-b83b-17eae59305ec',
     penaltyPercentPerDay: '81a8a168-a60e-45bf-87c6-144f10e019d2',
     orders: '94d21b66-42f7-4902-a25c-0db5fe109736',
+    payments: 'ccd6a0a5-f553-4a48-b221-306827316aac',
   },
   order: {
     object: '8ab9a340-059c-4dd3-a96f-a8a83a5f3c32',
@@ -65,7 +66,7 @@ export const IDS = {
     masterPayCalculated: 'c005661c-4776-45d6-b1df-059ad1e16361',
     masterBonus: '5685ad74-ade0-43ae-a01a-dd52f1e381e3',
     masterPayTotal: '52abc943-23aa-4124-a082-d9a7f75f3926',
-    masterPayPaid: '70bd7edf-4777-424b-bf2b-e8a36b62836e',
+    masterPayPaid: '70bd7edf-4777-424b-bf2b-e8a36b62836e', // Retired: replaced by masterPayment; ids are never reused.
     finishedPhotos: '6b04cb33-43a9-469d-9a6a-ea292aa5fe71',
     comment: 'ed094a90-c3ca-47c2-ab65-33e0732a91af',
     client: 'e392b98e-243e-4aa2-b6a8-ba55e7f39260',
@@ -75,6 +76,9 @@ export const IDS = {
     items: '347c8e36-7ae5-427c-b2ae-937f3fb6a4fa',
     extraServices: '9e8f6aa6-10cd-4bb6-97d2-1343318004e2',
     deadlineState: 'bd2ab2ec-985f-462d-a041-b302839bf836',
+    readyAt: 'd94dd2d9-c383-44d7-8e57-6c354cec9735',
+    masterPenalty: '35d2b49a-ce2c-40e5-9223-2062c5068e80',
+    cancelReason: '874cc84a-6a9a-43ba-9379-2d081bb0e54c',
   },
   orderItem: {
     object: 'c54a858f-68e0-4901-b5ca-78baedeceb83',
@@ -106,6 +110,15 @@ export const IDS = {
     order: '72ee4b00-c57e-4588-b61d-86a549a44022',
     extraService: '3f52757d-611f-418d-9288-c591742d4fae',
   },
+  masterPayment: {
+    object: '97af6485-78d1-4250-9b8f-7b7af9d9a6e4',
+    name: '36cd0e40-6266-43bc-8e71-bf6c320719e2',
+    master: 'e777e580-031d-4637-99e5-819bce778a6e',
+    paidOn: '615deeec-d503-4cd7-ace4-453a0a57dff9',
+    amount: '78959f73-5a65-4454-8a1e-f7d1f2fb6ca1',
+    kind: 'c85d5ab4-90cd-44e4-81c1-b5576611d568',
+    comment: '0402873b-1b1a-4189-8e3d-9e2e668388f5',
+  },
   person: {
     orders: '096afa4c-cf9a-49b7-a6b8-c84412d088a6',
   },
@@ -123,7 +136,7 @@ export const IDS = {
     ordersKanban: 'dfcc304e-6ee3-49be-820a-abc525d06583',
     myMeasurements: '73cb55eb-1511-4fc2-bbb2-f14457334c48',
     production: '2c99e8c5-38ee-4475-86bf-01b011ab8559',
-    masterPay: 'b4cc6845-8918-4861-af82-179ea79985ea',
+    masterPay: 'b4cc6845-8918-4861-af82-179ea79985ea', // Retired: replaced by masterPayment; ids are never reused.
     orderItemsTable: '4d5ec168-0807-4260-95c2-5180fdc79159',
     orderExtraServicesTable: '90c9a437-18e4-4d2f-ae50-482889c7dc8b',
     orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d',
@@ -139,8 +152,16 @@ export const IDS = {
     priceList: '19714acd-d450-4a1f-a73e-a74266399b6c',
     extraServices: '7084db31-ff82-4fae-831a-180eafb45cee',
     masters: 'f1ae7b6b-2645-48bd-b2cd-8118e871672e',
+    masterPayments: '7ccac197-4231-4128-9385-7e00cc414e86',
+    payroll: '2e98d495-7d32-4a64-abaf-7866fa2206b5',
     newMeasurement: 'd9580fb9-a409-4e83-92a5-42f87706486e',
     allOrders: 'ae5debb5-3b25-4a50-bb34-99a2c561ef57',
+  },
+  payroll: {
+    frontComponent: '66997114-3e6d-4d6c-9405-64be5ad17a66',
+    pageLayout: 'f877846f-ce69-4d5d-935c-9c9cf131ff1b',
+    pageLayoutTab: '0f94716c-f3f2-4017-a287-dcd9f4716281',
+    pageLayoutWidget: '1bf95483-bd85-4cd8-82cf-58994d0539bd',
   },
   measurerForm: {
     frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',

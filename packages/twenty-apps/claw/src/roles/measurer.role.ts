@@ -58,6 +58,12 @@ export default defineRole({
   fieldPermissions: [
     ...ADMIN_ONLY_FIELD_PERMISSIONS,
     ...CALCULATED_FIELD_PERMISSIONS,
+    {
+      objectUniversalIdentifier: IDS.order.object,
+      fieldUniversalIdentifier: IDS.order.readyAt,
+      canReadFieldValue: true,
+      canUpdateFieldValue: false,
+    },
   ],
   // Measurers attach photos of openings; without it every upload is rejected.
   permissionFlagUniversalIdentifiers: [SystemPermissionFlag.UPLOAD_FILE],

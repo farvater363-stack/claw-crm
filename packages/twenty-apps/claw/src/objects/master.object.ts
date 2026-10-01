@@ -71,5 +71,16 @@ export default defineObject({
       relationTargetFieldMetadataUniversalIdentifier: IDS.order.master,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
+    {
+      universalIdentifier: IDS.master.payments,
+      type: FieldType.RELATION,
+      name: 'payments',
+      label: 'Выплаты',
+      icon: 'IconCash',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.masterPayment.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.masterPayment.master,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+      isAuditLogged: false,
+    },
   ]),
 });

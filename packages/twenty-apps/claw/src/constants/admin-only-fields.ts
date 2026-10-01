@@ -8,9 +8,9 @@ export const ADMIN_ONLY_FIELD_IDS_BY_OBJECT: Record<string, string[]> = {
     IDS.order.marginPercent,
     IDS.order.daysLate,
     IDS.order.masterPayCalculated,
+    IDS.order.masterPenalty,
     IDS.order.masterBonus,
     IDS.order.masterPayTotal,
-    IDS.order.masterPayPaid,
   ],
   [IDS.orderItem.object]: [
     IDS.orderItem.costPerSquareMeter,
