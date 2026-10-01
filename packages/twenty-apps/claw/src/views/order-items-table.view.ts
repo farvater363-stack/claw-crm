@@ -6,11 +6,27 @@ import { toKeyedViewFields } from 'src/utils/to-view-fields';
 
 const { orderItem } = IDS;
 const ids = VIEW_PART_IDS.orderRecordPage;
+
+// Widths in px, wide enough that Russian column headers do not truncate.
+const COLUMN_WIDTHS = {
+  design: 150,
+  metal: 100,
+  metalSize: 150,
+  widthCm: 110,
+  heightCm: 110,
+  projectionCm: 100,
+  quantity: 120,
+  areaSquareMeters: 120,
+  pricePerSquareMeter: 130,
+  lineTotal: 130,
+  costPerSquareMeter: 200,
+  lineCost: 170,
+} as const satisfies Record<keyof typeof ids.itemsTableFields, number>;
 const fieldNames = Object.keys(
   ids.itemsTableFields,
 ) as (keyof typeof ids.itemsTableFields)[];
 
-// Cost columns are listed for admins; field permissions drop them for everyone else.
+// Cost columns are listed for admins; field permissions drop them for others.
 export default defineView({
   universalIdentifier: IDS.view.orderItemsTable,
   name: 'Проёмы заказа',
@@ -20,6 +36,7 @@ export default defineView({
     fieldNames.map((name) => ({
       field: orderItem[name],
       viewField: ids.itemsTableFields[name],
+      size: COLUMN_WIDTHS[name],
     })),
   ),
   filters: [

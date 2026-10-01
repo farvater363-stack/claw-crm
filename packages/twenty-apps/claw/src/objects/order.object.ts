@@ -129,16 +129,8 @@ export default defineObject({
       options: SOURCE_OPTIONS,
     },
     text(IDS.order.comment, 'comment', 'Комментарий', 'IconMessage'),
-    date(
-      IDS.order.productionStartDate,
-      'productionStartDate',
-      'Начало',
-    ),
-    date(
-      IDS.order.installationDeadline,
-      'installationDeadline',
-      'Срок',
-    ),
+    date(IDS.order.productionStartDate, 'productionStartDate', 'Начало'),
+    date(IDS.order.installationDeadline, 'installationDeadline', 'Срок'),
     date(IDS.order.installedAt, 'installedAt', 'Дата установки'),
     {
       universalIdentifier: IDS.order.deadlineState,

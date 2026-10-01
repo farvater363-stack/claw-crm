@@ -6,6 +6,16 @@ import { toKeyedViewFields } from 'src/utils/to-view-fields';
 
 const { orderExtraService } = IDS;
 const ids = VIEW_PART_IDS.orderRecordPage;
+
+// Widths in px, wide enough that Russian column headers do not truncate.
+const COLUMN_WIDTHS = {
+  extraService: 180,
+  quantity: 230,
+  price: 110,
+  lineTotal: 130,
+  cost: 140,
+  lineCost: 170,
+} as const satisfies Record<keyof typeof ids.extraServicesTableFields, number>;
 const fieldNames = Object.keys(
   ids.extraServicesTableFields,
 ) as (keyof typeof ids.extraServicesTableFields)[];
@@ -19,6 +29,7 @@ export default defineView({
     fieldNames.map((name) => ({
       field: orderExtraService[name],
       viewField: ids.extraServicesTableFields[name],
+      size: COLUMN_WIDTHS[name],
     })),
   ),
   filters: [
