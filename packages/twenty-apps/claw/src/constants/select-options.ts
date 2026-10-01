@@ -81,3 +81,11 @@ export const DEADLINE_STATE_OPTIONS = toOptions([
 ] as const);
 
 export type DeadlineState = (typeof DEADLINE_STATE_OPTIONS)[number]['value'];
+
+export const CANCEL_REASON_OPTIONS = toOptions([
+  ['TOO_EXPENSIVE', 'Дорого', 'orange'],
+  ['CHANGED_MIND', 'Передумал', 'gray'],
+  ['UNREACHABLE', 'Не дозвонились', 'yellow'],
+  ['COMPETITOR', 'Конкурент', 'red'],
+  ['OTHER', 'Другое', 'gray'],
+] as const);

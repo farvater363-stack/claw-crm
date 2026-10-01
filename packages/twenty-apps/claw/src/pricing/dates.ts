@@ -7,17 +7,17 @@ export const addDays = (date: string, days: number): string =>
 
 export const computeDaysLate = ({
   deadline,
-  installedAt,
+  readyAt,
 }: {
   deadline: string | null;
-  installedAt: string | null;
+  readyAt: string | null;
 }): number | null => {
-  if (deadline === null || installedAt === null) {
+  if (deadline === null || readyAt === null) {
     return null;
   }
 
   const days = Math.round(
-    (Date.parse(installedAt) - Date.parse(deadline)) / MILLISECONDS_PER_DAY,
+    (Date.parse(readyAt) - Date.parse(deadline)) / MILLISECONDS_PER_DAY,
   );
 
   return Math.max(0, days);
@@ -25,3 +25,19 @@ export const computeDaysLate = ({
 
 export const todayInTashkent = (now: Date = new Date()): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent' }).format(now);
+
+// The first time an order counts as ready; later status moves never change it.
+const READY_STATUSES = new Set(['READY', 'INSTALLED', 'CLOSED']);
+
+export const readyAtOnStatusChange = ({
+  status,
+  readyAt,
+  today,
+}: {
+  status: string | null;
+  readyAt: string | null;
+  today: string;
+}): string | null =>
+  readyAt === null && status !== null && READY_STATUSES.has(status)
+    ? today
+    : null;

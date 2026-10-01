@@ -4,7 +4,10 @@ import {
 } from 'src/constants/select-options';
 import { computeDeadlineState } from 'src/pricing/compute-deadline-state';
 import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
-import { computeMasterPay } from 'src/pricing/compute-master-pay';
+import {
+  computeMasterBasePay,
+  computeMasterPay,
+} from 'src/pricing/compute-master-pay';
 import { addDays, computeDaysLate } from 'src/pricing/dates';
 import {
   type PriceListEntry,
@@ -59,9 +62,11 @@ export type OrderSnapshot = {
   productionStartDate: string | null;
   installationDeadline: string | null;
   installedAt: string | null;
+  readyAt: string | null;
   daysLate: number | null;
   masterBonus: number | null;
   masterPayCalculated: number | null;
+  masterPenalty: number | null;
   masterPayTotal: number | null;
   status: string | null;
   deadlineState: DeadlineState | null;
@@ -260,7 +265,7 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
       : null);
   const daysLate = computeDaysLate({
     deadline: installationDeadline,
-    installedAt: order.installedAt,
+    readyAt: order.readyAt,
   });
   const masterPayCalculated =
     input.master !== null && areaSquareMeters !== null
@@ -270,6 +275,15 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
           penaltyPercentPerDay: input.master.penaltyPercentPerDay,
           daysLate: daysLate ?? 0,
         })
+      : null;
+  const masterPenalty =
+    input.master !== null &&
+    areaSquareMeters !== null &&
+    masterPayCalculated !== null
+      ? computeMasterBasePay({
+          areaSquareMeters,
+          ratePerSquareMeter: input.master.ratePerSquareMeter,
+        }) - masterPayCalculated
       : null;
 
   const nextOrder: OrderSnapshot = {
@@ -291,6 +305,7 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
       today: input.today,
     }),
     masterPayCalculated,
+    masterPenalty,
     masterPayTotal:
       masterPayCalculated !== null
         ? masterPayCalculated + (order.masterBonus ?? 0)

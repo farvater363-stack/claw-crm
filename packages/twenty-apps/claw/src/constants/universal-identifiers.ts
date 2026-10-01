@@ -75,6 +75,9 @@ export const IDS = {
     items: '347c8e36-7ae5-427c-b2ae-937f3fb6a4fa',
     extraServices: '9e8f6aa6-10cd-4bb6-97d2-1343318004e2',
     deadlineState: 'bd2ab2ec-985f-462d-a041-b302839bf836',
+    readyAt: 'd94dd2d9-c383-44d7-8e57-6c354cec9735',
+    masterPenalty: '35d2b49a-ce2c-40e5-9223-2062c5068e80',
+    cancelReason: '874cc84a-6a9a-43ba-9379-2d081bb0e54c',
   },
   orderItem: {
     object: 'c54a858f-68e0-4901-b5ca-78baedeceb83',

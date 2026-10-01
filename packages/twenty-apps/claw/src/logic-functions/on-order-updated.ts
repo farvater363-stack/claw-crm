@@ -6,7 +6,7 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
-import { todayInTashkent } from 'src/pricing/dates';
+import { readyAtOnStatusChange, todayInTashkent } from 'src/pricing/dates';
 import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { orderNameToRestore } from 'src/recalc/assign-order-number';
 import { recalcOrder } from 'src/recalc/recalc-order';
@@ -14,6 +14,7 @@ import { recalcOrder } from 'src/recalc/recalc-order';
 type UpdatedOrder = {
   status: string | null;
   installedAt: string | null;
+  readyAt: string | null;
   name: string | null;
   number: number | null;
   clientPhone: string | null;
@@ -69,6 +70,23 @@ const handler = async (
     });
   }
 
+  const readyAt = updatedFields.includes('status')
+    ? readyAtOnStatusChange({
+        status: after.status ?? null,
+        readyAt: after.readyAt ?? null,
+        today: todayInTashkent(),
+      })
+    : null;
+
+  if (readyAt !== null) {
+    await client.mutation({
+      updateOrder: {
+        __args: { id: payload.recordId, data: { readyAt } },
+        id: true,
+      },
+    });
+  }
+
   await recalcOrder(client, payload.recordId);
 };
 
@@ -88,6 +106,7 @@ export default defineLogicFunction({
       'productionStartDate',
       'installationDeadline',
       'installedAt',
+      'readyAt',
       'masterId',
       'masterBonus',
       'areaSquareMeters',

@@ -7,6 +7,7 @@ import {
 } from 'twenty-sdk/define';
 
 import {
+  CANCEL_REASON_OPTIONS,
   DEADLINE_STATE_OPTIONS,
   DISTRICT_OPTIONS,
   ORDER_STATUS_OPTIONS,
@@ -90,6 +91,15 @@ export default defineObject({
       defaultValue: "'NEW'",
       options: ORDER_STATUS_OPTIONS,
     },
+    {
+      universalIdentifier: IDS.order.cancelReason,
+      type: FieldType.SELECT,
+      name: 'cancelReason',
+      label: 'Причина отмены',
+      icon: 'IconCircleX',
+      isNullable: true,
+      options: CANCEL_REASON_OPTIONS,
+    },
     text(IDS.order.clientName, 'clientName', 'Имя', 'IconUser'),
     text(IDS.order.clientPhone, 'clientPhone', 'Телефон', 'IconPhone'),
     {
@@ -131,6 +141,7 @@ export default defineObject({
     text(IDS.order.comment, 'comment', 'Комментарий', 'IconMessage'),
     date(IDS.order.productionStartDate, 'productionStartDate', 'Начало'),
     date(IDS.order.installationDeadline, 'installationDeadline', 'Срок'),
+    date(IDS.order.readyAt, 'readyAt', 'Готов'),
     date(IDS.order.installedAt, 'installedAt', 'Установка'),
     {
       universalIdentifier: IDS.order.deadlineState,
@@ -167,6 +178,7 @@ export default defineObject({
       isNullable: true,
     },
     money(IDS.order.masterPayCalculated, 'masterPayCalculated', 'ЗП расчётная'),
+    money(IDS.order.masterPenalty, 'masterPenalty', 'Штраф'),
     money(IDS.order.masterBonus, 'masterBonus', 'Премия'),
     money(IDS.order.masterPayTotal, 'masterPayTotal', 'ЗП итого'),
     {

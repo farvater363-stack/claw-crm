@@ -14,3 +14,11 @@ export const computeMasterPay = ({
       ratePerSquareMeter *
       Math.max(0, 1 - (penaltyPercentPerDay / 100) * daysLate),
   );
+
+export const computeMasterBasePay = ({
+  areaSquareMeters,
+  ratePerSquareMeter,
+}: {
+  areaSquareMeters: number;
+  ratePerSquareMeter: number;
+}): number => Math.round(areaSquareMeters * ratePerSquareMeter);
