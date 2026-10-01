@@ -207,17 +207,41 @@ msgstr "{0, plural, zero {ولا عناصر إضافية} one {وواحد آخر
 msgid "{0, plural, one {Campaign canceled, {1} pending email stopped} other {Campaign canceled, {2} pending emails stopped}}"
 msgstr "{0, plural, zero {تم إلغاء الحملة، وتم إيقاف {2} رسالة بريد إلكتروني معلقة} one {تم إلغاء الحملة، وتم إيقاف {1} رسالة بريد إلكتروني معلقة} two {تم إلغاء الحملة، وتم إيقاف {2} رسالتين بريد إلكتروني معلقتين} few {تم إلغاء الحملة، وتم إيقاف {2} رسائل بريد إلكتروني معلقة} many {تم إلغاء الحملة، وتم إيقاف {2} رسالة بريد إلكتروني معلقة} other {تم إلغاء الحملة، وتم إيقاف {2} رسالة بريد إلكتروني معلقة}}"
 
+#. js-lingui-id: C9lNed
+#. placeholder {0}: onboardingConfig.importContactsCreditsReward
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "{0, plural, one {Connect your mailbox to earn {formattedImportContactsCreditsReward} free credit} other {Connect your mailbox to earn {formattedImportContactsCreditsReward} free credits}}"
+msgstr ""
+
 #. js-lingui-id: xEqptn
 #. placeholder {0}: item.includedCredits
 #: src/modules/settings/admin-panel/utils/formatSubscriptionItemValue.ts
 msgid "{0, plural, one {credit/period} other {credits/period}}"
 msgstr "{0, plural, zero {لا أرصدة/فترة} one {رصيد/فترة} two {رصيدان/فترة} few {# أرصدة/فترة} many {# رصيد/فترة} other {# رصيد/فترة}}"
 
+#. js-lingui-id: i/aCMO
+#. placeholder {0}: onboardingConfig.inviteTeamCreditsRewardPerUser
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "{0, plural, one {Earn {formattedInviteTeamCreditsRewardPerUser} free credit per teammate who joins} other {Earn {formattedInviteTeamCreditsRewardPerUser} free credits per teammate who joins}}"
+msgstr ""
+
 #. js-lingui-id: AkeiJW
 #. placeholder {0}: item.quantity
 #: src/modules/settings/admin-panel/utils/formatSubscriptionItemValue.ts
 msgid "{0, plural, one {seat} other {seats}}"
 msgstr "{0, plural, zero {لا مقاعد} one {مقعد واحد} two {مقعدان} few {# مقاعد} many {# مقعدًا} other {# مقعد}}"
+
+#. js-lingui-id: lQlmhu
+#. placeholder {0}: onboardingConfig.installAppsCreditsReward
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "{0, plural, one {Start with apps and earn {formattedInstallAppsCreditsReward} free credit} other {Start with apps and earn {formattedInstallAppsCreditsReward} free credits}}"
+msgstr ""
+
+#. js-lingui-id: 4jHYiZ
+#. placeholder {0}: onboardingConfig.upgradeCreditsReward
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "{0, plural, one {Upgrade your trial to earn {formattedUpgradeCreditsReward} free credit} other {Upgrade your trial to earn {formattedUpgradeCreditsReward} free credits}}"
+msgstr ""
 
 #. js-lingui-id: WTc9VY
 #. placeholder {0}: restriction.fieldNames.length
@@ -286,6 +310,12 @@ msgstr "لم يتم إعداد OAuth لـ {0} بعد بواسطة مسؤول ا�
 #: src/modules/settings/event-logs/components/SettingsLogs.tsx
 msgid "{0} of {1}"
 msgstr "{0} من {1}"
+
+#. js-lingui-id: taLu6Q
+#. placeholder {0}: formatNumber(audiencePreview.trackingRefused)
+#: src/modules/side-panel/pages/send-campaign/components/SendCampaignForm.tsx
+msgid "{0} opted out of email tracking, their clicks are not recorded"
+msgstr ""
 
 #. js-lingui-id: BzvoVr
 #. placeholder {0}: formatNumber(counts.topicUnsubscribed)
@@ -422,6 +452,11 @@ msgstr "{behindCount, plural, zero {لا مساحات عمل متأخرة} one {
 msgid "{browser} on {operatingSystem}"
 msgstr "{browser} على {operatingSystem}"
 
+#. js-lingui-id: p8aaxP
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "{callRecordingHours, plural, one {{formattedCallRecordingHours} hour} other {{formattedCallRecordingHours} hours}}"
+msgstr ""
+
 #. js-lingui-id: chd+3h
 #: src/modules/log-console/constants/LogConsoleSources.tsx
 msgid "{count, plural, one {{formattedCount} change} other {{formattedCount} changes}}"
@@ -447,10 +482,20 @@ msgstr "{count, plural, zero {مثال: {example} لـ # منزلة عشرية} 
 msgid "{credits} credits"
 msgstr "{credits} رصيد"
 
+#. js-lingui-id: r05RaJ
+#: src/modules/onboarding/utils/getOnboardingCreditsRewardAriaLabel.ts
+msgid "{creditsReward, plural, one {{label}, earn {formattedCreditsReward} free credit} other {{label}, earn {formattedCreditsReward} free credits}}"
+msgstr ""
+
 #. js-lingui-id: LZWC7x
 #: src/modules/settings/billing/components/internal/ResourceCreditPackagePickerModal.tsx
 msgid "{currentCreditAmountDisplay} credits "
 msgstr "{currentCreditAmountDisplay} رصيد "
+
+#. js-lingui-id: Btf16S
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPill.tsx
+msgid "{currentStepCredits, plural, one {free credit} other {free credits}}"
+msgstr ""
 
 #. js-lingui-id: 0aO0VO
 #: src/pages/settings/admin-panel/SettingsAdminQueueDetail.tsx
@@ -467,6 +512,11 @@ msgstr "{decimals, plural, zero {مثال: {example} لـ # منزلة عشري�
 #: src/modules/settings/admin-panel/health-status/hooks/useDeleteJobs.ts
 msgid "{deletedCount, plural, one {Successfully deleted {deletedCount} job} other {Successfully deleted {deletedCount} jobs}}"
 msgstr "{deletedCount, plural, zero {تم حذف {deletedCount} وظائف بنجاح} one {تم حذف {deletedCount} وظيفة بنجاح} two {تم حذف {deletedCount} وظيفتان بنجاح} few {تم حذف {deletedCount} وظائف بنجاح} many {تم حذف {deletedCount} وظائف بنجاح} other {تم حذف {deletedCount} وظائف بنجاح}}"
+
+#. js-lingui-id: toR3wC
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "{earnedCredits, plural, one {{formattedEarnedCredits} credit} other {{formattedEarnedCredits} credits}}"
+msgstr ""
 
 #. js-lingui-id: nRKZKb
 #: src/modules/settings/admin-panel/utils/getWorkspacesUpgradeHealthText.ts
@@ -509,6 +559,11 @@ msgstr "تم استيراد {formattedCreatedRecordsProgress} من أصل {forma
 msgid "{formattedType} of {objectLabel}"
 msgstr "{formattedType} من {objectLabel}"
 
+#. js-lingui-id: NHstiz
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsProgress.tsx
+msgid "{goalCredits, plural, one {free credit} other {free credits}}"
+msgstr ""
+
 #. js-lingui-id: YF/a2j
 #: src/modules/settings/roles/role-permissions/objects-permissions/components/SettingsRolePermissionsObjectsTableRow.tsx
 msgid "{grantedBy, plural, one {Granted for {grantedBy} object} other {Granted for {grantedBy} objects}}"
@@ -538,6 +593,11 @@ msgstr "{hiddenFieldCount, plural, zero {لا حقول مُعبّأة إضافي
 #: src/pages/settings/admin-panel/SettingsAdminQueueDetail.tsx
 msgid "{hours, plural, one {{hours} hour} other {{hours} hours}}"
 msgstr "{hours, plural, zero {{hours} ساعات} one {{hours} ساعة} two {{hours} ساعتان} few {{hours} ساعات} many {{hours} ساعات} other {{hours} ساعات}}"
+
+#. js-lingui-id: +RLs0P
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "{importContactsCallRecordingHours, plural, one {{formattedImportContactsAiActions} AI actions, {formattedImportContactsEnrichments} enrichments or {formattedImportContactsCallRecordingHours} hour of call recording.} other {{formattedImportContactsAiActions} AI actions, {formattedImportContactsEnrichments} enrichments or {formattedImportContactsCallRecordingHours} hours of call recording.}}"
+msgstr ""
 
 #. js-lingui-id: m+qcrh
 #. placeholder {0}: formatNumber(installCount)
@@ -611,6 +671,11 @@ msgstr "{minutes, plural, zero {لا دقائق} one {# دقيقة} two {# دق�
 #: src/modules/settings/data-model/object-details/components/SettingsObjectRelationItemTableRow.tsx
 msgid "{morphRelationCount} Objects"
 msgstr "{morphRelationCount, plural, zero {لا كائنات} one {كائن واحد} two {كائنان} few {# كائنات} many {# كائنًا} other {# كائن}}"
+
+#. js-lingui-id: 430IKF
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "{newlyEarnedCredits, plural, one {You earned {formattedNewlyEarnedCredits} free credit} other {You earned {formattedNewlyEarnedCredits} free credits}}"
+msgstr ""
 
 #. js-lingui-id: g9mDO3
 #: src/utils/format/getOrdinalNumber.ts
@@ -744,6 +809,11 @@ msgstr "{tabCount} علامات تبويب"
 #: src/modules/side-panel/pages/page-layout/components/record-page/SidePanelRecordPageFieldsSettings.tsx
 msgid "{totalFieldsCount} visible fields"
 msgstr "{totalFieldsCount} حقول مرئية"
+
+#. js-lingui-id: zLrD5y
+#: src/modules/validation-rules/components/SettingsValidationRuleHelperDetails.tsx
+msgid "{typeLabel} field"
+msgstr ""
 
 #. js-lingui-id: fzpQ2b
 #: src/modules/ui/input/components/internal/date/components/RelativeDatePickerHeader.tsx
@@ -888,6 +958,11 @@ msgstr "0"
 #: src/modules/workflow/workflow-trigger/components/WorkflowEditTriggerCronForm.tsx
 msgid "0 */1 * * *"
 msgstr "0 */1 * * *"
+
+#. js-lingui-id: gPLARo
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "1 credit is enough for one of these on average"
+msgstr ""
 
 #. js-lingui-id: 4pzLrc
 #: src/modules/settings/data-model/object-details/components/SettingsObjectRelationItemTableRow.tsx
@@ -1043,6 +1118,11 @@ msgstr "يلزم توفر طريقة دفع للحفاظ على مساحة ال�
 msgid "A payment on your subscription failed. Your premium features stay active while we retry it."
 msgstr "فشلت عملية دفع لاشتراكك. ستظل ميزاتك المميزة نشطة بينما نعيد محاولة الدفع."
 
+#. js-lingui-id: Yfxf0I
+#: src/modules/settings/data-model/object-details/components/tabs/ObjectSettings.tsx
+msgid "A record saves only when every active rule is true. Rules run on every write: forms, API, imports and workflows."
+msgstr ""
+
 #. js-lingui-id: oO3ZQX
 #: src/modules/page-layout/widgets/call-recording/utils/getCallRecordingStatusDisplayConfiguration.ts
 msgid "A recorder will join when the meeting starts."
@@ -1062,6 +1142,11 @@ msgstr "لا يتوفر ملخص لتسجيل هذه المكالمة بعد."
 #: src/modules/auth/sign-in-up/components/EmailVerificationSent.tsx
 msgid "A verification email has been sent to"
 msgstr "تم إرسال بريد إلكتروني للتحقق إلى"
+
+#. js-lingui-id: DSFl3F
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
+msgid "A won opportunity needs an amount"
+msgstr ""
 
 #. js-lingui-id: DqlQy+
 #: src/modules/settings/data-model/fields/forms/components/SettingsDataModelFieldMaxValuesForm.tsx
@@ -1221,6 +1306,7 @@ msgid "Action on click"
 msgstr "الإجراء عند النقر"
 
 #. js-lingui-id: 7L01XJ
+#: src/modules/command-menu-item/components/RecordIndexCommandMenuDropdown.tsx
 #: src/modules/settings/roles/role-permissions/object-level-permissions/object-form/components/SettingsRolePermissionsObjectLevelObjectFormObjectLevelTableHeader.tsx
 #: src/modules/settings/roles/role-permissions/objects-permissions/components/SettingsRolePermissionsObjectsTableHeader.tsx
 #: src/modules/settings/roles/role-permissions/permission-flags/components/SettingsRolePermissionsSettingsTableHeader.tsx
@@ -1276,6 +1362,7 @@ msgstr "جارٍ التفعيل..."
 #: src/modules/settings/admin-panel/health-status/components/SettingsAdminQueueJobsTable.tsx
 #: src/modules/settings/admin-panel/signing-keys/components/SettingsAdminSigningKeysTable.tsx
 #: src/modules/settings/billing/components/SettingsBillingSubscriptionInfo.tsx
+#: src/modules/settings/data-model/object-details/components/tabs/SettingsObjectValidationRulesSection.tsx
 #: src/modules/settings/domains/components/SettingsWorkspaceDomainCard.tsx
 #: src/pages/settings/applications/tabs/SettingsApplicationTimelineActivityTypeSettingsTab.tsx
 #: src/pages/settings/enterprise/SettingsEnterprise.tsx
@@ -1310,6 +1397,7 @@ msgid "Actor"
 msgstr "المنفّذ"
 
 #. js-lingui-id: m16xKo
+#: src/modules/activities/notes/components/NoteQuickAddForm.tsx
 #: src/modules/navigation-menu-item/display/sections/favorites/components/FavoritesSection.tsx
 #: src/modules/navigation-menu-item/display/sections/workspace/components/WorkspaceSection.tsx
 #: src/modules/settings/data-model/object-details/components/SettingsObjectFieldItemTableRow.tsx
@@ -1711,6 +1799,7 @@ msgstr "أضف مسار"
 #: src/modules/object-record/advanced-filter/components/AdvancedFilterAddFilterRuleSelect.tsx
 #: src/modules/object-record/advanced-filter/components/AdvancedFilterAddFilterRuleSelect.tsx
 #: src/modules/object-record/advanced-filter/components/AdvancedFilterAddFilterRuleSelect.tsx
+#: src/modules/settings/data-model/object-details/components/tabs/SettingsObjectValidationRulesSection.tsx
 #: src/modules/settings/roles/role-permissions/object-level-permissions/components/SettingsRolePermissionsObjectLevelSection.tsx
 #: src/modules/settings/roles/role-permissions/object-level-permissions/record-level-permissions/components/SettingsRolePermissionsObjectLevelRecordLevelPermissionFilterBuilderContent.tsx
 #: src/modules/settings/roles/role-permissions/object-level-permissions/record-level-permissions/components/SettingsRolePermissionsObjectLevelRecordLevelPermissionFilterBuilderContent.tsx
@@ -2074,6 +2163,7 @@ msgstr "رموز الوكيل"
 
 #. js-lingui-id: 8Uv5e6
 #: src/modules/settings/roles/role-assignment/components/SettingsRoleAssignmentTable.tsx
+#: src/modules/settings/usage/constants/UsageOperationTypeLabels.ts
 #: src/pages/settings/ai/components/SettingsAiModelsTab.tsx
 #: src/pages/settings/applications/tabs/SettingsApplicationDetailContentTab.tsx
 msgid "Agents"
@@ -2113,6 +2203,11 @@ msgstr "الذكاء الاصطناعي"
 msgid "AI & Automations"
 msgstr "الذكاء الاصطناعي والأتمتة"
 
+#. js-lingui-id: VOc0Pn
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "AI actions"
+msgstr ""
+
 #. js-lingui-id: HbXHSp
 #: src/modules/settings/billing/constants/SettingsBillingPlanComparisonRows.ts
 msgid "AI agents"
@@ -2121,11 +2216,6 @@ msgstr "وكلاء الذكاء الاصطناعي"
 #. js-lingui-id: n2fhCy
 #: src/pages/settings/ai/components/SettingsAiModelsTab.tsx
 msgid "AI chat"
-msgstr "دردشة الذكاء الاصطناعي"
-
-#. js-lingui-id: V+Qj+q
-#: src/modules/settings/usage/constants/UsageOperationTypeLabels.ts
-msgid "AI Chat"
 msgstr "دردشة الذكاء الاصطناعي"
 
 #. js-lingui-id: /YYegB
@@ -2240,11 +2330,6 @@ msgstr "تم بلوغ حد استخدام الذكاء الاصطناعي. تو�
 #: src/pages/settings/ai/SettingsAiUsageUserDetail.tsx
 msgid "AI User Usage"
 msgstr "استخدام المستخدم للذكاء الاصطناعي"
-
-#. js-lingui-id: TLbVxH
-#: src/modules/settings/usage/constants/UsageOperationTypeLabels.ts
-msgid "AI Workflow"
-msgstr "سير عمل الذكاء الاصطناعي"
 
 #. js-lingui-id: BAiyFV
 #: src/pages/settings/admin-panel/SettingsAdminNewAiProvider.tsx
@@ -3008,6 +3093,11 @@ msgstr "النطاقات المعتمدة"
 msgid "Apps"
 msgstr "التطبيقات"
 
+#. js-lingui-id: kHdRaZ
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "Apps like enrichment and call recording run on credits."
+msgstr ""
+
 #. js-lingui-id: aDW39c
 #: src/modules/front-components/media-session/components/FrontComponentMediaSessionIndicator.tsx
 msgid "Apps recording"
@@ -3140,6 +3230,18 @@ msgstr "تصاعدي"
 #: src/modules/command-menu-item/display/components/SidePanelCommandMenuItemDisplayPage.tsx
 msgid "Ask & find"
 msgstr "اسأل واعثر"
+
+#. js-lingui-id: 5nEvjb
+#: src/modules/activities/calendar/components/CalendarEventComposerFields.tsx
+msgid "Ask a workspace admin for the Sync Account permission to connect a calendar account."
+msgstr ""
+
+#. js-lingui-id: 0b3325
+#: src/modules/activities/calendar/components/CalendarEventComposerFields.tsx
+#: src/modules/workflow/workflow-steps/workflow-actions/components/WorkflowEditActionCreateCalendarEvent.tsx
+#: src/modules/workflow/workflow-steps/workflow-actions/components/WorkflowEditActionEmailBase.tsx
+msgid "Ask a workspace admin for the Sync Account permission to reconnect this account."
+msgstr ""
 
 #. js-lingui-id: xWEvuo
 #: src/modules/command-menu-item/display/components/CommandMenuAskAiFallbackItem.tsx
@@ -3315,6 +3417,26 @@ msgstr "إرفاق ملف"
 #: src/modules/side-panel/pages/compose-email/components/SidePanelComposeEmailPage.tsx
 msgid "Attach files"
 msgstr "إرفاق ملفات"
+
+#. js-lingui-id: 4xOjp/
+#: src/modules/ai/utils/tool-display/get-tool-display-message.ts
+msgid "Attached this conversation to a record"
+msgstr ""
+
+#. js-lingui-id: DCyq1H
+#: src/modules/ai/utils/tool-display/get-tool-display-message.ts
+msgid "Attached this conversation to the {objectLabel}"
+msgstr ""
+
+#. js-lingui-id: e9I63P
+#: src/modules/ai/utils/tool-display/get-tool-display-message.ts
+msgid "Attaching this conversation to a record"
+msgstr ""
+
+#. js-lingui-id: 0/s5dI
+#: src/modules/ai/utils/tool-display/get-tool-display-message.ts
+msgid "Attaching this conversation to the {objectLabel}"
+msgstr ""
 
 #. js-lingui-id: w/Sphq
 #: src/modules/workflow/workflow-steps/workflow-actions/components/WorkflowEditActionEmailBase.tsx
@@ -3700,6 +3822,16 @@ msgstr "كتلة"
 msgid "Block Settings"
 msgstr "إعدادات الكتلة"
 
+#. js-lingui-id: DrY+yG
+#: src/modules/validation-rules/components/SettingsValidationRulePreview.tsx
+msgid "Blocked: {message}"
+msgstr ""
+
+#. js-lingui-id: X+OnCc
+#: src/modules/validation-rules/components/SettingsValidationRulePreview.tsx
+msgid "Blocked. This record could not be saved."
+msgstr ""
+
 #. js-lingui-id: K1172m
 #: src/modules/settings/accounts/components/SettingsAccountsBlocklistSection.tsx
 #: src/modules/settings/workspace/components/SettingsWorkspaceBlocklistSection.tsx
@@ -3770,6 +3902,11 @@ msgstr "كلاهما"
 #: src/modules/settings/unsubscribers/utils/getMessageSuppressionReasonBadge.ts
 msgid "Bounce"
 msgstr "مرتدة"
+
+#. js-lingui-id: 8mzNUs
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Breakdown"
+msgstr ""
 
 #. js-lingui-id: 1hGdwj
 #: src/pages/settings/ai/components/SettingsAiUsageTab.tsx
@@ -4055,6 +4192,11 @@ msgstr "التقاويم"
 msgid "Call recorder"
 msgstr "مسجِّل المكالمات"
 
+#. js-lingui-id: wYLT8I
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Call recording"
+msgstr ""
+
 #. js-lingui-id: 9e+AU2
 #: src/modules/settings/usage/constants/UsageOperationTypeLabels.ts
 msgid "Call Recording"
@@ -4114,6 +4256,11 @@ msgstr "تمت جدولة الحملة في {sendTime}"
 #: src/modules/activities/emails/hooks/useCancelMessageCampaign.ts
 msgid "Campaign unscheduled and back in your drafts"
 msgstr "أُلغيت جدولة الحملة وعادت إلى مسوداتك"
+
+#. js-lingui-id: f5h+Cp
+#: src/modules/workflow/workflow-steps/workflow-actions/ai-agent-action/components/WorkflowAiAgentPromptTab.tsx
+msgid "Can ask questions"
+msgstr ""
 
 #. js-lingui-id: msssZq
 #: src/modules/settings/data-model/objects/forms/components/SettingsDataModelObjectAboutForm.tsx
@@ -4431,6 +4578,7 @@ msgstr "ChatGPT"
 
 #. js-lingui-id: 8Q+lLG
 #: src/modules/settings/admin-panel/ai/components/SettingsAdminAI.tsx
+#: src/modules/settings/usage/constants/UsageOperationTypeLabels.ts
 #: src/pages/settings/admin-panel/SettingsAdminChats.tsx
 #: src/pages/settings/admin-panel/SettingsAdminChats.tsx
 #: src/pages/settings/admin-panel/SettingsAdminWorkspaceDetail.tsx
@@ -4466,6 +4614,11 @@ msgstr "تحقق من بريدك الإلكتروني"
 #: src/modules/settings/profile/hooks/useUpdateEmail.ts
 msgid "Check your inbox to verify your new email address."
 msgstr "تحقق من صندوق الوارد لديك لتأكيد عنوان بريدك الإلكتروني الجديد."
+
+#. js-lingui-id: w+pzSf
+#: src/modules/validation-rules/components/SettingsValidationRuleHelperDetails.tsx
+msgid "Checked only when the record this rule belongs to is saved. Editing the related record does not check it again."
+msgstr ""
 
 #. js-lingui-id: SxwQE8
 #: src/modules/settings/billing/hooks/useHandleCheckoutSession.ts
@@ -4746,6 +4899,11 @@ msgstr "ClickHouse مطلوب لسجلات التدقيق. تواصل مع مس�
 msgid "ClickHouse Not Configured"
 msgstr "لم يتم تهيئة ClickHouse"
 
+#. js-lingui-id: GhPnTR
+#: src/modules/settings/unsubscribers/components/SettingsUnsubscribersList.tsx
+msgid "Clicks only"
+msgstr ""
+
 #. js-lingui-id: b9Y4up
 #: src/modules/settings/security/components/sso/SettingsSsoOidcForm.tsx
 #: src/pages/settings/applications/tabs/SettingsApplicationRegistrationOAuthTab.tsx
@@ -4783,10 +4941,13 @@ msgstr "تتطلب الحافظة اتصالاً آمناً (HTTPS). يُرجى 
 #: src/modules/front-components/media-session/components/FrontComponentMediaPermissionModal.tsx
 #: src/modules/log-console/components/LogConsole.tsx
 #: src/modules/object-record/object-sort-dropdown/components/ObjectSortDropdownButton.tsx
+#: src/modules/onboarding/components/OnboardingSkipDialog.tsx
 #: src/modules/settings/applications/components/SettingsApplicationScreenshotLightbox.tsx
 #: src/modules/ui/feedback/toast/components/__tests__/AppToaster.test.tsx
 #: src/modules/ui/feedback/toast/utils/getLocalizedToastProps.ts
+#: src/modules/workflow/workflow-steps/workflow-actions/form-action/components/WorkflowEditActionFormBuilder.tsx
 #: src/modules/workflow/workflow-steps/workflow-actions/form-action/components/WorkflowEditActionFormFieldSettings.tsx
+#: src/pages/settings/applications/components/SettingsClaimApplicationSection.tsx
 msgid "Close"
 msgstr "إغلاق"
 
@@ -5124,6 +5285,13 @@ msgstr "إنشاء بريد إلكتروني"
 msgid "Computed at"
 msgstr "حُسب في"
 
+#. js-lingui-id: wpT1VN
+#: src/modules/settings/data-model/object-details/components/tabs/SettingsObjectValidationRulesSection.tsx
+#: src/modules/validation-rules/components/SettingsValidationRuleExpressionEditor.tsx
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
+msgid "Condition"
+msgstr ""
+
 #. js-lingui-id: PLbVix
 #: src/pages/settings/applications/tabs/SettingsApplicationCommandMenuItemSettingsTab.tsx
 msgid "Conditional availability"
@@ -5221,6 +5389,11 @@ msgstr "اضبط طريقة ظهور هذا العنصر في نتائج الب�
 #: src/modules/settings/accounts/components/SettingsAccountsConnectionForm.tsx
 msgid "Configure IMAP settings to receive and sync your emails."
 msgstr "قم بتكوين إعدادات IMAP لاستقبال ومزامنة رسائل البريد الإلكتروني الخاصة بك."
+
+#. js-lingui-id: uUDe3+
+#: src/pages/settings/data-model/validation-rules/SettingsObjectNewValidationRule.tsx
+msgid "Configure rule"
+msgstr ""
 
 #. js-lingui-id: gk/8eh
 #: src/modules/settings/accounts/components/SettingsAccountsConnectionForm.tsx
@@ -5551,13 +5724,13 @@ msgstr "متابعة بالبريد الإلكتروني"
 
 #. js-lingui-id: oZyG4C
 #: src/modules/auth/sign-in-up/components/internal/SignInUpWithGoogle.tsx
-#: src/pages/onboarding/ImportContacts.tsx
+#: src/pages/onboarding/SyncEmails.tsx
 msgid "Continue with Google"
 msgstr "متابعة بـ Google"
 
 #. js-lingui-id: ztoybH
 #: src/modules/auth/sign-in-up/components/internal/SignInUpWithMicrosoft.tsx
-#: src/pages/onboarding/ImportContacts.tsx
+#: src/pages/onboarding/SyncEmails.tsx
 msgid "Continue with Microsoft"
 msgstr "الاستمرار باستخدام مايكروسوفت"
 
@@ -5587,6 +5760,16 @@ msgstr "المحادثة"
 #: src/pages/settings/ai/components/SettingsAiOverviewTab.tsx
 msgid "Conversations"
 msgstr "المحادثات"
+
+#. js-lingui-id: 5dVEtZ
+#: src/modules/page-layout/widgets/chat-threads/components/ChatThreadsCardContent.tsx
+msgid "Conversations linked to this record will appear here."
+msgstr ""
+
+#. js-lingui-id: SXWEJM
+#: src/modules/settings/admin-panel/constants/SettingsAdminFeatureFlagMetadata.ts
+msgid "Conversations tab"
+msgstr ""
 
 #. js-lingui-id: HRGl1X
 #: src/modules/settings/members/components/MemberNameFields.tsx
@@ -5779,6 +5962,16 @@ msgstr "التكلفة لكل مليون رمز (دولار أمريكي)"
 msgid "Cost per million tokens for cached input (USD)"
 msgstr "التكلفة لكل مليون رمز للإدخال المخزَّن مؤقتًا (دولار أمريكي)"
 
+#. js-lingui-id: lvWtM4
+#: src/modules/ai/utils/tool-display/get-tool-display-message.ts
+msgid "Could not attach this conversation to a record"
+msgstr ""
+
+#. js-lingui-id: 3KqAq7
+#: src/modules/ai/utils/tool-display/get-tool-display-message.ts
+msgid "Could not attach this conversation to the {objectLabel}"
+msgstr ""
+
 #. js-lingui-id: T8ACay
 #: src/pages/settings/applications/components/SettingsClaimApplicationSection.tsx
 msgid "Could not claim this application"
@@ -5945,6 +6138,11 @@ msgstr "عدّ الجميع"
 msgid "Count by"
 msgstr "العدّ حسب"
 
+#. js-lingui-id: EEqRLn
+#: src/modules/settings/workspace/components/ClickTrackingSwitch.tsx
+msgid "Count clicks by routing campaign links through Twenty before the original page."
+msgstr ""
+
 #. js-lingui-id: vQJINq
 #: src/modules/object-record/record-board/record-board-column/utils/getAggregateOperationLabel.ts
 msgid "Count empty"
@@ -6018,6 +6216,12 @@ msgstr "إنشاء {objectLabelSingular}"
 #: src/pages/object-core/WorkflowCoreIndexPage.tsx
 msgid "Create a {0} to automate your work."
 msgstr "أنشئ {0} لأتمتة عملك."
+
+#. js-lingui-id: jmGqEp
+#. placeholder {0}: objectMetadataItem.labelPlural
+#: src/modules/validation-rules/components/SettingsValidationRulePreview.tsx
+msgid "Create a few {0} to preview this rule on real records."
+msgstr ""
 
 #. js-lingui-id: fQFALn
 #: src/modules/ai/components/suggested-prompts/default-suggested-prompts.ts
@@ -6132,6 +6336,7 @@ msgid "Create note"
 msgstr "إنشاء ملاحظة"
 
 #. js-lingui-id: gSyzEV
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
 #: src/pages/onboarding/CreateProfile.tsx
 msgid "Create profile"
 msgstr "إنشاء ملف شخصي"
@@ -6343,6 +6548,16 @@ msgstr "الأرصدة"
 #: src/modules/settings/admin-panel/components/SettingsAdminWorkspaceCreditGrantModal.tsx
 msgid "Credits are added on top of the plan allowance and are spent only once it runs out. They carry over in full from one billing period to the next, and stay available until they are used up or, where an expiry is set, until the end of the billing period that expiry falls in."
 msgstr "تُضاف الأرصدة فوق مخصصات الخطة ولا تُنفق إلا بعد نفادها. تُرحّل بالكامل من فترة فوترة إلى التالية، وتبقى متاحة حتى تُستهلك أو، عند تحديد انتهاء صلاحية، حتى نهاية فترة الفوترة التي تقع فيها صلاحية الانتهاء."
+
+#. js-lingui-id: U9hjv1
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "Credits are added when they accept your invite."
+msgstr ""
+
+#. js-lingui-id: ZSN5aF
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "Credits are added when your trial starts."
+msgstr ""
 
 #. js-lingui-id: 0o2LpE
 #: src/modules/settings/billing/components/SettingsBillingCreditsSection.tsx
@@ -6621,6 +6836,11 @@ msgstr "عروض مخصصة"
 msgid "Customer"
 msgstr "العميل"
 
+#. js-lingui-id: lfE233
+#: src/modules/validation-rules/components/SettingsValidationRuleNameForm.tsx
+msgid "Customer deals need an amount"
+msgstr ""
+
 #. js-lingui-id: AdXh0n
 #: src/modules/workflow/workflow-steps/workflow-actions/classify-action/components/WorkflowEditActionClassify.tsx
 msgid "customer_satisfaction"
@@ -6727,6 +6947,7 @@ msgstr "الاستخدام اليومي"
 #: src/modules/settings/profile/components/DeleteAccount.tsx
 #: src/modules/settings/profile/components/DeleteWorkspace.tsx
 #: src/modules/settings/roles/role-settings/components/SettingsRoleSettings.tsx
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
 #: src/pages/settings/admin-panel/SettingsAdminAiProviderDetail.tsx
 #: src/pages/settings/admin-panel/SettingsAdminApplicationRegistrationDangerZone.tsx
 #: src/pages/settings/ai/components/SettingsAgentSettingsTab.tsx
@@ -6782,6 +7003,7 @@ msgstr "تسميات البيانات"
 
 #. js-lingui-id: 5cNMFz
 #: src/modules/settings/hooks/useSettingsNavigationItems.tsx
+#: src/modules/validation-rules/components/SettingsValidationRulePageLayout.tsx
 #: src/pages/settings/data-model/SettingsObjects.tsx
 msgid "Data model"
 msgstr "نموذج البيانات"
@@ -7133,6 +7355,8 @@ msgstr "حذف"
 #: src/modules/side-panel/pages/page-layout/components/record-table-settings/RecordTableSettingsSortsContent.tsx
 #: src/modules/side-panel/pages/page-layout/components/RegularTabSettingsContent.tsx
 #: src/modules/side-panel/pages/page-layout/components/SingleWidgetTabSettingsContent.tsx
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
 #: src/modules/views/view-picker/components/ViewPickerCreateButton.tsx
 #: src/modules/views/view-picker/components/ViewPickerEditButton.tsx
 #: src/modules/views/view-picker/components/ViewPickerOptionDropdown.tsx
@@ -7351,6 +7575,11 @@ msgstr "حذف هذا الحد؟"
 msgid "Delete this role and assign a new role to its members"
 msgstr "حذف هذا الدور وتعيين دور جديد لأعضائه"
 
+#. js-lingui-id: G3jMHs
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Delete this rule?"
+msgstr ""
+
 #. js-lingui-id: UvEQr6
 #: src/pages/settings/ai/SettingsToolDetail.tsx
 msgid "Delete this tool"
@@ -7548,6 +7777,7 @@ msgid "Destroy Records on All Objects"
 msgstr "إتلاف السجلات في جميع العناصر"
 
 #. js-lingui-id: FOcBn3
+#: src/modules/ai/components/AiChatThreadItemMenu.tsx
 #: src/modules/object-record/record-field-list/record-detail-section/relation/components/RecordDetailRelationRecordsListItem.tsx
 msgid "Detach"
 msgstr "فصل"
@@ -7648,10 +7878,20 @@ msgstr "استجابات بيانات REST الوصفية المباشرة"
 msgid "Direction"
 msgstr "الاتجاه"
 
+#. js-lingui-id: cO9+2L
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Disable"
+msgstr ""
+
 #. js-lingui-id: XDeNvP
 #: src/modules/settings/admin-panel/components/SettingsAdminServerAdminAccess.tsx
 msgid "Disable impersonation"
 msgstr "تعطيل الانتحال"
+
+#. js-lingui-id: 8v3G2p
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Disable the rule to stop checking records against it."
+msgstr ""
 
 #. js-lingui-id: E/QGRL
 #: src/modules/page-layout/components/PageLayoutTabListNewTabDropdownContent.tsx
@@ -8088,6 +8328,11 @@ msgstr "أقدم"
 msgid "Earliest date"
 msgstr "أقدم تاريخ"
 
+#. js-lingui-id: tmDUtT
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPill.tsx
+msgid "Earn {formattedCurrentStepCredits}"
+msgstr ""
+
 #. js-lingui-id: NiJ5R5
 #: src/modules/onboarding/components/import-contacts/OnboardingCreditsRewardTag.tsx
 msgid "Earn +{amount}"
@@ -8196,6 +8441,11 @@ msgstr "تحرير الحد"
 msgid "Edit link"
 msgstr "تحرير الرابط"
 
+#. js-lingui-id: WLw62E
+#: src/modules/ai/components/AiChatThreadRecordTargets.tsx
+msgid "Edit linked records"
+msgstr ""
+
 #. js-lingui-id: PWLkwC
 #: src/modules/navigation-menu-item/display/sections/workspace/components/WorkspaceSection.tsx
 msgid "Edit navigation"
@@ -8240,6 +8490,11 @@ msgstr "تحرير السجلات في جميع العناصر"
 #: src/modules/page-layout/widgets/field/components/FieldWidgetRelationEditAction.tsx
 msgid "Edit relation"
 msgstr "تعديل العلاقة"
+
+#. js-lingui-id: 0doodQ
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Edit rule"
+msgstr ""
 
 #. js-lingui-id: xE9ptR
 #: src/modules/page-layout/components/PageLayoutTabMenuItemSelectAvatar.tsx
@@ -8335,10 +8590,10 @@ msgstr "عنوان البريد الإلكتروني"
 msgid "Email Address"
 msgstr "عنوان البريد الإلكتروني"
 
-#. js-lingui-id: Pvk9fk
+#. js-lingui-id: M08Fhf
 #: src/modules/settings/unsubscribers/components/SettingsUnsubscribersList.tsx
-msgid "Email addresses that will no longer receive campaign emails"
-msgstr "عناوين البريد الإلكتروني التي لن تتلقى بعد الآن رسائل الحملات"
+msgid "Email addresses that opted out of campaign emails, a topic, or click tracking"
+msgstr ""
 
 #. js-lingui-id: AoN898
 #: src/modules/settings/billing/constants/SettingsBillingPlanComparisonRows.ts
@@ -8417,6 +8672,12 @@ msgstr "مراسلة الدعم عبر البريد الإلكتروني"
 #: src/modules/workflow/workflow-steps/workflow-actions/components/WorkflowEditActionCreateCalendarEvent.tsx
 msgid "Email the attendees an invitation"
 msgstr "إرسال دعوة عبر البريد الإلكتروني إلى الحضور"
+
+#. js-lingui-id: +V3dhy
+#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
+#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
+msgid "Email tracking"
+msgstr ""
 
 #. js-lingui-id: LimKOG
 #: src/pages/settings/security/SettingsSecurityApprovedAccessDomain.tsx
@@ -8509,6 +8770,7 @@ msgstr "الموظفون"
 #: src/modules/log-console/components/LogConsoleRecordChangeDetail.tsx
 #: src/modules/object-record/record-board/record-board-column/utils/getAggregateOperationShortLabel.ts
 #: src/modules/object-record/record-inline-cell/components/RecordInlineCellDisplayMode.tsx
+#: src/modules/validation-rules/components/SettingsValidationRulePreview.tsx
 msgid "Empty"
 msgstr "فارغ"
 
@@ -8564,6 +8826,11 @@ msgstr "كائن فارغ"
 #: src/pages/settings/layout/SettingsLayoutPageLayoutDetail.tsx
 msgid "Empty tab"
 msgstr "علامة تبويب فارغة"
+
+#. js-lingui-id: PaQ3df
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Enable"
+msgstr ""
 
 #. js-lingui-id: q11Dk2
 #: src/modules/settings/roles/role-permissions/permission-flags/hooks/useSettingsRolePermissionFlagConfig.ts
@@ -8669,6 +8936,11 @@ msgstr "يعزز الأمان من خلال طلب رمز مع كلمة المر
 msgid "Enjoy a 30-day free trial"
 msgstr "استمتع بفترة تجريبية مجانية لمدة 30 يومًا"
 
+#. js-lingui-id: zPfy+F
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Enough for one of these on average"
+msgstr ""
+
 #. js-lingui-id: 4frL7T
 #: src/modules/onboarding/constants/OnboardingInstallableApps.ts
 msgid "Enrich your leads with People Data Labs"
@@ -8678,6 +8950,11 @@ msgstr "أغنِ بيانات العملاء المحتملين لديك عبر 
 #: src/modules/onboarding/constants/OnboardingInstallableApps.ts
 msgid "Enrichment"
 msgstr "الإثراء"
+
+#. js-lingui-id: oWbT1n
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Enrichments"
+msgstr ""
 
 #. js-lingui-id: T/N+2Z
 #: src/modules/object-record/record-field/ui/form-types/components/FormRawJsonFieldInput.tsx
@@ -8955,6 +9232,7 @@ msgstr "محو السجلات المحذوفة مؤقتًا"
 #: src/modules/page-layout/widgets/components/PageLayoutWidgetErrorDisplay.tsx
 #: src/modules/settings/admin-panel/chats/components/SettingsAdminChatsTableRow.tsx
 #: src/modules/ui/feedback/toast/utils/getLocalizedToastProps.ts
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
 #: src/modules/workflow/workflow-steps/workflow-actions/code-action/components/WorkflowRunStepLogsCodeDetail.tsx
 #: src/modules/workflow/workflow-steps/workflow-actions/code-action/components/WorkflowRunStepLogsCodeDetail.tsx
 #: src/modules/workflow/workflow-steps/workflow-actions/components/WorkflowRunStepLogsEmailDetail.tsx
@@ -9255,6 +9533,11 @@ msgstr "كل من في مساحة العمل"
 msgid "Everything"
 msgstr "كل شيء"
 
+#. js-lingui-id: hFthoo
+#: src/modules/validation-rules/components/SettingsValidationRuleHelperDetails.tsx
+msgid "Examples"
+msgstr ""
+
 #. js-lingui-id: QQlMid
 #: src/modules/settings/accounts/components/SettingsAccountsMessageChannelDetails.tsx
 msgid "Exclude group emails"
@@ -9381,6 +9664,7 @@ msgstr "توسيع الشريط الجانبي"
 
 #. js-lingui-id: 4bQAS8
 #: src/modules/advanced-text-editor/components/FormAdvancedTextFieldInput.tsx
+#: src/modules/object-record/record-field/ui/form-types/components/FormRecordRichTextFieldInput.tsx
 msgid "Expand to full screen"
 msgstr "توسيع إلى ملء الشاشة"
 
@@ -9593,6 +9877,11 @@ msgstr "فشل إنشاء السجل"
 msgid "Failed to create the limit."
 msgstr "فشل إنشاء الحد."
 
+#. js-lingui-id: jrwIEQ
+#: src/pages/settings/data-model/validation-rules/SettingsObjectNewValidationRule.tsx
+msgid "Failed to create the rule."
+msgstr ""
+
 #. js-lingui-id: ITWxKI
 #: src/pages/settings/communications/SettingsWorkspaceNewUnsubscribeTopic.tsx
 msgid "Failed to create unsubscribe topic."
@@ -9623,6 +9912,11 @@ msgstr "فشل في حذف المهارة"
 #: src/modules/settings/billing/components/SettingsBillingLimitEditForm.tsx
 msgid "Failed to delete the limit."
 msgstr "فشل حذف الحد."
+
+#. js-lingui-id: P52MKW
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Failed to delete the rule."
+msgstr ""
 
 #. js-lingui-id: AUprM8
 #: src/pages/settings/ai/SettingsToolDetail.tsx
@@ -9923,6 +10217,12 @@ msgstr "فشل تحديث صلاحيات مسؤول الخادم."
 #: src/modules/settings/billing/components/SettingsBillingLimitEditForm.tsx
 msgid "Failed to update the limit."
 msgstr "فشل تحديث الحد."
+
+#. js-lingui-id: ualyOO
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Failed to update the rule."
+msgstr ""
 
 #. js-lingui-id: 6TG/SY
 #: src/pages/settings/applications/hooks/useApplicationTimelineActivityTypes.ts
@@ -10258,6 +10558,11 @@ msgstr "خيارات قواعد مجموعة التصفية"
 msgid "Filter limits"
 msgstr "تصفية الحدود"
 
+#. js-lingui-id: iSXrBT
+#: src/modules/settings/unsubscribers/components/filter-dropdown/SettingsUnsubscribersFilterDropdown.tsx
+msgid "Filter opt-outs"
+msgstr ""
+
 #. js-lingui-id: FG3LyE
 #: src/modules/ai/components/suggested-prompts/contextual-suggested-prompts.ts
 msgid "Filter this view"
@@ -10272,11 +10577,6 @@ msgstr "تصفية هذا العرض لإظهار "
 #: src/modules/page-layout/widgets/timeline/components/WidgetActionTimelineFilter.tsx
 msgid "Filter timeline"
 msgstr "تصفية الجدول الزمني"
-
-#. js-lingui-id: j/O9Sh
-#: src/modules/settings/unsubscribers/components/filter-dropdown/SettingsUnsubscribersFilterDropdown.tsx
-msgid "Filter unsubscribers"
-msgstr "تصفية من ألغوا الاشتراك"
 
 #. js-lingui-id: iTs6Ck
 #: src/modules/object-core/commands/hooks/useCoreObjectsCommands.ts
@@ -10539,14 +10839,19 @@ msgstr "رابع"
 
 #. js-lingui-id: lm4S7P
 #: src/modules/onboarding/components/import-contacts/OnboardingCreditsRewardTag.tsx
-#: src/modules/onboarding/components/OnboardingHeader.tsx
 msgid "free credits"
 msgstr "أرصدة مجانية"
 
-#. js-lingui-id: 8DWz/b
-#: src/pages/onboarding/InstallAppsContent.tsx
-msgid "free credits ({creditsRewardPerApp} per tool)"
-msgstr "أرصدة مجانية ({creditsRewardPerApp} لكل أداة)"
+#. js-lingui-id: fQrBme
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPill.tsx
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Free credits"
+msgstr ""
+
+#. js-lingui-id: sCMpw5
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsProgress.tsx
+msgid "Free credits earned"
+msgstr ""
 
 #. js-lingui-id: 7thh0w
 #: src/pages/onboarding/InviteTeam.tsx
@@ -10676,6 +10981,7 @@ msgstr "قابل للتخصيص بالكامل"
 #: src/modules/log-console/constants/LogConsoleApplicationLogColumns.tsx
 #: src/modules/log-console/constants/LogConsoleApplicationLogFilterFields.tsx
 #: src/modules/settings/event-logs/utils/getColumnsForEventLogTable.tsx
+#: src/modules/validation-rules/components/SettingsValidationRuleHelperDetails.tsx
 msgid "Function"
 msgstr "دالة"
 
@@ -11026,6 +11332,7 @@ msgstr "تجميع عدة حقول من هذا السجل"
 
 #. js-lingui-id: WcF1uL
 #: src/modules/page-layout/widgets/fields/components/FieldsConfigurationGroupRenameInput.tsx
+#: src/modules/page-layout/widgets/fields/components/FieldsConfigurationGroupRenameInput.tsx
 msgid "Group name"
 msgstr "اسم المجموعة"
 
@@ -11344,6 +11651,11 @@ msgstr "المبلغ الممكن إنفاقه ومدى تكرار إعادة ت
 #: src/pages/settings/applications/tabs/SettingsApplicationDetailContentTab.tsx
 msgid "How records, pages, and navigation are displayed"
 msgstr "كيفية عرض السجلات والصفحات والتنقّل"
+
+#. js-lingui-id: tdbxbk
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
+msgid "How this rule appears in settings."
+msgstr ""
 
 #. js-lingui-id: e60vNl
 #: src/pages/onboarding/CreateProfile.tsx
@@ -11669,6 +11981,11 @@ msgstr "استيراد"
 msgid "Import all emails"
 msgstr "استيراد جميع رسائل البريد الإلكتروني"
 
+#. js-lingui-id: RQkDtT
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Import contacts"
+msgstr ""
+
 #. js-lingui-id: 2CeOI3
 #: src/modules/settings/roles/role-permissions/permission-flags/hooks/useActionRolePermissionFlagConfig.ts
 msgid "Import CSV"
@@ -11722,6 +12039,7 @@ msgstr "In-Reply-To"
 
 #. js-lingui-id: NoNwIX
 #: src/modules/settings/data-model/object-details/components/SettingsObjectRelationsTable.tsx
+#: src/modules/settings/data-model/object-details/components/tabs/SettingsObjectValidationRulesSection.tsx
 #: src/modules/settings/domains/components/SettingsWorkspaceDomainCard.tsx
 #: src/pages/settings/data-model/SettingsObjectFieldTable.tsx
 msgid "Inactive"
@@ -11925,6 +12243,11 @@ msgstr "ثبّت {appDisplayName} في مساحة العمل الخاصة بك"
 #: src/modules/settings/roles/role-permissions/permission-flags/hooks/useSettingsRolePermissionFlagConfig.ts
 msgid "Install and manage applications"
 msgstr "تثبيت وإدارة التطبيقات"
+
+#. js-lingui-id: e4mkmA
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Install apps"
+msgstr ""
 
 #. js-lingui-id: 0RAaKu
 #: src/modules/settings/mcp-and-apis/utils/buildMcpSetupCategories.tsx
@@ -12200,6 +12523,7 @@ msgid "Invite user"
 msgstr "دعوة المستخدم"
 
 #. js-lingui-id: d+Y+rP
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
 #: src/pages/onboarding/InviteTeam.tsx
 msgid "Invite your team"
 msgstr "ادع فريقك"
@@ -12469,6 +12793,12 @@ msgstr "عنصر واجهة كانبان"
 msgid "Keep executing the next nodes even if this one fails"
 msgstr "استمر في تنفيذ العُقد التالية حتى إذا فشلت هذه العقدة"
 
+#. js-lingui-id: AHYRpC
+#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
+#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
+msgid "Keep tracking my clicks"
+msgstr ""
+
 #. js-lingui-id: 7sMeHQ
 #: src/modules/workflow/workflow-steps/workflow-actions/http-request-action/components/KeyValuePairInput.tsx
 msgid "Key"
@@ -12498,6 +12828,11 @@ msgstr "مفتاح/قيمة"
 #: src/modules/keyboard-shortcut-menu/components/KeyboardShortcutMenuDialog.tsx
 msgid "Keyboard shortcuts"
 msgstr "اختصارات لوحة المفاتيح"
+
+#. js-lingui-id: nhxAdQ
+#: src/modules/validation-rules/components/SettingsValidationRuleHelperDetails.tsx
+msgid "Keyword"
+msgstr ""
 
 #. js-lingui-id: DJokAV
 #: src/modules/settings/admin-panel/components/SettingsAdminChatMessage.tsx
@@ -12917,6 +13252,11 @@ msgstr "أقل"
 msgid "Less than or equal"
 msgstr "أقل من أو يساوي"
 
+#. js-lingui-id: EKKBiO
+#: src/modules/settings/admin-panel/constants/SettingsAdminFeatureFlagMetadata.ts
+msgid "Let admins add conditions a record must meet to be saved, checked on every write."
+msgstr ""
+
 #. js-lingui-id: aTNzjg
 #: src/modules/settings/data-model/object-details/components/tabs/ObjectOpenRecordInPicker.tsx
 msgid "Let each member decide for themselves"
@@ -13073,6 +13413,7 @@ msgstr "رابط"
 #. js-lingui-id: yzF66j
 #: src/modules/navigation-menu-item/edit/components/NavigationMenuItemTypeTooltip.tsx
 #: src/modules/navigation-menu-item/edit/hooks/useNavigationMenuItemAddOptions.tsx
+#: src/modules/navigation-menu-item/edit/hooks/useNavigationMenuItemAddOptions.tsx
 #: src/modules/settings/admin-panel/health-status/maintenance-mode/components/SettingsAdminMaintenanceMode.tsx
 #: src/modules/settings/applications/hooks/useComputeApplicationContentForLayoutAndLogic.ts
 msgid "Link"
@@ -13100,6 +13441,11 @@ msgstr "تم نسخ الرابط إلى الحافظة"
 #: src/modules/navigation-menu-item/edit/components/NavigationMenuItemLinkEditor.tsx
 msgid "Link label"
 msgstr "تسمية الرابط"
+
+#. js-lingui-id: 8uujEK
+#: src/modules/ai/components/AiChatThreadRecordTargets.tsx
+msgid "Link to a record"
+msgstr ""
 
 #. js-lingui-id: roAe2K
 #: src/modules/advanced-text-editor/constants/AdvancedTextEditorBlockCatalog.ts
@@ -13769,6 +14115,11 @@ msgstr "أنا"
 msgid "Me (User ID)"
 msgstr "أنا (معرف المستخدم)"
 
+#. js-lingui-id: HVaz6o
+#: src/pages/settings/communications/SettingsWorkspaceCommunications.tsx
+msgid "Measure engagement on the campaigns this workspace sends"
+msgstr ""
+
 #. js-lingui-id: agPptk
 #: src/modules/ai/utils/getAiModelEffortLabel.ts
 msgid "Medium"
@@ -13868,6 +14219,7 @@ msgstr "جارٍ الدمج..."
 #: src/modules/log-console/components/LogConsoleDetailPanel.tsx
 #: src/modules/log-console/constants/LogConsoleApplicationLogColumns.tsx
 #: src/modules/settings/event-logs/utils/getColumnsForEventLogTable.tsx
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
 msgid "Message"
 msgstr "رسالة"
 
@@ -14275,6 +14627,11 @@ msgstr "يجب أن تكون مصفوفة من الكائنات تحتوي عل�
 msgid "must be an array of valid emails"
 msgstr "يجب أن تكون مصفوفة من بريد إلكتروني صالح"
 
+#. js-lingui-id: PS4GGg
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
+msgid "Must be true to save. A write that makes it false is rejected."
+msgstr ""
+
 #. js-lingui-id: OJCJh9
 #: src/pages/settings/applications/tabs/SettingsApplicationsDeveloperTab.tsx
 msgid "My apps"
@@ -14313,6 +14670,7 @@ msgstr "غير متاح"
 #: src/modules/settings/config-variables/components/ConfigVariableTable.tsx
 #: src/modules/settings/data-model/object-details/components/SettingsObjectRelationsTable.tsx
 #: src/modules/settings/data-model/object-details/components/tabs/SettingsObjectSearchSection.tsx
+#: src/modules/settings/data-model/object-details/components/tabs/SettingsObjectValidationRulesSection.tsx
 #: src/modules/settings/developers/components/SettingsApiKeysTable.tsx
 #: src/modules/settings/logic-functions/components/SettingsLogicFunctionNewForm.tsx
 #: src/modules/settings/members/components/MemberInfosTab.tsx
@@ -14357,6 +14715,11 @@ msgstr "الاسم"
 #: src/modules/settings/logic-functions/components/SettingsLogicFunctionNewForm.tsx
 msgid "Name and describe your function"
 msgstr "اسم وصِف وظيفتك"
+
+#. js-lingui-id: Ei0iwZ
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
+msgid "Name and description"
+msgstr ""
 
 #. js-lingui-id: zaxmAs
 #: src/modules/settings/data-model/object-details/components/tabs/ObjectSettings.tsx
@@ -14514,6 +14877,7 @@ msgid "New Company"
 msgstr "شركة جديدة"
 
 #. js-lingui-id: +HY5kX
+#: src/modules/page-layout/widgets/chat-threads/components/WidgetActionChatThreadCreate.tsx
 #: src/modules/side-panel/components/SidePanelTopBarRightCornerIcon.tsx
 msgid "New conversation"
 msgstr "محادثة جديدة"
@@ -14611,6 +14975,11 @@ msgstr "كلمة سر جديدة"
 #: src/modules/settings/billing/components/internal/ResourceCreditPackagePickerModal.tsx
 msgid "New rollover limit"
 msgstr "حد جديد للترحيل"
+
+#. js-lingui-id: yBF5J5
+#: src/pages/settings/data-model/validation-rules/SettingsObjectNewValidationRule.tsx
+msgid "New rule"
+msgstr ""
 
 #. js-lingui-id: MdpSC1
 #: src/modules/ai/components/AiChatAddMenuSkillsPage.tsx
@@ -14711,6 +15080,11 @@ msgstr "الفترة التالية"
 #: src/modules/ai/components/AiChatQuestionCard.tsx
 msgid "Next question"
 msgstr "السؤال التالي"
+
+#. js-lingui-id: vpyN3x
+#: src/modules/validation-rules/components/SettingsValidationRulePreview.tsx
+msgid "Next record"
+msgstr ""
 
 #. js-lingui-id: tgnDjk
 #: src/modules/settings/applications/components/SettingsApplicationScreenshotLightbox.tsx
@@ -14944,6 +15318,11 @@ msgstr "لا يوجد محتوى"
 #: src/modules/ai/components/RoutingDebugDisplay.tsx
 msgid "No context was provided for this request"
 msgstr "لم يتم توفير سياق لهذا الطلب"
+
+#. js-lingui-id: ICXANZ
+#: src/modules/page-layout/widgets/chat-threads/components/ChatThreadsCardContent.tsx
+msgid "No conversations"
+msgstr ""
 
 #. js-lingui-id: Zpgvun
 #: src/pages/settings/legal/SettingsLegalDpa.tsx
@@ -15371,6 +15750,11 @@ msgstr "لم يتم العثور على أدوار"
 msgid "No rows with errors"
 msgstr "لا توجد صفوف تحتوي على أخطاء"
 
+#. js-lingui-id: aJlCCf
+#: src/modules/settings/data-model/object-details/components/tabs/SettingsObjectValidationRulesSection.tsx
+msgid "No rules yet."
+msgstr ""
+
 #. js-lingui-id: Hsl+kr
 #: src/modules/views/view-picker/components/ViewPickerContentCreateMode.tsx
 msgid "No Select field"
@@ -15755,6 +16139,11 @@ msgstr "لم يُرسل شيء بعد. ستعود الحملة إلى مسودا
 #: src/modules/page-layout/widgets/components/StandaloneWidgetPlaceholder.tsx
 msgid "Nothing to see"
 msgstr "لا يوجد ما يمكن عرضه"
+
+#. js-lingui-id: lGMk6n
+#: src/modules/validation-rules/components/SettingsValidationRuleHelperPanel.tsx
+msgid "Nothing to suggest here."
+msgstr ""
 
 #. js-lingui-id: iDNBZe
 #: src/modules/ui/feedback/toast/components/__tests__/AppToaster.test.tsx
@@ -16332,6 +16721,18 @@ msgstr "العمليات"
 msgid "Operations"
 msgstr "العمليات"
 
+#. js-lingui-id: bjmb99
+#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
+#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
+msgid "Opt out of click tracking"
+msgstr ""
+
+#. js-lingui-id: IclqIc
+#: src/modules/settings/unsubscribers/components/SettingsUnsubscribersList.tsx
+#: src/pages/settings/communications/SettingsWorkspaceUnsubscribe.tsx
+msgid "Opt-outs"
+msgstr ""
+
 #. js-lingui-id: fgY76O
 #. placeholder {0}: index + 1
 #: src/modules/workflow/workflow-steps/workflow-actions/classify-action/components/WorkflowClassifyQuestionCriteria.tsx
@@ -16707,6 +17108,11 @@ msgstr "المعلمات"
 #: src/pages/settings/community/SettingsCommunity.tsx
 msgid "Partners"
 msgstr "الشركاء"
+
+#. js-lingui-id: fXlCy/
+#: src/modules/validation-rules/components/SettingsValidationRulePreview.tsx
+msgid "Passes. This record can be saved."
+msgstr ""
 
 #. js-lingui-id: 8ZsakT
 #: src/modules/auth/sign-in-up/components/internal/SignInUpPasswordField.tsx
@@ -17291,6 +17697,11 @@ msgstr "التكرار السابق"
 msgid "Previous period"
 msgstr "الفترة السابقة"
 
+#. js-lingui-id: gS9MCC
+#: src/modules/validation-rules/components/SettingsValidationRulePreview.tsx
+msgid "Previous record"
+msgstr ""
+
 #. js-lingui-id: k7xxm/
 #: src/modules/settings/applications/components/SettingsApplicationScreenshotLightbox.tsx
 msgid "Previous screenshot"
@@ -17728,11 +18139,6 @@ msgstr "recipient@example.com"
 msgid "Recipients"
 msgstr "المستلمون"
 
-#. js-lingui-id: XNF6El
-#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
-msgid "Recipients can only unsubscribe from everything. Add a public topic to let them choose what they keep receiving."
-msgstr "يمكن للمستلمين إلغاء الاشتراك من كل شيء فقط. أضِف موضوعًا عامًا للسماح لهم باختيار ما يستمرون في تلقيه."
-
 #. js-lingui-id: WEYdDv
 #: src/modules/ai/components/AiChatQuestionCard.tsx
 #: src/modules/settings/admin-panel/components/SettingsAdminChatAskQuestionsQuestion.tsx
@@ -17790,6 +18196,11 @@ msgstr "السجل"
 msgid "Record (ID)"
 msgstr "السجل (المعرّف)"
 
+#. js-lingui-id: OhTdMH
+#: src/modules/validation-rules/components/SettingsValidationRulePreview.tsx
+msgid "Record {displayedRecordNumber} of {recordCount}"
+msgstr ""
+
 #. js-lingui-id: VW8X7n
 #: src/modules/log-console/constants/LogConsoleSources.tsx
 msgid "Record changes"
@@ -17838,6 +18249,11 @@ msgstr "ملصق السجل"
 #: src/modules/settings/data-model/object-details/components/tabs/ObjectLayout.tsx
 msgid "Record page"
 msgstr "صفحة السجل"
+
+#. js-lingui-id: pVTJSR
+#: src/modules/command-menu-item/edit/components/CommandMenuItemEditRecordSelectionDropdown.tsx
+msgid "Record selection"
+msgstr ""
 
 #. js-lingui-id: NxW0+c
 #: src/modules/side-panel/pages/page-layout/utils/getPageLayoutPageTitle.ts
@@ -17903,6 +18319,11 @@ msgstr "السجلات"
 #: src/modules/command-menu-item/edit/components/CommandMenuItemEditRecordSelectionDropdown.tsx
 msgid "Records selected"
 msgstr "السجلات المحددة"
+
+#. js-lingui-id: sE6EHz
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Records will no longer be checked against it. Existing records are not changed."
+msgstr ""
 
 #. js-lingui-id: wRTiSD
 #: src/modules/settings/data-model/fields/forms/select/components/SettingsDataModelFieldSelectFormOptionRow.tsx
@@ -18274,6 +18695,7 @@ msgstr "إعادة التسمية"
 
 #. js-lingui-id: 6PsaMr
 #: src/modules/ai/components/AiChatPageThreadHeader.tsx
+#: src/modules/ai/components/AiChatThreadListItem.tsx
 msgid "Rename chat"
 msgstr "إعادة تسمية الدردشة"
 
@@ -18281,6 +18703,11 @@ msgstr "إعادة تسمية الدردشة"
 #: src/modules/settings/data-model/object-details/components/SettingsUpdateDataModelObjectAboutForm.tsx
 msgid "Rename for all languages"
 msgstr "إعادة التسمية لجميع اللغات"
+
+#. js-lingui-id: vtxT26
+#: src/modules/page-layout/widgets/fields/components/FieldsConfigurationGroupEditor.tsx
+msgid "Rename group"
+msgstr ""
 
 #. js-lingui-id: oQjB9l
 #: src/modules/settings/billing/components/SettingsBillingSubscriptionInfo.tsx
@@ -18808,6 +19235,31 @@ msgstr "أمن على مستوى الصف"
 msgid "Ruby"
 msgstr "ياقوتي"
 
+#. js-lingui-id: jXsttb
+#: src/pages/settings/data-model/validation-rules/SettingsObjectNewValidationRule.tsx
+msgid "Rule created."
+msgstr ""
+
+#. js-lingui-id: Tz7o+/
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Rule deleted."
+msgstr ""
+
+#. js-lingui-id: GOqDOz
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Rule disabled."
+msgstr ""
+
+#. js-lingui-id: XdExw+
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Rule enabled."
+msgstr ""
+
+#. js-lingui-id: sBTDyi
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "Rule updated."
+msgstr ""
+
 #. js-lingui-id: 3JjdaA
 #: src/pages/settings/ai/components/SettingsAgentEvalsTab.tsx
 msgid "Run"
@@ -18906,6 +19358,7 @@ msgstr "السبت"
 #: src/modules/settings/components/SaveAndCancelButtons/SaveButton.tsx
 #: src/modules/settings/config-variables/components/ConfigVariableEdit.tsx
 #: src/modules/settings/profile/components/EmailField.tsx
+#: src/modules/validation-rules/components/SettingsValidationRulePageLayout.tsx
 #: src/pages/settings/data-model/new-field/SettingsObjectNewFieldConfigure.tsx
 msgid "Save"
 msgstr "حفظ"
@@ -19035,6 +19488,7 @@ msgstr "SDK"
 #: src/modules/command-menu-item/engine-command/constants/EngineComponentKeyHeadlessComponentMap.tsx
 #: src/modules/navigation/hooks/useMobileNavigationBarItems.ts
 #: src/modules/object-record/record-table-widget/components/RecordTableWidgetRelationPickerDropdownContent.tsx
+#: src/modules/page-layout/widgets/timeline/components/WidgetActionTimelineFilter.tsx
 #: src/modules/settings/components/SettingsMorphRelationMultiSelect.tsx
 #: src/modules/settings/components/SettingsMorphRelationMultiSelect.tsx
 #: src/modules/settings/data-model/fields/forms/address/components/MultiSelectAddressFields.tsx
@@ -19113,6 +19567,11 @@ msgstr "ابحث عن أداة..."
 #: src/modules/settings/data-model/fields/forms/components/SettingsObjectNewFieldSelector.tsx
 msgid "Search a type"
 msgstr "ابحث عن نوع"
+
+#. js-lingui-id: JVbOF1
+#: src/modules/page-layout/widgets/timeline/components/WidgetActionTimelineFilter.tsx
+msgid "Search activity types"
+msgstr ""
 
 #. js-lingui-id: ujLBwP
 #: src/modules/settings/data-model/fields/forms/address/components/MultiSelectAddressFields.tsx
@@ -20179,6 +20638,11 @@ msgstr "شارك تطبيقك مع مساحات عمل أخرى دون نشره 
 msgid "Shared email"
 msgstr "بريد إلكتروني مشترك"
 
+#. js-lingui-id: iZYfeB
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Shared inbox emails"
+msgstr ""
+
 #. js-lingui-id: Z+MFnO
 #: src/modules/object-record/record-sharing/components/RecordSharingDropdownContent.tsx
 msgid "Sharing settings could not be loaded."
@@ -20214,6 +20678,11 @@ msgstr "هل يجب أن يؤدي تغيير مسمى العنصر أيضاً إ
 #: src/pages/settings/ai/components/SettingsSkillFormContent.tsx
 msgid "Should changing the label also change the API name?"
 msgstr "هل ينبغي أن يؤدي تغيير التسمية أيضًا إلى تغيير اسم واجهة برمجة التطبيقات؟"
+
+#. js-lingui-id: I2DNv8
+#: src/modules/settings/admin-panel/constants/SettingsAdminFeatureFlagMetadata.ts
+msgid "Show a Conversations tab listing the AI conversations attached to the record, on record pages of new workspaces."
+msgstr ""
 
 #. js-lingui-id: 3MO9Sa
 #: src/modules/settings/admin-panel/constants/SettingsAdminFeatureFlagMetadata.ts
@@ -20261,6 +20730,11 @@ msgstr "عرض الكائنات المخفية"
 #: src/pages/settings/applications/components/SettingsApplicationRegistrationInstalledWorkspaces.tsx
 msgid "Show more"
 msgstr "إظهار المزيد"
+
+#. js-lingui-id: wdogIE
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
+msgid "Show on"
+msgstr ""
 
 #. js-lingui-id: qi+g0a
 #: src/modules/spreadsheet-import/steps/components/ValidationStep/ValidationStep.tsx
@@ -20450,6 +20924,11 @@ msgstr "المهارات"
 msgid "Skip"
 msgstr "تخطى"
 
+#. js-lingui-id: d70FL8
+#: src/modules/onboarding/components/OnboardingSkipDialog.tsx
+msgid "Skip anyway"
+msgstr ""
+
 #. js-lingui-id: TyudBs
 #: src/modules/settings/data-model/objects/forms/components/SettingsDataModelObjectAboutForm.tsx
 msgid "Skip creating a Name field "
@@ -20563,6 +21042,11 @@ msgstr "حدث خطأ أثناء الاتصال بخدمة الفوترة لدي
 #: src/pages/onboarding/WorkspaceActivation.tsx
 msgid "Something went wrong while creating your workspace. Please try again."
 msgstr "حدث خطأ أثناء إنشاء مساحة العمل الخاصة بك. يُرجى المحاولة مرة أخرى."
+
+#. js-lingui-id: KzFgLR
+#: src/modules/page-layout/widgets/chat-threads/components/ChatThreadsCardContent.tsx
+msgid "Something went wrong while fetching this record's conversations."
+msgstr ""
 
 #. js-lingui-id: teokEm
 #: src/modules/log-console/components/LogConsoleResults.tsx
@@ -20730,6 +21214,11 @@ msgstr "أشرطة مكدسة"
 msgid "Stacked lines"
 msgstr "خطوط متراكمة"
 
+#. js-lingui-id: x+vSk8
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Stacks on top of your plan and never expires"
+msgstr ""
+
 #. js-lingui-id: ErU1td
 #: src/modules/views/view-picker/components/ViewPickerContentCreateMode.tsx
 msgid "Stages"
@@ -20768,6 +21257,11 @@ msgstr "تاريخ البداية"
 #: src/modules/ai/dictation/components/AiChatDictationButton.tsx
 msgid "Start dictation"
 msgstr "بدء الإملاء الصوتي"
+
+#. js-lingui-id: c3uca5
+#: src/pages/onboarding/SyncEmails.tsx
+msgid "Start with your whole network"
+msgstr ""
 
 #. js-lingui-id: s+K73L
 #: src/modules/settings/billing/components/internal/SettingsBillingSubscriptionInfoModals.tsx
@@ -20824,6 +21318,7 @@ msgstr "نص ثابت مشترك بين جميع صفحات السجلات"
 #: src/modules/settings/admin-panel/components/SettingsAdminWorkspaceCreditGrantsTable.tsx
 #: src/modules/settings/admin-panel/signing-keys/components/SettingsAdminSigningKeysTable.tsx
 #: src/modules/settings/components/SettingsDnsRecordsTable.tsx
+#: src/modules/settings/data-model/object-details/components/tabs/SettingsObjectValidationRulesSection.tsx
 #: src/pages/settings/admin-panel/SettingsAdminApplicationRegistrationClaims.tsx
 #: src/pages/settings/admin-panel/SettingsAdminIndicatorHealthStatus.tsx
 #: src/pages/settings/admin-panel/SettingsAdminInstanceStatus.tsx
@@ -21121,6 +21616,11 @@ msgstr "لاحقة"
 msgid "Suggested"
 msgstr "مقترح"
 
+#. js-lingui-id: 8J32PY
+#: src/modules/validation-rules/components/SettingsValidationRuleHelperPanel.tsx
+msgid "Suggestions"
+msgstr ""
+
 #. js-lingui-id: AxQiPW
 #: src/modules/object-record/record-board/record-board-column/utils/getAggregateOperationLabel.ts
 #: src/modules/object-record/record-board/record-board-column/utils/getAggregateOperationShortLabel.ts
@@ -21416,11 +21916,6 @@ msgstr "النطاق الفرعي لمساحة العمل المستهدفة"
 msgid "Task title"
 msgstr "عنوان المهمة"
 
-#. js-lingui-id: pqXgqN
-#: src/modules/activities/notes/components/NoteTile.tsx
-msgid "Task Title"
-msgstr "عنوان المهمة"
-
 #. js-lingui-id: KM6m8p
 #: src/pages/settings/members/SettingsWorkspaceMembers.tsx
 msgid "Team"
@@ -21511,8 +22006,14 @@ msgstr "تم نسخ النص إلى الحافظة"
 
 #. js-lingui-id: YXRaNg
 #: src/modules/advanced-text-editor/components/FormAdvancedTextFieldInput.tsx
+#: src/modules/object-record/record-field/ui/form-types/components/FormRecordRichTextFieldInput.tsx
 msgid "Text Editor"
 msgstr "محرر النصوص"
+
+#. js-lingui-id: Ldukks
+#: src/modules/onboarding/hooks/useOnboardingFreeCreditsTooltipContent.ts
+msgid "That's about {formattedNewlyEarnedAiActions} AI actions. Credits never expire."
+msgstr ""
 
 #. js-lingui-id: Z4WP0F
 #: src/modules/settings/accounts/components/SettingsAccountsNewEmailGroupChannel.tsx
@@ -21594,6 +22095,16 @@ msgstr ""
 "\n"
 "راجع [دليل البدء](https://twenty.com/developers/extend/apps/getting-started) للشرح الكامل، و[بناء التطبيقات](https://twenty.com/developers/extend/apps/building) لواجهات `defineApplication` / `defineEntity`."
 
+#. js-lingui-id: 832YJ9
+#: src/modules/validation-rules/constants/ValidationRuleKeywords.ts
+msgid "The boolean value false."
+msgstr ""
+
+#. js-lingui-id: ijFf+X
+#: src/modules/validation-rules/constants/ValidationRuleKeywords.ts
+msgid "The boolean value true."
+msgstr ""
+
 #. js-lingui-id: VsxjzF
 #: src/modules/page-layout/widgets/call-recording/utils/getCallRecordingStatusDisplayConfiguration.ts
 msgid "The call recording could not be processed."
@@ -21608,6 +22119,11 @@ msgstr "تسجيل المكالمة قيد المعالجة…"
 #: src/pages/settings/legal/SettingsLegalDpa.tsx
 msgid "The Data Processing Agreement could not be loaded. Please try again."
 msgstr "تعذّر تحميل اتفاقية معالجة البيانات. يُرجى المحاولة مرة أخرى."
+
+#. js-lingui-id: 0H+RG6
+#: src/modules/validation-rules/constants/ValidationRuleKeywords.ts
+msgid "The date and time of the write being checked."
+msgstr ""
 
 #. js-lingui-id: 1xQkU9
 #: src/modules/settings/data-model/fields/forms/phones/components/SettingsDataModelFieldPhonesForm.tsx
@@ -21716,6 +22232,11 @@ msgstr "الاسم الذي يراه المستلمون بجانب عنوانك 
 msgid "The name recipients see next to your address. It is set when the channel is created."
 msgstr "الاسم الذي يراه المستلمون بجانب عنوانك. يتم تعيينه عند إنشاء القناة."
 
+#. js-lingui-id: ohrl9q
+#: src/modules/validation-rules/constants/ValidationRuleFunctionDescriptions.ts
+msgid "The number of items in the list, or 0 when it is not a list."
+msgstr ""
+
 #. js-lingui-id: L97sPr
 #: src/pages/not-found/NotFound.tsx
 msgid "The page you're seeking is either gone or never was. Let's get you back on track"
@@ -21813,6 +22334,7 @@ msgid "Theme"
 msgstr "سمة"
 
 #. js-lingui-id: Wn862P
+#: src/modules/command-menu/components/CommandMenuItem.tsx
 #: src/modules/keyboard-shortcut-menu/components/KeyboardShortcutMenuItem.tsx
 msgid "then"
 msgstr "ثم"
@@ -22178,6 +22700,16 @@ msgstr "تم تعيين هذا الدور لهؤلاء {roleTargetDisplayName}."
 #: src/pages/settings/ai/components/SettingsAgentRoleTab.tsx
 msgid "This role is shared with other users or agents and cannot be edited here."
 msgstr "هذا الدور مشترك مع مستخدمين أو وكلاء آخرين ولا يمكن تعديله هنا."
+
+#. js-lingui-id: 9IqK24
+#: src/modules/validation-rules/components/SettingsValidationRuleEditForm.tsx
+msgid "This rule is disabled. Records are not checked against it."
+msgstr ""
+
+#. js-lingui-id: Tz032x
+#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
+msgid "This sender records which links you click in its emails. You can opt out for this email address."
+msgstr ""
 
 #. js-lingui-id: IBWuXb
 #: src/pages/settings/enterprise/SettingsEnterprise.tsx
@@ -22569,6 +23101,11 @@ msgstr "الإجمالي"
 msgid "Total cost"
 msgstr "إجمالي التكلفة"
 
+#. js-lingui-id: /H9dXa
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Total earned"
+msgstr ""
+
 #. js-lingui-id: v7vAuj
 #: src/modules/settings/admin-panel/health-status/components/SettingsAdminHealthAccountSyncCountersTable.tsx
 msgid "Total Jobs"
@@ -22585,6 +23122,21 @@ msgstr "إجمالي الوقت"
 #: src/pages/settings/ai/components/SettingsAiUsageTab.tsx
 msgid "Track AI consumption across your workspace."
 msgstr "تتبع استهلاك الذكاء الاصطناعي عبر مساحة العمل الخاصة بك."
+
+#. js-lingui-id: tdtdiH
+#: src/modules/settings/workspace/components/ClickTrackingSwitch.tsx
+msgid "Track link clicks"
+msgstr ""
+
+#. js-lingui-id: U0HZma
+#: src/pages/settings/communications/SettingsWorkspaceCommunications.tsx
+msgid "Tracking"
+msgstr ""
+
+#. js-lingui-id: CVnZXW
+#: src/modules/settings/unsubscribers/utils/getMessageSuppressionReasonBadge.ts
+msgid "Tracking off"
+msgstr ""
 
 #. js-lingui-id: DDziIo
 #: src/modules/page-layout/widgets/call-recording-transcript/components/CallRecordingTranscriptEntryList.tsx
@@ -22749,9 +23301,45 @@ msgstr "يُشغِّل الوظيفة عبر طلب HTTP"
 msgid "True"
 msgstr "صحيح"
 
+#. js-lingui-id: EsFbDC
+#: src/modules/validation-rules/constants/ValidationRuleFunctionDescriptions.ts
+msgid "True when a multi-select or array field contains the value, or when a text contains the given text. Letter case matters."
+msgstr ""
+
+#. js-lingui-id: bRld7r
+#: src/modules/validation-rules/constants/ValidationRuleKeywords.ts
+msgid "True when at least one side is true."
+msgstr ""
+
+#. js-lingui-id: KdPrHC
+#: src/modules/validation-rules/constants/ValidationRuleKeywords.ts
+msgid "True when both sides are true."
+msgstr ""
+
+#. js-lingui-id: 0onNel
+#: src/modules/validation-rules/constants/ValidationRuleFunctionDescriptions.ts
+msgid "True when the value is a text with at least one character."
+msgstr ""
+
+#. js-lingui-id: kRwBsc
+#: src/modules/validation-rules/constants/ValidationRuleFunctionDescriptions.ts
+msgid "True when the value is not set, an empty text, an empty list, or a composite field with every part empty."
+msgstr ""
+
+#. js-lingui-id: SaqJTE
+#: src/modules/validation-rules/constants/ValidationRuleKeywords.ts
+msgid "True when the value is one of the listed values."
+msgstr ""
+
+#. js-lingui-id: tgOmej
+#: src/modules/validation-rules/constants/ValidationRuleFunctionDescriptions.ts
+msgid "True when the value is set, even to an empty text."
+msgstr ""
+
 #. js-lingui-id: KDw4GX
 #: src/modules/object-record/record-sharing/components/RecordSharingDropdownContent.tsx
 #: src/modules/onboarding/components/upgrade-free-trial/ChooseYourPlanErrorState.tsx
+#: src/modules/page-layout/widgets/chat-threads/components/ChatThreadsCardContent.tsx
 #: src/modules/settings/billing/components/SettingsBillingPlansErrorState.tsx
 msgid "Try again"
 msgstr "حاول مرة أخرى"
@@ -22824,10 +23412,20 @@ msgstr "إيقاف وضع المطوّر"
 msgid "Turn on developer mode"
 msgstr "تشغيل وضع المطوّر"
 
+#. js-lingui-id: 2JBBhG
+#: src/modules/validation-rules/constants/ValidationRuleKeywords.ts
+msgid "Turns true into false and false into true."
+msgstr ""
+
 #. js-lingui-id: EdHWDU
 #: src/modules/settings/data-model/fields/forms/select/components/SettingsDataModelFieldSelectFormOptionRow.tsx
 msgid "Turquoise"
 msgstr "فيروزي"
+
+#. js-lingui-id: 8pmRvi
+#: src/pages/onboarding/SyncEmails.tsx
+msgid "Twenty adds the people you email and meet, and keeps them up to date without manual data entry."
+msgstr ""
 
 #. js-lingui-id: JnaRPe
 #: src/modules/spreadsheet-import/steps/components/MatchColumnsStep/components/ColumnGrid.tsx
@@ -22911,6 +23509,11 @@ msgstr "اكتب '/' للأوامر"
 #: src/modules/object-record/record-field/ui/meta-types/input/components/RichTextFieldEditor.tsx
 msgid "Type '/' for commands, '@' for mentions"
 msgstr "اكتب '/' للأوامر، و'@' للإشارات"
+
+#. js-lingui-id: XhqvGG
+#: src/modules/validation-rules/components/SettingsValidationRuleExpressionEditor.tsx
+msgid "Type a field name or a function"
+msgstr ""
 
 #. js-lingui-id: qzD6hf
 #: src/modules/side-panel/components/SidePanelTopBar.tsx
@@ -23235,7 +23838,6 @@ msgid "Unschedule Campaign"
 msgstr "إلغاء جدولة الحملة"
 
 #. js-lingui-id: SMaFdc
-#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
 #: src/pages/settings/communications/SettingsWorkspaceCommunications.tsx
 #: src/pages/settings/communications/SettingsWorkspaceNewUnsubscribeTopic.tsx
 #: src/pages/settings/communications/SettingsWorkspaceUnsubscribe.tsx
@@ -23281,18 +23883,14 @@ msgstr "مواضيع إلغاء الاشتراك"
 msgid "Unsubscribed"
 msgstr "تم إلغاء الاشتراك"
 
-#. js-lingui-id: yxuCkO
-#: src/modules/settings/unsubscribers/components/SettingsUnsubscribersList.tsx
-#: src/pages/settings/communications/SettingsWorkspaceUnsubscribe.tsx
-msgid "Unsubscribers"
-msgstr "من ألغوا الاشتراك"
-
 #. js-lingui-id: uxfv+n
 #: src/modules/activities/emails/hooks/useUploadEmailImage.ts
 msgid "Unsupported image format"
 msgstr "صيغة صورة غير مدعومة"
 
 #. js-lingui-id: wja8aL
+#: src/modules/activities/notes/components/NoteTile.tsx
+#: src/modules/ai/components/AiChatThreadListItem.tsx
 #: src/modules/ai/components/ChatReferenceChip.tsx
 #: src/modules/ai/components/ChatReferenceChip.tsx
 #: src/modules/ai/components/internal/AgentChatFilePreview.tsx
@@ -23583,6 +24181,11 @@ msgstr "الترقية إلى مؤسسة؟"
 #: src/pages/onboarding/UpgradeFreeTrial.tsx
 msgid "Upgrade your free trial"
 msgstr "قم بترقية النسخة التجريبية المجانية"
+
+#. js-lingui-id: iDbC4C
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Upgrade your trial"
+msgstr ""
 
 #. js-lingui-id: T1mDWj
 #: src/pages/onboarding/UpgradeFreeTrial.tsx
@@ -23979,6 +24582,17 @@ msgstr "الأوزبكية"
 #: src/modules/spreadsheet-import/steps/components/SpreadsheetImportStepperContainer.tsx
 msgid "Validate Data"
 msgstr "تحقق من البيانات"
+
+#. js-lingui-id: 6N5/Xk
+#: src/modules/metadata-error-handler/hooks/useMetadataErrorHandler.ts
+msgid "validation rule"
+msgstr ""
+
+#. js-lingui-id: 8Dcl1Z
+#: src/modules/settings/admin-panel/constants/SettingsAdminFeatureFlagMetadata.ts
+#: src/modules/settings/data-model/object-details/components/tabs/ObjectSettings.tsx
+msgid "Validation rules"
+msgstr ""
 
 #. js-lingui-id: PWZBIT
 #: src/pages/settings/enterprise/SettingsEnterprise.tsx
@@ -24497,6 +25111,11 @@ msgstr "تعذّر الوصول إلى سجل الحزم للتحقّق من إ�
 msgid "We couldn't confirm your payment method. Please retry."
 msgstr "تعذَّر تأكيد طريقة الدفع الخاصة بك. يُرجى المحاولة مرة أخرى."
 
+#. js-lingui-id: yL484l
+#: src/modules/page-layout/widgets/chat-threads/components/ChatThreadsCardContent.tsx
+msgid "We couldn't load the conversations"
+msgstr ""
+
 #. js-lingui-id: TvNBSn
 #: src/modules/onboarding/components/upgrade-free-trial/ChooseYourPlanErrorState.tsx
 #: src/modules/settings/billing/components/SettingsBillingPlansErrorState.tsx
@@ -24698,6 +25317,11 @@ msgstr "ما تعرضه كل لغة لتسميات هذا الحقل"
 msgid "What each language displays for this object's labels"
 msgstr "ما تعرضه كل لغة لتسميات هذا الكائن"
 
+#. js-lingui-id: R+bEwa
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
+msgid "What people see when the condition is false, and where it shows."
+msgstr ""
+
 #. js-lingui-id: 51JeJw
 #: src/modules/workflow/workflow-steps/workflow-actions/classify-action/components/WorkflowEditActionClassify.tsx
 msgid "What should be classified?"
@@ -24791,6 +25415,11 @@ msgstr "ما إذا كان هذا النموذج يدعم الاستدلال ب�
 #: src/modules/workflow/workflow-variables/utils/getWorkflowVariableSpecialItems.ts
 msgid "Whole list"
 msgstr "القائمة بالكامل"
+
+#. js-lingui-id: x6KwSw
+#: src/modules/validation-rules/components/SettingsValidationRuleForm.tsx
+msgid "Whole record"
+msgstr ""
 
 #. js-lingui-id: AHXN2z
 #: src/modules/side-panel/components/hooks/usePageLayoutHeaderInfo.ts
@@ -24886,6 +25515,11 @@ msgstr "سير العمل غير موجود."
 #: src/modules/side-panel/pages/workflow/step/view-run/components/SidePanelWorkflowRunViewStepContent.tsx
 msgid "Workflow step results"
 msgstr "نتائج خطوة سير العمل"
+
+#. js-lingui-id: NOvOUq
+#: src/modules/onboarding/components/free-credits/OnboardingFreeCreditsPopoverContent.tsx
+msgid "Workflow steps"
+msgstr ""
 
 #. js-lingui-id: 2CydYH
 #: src/modules/metadata-error-handler/hooks/useMetadataErrorHandler.ts
@@ -25116,6 +25750,7 @@ msgstr "لف في صفحات السجل"
 #: src/modules/settings/data-model/objects/forms/components/SettingsDataModelObjectAboutForm.tsx
 #: src/modules/settings/developers/components/SettingsDevelopersWebhookForm.tsx
 #: src/modules/settings/roles/role-settings/components/SettingsRoleSettings.tsx
+#: src/modules/validation-rules/components/SettingsValidationRuleNameForm.tsx
 #: src/pages/settings/ai/components/SettingsSkillFormContent.tsx
 #: src/pages/settings/ai/SettingsToolDetail.tsx
 msgid "Write a description"
@@ -25125,6 +25760,21 @@ msgstr "اكتب وصفاً"
 #: src/pages/settings/ai/components/SettingsAgentSettingsTab.tsx
 msgid "Write a description for this agent"
 msgstr "اكتب وصفًا لهذا الوكيل"
+
+#. js-lingui-id: 6HR4XM
+#: src/modules/activities/notes/components/NoteQuickAddForm.tsx
+msgid "Write a note"
+msgstr ""
+
+#. js-lingui-id: xZmwEU
+#: src/modules/activities/notes/components/NoteQuickAddForm.tsx
+msgid "Write a note…"
+msgstr ""
+
+#. js-lingui-id: bv7rE1
+#: src/modules/validation-rules/components/SettingsValidationRulePreview.tsx
+msgid "Write a valid condition to see the result."
+msgstr ""
 
 #. js-lingui-id: zeCIJi
 #: src/modules/settings/logic-functions/components/tabs/SettingsLogicFunctionCodeEditorTab.tsx
@@ -25335,11 +25985,6 @@ msgstr "سيتم إعادة توجيهك لإضافة بطاقة الائتما�
 #: src/modules/spreadsheet-import/steps/components/MatchColumnsStep/MatchColumnsStep.tsx
 msgid "You will lose all your mappings."
 msgstr "ستفقد جميع التعيينات الخاصة بك."
-
-#. js-lingui-id: gtZrCd
-#: src/modules/settings/unsubscribers/components/SettingsUnsubscribePreview.tsx
-msgid "You will stop receiving these emails."
-msgstr "ستتوقف عن تلقي هذه الرسائل الإلكترونية."
 
 #. js-lingui-id: Cl+hUj
 #: src/modules/settings/domains/components/SettingsSubdomain.tsx
