@@ -9,6 +9,10 @@ import {
   normalizeUzbekPhone,
   toStoredUzbekPhone,
 } from 'src/pricing/normalize-uzbek-phone';
+import {
+  type PriceListEntry,
+  resolvePriceListEntry,
+} from 'src/pricing/resolve-price-list-entry';
 import { roundTo } from 'src/pricing/round';
 
 type District = (typeof DISTRICT_OPTIONS)[number]['value'];
@@ -144,16 +148,63 @@ export const computeOpeningsTotalAreaSquareMeters = (
     2,
   );
 
+const emptyToNull = <TValue extends string>(
+  value: TValue | '',
+): TValue | null => (value.trim() === '' ? null : (value.trim() as TValue));
+
+export type QuotePriceEntry = Pick<
+  PriceListEntry,
+  'designId' | 'metal' | 'metalSize' | 'pricePerSquareMeter'
+>;
+
+// Same lookup as the server recalc, so the quote matches the saved order.
+export const computeOpeningQuote = (
+  opening: OpeningDraft,
+  priceList: QuotePriceEntry[],
+): { pricePerSquareMeter: number; lineTotal: number } | null => {
+  const areaSquareMeters = computeOpeningAreaSquareMeters(opening);
+  const entry = resolvePriceListEntry(
+    priceList.map((row) => ({ ...row, costPerSquareMeter: null })),
+    {
+      designId: emptyToNull(opening.designId),
+      metal: emptyToNull(opening.metal),
+      metalSize: emptyToNull(opening.metalSize),
+    },
+  );
+
+  if (areaSquareMeters === null || entry?.pricePerSquareMeter == null) {
+    return null;
+  }
+
+  const quantity = parseDecimalInput(opening.quantity) ?? 1;
+
+  return {
+    pricePerSquareMeter: entry.pricePerSquareMeter,
+    lineTotal: Math.round(
+      areaSquareMeters * quantity * entry.pricePerSquareMeter,
+    ),
+  };
+};
+
+export const computeDraftTotal = (
+  openings: OpeningDraft[],
+  priceList: QuotePriceEntry[],
+): number | null => {
+  const quotes = openings.map((opening) =>
+    computeOpeningQuote(opening, priceList),
+  );
+
+  return quotes.every((quote) => quote !== null)
+    ? quotes.reduce((total, quote) => total + (quote?.lineTotal ?? 0), 0)
+    : null;
+};
+
 // datetime-local wants local wall time without a zone.
 export const toDateTimeLocalInputValue = (date: Date): string => {
   const pad = (value: number) => String(value).padStart(2, '0');
 
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
-
-const emptyToNull = <TValue extends string>(
-  value: TValue | '',
-): TValue | null => (value.trim() === '' ? null : (value.trim() as TValue));
 
 export const buildMeasurementPayload = (
   draft: MeasurementDraft,

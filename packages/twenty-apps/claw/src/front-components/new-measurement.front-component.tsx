@@ -17,15 +17,19 @@ import {
 import { IDS } from 'src/constants/universal-identifiers';
 import {
   buildMeasurementPayload,
+  computeDraftTotal,
   computeOpeningAreaSquareMeters,
+  computeOpeningQuote,
   computeOpeningsTotalAreaSquareMeters,
   createEmptyOpening,
   formatUzbekNationalPhone,
   type MeasurementDraft,
   type OpeningDraft,
+  type QuotePriceEntry,
   toDateTimeLocalInputValue,
   UZBEK_PHONE_PREFIX,
 } from 'src/measurer-form/measurer-form';
+import { fromCurrency } from 'src/recalc/money';
 
 type Design = { id: string; name: string };
 
@@ -84,6 +88,9 @@ const createEmptyDraft = (): MeasurementDraft => ({
 const formatSquareMeters = (value: number) =>
   `${value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} м²`;
 
+const formatMoney = (value: number) =>
+  `${value.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} сум`;
+
 const describeError = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
@@ -91,22 +98,42 @@ const wait = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const loadFormContext = async (userId: string) => {
-  const { workspaceMembers, designs } = await new CoreApiClient().query({
-    workspaceMembers: {
-      __args: { filter: { userId: { eq: userId } }, first: 1 },
-      edges: { node: { id: true } },
-    },
-    designs: {
-      __args: { first: 200, orderBy: [{ name: 'AscNullsLast' }] },
-      edges: { node: { id: true, name: true } },
-    },
-  });
+  const { workspaceMembers, designs, priceListItems } =
+    await new CoreApiClient().query({
+      workspaceMembers: {
+        __args: { filter: { userId: { eq: userId } }, first: 1 },
+        edges: { node: { id: true } },
+      },
+      designs: {
+        __args: { first: 200, orderBy: [{ name: 'AscNullsLast' }] },
+        edges: { node: { id: true, name: true } },
+      },
+      // Price only: the measurer cannot read cost fields, and asking for them
+      // fails the whole query.
+      priceListItems: {
+        __args: { first: 200 },
+        edges: {
+          node: {
+            designId: true,
+            metal: true,
+            metalSize: true,
+            pricePerSquareMeter: { amountMicros: true, currencyCode: true },
+          },
+        },
+      },
+    });
 
   return {
     measurerId: workspaceMembers?.edges[0]?.node?.id ?? null,
     designs: (designs?.edges ?? []).map(({ node }) => ({
       id: node.id,
       name: node.name ?? '',
+    })),
+    priceList: (priceListItems?.edges ?? []).map(({ node }) => ({
+      designId: node.designId ?? null,
+      metal: node.metal ?? null,
+      metalSize: node.metalSize ?? null,
+      pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
     })),
   };
 };
@@ -135,6 +162,7 @@ const NewMeasurement = () => {
   const userId = useUserId();
   const [draft, setDraft] = useState<MeasurementDraft>(createEmptyDraft);
   const [designs, setDesigns] = useState<Design[]>([]);
+  const [priceList, setPriceList] = useState<QuotePriceEntry[]>([]);
   const [measurerId, setMeasurerId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -147,6 +175,7 @@ const NewMeasurement = () => {
     loadFormContext(userId)
       .then((context) => {
         setDesigns(context.designs);
+        setPriceList(context.priceList);
         setMeasurerId(context.measurerId);
 
         if (context.measurerId === null) {
@@ -418,6 +447,7 @@ const NewMeasurement = () => {
   const totalAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
     draft.openings,
   );
+  const draftTotal = computeDraftTotal(draft.openings, priceList);
 
   return (
     <div style={styles.page}>
@@ -550,6 +580,7 @@ const NewMeasurement = () => {
       <h3 style={styles.heading}>Проёмы</h3>
       {draft.openings.map((opening, index) => {
         const areaSquareMeters = computeOpeningAreaSquareMeters(opening);
+        const quote = computeOpeningQuote(opening, priceList);
 
         return (
           <section
@@ -657,6 +688,21 @@ const NewMeasurement = () => {
               {areaSquareMeters === null
                 ? '—'
                 : formatSquareMeters(areaSquareMeters)}
+              {quote !== null && (
+                <>
+                  <br />
+                  {formatMoney(quote.pricePerSquareMeter)} за м² ·{' '}
+                  {formatMoney(quote.lineTotal)}
+                </>
+              )}
+              {quote === null &&
+                areaSquareMeters !== null &&
+                opening.metal !== '' && (
+                  <>
+                    <br />
+                    Цены нет в прайсе
+                  </>
+                )}
             </div>
             {field(
               'Заметки',
@@ -685,6 +731,12 @@ const NewMeasurement = () => {
       <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
         Итого площадь: {formatSquareMeters(totalAreaSquareMeters)}
       </p>
+
+      {draftTotal !== null && (
+        <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
+          Итого: {formatMoney(draftTotal)}
+        </p>
+      )}
 
       {errors.length > 0 && (
         <div role="alert" style={styles.error}>

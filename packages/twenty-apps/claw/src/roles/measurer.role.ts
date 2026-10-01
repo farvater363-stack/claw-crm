@@ -53,6 +53,7 @@ export default defineRole({
     ),
     readOnly(IDS.design.object),
     readOnly(IDS.extraService.object),
+    readOnly(IDS.priceListItem.object),
   ],
   fieldPermissions: [
     ...ADMIN_ONLY_FIELD_PERMISSIONS,
