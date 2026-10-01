@@ -21,6 +21,11 @@ describe('detectNumberFormat', () => {
     expect(detectNumberFormat()).toBe('COMMAS_AND_DOT');
   });
 
+  it('should prefer the app language over the browser language', () => {
+    expect(detectNumberFormat('ru-RU')).toBe('SPACES_AND_COMMA');
+    expect(detectNumberFormat('en')).toBe('COMMAS_AND_DOT');
+  });
+
   it('should detect SPACES_AND_COMMA format for fr-FR locale', () => {
     Object.defineProperty(navigator, 'language', {
       writable: true,

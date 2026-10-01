@@ -1,6 +1,8 @@
+import { currentWorkspaceMemberState } from '@/auth/states/currentWorkspaceMemberState';
 import { NumberFormat } from '@/localization/constants/NumberFormat';
 import { detectNumberFormat } from '@/localization/utils/detection/detectNumberFormat';
 import { Select } from '@/ui/input/components/Select';
+import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
 import { useLingui } from '@lingui/react/macro';
 import { formatNumber as utilFormatNumber } from '~/utils/format/formatNumber';
 
@@ -14,8 +16,10 @@ export const NumberFormatSelect = ({
   value,
 }: NumberFormatSelectProps) => {
   const { t } = useLingui();
+  const currentWorkspaceMember = useAtomStateValue(currentWorkspaceMemberState);
 
-  const systemNumberFormat = NumberFormat[detectNumberFormat()];
+  const systemNumberFormat =
+    NumberFormat[detectNumberFormat(currentWorkspaceMember?.locale)];
 
   const systemNumberFormatLabel = utilFormatNumber(1234.56, {
     format: systemNumberFormat,

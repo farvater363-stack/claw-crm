@@ -9,7 +9,7 @@ export const getNumberFormatFromWorkspaceMember = (
 ): NumberFormat => {
   switch (workspaceMember.numberFormat) {
     case WorkspaceMemberNumberFormatEnum.SYSTEM:
-      return NumberFormat[detectNumberFormat()];
+      return NumberFormat[detectNumberFormat(workspaceMember.locale)];
     case WorkspaceMemberNumberFormatEnum.COMMAS_AND_DOT:
       return NumberFormat.COMMAS_AND_DOT;
     case WorkspaceMemberNumberFormatEnum.SPACES_AND_COMMA:
@@ -19,6 +19,6 @@ export const getNumberFormatFromWorkspaceMember = (
     case WorkspaceMemberNumberFormatEnum.APOSTROPHE_AND_DOT:
       return NumberFormat.APOSTROPHE_AND_DOT;
     default:
-      return NumberFormat[detectNumberFormat()];
+      return NumberFormat[detectNumberFormat(workspaceMember.locale)];
   }
 };

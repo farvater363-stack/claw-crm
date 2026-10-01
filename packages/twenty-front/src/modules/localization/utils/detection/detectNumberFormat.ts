@@ -10,10 +10,14 @@ const FORMAT_PATTERNS = new Map<string, keyof typeof NumberFormat>([
   ['apostrophe|.', NumberFormat.APOSTROPHE_AND_DOT],
 ]);
 
-export const detectNumberFormat = (): keyof typeof NumberFormat => {
+// The member's app language wins over the browser's, so a Russian UI on an
+// English-language device still shows "1 234 567,89".
+export const detectNumberFormat = (
+  locale?: string | null,
+): keyof typeof NumberFormat => {
   try {
     const testNumber = 1234567.89;
-    const language = navigator?.language || 'en-US';
+    const language = locale || navigator?.language || 'en-US';
 
     const formatter = new Intl.NumberFormat(language);
     const parts = formatter.formatToParts(testNumber);
