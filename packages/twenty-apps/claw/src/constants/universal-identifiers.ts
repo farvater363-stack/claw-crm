@@ -130,11 +130,11 @@ export const IDS = {
     allOrders: '8e7883c5-d382-4a79-9acb-2ef4974ceb48',
   },
   navigation: {
-    orders: '0625f589-566d-41cd-8637-04a507db25d8',
+    orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: the sidebar uses allOrders; ids are never reused.
     ordersKanban: '5b4925cf-bf24-422b-bc5b-f6a6b125ddf7',
     myMeasurements: '5b65e2e1-2c9f-4b87-8f16-95e20851bf8b',
     production: '379a3f5b-57ec-48c2-bf5f-e9a8d970ce65',
-    masterPay: 'abbbca23-eb51-45af-b6ab-4840461639ac',
+    masterPay: 'abbbca23-eb51-45af-b6ab-4840461639ac', // Retired: pay is no longer a sidebar item; ids are never reused.
     designs: '8e87114d-b386-4ce8-9654-f092ffb1b23f',
     priceList: '19714acd-d450-4a1f-a73e-a74266399b6c',
     extraServices: '7084db31-ff82-4fae-831a-180eafb45cee',

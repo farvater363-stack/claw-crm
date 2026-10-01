@@ -59,7 +59,6 @@ export default defineRole({
     ...ADMIN_ONLY_FIELD_PERMISSIONS,
     ...CALCULATED_FIELD_PERMISSIONS,
   ],
-  // Photos of openings go into orderItem.photos; without it every upload is
-  // rejected, from the form and from the record page alike.
+  // Measurers attach photos of openings; without it every upload is rejected.
   permissionFlagUniversalIdentifiers: [SystemPermissionFlag.UPLOAD_FILE],
 });
