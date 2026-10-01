@@ -24,7 +24,7 @@ const handler = async (
   payload: DatabaseEventPayload<ObjectRecordUpdateEvent<UpdatedOrder>>,
 ): Promise<void> => {
   const client = createRecalcClient();
-  const { after, updatedFields } = payload.properties;
+  const { before, after, updatedFields } = payload.properties;
 
   const restoredName = orderNameToRestore({
     name: after.name ?? null,
@@ -54,34 +54,35 @@ const handler = async (
     }
   }
 
-  if (
-    updatedFields.includes('status') &&
+  const statusChanged = updatedFields.includes('status');
+
+  const installedAt =
+    statusChanged &&
     after.status === 'INSTALLED' &&
     (after.installedAt ?? null) === null
-  ) {
-    await client.mutation({
-      updateOrder: {
-        __args: {
-          id: payload.recordId,
-          data: { installedAt: todayInTashkent() },
-        },
-        id: true,
-      },
-    });
-  }
+      ? todayInTashkent()
+      : null;
 
-  const readyAt = updatedFields.includes('status')
+  const readyAt = statusChanged
     ? readyAtOnStatusChange({
         status: after.status ?? null,
+        previousStatus: before.status ?? null,
         readyAt: after.readyAt ?? null,
         today: todayInTashkent(),
       })
     : null;
 
-  if (readyAt !== null) {
+  // One mutation, so INSTALLED does not fire the trigger twice.
+  if (installedAt !== null || readyAt !== null) {
     await client.mutation({
       updateOrder: {
-        __args: { id: payload.recordId, data: { readyAt } },
+        __args: {
+          id: payload.recordId,
+          data: {
+            ...(installedAt !== null && { installedAt }),
+            ...(readyAt !== null && { readyAt }),
+          },
+        },
         id: true,
       },
     });

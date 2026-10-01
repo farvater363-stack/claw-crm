@@ -26,18 +26,24 @@ export const computeDaysLate = ({
 export const todayInTashkent = (now: Date = new Date()): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent' }).format(now);
 
-// The first time an order counts as ready; later status moves never change it.
+// Stamped only when an order enters a ready status from a non-ready one, so
+// moves between READY/INSTALLED/CLOSED never pull old orders into payroll.
 const READY_STATUSES = new Set(['READY', 'INSTALLED', 'CLOSED']);
 
 export const readyAtOnStatusChange = ({
   status,
+  previousStatus,
   readyAt,
   today,
 }: {
   status: string | null;
+  previousStatus: string | null;
   readyAt: string | null;
   today: string;
 }): string | null =>
-  readyAt === null && status !== null && READY_STATUSES.has(status)
+  readyAt === null &&
+  status !== null &&
+  READY_STATUSES.has(status) &&
+  !(previousStatus !== null && READY_STATUSES.has(previousStatus))
     ? today
     : null;
