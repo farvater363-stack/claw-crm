@@ -90,8 +90,8 @@ export default defineObject({
       defaultValue: "'NEW'",
       options: ORDER_STATUS_OPTIONS,
     },
-    text(IDS.order.clientName, 'clientName', 'Имя клиента', 'IconUser'),
-    text(IDS.order.clientPhone, 'clientPhone', 'Телефон клиента', 'IconPhone'),
+    text(IDS.order.clientName, 'clientName', 'Имя', 'IconUser'),
+    text(IDS.order.clientPhone, 'clientPhone', 'Телефон', 'IconPhone'),
     {
       universalIdentifier: IDS.order.district,
       type: FieldType.SELECT,
@@ -132,14 +132,14 @@ export default defineObject({
     date(
       IDS.order.productionStartDate,
       'productionStartDate',
-      'Начало исполнения',
+      'Начало',
     ),
     date(
       IDS.order.installationDeadline,
       'installationDeadline',
-      'Срок установки',
+      'Срок',
     ),
-    date(IDS.order.installedAt, 'installedAt', 'Фактическая установка'),
+    date(IDS.order.installedAt, 'installedAt', 'Дата установки'),
     {
       universalIdentifier: IDS.order.deadlineState,
       type: FieldType.SELECT,
@@ -197,7 +197,7 @@ export default defineObject({
       universalIdentifier: IDS.order.finishedPhotos,
       type: FieldType.FILES,
       name: 'finishedPhotos',
-      label: 'Фото готового изделия',
+      label: 'Фото работы',
       icon: 'IconPhoto',
       isNullable: true,
       universalSettings: { maxNumberOfValues: 10 },

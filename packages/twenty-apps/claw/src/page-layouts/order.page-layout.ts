@@ -52,6 +52,48 @@ export default definePageLayout({
         },
       ],
     },
+    // On the full page the first tab is pinned to the left column, so this tab
+    // is what the main area opens on: openings with their area and total.
+    {
+      universalIdentifier: ids.itemsTab,
+      title: 'Позиции',
+      position: 15,
+      icon: 'IconRuler',
+      layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
+      widgets: [
+        {
+          universalIdentifier: ids.itemsWidget,
+          title: 'Проёмы',
+          type: 'FIELD',
+          configuration: {
+            configurationType: 'FIELD',
+            fieldMetadataId: IDS.order.items,
+            fieldDisplayMode: 'TABLE',
+            viewId: IDS.view.orderItemsTable,
+          },
+        },
+        {
+          universalIdentifier: ids.extraServicesWidget,
+          title: 'Доп. услуги',
+          type: 'FIELD',
+          configuration: {
+            configurationType: 'FIELD',
+            fieldMetadataId: IDS.order.extraServices,
+            fieldDisplayMode: 'TABLE',
+            viewId: IDS.view.orderExtraServicesTable,
+          },
+        },
+        {
+          universalIdentifier: ids.totalsWidget,
+          title: 'Итого',
+          type: 'FIELDS',
+          configuration: {
+            configurationType: 'FIELDS',
+            viewUniversalIdentifier: IDS.view.orderTotals,
+          },
+        },
+      ],
+    },
     tab(
       ids.timelineTab,
       ids.timelineWidget,

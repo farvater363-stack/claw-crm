@@ -124,6 +124,9 @@ export const IDS = {
     myMeasurements: '73cb55eb-1511-4fc2-bbb2-f14457334c48',
     production: '2c99e8c5-38ee-4475-86bf-01b011ab8559',
     masterPay: 'b4cc6845-8918-4861-af82-179ea79985ea',
+    orderItemsTable: '4d5ec168-0807-4260-95c2-5180fdc79159',
+    orderExtraServicesTable: '90c9a437-18e4-4d2f-ae50-482889c7dc8b',
+    orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d',
   },
   navigation: {
     orders: '0625f589-566d-41cd-8637-04a507db25d8',
