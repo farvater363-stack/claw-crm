@@ -38,12 +38,15 @@ jobs:
           # Pull requests only prove the image builds; main publishes it.
           OUTPUT=--push
           if [ "$EVENT_NAME" = pull_request ]; then OUTPUT=; fi
+          # APP_VERSION must be semver; build metadata keeps the commit without affecting version comparisons.
+          APP_VERSION="$(sed -n "s/^export const TWENTY_CURRENT_VERSION = '\(.*\)' as const;/\1/p" packages/twenty-server/src/engine/core-modules/upgrade/constants/twenty-current-version.constant.ts)+${GITHUB_SHA::7}"
+          echo "APP_VERSION=$APP_VERSION"
           docker buildx create --use
           docker buildx build \
             --file packages/twenty-docker/twenty/Dockerfile \
             --target twenty \
             --platform linux/amd64 \
-            --build-arg APP_VERSION=${{ github.sha }} \
+            --build-arg APP_VERSION=$APP_VERSION \
             --cache-from type=registry,ref=$IMAGE:buildcache \
             --cache-to type=registry,ref=$IMAGE:buildcache,mode=max \
             --tag $IMAGE:main \
