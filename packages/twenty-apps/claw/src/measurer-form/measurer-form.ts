@@ -55,6 +55,8 @@ export type MeasurementDraft = {
   measurementDate: string;
   comment: string;
   openings: OpeningDraft[];
+  visorServiceId: string;
+  visorLengthMeters: string;
 };
 
 export type OrderPayload = {
@@ -81,8 +83,17 @@ export type OrderItemPayload = {
   notes: string | null;
 };
 
+export type VisorPayload = { extraServiceId: string; quantity: number };
+
+export type VisorOption = { id: string; name: string; price: number | null };
+
 export type MeasurementPayloadResult =
-  | { isValid: true; order: OrderPayload; items: OrderItemPayload[] }
+  | {
+      isValid: true;
+      order: OrderPayload;
+      items: OrderItemPayload[];
+      visor: VisorPayload | null;
+    }
   | { isValid: false; errors: string[] };
 
 const NATIONAL_PHONE_GROUPS = [2, 3, 2, 2];
@@ -235,6 +246,20 @@ export const computeDraftTotal = (
     : null;
 };
 
+export const computeVisorTotal = (
+  draft: Pick<MeasurementDraft, 'visorServiceId' | 'visorLengthMeters'>,
+  visorOptions: VisorOption[],
+): number | null => {
+  const price = visorOptions.find(
+    (option) => option.id === draft.visorServiceId,
+  )?.price;
+  const lengthMeters = parseDecimalInput(draft.visorLengthMeters);
+
+  if (price == null || lengthMeters === null || lengthMeters <= 0) return null;
+
+  return Math.round(price * lengthMeters);
+};
+
 // datetime-local wants local wall time without a zone.
 export const toDateTimeLocalInputValue = (date: Date): string => {
   const pad = (value: number) => String(value).padStart(2, '0');
@@ -270,8 +295,15 @@ export const buildMeasurementPayload = (
     errors.push('Проверьте дату замера');
   }
 
-  if (draft.openings.length === 0) {
-    errors.push('Добавьте хотя бы один проём');
+  const hasVisor = draft.visorServiceId !== '';
+  const visorLengthMeters = parseDecimalInput(draft.visorLengthMeters);
+
+  if (draft.openings.length === 0 && !hasVisor) {
+    errors.push('Добавьте проём или козырёк');
+  }
+
+  if (hasVisor && (visorLengthMeters === null || visorLengthMeters <= 0)) {
+    errors.push('Козырёк: укажите длину в метрах больше 0');
   }
 
   const items: OrderItemPayload[] = [];
@@ -337,5 +369,9 @@ export const buildMeasurementPayload = (
       comment: emptyToNull(draft.comment),
     },
     items,
+    visor:
+      hasVisor && visorLengthMeters !== null
+        ? { extraServiceId: draft.visorServiceId, quantity: visorLengthMeters }
+        : null,
   };
 };

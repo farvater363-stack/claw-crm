@@ -23,6 +23,7 @@ import {
   computeOpeningAreaSquareMeters,
   computeOpeningQuote,
   computeOpeningsTotalAreaSquareMeters,
+  computeVisorTotal,
   buildOpeningPhotoLabel,
   createEmptyOpening,
   describePhotoUploadFailure,
@@ -35,6 +36,7 @@ import {
   takePhotosWithinLimit,
   toDateTimeLocalInputValue,
   UZBEK_PHONE_PREFIX,
+  type VisorOption,
 } from 'src/measurer-form/measurer-form';
 import { fromCurrency } from 'src/recalc/money';
 
@@ -53,6 +55,7 @@ type SaveResult = {
   items: SavedItem[];
   failedOpeningNumbers: number[];
   photoFailureOpeningNumbers: number[];
+  isVisorFailed: boolean;
 };
 
 const ORDER_NAME_POLL_ATTEMPTS = 20;
@@ -99,6 +102,8 @@ const createEmptyDraft = (): MeasurementDraft => ({
   measurementDate: toDateTimeLocalInputValue(new Date()),
   comment: '',
   openings: [createEmptyOpening(createOpeningKey())],
+  visorServiceId: '',
+  visorLengthMeters: '',
 });
 
 const formatSquareMeters = (value: number) =>
@@ -114,7 +119,7 @@ const wait = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const loadFormContext = async (userId: string) => {
-  const { workspaceMembers, designs, priceListItems } =
+  const { workspaceMembers, designs, priceListItems, extraServices } =
     await new CoreApiClient().query({
       workspaceMembers: {
         __args: { filter: { userId: { eq: userId } }, first: 1 },
@@ -137,6 +142,17 @@ const loadFormContext = async (userId: string) => {
           },
         },
       },
+      // Visors live in the extra services catalog, one row per type and depth.
+      extraServices: {
+        __args: { filter: { name: { ilike: '%козыр%' } }, first: 200 },
+        edges: {
+          node: {
+            id: true,
+            name: true,
+            price: { amountMicros: true, currencyCode: true },
+          },
+        },
+      },
     });
 
   return {
@@ -151,6 +167,15 @@ const loadFormContext = async (userId: string) => {
       metalSize: node.metalSize ?? null,
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
     })),
+    visorOptions: (extraServices?.edges ?? [])
+      .map(({ node }) => ({
+        id: node.id,
+        name: node.name ?? '',
+        price: fromCurrency(node.price),
+      }))
+      .sort((left, right) =>
+        left.name.localeCompare(right.name, 'ru', { numeric: true }),
+      ),
   };
 };
 
@@ -273,6 +298,7 @@ const NewMeasurement = () => {
   const [draft, setDraft] = useState<MeasurementDraft>(createEmptyDraft);
   const [designs, setDesigns] = useState<Design[]>([]);
   const [priceList, setPriceList] = useState<QuotePriceEntry[]>([]);
+  const [visorOptions, setVisorOptions] = useState<VisorOption[]>([]);
   const [measurerId, setMeasurerId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -291,6 +317,7 @@ const NewMeasurement = () => {
       .then((context) => {
         setDesigns(context.designs);
         setPriceList(context.priceList);
+        setVisorOptions(context.visorOptions);
         setMeasurerId(context.measurerId);
 
         if (context.measurerId === null) {
@@ -584,6 +611,23 @@ const NewMeasurement = () => {
       }
     }
 
+    let isVisorFailed = false;
+
+    if (payload.visor !== null) {
+      try {
+        const { createOrderExtraService } = await client.mutation({
+          createOrderExtraService: {
+            __args: { data: { ...payload.visor, orderId } },
+            id: true,
+          },
+        });
+
+        if (!createOrderExtraService?.id) throw new Error('empty response');
+      } catch {
+        isVisorFailed = true;
+      }
+    }
+
     const orderName = await waitForOrderName(orderId).catch(() => null);
 
     setResult({
@@ -592,6 +636,7 @@ const NewMeasurement = () => {
       items,
       failedOpeningNumbers,
       photoFailureOpeningNumbers,
+      isVisorFailed,
     });
     setIsSaving(false);
   };
@@ -618,6 +663,12 @@ const NewMeasurement = () => {
               Заказ создан, но не сохранены проёмы №{' '}
               {result.failedOpeningNumbers.join(', ')}. Откройте заказ и
               добавьте их вручную.
+            </p>
+          )}
+          {result.isVisorFailed && (
+            <p role="alert" style={styles.error}>
+              Заказ создан, но козырёк не сохранён. Откройте заказ и добавьте
+              его в доп. услуги вручную.
             </p>
           )}
           {result.photoFailureOpeningNumbers.length > 0 && (
@@ -695,7 +746,13 @@ const NewMeasurement = () => {
   const totalAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
     draft.openings,
   );
-  const draftTotal = computeDraftTotal(draft.openings, priceList);
+  const openingsTotal = computeDraftTotal(draft.openings, priceList);
+  const visorTotal = computeVisorTotal(draft, visorOptions);
+  const draftTotal =
+    openingsTotal === null ||
+    (draft.visorServiceId !== '' && visorTotal === null)
+      ? null
+      : openingsTotal + (visorTotal ?? 0);
 
   return (
     <div style={styles.page}>
@@ -845,7 +902,8 @@ const NewMeasurement = () => {
               }}
             >
               <strong>Проём {index + 1}</strong>
-              {draft.openings.length > 1 && (
+              {/* A visor-only order needs no opening. */}
+              {(draft.openings.length > 1 || draft.visorServiceId !== '') && (
                 <button
                   type="button"
                   style={styles.secondaryButton}
@@ -1041,6 +1099,44 @@ const NewMeasurement = () => {
       >
         + Добавить проём
       </button>
+
+      <h3 style={styles.heading}>Козырёк</h3>
+      <section style={styles.section}>
+        {field(
+          'Козырёк',
+          <select
+            style={styles.input}
+            value={draft.visorServiceId}
+            onChange={(event) =>
+              updateDraft({ visorServiceId: event.target.value })
+            }
+          >
+            <option value="">Не нужен</option>
+            {visorOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.price === null
+                  ? option.name
+                  : `${option.name} · ${formatMoney(option.price)} за п.м.`}
+              </option>
+            ))}
+          </select>,
+        )}
+        {draft.visorServiceId !== '' &&
+          field(
+            'Длина, м',
+            <input
+              inputMode="decimal"
+              style={styles.input}
+              value={draft.visorLengthMeters}
+              onChange={(event) =>
+                updateDraft({ visorLengthMeters: event.target.value })
+              }
+            />,
+          )}
+        {visorTotal !== null && (
+          <div style={styles.area}>{formatMoney(visorTotal)}</div>
+        )}
+      </section>
 
       <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
         Итого площадь: {formatSquareMeters(totalAreaSquareMeters)}
