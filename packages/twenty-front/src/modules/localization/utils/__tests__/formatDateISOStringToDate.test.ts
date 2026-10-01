@@ -12,7 +12,7 @@ describe('formatDateISOStringToDate', () => {
         localeCatalog: enUS,
       });
 
-      expect(result).toBe('1 Jan, 2022');
+      expect(result).toBe('01.01.2022');
     });
 
     it('should render the calendar date with MONTH_FIRST format', () => {
@@ -57,9 +57,9 @@ describe('formatDateISOStringToDate', () => {
         localeCatalog: enUS,
       });
 
-      expect(resultUtc).toBe('1 Jan, 2022');
-      expect(resultLA).toBe('1 Jan, 2022');
-      expect(resultTokyo).toBe('1 Jan, 2022');
+      expect(resultUtc).toBe('01.01.2022');
+      expect(resultLA).toBe('01.01.2022');
+      expect(resultTokyo).toBe('01.01.2022');
     });
 
     it('should preserve year boundaries on the last day of the year', () => {
@@ -70,7 +70,7 @@ describe('formatDateISOStringToDate', () => {
         localeCatalog: enUS,
       });
 
-      expect(result).toBe('31 Dec, 2024');
+      expect(result).toBe('31.12.2024');
     });
 
     it('should preserve year boundaries on the first day of the year', () => {
@@ -81,7 +81,7 @@ describe('formatDateISOStringToDate', () => {
         localeCatalog: enUS,
       });
 
-      expect(result).toBe('1 Jan, 2025');
+      expect(result).toBe('01.01.2025');
     });
   });
 
@@ -94,7 +94,7 @@ describe('formatDateISOStringToDate', () => {
         localeCatalog: enUS,
       });
 
-      expect(result).toBe('1 Jan, 2022');
+      expect(result).toBe('01.01.2022');
     });
 
     it('should shift the displayed day when the timezone rolls the date over', () => {
@@ -106,7 +106,7 @@ describe('formatDateISOStringToDate', () => {
         localeCatalog: enUS,
       });
 
-      expect(result).toBe('31 Dec, 2021');
+      expect(result).toBe('31.12.2021');
     });
 
     it('should shift the displayed day forward when the timezone is ahead of UTC', () => {
@@ -118,7 +118,7 @@ describe('formatDateISOStringToDate', () => {
         localeCatalog: enUS,
       });
 
-      expect(result).toBe('2 Jan, 2022');
+      expect(result).toBe('02.01.2022');
     });
   });
 });

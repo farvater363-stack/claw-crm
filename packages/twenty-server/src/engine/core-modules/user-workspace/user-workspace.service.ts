@@ -32,7 +32,12 @@ import { WorkspaceDiscoverability } from 'src/engine/core-modules/workspace/type
 import { AuthProviderEnum } from 'src/engine/core-modules/workspace/types/workspace.type';
 import { type WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { workspaceValidator } from 'src/engine/core-modules/workspace/workspace.validate';
-import { DEFAULT_NEW_USER_LOCALE } from 'src/engine/core-modules/user/constants/default-new-user-locale.constant';
+import {
+  DEFAULT_NEW_USER_LOCALE,
+  DEFAULT_NEW_WORKSPACE_MEMBER_DATE_FORMAT,
+  DEFAULT_NEW_WORKSPACE_MEMBER_TIME_FORMAT,
+  DEFAULT_NEW_WORKSPACE_MEMBER_TIME_ZONE,
+} from 'src/engine/core-modules/user/constants/default-new-user-locale.constant';
 import {
   PermissionsException,
   PermissionsExceptionCode,
@@ -203,6 +208,9 @@ export class UserWorkspaceService {
         avatarUrl: userWorkspace.defaultAvatarUrl ?? null,
         locale: (user.locale ??
           DEFAULT_NEW_USER_LOCALE) as keyof typeof APP_LOCALES,
+        dateFormat: DEFAULT_NEW_WORKSPACE_MEMBER_DATE_FORMAT,
+        timeFormat: DEFAULT_NEW_WORKSPACE_MEMBER_TIME_FORMAT,
+        timeZone: DEFAULT_NEW_WORKSPACE_MEMBER_TIME_ZONE,
       });
 
       const workspaceMember = await workspaceMemberRepository.find({

@@ -285,7 +285,7 @@ describe('transformAggregateRawValueIntoAggregateDisplayValue', () => {
         localeCatalog: enUS,
         timeZone: 'UTC',
       }),
-    ).toBe('1 Jan, 2000');
+    ).toBe('01.01.2000');
   });
 
   it('should return correct DATE_TIME formatted value', () => {
@@ -305,6 +305,6 @@ describe('transformAggregateRawValueIntoAggregateDisplayValue', () => {
         localeCatalog: enUS,
         timeZone: 'UTC',
       }),
-    ).toBe('1 Jan, 2000 12:00');
+    ).toBe('01.01.2000 12:00');
   });
 });
