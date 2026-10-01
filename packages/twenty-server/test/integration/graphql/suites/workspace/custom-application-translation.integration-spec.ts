@@ -9,10 +9,11 @@ import { signUpInNewWorkspace } from 'test/integration/graphql/utils/sign-up-in-
 import { signUp } from 'test/integration/graphql/utils/sign-up.util';
 import { createOneObjectMetadata } from 'test/integration/metadata/suites/object-metadata/utils/create-one-object-metadata.util';
 import { jestExpectToBeDefined } from 'test/utils/jest-expect-to-be-defined.util.test';
-import { SOURCE_LOCALE } from 'twenty-shared/translations';
 import { isDefined } from 'twenty-shared/utils';
 
 import { generateMessageId } from 'twenty-shared/i18n';
+
+import { DEFAULT_NEW_USER_LOCALE } from 'src/engine/core-modules/user/constants/default-new-user-locale.constant';
 
 const client = request(`http://localhost:${APP_PORT}`);
 
@@ -159,7 +160,11 @@ describe('custom application translation resolve path', () => {
       `INSERT INTO core."applicationTranslation"
          ("applicationRegistrationId", locale, messages)
        VALUES ($1, $2, $3::jsonb)`,
-      [applicationRegistrationId, SOURCE_LOCALE, JSON.stringify(messages)],
+      [
+        applicationRegistrationId,
+        DEFAULT_NEW_USER_LOCALE,
+        JSON.stringify(messages),
+      ],
     );
 
     await createOneObjectMetadata({
