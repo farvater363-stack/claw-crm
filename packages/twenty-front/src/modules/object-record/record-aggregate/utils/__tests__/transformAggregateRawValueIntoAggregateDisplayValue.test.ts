@@ -166,7 +166,51 @@ describe('transformAggregateRawValueIntoAggregateDisplayValue', () => {
         localeCatalog: enUS,
         timeZone: 'UTC',
       }),
+    ).toBe('230,440');
+  });
+
+  it('keeps the short currency format when the field asks for it', () => {
+    const mockCurrencyFieldMetadataItem = {
+      id: '123',
+      name: 'amount',
+      label: 'Amount',
+      type: FieldMetadataType.CURRENCY,
+      settings: { format: 'short' },
+    } as FieldMetadataItem;
+
+    expect(
+      transformAggregateRawValueIntoAggregateDisplayValue({
+        aggregateFieldMetadataItem: mockCurrencyFieldMetadataItem,
+        aggregateOperation: AggregateOperations.SUM,
+        aggregateRawValue: 230440000000,
+        dateFormat: DateFormat.DAY_FIRST,
+        timeFormat: TimeFormat.HOUR_24,
+        localeCatalog: enUS,
+        timeZone: 'UTC',
+      }),
     ).toBe('230.4k');
+  });
+
+  it('uses the field decimals for full currency totals', () => {
+    const mockCurrencyFieldMetadataItem = {
+      id: '123',
+      name: 'amount',
+      label: 'Amount',
+      type: FieldMetadataType.CURRENCY,
+      settings: { format: 'full', decimals: 0 },
+    } as FieldMetadataItem;
+
+    expect(
+      transformAggregateRawValueIntoAggregateDisplayValue({
+        aggregateFieldMetadataItem: mockCurrencyFieldMetadataItem,
+        aggregateOperation: AggregateOperations.SUM,
+        aggregateRawValue: 2300000000000,
+        dateFormat: DateFormat.DAY_FIRST,
+        timeFormat: TimeFormat.HOUR_24,
+        localeCatalog: enUS,
+        timeZone: 'UTC',
+      }),
+    ).toBe('2,300,000');
   });
 
   it('should return correct number formatted value', () => {

@@ -47,6 +47,7 @@ export const EventFieldDiffValue = ({
                 fieldName: fieldMetadataItem.name,
                 objectMetadataNameSingular: mainObjectMetadataItem.nameSingular,
                 options: fieldMetadataItem.options ?? [],
+                settings: fieldMetadataItem.settings,
               },
               defaultValue: fieldMetadataItem.defaultValue,
             },
