@@ -213,6 +213,13 @@ export const planWarehouseRecalc = ({
     ]);
   }
 
+  // Only orders still at price approval reserve, so a deleted order or one whose
+  // sync failed on leaving it cannot hold its reserve forever.
+  const reservingOrderIds = new Set(
+    orders
+      .filter((order) => order.status === 'PRICE_APPROVAL')
+      .map((order) => order.id),
+  );
   const reservedByMaterialId = new Map<string, number>();
   const actualByMaterialId = new Map<
     string,
@@ -223,6 +230,10 @@ export const planWarehouseRecalc = ({
     if (line.materialId === null) continue;
 
     if (line.writtenOffQuantity === null) {
+      if (line.orderId === null || !reservingOrderIds.has(line.orderId)) {
+        continue;
+      }
+
       reservedByMaterialId.set(
         line.materialId,
         (reservedByMaterialId.get(line.materialId) ?? 0) +

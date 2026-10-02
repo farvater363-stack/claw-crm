@@ -283,6 +283,7 @@ describe('planWarehouseRecalc', () => {
       [movement({ quantity: 50 })],
       [],
       [orderLine({ plannedQuantity: 60 })],
+      [order()],
     );
 
     expect(result.materialUpdates[0]?.update).toMatchObject({
@@ -342,12 +343,28 @@ describe('planWarehouseRecalc with orders', () => {
           writtenOffQuantity: 30,
         }),
       ],
+      [order()],
     );
 
     expect(result.materialUpdates[0]?.update).toMatchObject({
       reserved: 10,
       overrunPercent: 10,
     });
+  });
+
+  it('reserves only lines of orders still at price approval', () => {
+    const reservedFor = (orders: WarehouseOrder[]) =>
+      plan(
+        [material()],
+        [movement({ quantity: 100 })],
+        [],
+        [orderLine({ plannedQuantity: 10 })],
+        orders,
+      ).materialUpdates[0]?.update.reserved;
+
+    expect(reservedFor([])).toBe(0);
+    expect(reservedFor([order({ status: 'CANCELLED' })])).toBe(0);
+    expect(reservedFor([order()])).toBe(10);
   });
 
   it('names lines after their material and planned quantity', () => {
