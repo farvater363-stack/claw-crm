@@ -41,6 +41,12 @@ export type WarehouseMovement = {
   createdAt: string;
 };
 
+// The planner only rewrites these, so the update type cannot carry fields the API types differently.
+type MovementWrite = Pick<
+  WarehouseMovement,
+  'id' | 'name' | 'quantity' | 'date'
+>;
+
 export type WarehouseRecalcInput = {
   materials: WarehouseMaterial[];
   norms: WarehouseNorm[];
@@ -56,7 +62,7 @@ export type RecordUpdate<TRecord extends { id: string }> = {
 export type WarehouseRecalcPlan = {
   materialUpdates: RecordUpdate<WarehouseMaterial>[];
   normUpdates: RecordUpdate<WarehouseNorm>[];
-  movementUpdates: RecordUpdate<WarehouseMovement>[];
+  movementUpdates: RecordUpdate<MovementWrite>[];
 };
 
 const round = (value: number) => roundTo(value, 2);
@@ -148,7 +154,7 @@ export const planWarehouseRecalc = ({
   const materialById = new Map(materials.map((item) => [item.id, item]));
   const onHandByMaterialId = new Map<string, number>();
   const lastPriceByMaterialId = new Map<string, number>();
-  const movementEntries: Entry<WarehouseMovement>[] = [];
+  const movementEntries: Entry<MovementWrite>[] = [];
 
   for (const movement of inStockOrder(movements)) {
     const material =
