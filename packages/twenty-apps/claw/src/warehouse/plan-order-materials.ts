@@ -64,6 +64,10 @@ export const writeOffMovementId = (lineId: string) =>
 export const factMovementId = (lineId: string) =>
   deterministicUuid(`fact:${lineId}`);
 
+export const keepsOrderDemand = (status: string | null) =>
+  status !== null &&
+  (RESERVING_STATUSES.has(status) || WRITTEN_OFF_STATUSES.has(status));
+
 export const isEmptyOrderMaterialsPlan = (plan: OrderMaterialsPlan) =>
   Object.values(plan).every((entries) => entries.length === 0);
 
@@ -88,8 +92,6 @@ export const planOrderMaterials = ({
   );
   const isWrittenOffStatus =
     status !== null && WRITTEN_OFF_STATUSES.has(status);
-  const keepsDemand =
-    isWrittenOffStatus || (status !== null && RESERVING_STATUSES.has(status));
   const writtenLines = lines.filter(
     (
       line,
@@ -125,7 +127,7 @@ export const planOrderMaterials = ({
       date: today,
     });
 
-  if (keepsDemand) {
+  if (keepsOrderDemand(status)) {
     for (const [materialId, quantity] of demand) {
       if (writtenMaterialIds.has(materialId)) continue;
 

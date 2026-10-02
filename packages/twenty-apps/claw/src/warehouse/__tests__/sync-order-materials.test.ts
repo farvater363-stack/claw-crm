@@ -6,48 +6,54 @@ import { syncOrderMaterials } from 'src/warehouse/sync-order-materials';
 
 const LINE_ID = orderMaterialLineId('order-1', 'material-1');
 
-const fakeClient = (lines: Record<string, unknown>[]) => {
+const fakeClient = (
+  lines: Record<string, unknown>[],
+  { status = 'PRICE_APPROVAL', missingNorms = null as string | null } = {},
+) => {
   const mutations: Record<string, unknown>[] = [];
+  let queryCount = 0;
   const page = (nodes: Record<string, unknown>[]) => ({
     edges: nodes.map((node) => ({ node })),
     pageInfo: { hasNextPage: false, endCursor: null },
   });
   const client = {
-    query: async () => ({
-      orders: page([
-        { id: 'order-1', status: 'PRICE_APPROVAL', missingNorms: null },
-      ]),
-      orderItems: page([
-        {
-          name: '100×100',
-          designId: 'design-1',
-          metal: 'ROD',
-          metalSize: null,
-          areaSquareMeters: 1,
-          quantity: 2,
-        },
-      ]),
-      orderExtraServices: page([]),
-      orderMaterials: page(lines),
-      stockMovements: page([]),
-      priceListItems: page([
-        {
-          id: 'row-1',
-          name: 'Тест',
-          designId: 'design-1',
-          metal: 'ROD',
-          metalSize: null,
-        },
-      ]),
-      materialNorms: page([
-        {
-          priceListItemId: 'row-1',
-          extraServiceId: null,
-          materialId: 'material-1',
-          quantityPerUnit: 2,
-        },
-      ]),
-    }),
+    query: async () => {
+      queryCount += 1;
+
+      return {
+        orders: page([{ id: 'order-1', status, missingNorms }]),
+        orderItems: page([
+          {
+            name: '100×100',
+            designId: 'design-1',
+            metal: 'ROD',
+            metalSize: null,
+            areaSquareMeters: 1,
+            quantity: 2,
+          },
+        ]),
+        orderExtraServices: page([]),
+        orderMaterials: page(lines),
+        stockMovements: page([]),
+        priceListItems: page([
+          {
+            id: 'row-1',
+            name: 'Тест',
+            designId: 'design-1',
+            metal: 'ROD',
+            metalSize: null,
+          },
+        ]),
+        materialNorms: page([
+          {
+            priceListItemId: 'row-1',
+            extraServiceId: null,
+            materialId: 'material-1',
+            quantityPerUnit: 2,
+          },
+        ]),
+      };
+    },
     mutation: async (request: Record<string, unknown>) => {
       mutations.push(request);
 
@@ -55,7 +61,7 @@ const fakeClient = (lines: Record<string, unknown>[]) => {
     },
   } as unknown as CoreApiClient;
 
-  return { client, mutations };
+  return { client, mutations, queryCount: () => queryCount };
 };
 
 describe('syncOrderMaterials', () => {
@@ -95,5 +101,32 @@ describe('syncOrderMaterials', () => {
 
     expect(await syncOrderMaterials(client, 'order-1')).toBe(false);
     expect(mutations).toEqual([]);
+  });
+
+  it('loads nothing more and writes nothing for a NEW order without lines', async () => {
+    const { client, mutations, queryCount } = fakeClient([], {
+      status: 'NEW',
+    });
+
+    expect(await syncOrderMaterials(client, 'order-1')).toBe(false);
+    expect(queryCount()).toBe(1);
+    expect(mutations).toEqual([]);
+  });
+
+  it('clears stale missing norms on a NEW order', async () => {
+    const { client, mutations } = fakeClient([], {
+      status: 'NEW',
+      missingNorms: 'Нет нормы: x',
+    });
+
+    expect(await syncOrderMaterials(client, 'order-1')).toBe(true);
+    expect(mutations).toEqual([
+      {
+        updateOrder: {
+          __args: { id: 'order-1', data: { missingNorms: null } },
+          id: true,
+        },
+      },
+    ]);
   });
 });
