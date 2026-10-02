@@ -12,6 +12,9 @@ export default defineLogicFunction({
   name: 'on-stock-movement-created',
   description: 'Recomputes stock after a receipt, stocktake or correction',
   timeoutSeconds: 60,
-  databaseEventTriggerSettings: { eventName: 'stockMovement.created' },
+  databaseEventTriggerSettings: {
+    eventName: 'stockMovement.created',
+    batchMode: true,
+  },
   handler,
 });

@@ -17,6 +17,7 @@ export default defineLogicFunction({
     eventName: 'material.updated',
     // Only inputs: the recalc writes the computed fields and must not retrigger itself.
     updatedFields: ['name', 'unit', 'safetyPercent', 'minimumStock'],
+    batchMode: true,
   },
   handler,
 });

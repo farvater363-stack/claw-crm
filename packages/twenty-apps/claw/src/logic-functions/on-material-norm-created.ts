@@ -12,6 +12,9 @@ export default defineLogicFunction({
   name: 'on-material-norm-created',
   description: 'Names a new consumption norm',
   timeoutSeconds: 60,
-  databaseEventTriggerSettings: { eventName: 'materialNorm.created' },
+  databaseEventTriggerSettings: {
+    eventName: 'materialNorm.created',
+    batchMode: true,
+  },
   handler,
 });

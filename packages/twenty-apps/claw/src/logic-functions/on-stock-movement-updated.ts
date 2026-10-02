@@ -14,6 +14,7 @@ export default defineLogicFunction({
   timeoutSeconds: 60,
   databaseEventTriggerSettings: {
     eventName: 'stockMovement.updated',
+    // The recalc's own quantity (stocktake) and date (when empty) writes cost one extra no-op run; both stay for user edits.
     updatedFields: [
       'kind',
       'materialId',
@@ -22,6 +23,7 @@ export default defineLogicFunction({
       'unitPrice',
       'date',
     ],
+    batchMode: true,
   },
   handler,
 });

@@ -108,7 +108,7 @@ export const MATERIAL_UNIT_OPTIONS = toOptions([
 
 export type MaterialUnit = (typeof MATERIAL_UNIT_OPTIONS)[number]['value'];
 
-// Option order is the sort order of «Материалы»: what to buy comes first.
+// Views sort SELECT by value text, so BUY < LOW < OK alphabetically is also the urgency order; keep that when renaming.
 export const STOCK_STATE_OPTIONS = toOptions([
   ['BUY', 'Нужно купить', 'red'],
   ['LOW', 'Скоро закончится', 'yellow'],

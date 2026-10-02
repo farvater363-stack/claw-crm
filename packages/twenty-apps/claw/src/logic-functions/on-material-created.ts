@@ -12,6 +12,9 @@ export default defineLogicFunction({
   name: 'on-material-created',
   description: 'Computes stock levels for a new material',
   timeoutSeconds: 60,
-  databaseEventTriggerSettings: { eventName: 'material.created' },
+  databaseEventTriggerSettings: {
+    eventName: 'material.created',
+    batchMode: true,
+  },
   handler,
 });

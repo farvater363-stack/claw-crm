@@ -16,6 +16,7 @@ export default defineLogicFunction({
   databaseEventTriggerSettings: {
     eventName: 'materialNorm.updated',
     updatedFields: ['materialId', 'quantityPerUnit'],
+    batchMode: true,
   },
   handler,
 });

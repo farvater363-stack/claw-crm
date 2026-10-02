@@ -12,6 +12,9 @@ export default defineLogicFunction({
   name: 'on-stock-movement-restored',
   description: 'Recomputes stock after a deleted movement is restored',
   timeoutSeconds: 60,
-  databaseEventTriggerSettings: { eventName: 'stockMovement.restored' },
+  databaseEventTriggerSettings: {
+    eventName: 'stockMovement.restored',
+    batchMode: true,
+  },
   handler,
 });
