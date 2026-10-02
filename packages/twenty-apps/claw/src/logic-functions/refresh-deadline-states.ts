@@ -4,7 +4,7 @@ import { IDS } from 'src/constants/universal-identifiers';
 import { OPEN_STATUSES } from 'src/pricing/compute-deadline-state';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { recalcOrder } from 'src/recalc/recalc-order';
-import { recalcWarehouse } from 'src/warehouse/recalc-warehouse';
+import { resyncReservingOrders } from 'src/warehouse/resync-reserving-orders';
 
 const PAGE_SIZE = 500;
 
@@ -35,9 +35,9 @@ const handler = async (): Promise<void> => {
   }
 
   try {
-    await recalcWarehouse(client);
+    await resyncReservingOrders(client);
   } catch (error) {
-    console.error('refresh-deadline-states: warehouse recalc failed', error);
+    console.error('refresh-deadline-states: warehouse resync failed', error);
   }
 };
 
