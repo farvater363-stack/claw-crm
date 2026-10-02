@@ -22,9 +22,11 @@ const waitFor = async <TValue>(
 };
 
 const remember = (mutation: string, id: string | undefined) => {
-  created.push({ mutation, id: id as string });
+  if (id === undefined) throw new Error(`${mutation}: create returned no id`);
 
-  return id as string;
+  created.push({ mutation, id });
+
+  return id;
 };
 
 const readState = async (materialId: string) => {
@@ -72,26 +74,35 @@ const updateOrder = (data: Record<string, unknown>) =>
 describe('order material lifecycle', () => {
   // The suite runs against a real workspace; one failed destroy must not stop the rest.
   afterAll(async () => {
-    const { orderMaterials, stockMovements } = await client.query({
-      orderMaterials: {
-        __args: { filter: { orderId: { eq: orderId } }, first: 10 },
-        edges: { node: { id: true } },
-      },
-      stockMovements: {
-        __args: { filter: { orderId: { eq: orderId } }, first: 10 },
-        edges: { node: { id: true } },
-      },
-    });
-    const system = [
-      ...(stockMovements?.edges ?? []).map(({ node }) => ({
-        mutation: 'destroyStockMovement',
-        id: node.id,
-      })),
-      ...(orderMaterials?.edges ?? []).map(({ node }) => ({
-        mutation: 'destroyOrderMaterial',
-        id: node.id,
-      })),
-    ];
+    const system: { mutation: string; id: string }[] = [];
+
+    // A run that failed before creating the order has no system records to find.
+    if (orderId !== '') {
+      try {
+        const { orderMaterials, stockMovements } = await client.query({
+          orderMaterials: {
+            __args: { filter: { orderId: { eq: orderId } }, first: 10 },
+            edges: { node: { id: true } },
+          },
+          stockMovements: {
+            __args: { filter: { orderId: { eq: orderId } }, first: 10 },
+            edges: { node: { id: true } },
+          },
+        });
+        system.push(
+          ...(stockMovements?.edges ?? []).map(({ node }) => ({
+            mutation: 'destroyStockMovement',
+            id: node.id,
+          })),
+          ...(orderMaterials?.edges ?? []).map(({ node }) => ({
+            mutation: 'destroyOrderMaterial',
+            id: node.id,
+          })),
+        );
+      } catch (error) {
+        console.error('cleanup: loading system records failed', error);
+      }
+    }
 
     for (const { mutation, id } of [...system, ...[...created].reverse()]) {
       try {
@@ -255,11 +266,15 @@ describe('order material lifecycle', () => {
     expect(again.movements).toEqual([{ kind: 'WRITE_OFF', quantity: -4 }]);
     expect(again.material?.onHand).toBe(6);
 
+    const lineId = again.lines[0]?.id;
+
+    if (lineId === undefined) throw new Error('order material line missing');
+
     await updateOrder({ status: 'READY' });
     await client.mutation({
       updateOrderMaterial: {
         __args: {
-          id: again.lines[0]?.id as string,
+          id: lineId,
           data: { actualQuantity: 5 },
         },
         id: true,
