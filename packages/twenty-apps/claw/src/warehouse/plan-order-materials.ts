@@ -1,0 +1,192 @@
+import { roundTo } from 'src/pricing/round';
+import { deterministicUuid } from 'src/utils/deterministic-uuid';
+
+const RESERVING_STATUSES = new Set(['PRICE_APPROVAL']);
+const WRITTEN_OFF_STATUSES = new Set([
+  'PRODUCTION',
+  'QUALITY_CHECK',
+  'READY',
+  'INSTALLED',
+  'CLOSED',
+]);
+const FACT_STATUSES = new Set(['READY', 'INSTALLED', 'CLOSED']);
+
+export type OrderMaterialLine = {
+  id: string;
+  materialId: string | null;
+  plannedQuantity: number | null;
+  writtenOffQuantity: number | null;
+  actualQuantity: number | null;
+};
+
+export type SystemMovement = { id: string; quantity: number | null };
+
+export type OrderMaterialsInput = {
+  orderId: string;
+  status: string | null;
+  demand: Map<string, number>;
+  lines: OrderMaterialLine[];
+  systemMovements: SystemMovement[];
+  today: string;
+};
+
+export type LineUpsert = {
+  id: string;
+  orderId: string;
+  materialId: string;
+  plannedQuantity: number;
+  writtenOffQuantity: number | null;
+};
+
+export type MovementUpsert = {
+  id: string;
+  kind: 'WRITE_OFF' | 'FACT_ADJUSTMENT';
+  materialId: string;
+  orderId: string;
+  orderMaterialId: string;
+  quantity: number;
+  date: string;
+};
+
+export type OrderMaterialsPlan = {
+  lineUpserts: LineUpsert[];
+  lineDeletes: string[];
+  movementUpserts: MovementUpsert[];
+  movementDeletes: string[];
+};
+
+export const orderMaterialLineId = (orderId: string, materialId: string) =>
+  deterministicUuid(`orderMaterial:${orderId}:${materialId}`);
+
+export const writeOffMovementId = (lineId: string) =>
+  deterministicUuid(`writeoff:${lineId}`);
+
+export const factMovementId = (lineId: string) =>
+  deterministicUuid(`fact:${lineId}`);
+
+export const isEmptyOrderMaterialsPlan = (plan: OrderMaterialsPlan) =>
+  Object.values(plan).every((entries) => entries.length === 0);
+
+// ponytail: one line per order and material; once written off, extra demand for that
+// material on the same order is ignored. Add a second line kind if re-ordering becomes common.
+export const planOrderMaterials = ({
+  orderId,
+  status,
+  demand,
+  lines,
+  systemMovements,
+  today,
+}: OrderMaterialsInput): OrderMaterialsPlan => {
+  const plan: OrderMaterialsPlan = {
+    lineUpserts: [],
+    lineDeletes: [],
+    movementUpserts: [],
+    movementDeletes: [],
+  };
+  const movementQuantityById = new Map(
+    systemMovements.map((movement) => [movement.id, movement.quantity]),
+  );
+  const isWrittenOffStatus =
+    status !== null && WRITTEN_OFF_STATUSES.has(status);
+  const keepsDemand =
+    isWrittenOffStatus || (status !== null && RESERVING_STATUSES.has(status));
+  const writtenLines = lines.filter(
+    (
+      line,
+    ): line is OrderMaterialLine & {
+      materialId: string;
+      writtenOffQuantity: number;
+    } => line.writtenOffQuantity !== null && line.materialId !== null,
+  );
+  const writtenMaterialIds = new Set(
+    writtenLines.map((line) => line.materialId),
+  );
+  const lineById = new Map(lines.map((line) => [line.id, line]));
+  const wantedIds = new Set<string>();
+
+  const ensureMovement = (movement: MovementUpsert) => {
+    if (movementQuantityById.get(movement.id) !== movement.quantity) {
+      plan.movementUpserts.push(movement);
+    }
+  };
+
+  const ensureWriteOff = (
+    lineId: string,
+    materialId: string,
+    writtenOff: number,
+  ) =>
+    ensureMovement({
+      id: writeOffMovementId(lineId),
+      kind: 'WRITE_OFF',
+      materialId,
+      orderId,
+      orderMaterialId: lineId,
+      quantity: -writtenOff,
+      date: today,
+    });
+
+  if (keepsDemand) {
+    for (const [materialId, quantity] of demand) {
+      if (writtenMaterialIds.has(materialId)) continue;
+
+      const id = orderMaterialLineId(orderId, materialId);
+      const plannedQuantity = roundTo(quantity, 2);
+      const writtenOffQuantity = isWrittenOffStatus ? plannedQuantity : null;
+      const existing = lineById.get(id);
+
+      wantedIds.add(id);
+
+      if (
+        existing === undefined ||
+        existing.plannedQuantity !== plannedQuantity ||
+        existing.writtenOffQuantity !== writtenOffQuantity
+      ) {
+        plan.lineUpserts.push({
+          id,
+          orderId,
+          materialId,
+          plannedQuantity,
+          writtenOffQuantity,
+        });
+      }
+
+      if (writtenOffQuantity !== null) {
+        ensureWriteOff(id, materialId, writtenOffQuantity);
+      }
+    }
+  }
+
+  for (const line of lines) {
+    if (line.writtenOffQuantity === null && !wantedIds.has(line.id)) {
+      plan.lineDeletes.push(line.id);
+    }
+  }
+
+  for (const line of writtenLines) {
+    if (isWrittenOffStatus) {
+      ensureWriteOff(line.id, line.materialId, line.writtenOffQuantity);
+    }
+
+    const factId = factMovementId(line.id);
+    const delta =
+      line.actualQuantity === null
+        ? 0
+        : roundTo(line.actualQuantity - line.writtenOffQuantity, 2);
+
+    if (delta === 0) {
+      if (movementQuantityById.has(factId)) plan.movementDeletes.push(factId);
+    } else if (status !== null && FACT_STATUSES.has(status)) {
+      ensureMovement({
+        id: factId,
+        kind: 'FACT_ADJUSTMENT',
+        materialId: line.materialId,
+        orderId,
+        orderMaterialId: line.id,
+        quantity: -delta,
+        date: today,
+      });
+    }
+  }
+
+  return plan;
+};
