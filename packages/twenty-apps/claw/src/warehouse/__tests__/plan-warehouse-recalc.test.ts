@@ -7,6 +7,8 @@ import {
   type WarehouseMaterial,
   type WarehouseMovement,
   type WarehouseNorm,
+  type WarehouseOrder,
+  type WarehouseOrderMaterial,
 } from 'src/warehouse/plan-warehouse-recalc';
 
 const material = (
@@ -23,6 +25,7 @@ const material = (
   toBuy: null,
   stockState: null,
   lastPurchasePrice: null,
+  overrunPercent: null,
   ...overrides,
 });
 
@@ -41,13 +44,35 @@ const movement = (
   ...overrides,
 });
 
+const orderLine = (
+  overrides: Partial<WarehouseOrderMaterial> = {},
+): WarehouseOrderMaterial => ({
+  id: 'line-1',
+  name: 'Профиль 20×20 — 60 м',
+  orderId: 'order-1',
+  materialId: 'material-1',
+  plannedQuantity: 60,
+  writtenOffQuantity: null,
+  actualQuantity: null,
+  ...overrides,
+});
+
+const order = (overrides: Partial<WarehouseOrder> = {}): WarehouseOrder => ({
+  id: 'order-1',
+  status: 'PRICE_APPROVAL',
+  materialState: null,
+  materialNote: null,
+  missingNorms: null,
+  ...overrides,
+});
+
 const plan = (
   materials: WarehouseMaterial[],
   movements: WarehouseMovement[] = [],
   norms: WarehouseNorm[] = [],
-  reservedByMaterialId: Record<string, number> = {},
-) =>
-  planWarehouseRecalc({ materials, norms, movements, reservedByMaterialId });
+  lines: WarehouseOrderMaterial[] = [],
+  orders: WarehouseOrder[] = [],
+) => planWarehouseRecalc({ materials, norms, movements, lines, orders });
 
 describe('computeMaterialStock', () => {
   it('is OK when stock covers reserve, safety and minimum', () => {
@@ -163,6 +188,8 @@ describe('planWarehouseRecalc', () => {
       materialUpdates: [],
       normUpdates: [],
       movementUpdates: [],
+      lineUpdates: [],
+      orderUpdates: [],
     });
   });
 
@@ -255,7 +282,7 @@ describe('planWarehouseRecalc', () => {
       [material({ safetyPercent: 10 })],
       [movement({ quantity: 50 })],
       [],
-      { 'material-1': 60 },
+      [orderLine({ plannedQuantity: 60 })],
     );
 
     expect(result.materialUpdates[0]?.update).toMatchObject({
@@ -291,6 +318,113 @@ describe('planWarehouseRecalc', () => {
     expect(result.normUpdates).toEqual([
       { id: 'norm-1', update: { name: 'Профиль 20×20 — 5,5 м' } },
       { id: 'norm-2', update: { name: '' } },
+    ]);
+  });
+});
+
+describe('planWarehouseRecalc with orders', () => {
+  it('reserves only unwritten lines and computes the overrun of booked actuals', () => {
+    const result = plan(
+      [material()],
+      [movement({ quantity: 100 })],
+      [],
+      [
+        orderLine({ id: 'reserved', plannedQuantity: 10 }),
+        orderLine({
+          id: 'done',
+          plannedQuantity: 20,
+          writtenOffQuantity: 20,
+          actualQuantity: 22,
+        }),
+        orderLine({
+          id: 'no-actual',
+          plannedQuantity: 30,
+          writtenOffQuantity: 30,
+        }),
+      ],
+    );
+
+    expect(result.materialUpdates[0]?.update).toMatchObject({
+      reserved: 10,
+      overrunPercent: 10,
+    });
+  });
+
+  it('names lines after their material and planned quantity', () => {
+    const result = plan(
+      [material()],
+      [],
+      [],
+      [orderLine({ name: null, plannedQuantity: 5.5 })],
+    );
+
+    expect(result.lineUpdates).toEqual([
+      { id: 'line-1', update: { name: 'Профиль 20×20 — 5,5 м' } },
+    ]);
+  });
+
+  it('flags an order at price approval whose material is short', () => {
+    const result = plan(
+      [material()],
+      [movement({ quantity: 50 })],
+      [],
+      [orderLine()],
+      [order({ missingNorms: 'Нет нормы: Волна' })],
+    );
+
+    expect(result.orderUpdates).toEqual([
+      {
+        id: 'order-1',
+        update: {
+          materialState: 'SHORTAGE',
+          materialNote: 'Не хватает: Профиль 20×20 — 10 м. Нет нормы: Волна',
+        },
+      },
+    ]);
+  });
+
+  it('says ENOUGH when covered, NO_NORM when a norm is missing', () => {
+    const covered = plan(
+      [material()],
+      [movement({ quantity: 100 })],
+      [],
+      [orderLine()],
+      [order()],
+    );
+    const noNorm = plan(
+      [material()],
+      [],
+      [],
+      [],
+      [order({ missingNorms: 'Нет нормы: Волна' })],
+    );
+
+    expect(covered.orderUpdates[0]?.update).toEqual({
+      materialState: 'ENOUGH',
+    });
+    expect(noNorm.orderUpdates[0]?.update).toEqual({
+      materialState: 'NO_NORM',
+      materialNote: 'Нет нормы: Волна',
+    });
+  });
+
+  it('clears the state once the order leaves price approval', () => {
+    const result = plan(
+      [material()],
+      [],
+      [],
+      [],
+      [
+        order({
+          status: 'PRODUCTION',
+          materialState: 'SHORTAGE',
+          materialNote: 'x',
+        }),
+      ],
+    );
+
+    expect(result.orderUpdates).toEqual([
+      { id: 'order-1', update: { materialState: null, materialNote: null } },
     ]);
   });
 });

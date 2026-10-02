@@ -2,6 +2,7 @@ import { type CoreApiClient } from 'twenty-client-sdk/core';
 
 import {
   type MaterialUnit,
+  type OrderMaterialState,
   type StockMovementKind,
   type StockState,
 } from 'src/constants/select-options';
@@ -24,7 +25,7 @@ const toDate = (value: unknown): string | null =>
 export const loadWarehouseRecalcInput = async (
   client: CoreApiClient,
 ): Promise<WarehouseRecalcInput> => {
-  const [materials, norms, movements] = await Promise.all([
+  const [materials, norms, movements, lines, orders] = await Promise.all([
     fetchAllPages(async (after) => {
       const { materials } = await client.query({
         materials: {
@@ -42,6 +43,7 @@ export const loadWarehouseRecalcInput = async (
               toBuy: true,
               stockState: true,
               lastPurchasePrice: money,
+              overrunPercent: true,
             },
           },
           pageInfo: PAGE_INFO,
@@ -91,6 +93,56 @@ export const loadWarehouseRecalcInput = async (
 
       return stockMovements;
     }),
+    fetchAllPages(async (after) => {
+      const { orderMaterials } = await client.query({
+        orderMaterials: {
+          __args: { first: PAGE_SIZE, after },
+          edges: {
+            node: {
+              id: true,
+              name: true,
+              orderId: true,
+              materialId: true,
+              plannedQuantity: true,
+              writtenOffQuantity: true,
+              actualQuantity: true,
+            },
+          },
+          pageInfo: PAGE_INFO,
+        },
+      });
+
+      return orderMaterials;
+    }),
+    // Orders outside price approval only need reading while they still carry a state to clear.
+    fetchAllPages(async (after) => {
+      const { orders } = await client.query({
+        orders: {
+          __args: {
+            filter: {
+              or: [
+                { status: { eq: 'PRICE_APPROVAL' } },
+                { materialState: { is: 'NOT_NULL' } },
+              ],
+            },
+            first: PAGE_SIZE,
+            after,
+          },
+          edges: {
+            node: {
+              id: true,
+              status: true,
+              materialState: true,
+              materialNote: true,
+              missingNorms: true,
+            },
+          },
+          pageInfo: PAGE_INFO,
+        },
+      });
+
+      return orders;
+    }),
   ]);
 
   return {
@@ -106,6 +158,7 @@ export const loadWarehouseRecalcInput = async (
       toBuy: toNumber(node.toBuy),
       stockState: (node.stockState ?? null) as StockState | null,
       lastPurchasePrice: fromCurrency(node.lastPurchasePrice),
+      overrunPercent: toNumber(node.overrunPercent),
     })),
     norms: norms.map((node) => ({
       id: node.id,
@@ -124,6 +177,21 @@ export const loadWarehouseRecalcInput = async (
       date: toDate(node.date),
       createdAt: String(node.createdAt),
     })),
-    reservedByMaterialId: {},
+    lines: lines.map((node) => ({
+      id: node.id,
+      name: toText(node.name),
+      orderId: toText(node.orderId),
+      materialId: toText(node.materialId),
+      plannedQuantity: toNumber(node.plannedQuantity),
+      writtenOffQuantity: toNumber(node.writtenOffQuantity),
+      actualQuantity: toNumber(node.actualQuantity),
+    })),
+    orders: orders.map((node) => ({
+      id: node.id,
+      status: toText(node.status),
+      materialState: (node.materialState ?? null) as OrderMaterialState | null,
+      materialNote: toText(node.materialNote),
+      missingNorms: toText(node.missingNorms),
+    })),
   };
 };

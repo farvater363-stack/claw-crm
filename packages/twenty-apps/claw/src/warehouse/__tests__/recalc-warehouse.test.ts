@@ -26,6 +26,7 @@ const material = (
   toBuy: null,
   stockState: null,
   lastPurchasePrice: null,
+  overrunPercent: null,
   ...overrides,
 });
 
@@ -45,7 +46,8 @@ const input = (materialRecord: WarehouseMaterial): WarehouseRecalcInput => ({
       createdAt: '2026-10-01T05:00:00.000Z',
     },
   ],
-  reservedByMaterialId: {},
+  lines: [],
+  orders: [],
 });
 
 const stale = input(material());

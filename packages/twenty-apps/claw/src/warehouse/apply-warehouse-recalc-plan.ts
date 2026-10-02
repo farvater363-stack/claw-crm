@@ -30,4 +30,16 @@ export const applyWarehouseRecalcPlan = async (
       updateMaterial: { __args: { id, data }, id: true },
     });
   }
+
+  for (const { id, update } of plan.lineUpdates) {
+    await client.mutation({
+      updateOrderMaterial: { __args: { id, data: update }, id: true },
+    });
+  }
+
+  for (const { id, update } of plan.orderUpdates) {
+    await client.mutation({
+      updateOrder: { __args: { id, data: update }, id: true },
+    });
+  }
 };

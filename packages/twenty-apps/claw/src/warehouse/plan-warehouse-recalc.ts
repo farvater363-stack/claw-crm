@@ -1,6 +1,7 @@
 import {
   MATERIAL_UNIT_OPTIONS,
   type MaterialUnit,
+  type OrderMaterialState,
   STOCK_MOVEMENT_KIND_OPTIONS,
   type StockMovementKind,
   type StockState,
@@ -20,6 +21,7 @@ export type WarehouseMaterial = {
   toBuy: number | null;
   stockState: StockState | null;
   lastPurchasePrice: number | null;
+  overrunPercent: number | null;
 };
 
 export type WarehouseNorm = {
@@ -41,17 +43,40 @@ export type WarehouseMovement = {
   createdAt: string;
 };
 
+export type WarehouseOrderMaterial = {
+  id: string;
+  name: string | null;
+  orderId: string | null;
+  materialId: string | null;
+  plannedQuantity: number | null;
+  writtenOffQuantity: number | null;
+  actualQuantity: number | null;
+};
+
+export type WarehouseOrder = {
+  id: string;
+  status: string | null;
+  materialState: OrderMaterialState | null;
+  materialNote: string | null;
+  missingNorms: string | null;
+};
+
 // The planner only rewrites these, so the update type cannot carry fields the API types differently.
 type MovementWrite = Pick<
   WarehouseMovement,
   'id' | 'name' | 'quantity' | 'date'
 >;
 
+type LineWrite = Pick<WarehouseOrderMaterial, 'id' | 'name'>;
+
+type OrderWrite = Pick<WarehouseOrder, 'id' | 'materialState' | 'materialNote'>;
+
 export type WarehouseRecalcInput = {
   materials: WarehouseMaterial[];
   norms: WarehouseNorm[];
   movements: WarehouseMovement[];
-  reservedByMaterialId: Readonly<Record<string, number>>;
+  lines: WarehouseOrderMaterial[];
+  orders: WarehouseOrder[];
 };
 
 export type RecordUpdate<TRecord extends { id: string }> = {
@@ -63,6 +88,8 @@ export type WarehouseRecalcPlan = {
   materialUpdates: RecordUpdate<WarehouseMaterial>[];
   normUpdates: RecordUpdate<WarehouseNorm>[];
   movementUpdates: RecordUpdate<MovementWrite>[];
+  lineUpdates: RecordUpdate<LineWrite>[];
+  orderUpdates: RecordUpdate<OrderWrite>[];
 };
 
 const round = (value: number) => roundTo(value, 2);
@@ -74,8 +101,8 @@ const unitLabel = (unit: MaterialUnit | null) =>
   MATERIAL_UNIT_OPTIONS.find((option) => option.value === unit)?.label ?? '';
 
 const kindLabel = (kind: StockMovementKind | null) =>
-  STOCK_MOVEMENT_KIND_OPTIONS.find((option) => option.value === kind)
-    ?.label ?? '';
+  STOCK_MOVEMENT_KIND_OPTIONS.find((option) => option.value === kind)?.label ??
+  '';
 
 export const computeMaterialStock = ({
   onHand,
@@ -87,10 +114,9 @@ export const computeMaterialStock = ({
   reserved: number;
   safetyPercent: number;
   minimumStock: number;
-}): Pick<
-  WarehouseMaterial,
-  'onHand' | 'reserved' | 'available' | 'toBuy'
-> & { stockState: StockState } => {
+}): Pick<WarehouseMaterial, 'onHand' | 'reserved' | 'available' | 'toBuy'> & {
+  stockState: StockState;
+} => {
   const available = round(onHand - reserved);
   const toBuy = round(
     Math.max(0, reserved * (1 + safetyPercent / 100) + minimumStock - onHand),
@@ -149,7 +175,8 @@ export const planWarehouseRecalc = ({
   materials,
   norms,
   movements,
-  reservedByMaterialId,
+  lines,
+  orders,
 }: WarehouseRecalcInput): WarehouseRecalcPlan => {
   const materialById = new Map(materials.map((item) => [item.id, item]));
   const onHandByMaterialId = new Map<string, number>();
@@ -186,18 +213,82 @@ export const planWarehouseRecalc = ({
     ]);
   }
 
+  const reservedByMaterialId = new Map<string, number>();
+  const actualByMaterialId = new Map<
+    string,
+    { actual: number; writtenOff: number }
+  >();
+
+  for (const line of lines) {
+    if (line.materialId === null) continue;
+
+    if (line.writtenOffQuantity === null) {
+      reservedByMaterialId.set(
+        line.materialId,
+        (reservedByMaterialId.get(line.materialId) ?? 0) +
+          (line.plannedQuantity ?? 0),
+      );
+    } else if (line.actualQuantity !== null && line.writtenOffQuantity > 0) {
+      const sums = actualByMaterialId.get(line.materialId) ?? {
+        actual: 0,
+        writtenOff: 0,
+      };
+
+      actualByMaterialId.set(line.materialId, {
+        actual: sums.actual + line.actualQuantity,
+        writtenOff: sums.writtenOff + line.writtenOffQuantity,
+      });
+    }
+  }
+
+  const overrunPercent = (materialId: string) => {
+    const sums = actualByMaterialId.get(materialId);
+
+    return sums === undefined
+      ? null
+      : round((sums.actual / sums.writtenOff - 1) * 100);
+  };
+
+  const stockByMaterialId = new Map(
+    materials.map((material) => [
+      material.id,
+      computeMaterialStock({
+        onHand: onHandByMaterialId.get(material.id) ?? 0,
+        reserved: reservedByMaterialId.get(material.id) ?? 0,
+        safetyPercent: material.safetyPercent ?? 0,
+        minimumStock: material.minimumStock ?? 0,
+      }),
+    ]),
+  );
+
+  const shortagesOf = (orderId: string) =>
+    lines.flatMap((line) => {
+      if (
+        line.orderId !== orderId ||
+        line.writtenOffQuantity !== null ||
+        line.materialId === null
+      ) {
+        return [];
+      }
+
+      const material = materialById.get(line.materialId);
+      const available = stockByMaterialId.get(line.materialId)?.available ?? 0;
+
+      return material !== undefined && available < 0
+        ? [
+            `${material.name ?? ''} — ${formatQuantity(-available)} ${unitLabel(material.unit)}`,
+          ]
+        : [];
+    });
+
   return {
     materialUpdates: toUpdates(
       materials.map((material): Entry<WarehouseMaterial> => [
         material,
         {
-          ...computeMaterialStock({
-            onHand: onHandByMaterialId.get(material.id) ?? 0,
-            reserved: reservedByMaterialId[material.id] ?? 0,
-            safetyPercent: material.safetyPercent ?? 0,
-            minimumStock: material.minimumStock ?? 0,
-          }),
+          ...stockByMaterialId.get(material.id),
           lastPurchasePrice: lastPriceByMaterialId.get(material.id) ?? null,
+          overrunPercent: overrunPercent(material.id),
         },
       ]),
     ),
@@ -220,5 +311,53 @@ export const planWarehouseRecalc = ({
       }),
     ),
     movementUpdates: toUpdates(movementEntries),
+    lineUpdates: toUpdates(
+      lines.map((line): Entry<LineWrite> => {
+        const material =
+          line.materialId === null
+            ? undefined
+            : materialById.get(line.materialId);
+
+        return [
+          line,
+          {
+            name:
+              material === undefined
+                ? ''
+                : `${material.name ?? ''} — ${formatQuantity(line.plannedQuantity ?? 0)} ${unitLabel(material.unit)}`,
+          },
+        ];
+      }),
+    ),
+    orderUpdates: toUpdates(
+      orders.map((order): Entry<OrderWrite> => {
+        if (order.status !== 'PRICE_APPROVAL') {
+          return [order, { materialState: null, materialNote: null }];
+        }
+
+        const shortages = shortagesOf(order.id);
+        const missingNorms =
+          order.missingNorms === '' ? null : order.missingNorms;
+        const parts = [
+          ...(shortages.length > 0
+            ? [`Не хватает: ${shortages.join(', ')}`]
+            : []),
+          ...(missingNorms !== null ? [missingNorms] : []),
+        ];
+
+        return [
+          order,
+          {
+            materialState:
+              shortages.length > 0
+                ? 'SHORTAGE'
+                : missingNorms !== null
+                  ? 'NO_NORM'
+                  : 'ENOUGH',
+            materialNote: parts.length > 0 ? parts.join('. ') : null,
+          },
+        ];
+      }),
+    ),
   };
 };
