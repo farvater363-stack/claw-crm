@@ -24,6 +24,7 @@ const input = (
   lines: [],
   systemMovements: [],
   today: TODAY,
+  isEnteringWrittenOff: false,
   ...overrides,
 });
 
@@ -85,7 +86,42 @@ describe('planOrderMaterials', () => {
   });
 
   it('writes off once when production starts, even without price approval first', () => {
+    const plan = planOrderMaterials(
+      input({ status: 'PRODUCTION', isEnteringWrittenOff: true }),
+    );
+
+    expect(plan.lineUpserts).toEqual([
+      {
+        id: LINE,
+        orderId: ORDER,
+        materialId: 'profile',
+        plannedQuantity: 16.5,
+        writtenOffQuantity: 16.5,
+      },
+    ]);
+    expect(plan.movementUpserts).toEqual([
+      {
+        id: writeOffMovementId(LINE),
+        kind: 'WRITE_OFF',
+        materialId: 'profile',
+        orderId: ORDER,
+        orderMaterialId: LINE,
+        quantity: -16.5,
+        date: TODAY,
+      },
+    ]);
+  });
+
+  it('leaves an order already in production at go-live without lines', () => {
     const plan = planOrderMaterials(input({ status: 'PRODUCTION' }));
+
+    expect(isEmptyOrderMaterialsPlan(plan)).toBe(true);
+  });
+
+  it('writes off a reserved line whenever the order is seen in production', () => {
+    const plan = planOrderMaterials(
+      input({ status: 'PRODUCTION', lines: [line()] }),
+    );
 
     expect(plan.lineUpserts).toEqual([
       {

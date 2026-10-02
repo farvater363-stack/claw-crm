@@ -9,6 +9,7 @@ import { assignOrderNumber } from 'src/recalc/assign-order-number';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { linkClientByPhone } from 'src/recalc/link-client-by-phone';
 import { recalcOrder } from 'src/recalc/recalc-order';
+import { isWrittenOffStatus } from 'src/warehouse/plan-order-materials';
 
 type CreatedOrder = {
   id: string;
@@ -17,6 +18,7 @@ type CreatedOrder = {
   measurerId: string | null;
   clientName: string | null;
   clientPhone: string | null;
+  status: string | null;
 };
 
 const handler = async (
@@ -52,7 +54,9 @@ const handler = async (
     });
   }
 
-  await recalcOrder(client, payload.recordId);
+  await recalcOrder(client, payload.recordId, {
+    isEnteringWrittenOff: isWrittenOffStatus(order.status ?? null),
+  });
 };
 
 export default defineLogicFunction({

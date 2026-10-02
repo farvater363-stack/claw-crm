@@ -12,6 +12,7 @@ export const recalcOrder = async (
   options: {
     refreshPriceItemIds?: string[];
     refreshPriceExtraServiceLineIds?: string[];
+    isEnteringWrittenOff?: boolean;
   } = {},
 ): Promise<void> => {
   const input = await loadRecalcInput(client, orderId, {
@@ -26,7 +27,11 @@ export const recalcOrder = async (
 
   await applyRecalcPlan(client, orderId, planOrderRecalc(input));
 
-  if (await syncOrderMaterials(client, orderId)) {
+  if (
+    await syncOrderMaterials(client, orderId, {
+      isEnteringWrittenOff: options.isEnteringWrittenOff,
+    })
+  ) {
     await recalcWarehouse(client);
   }
 };

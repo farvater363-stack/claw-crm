@@ -129,4 +129,22 @@ describe('syncOrderMaterials', () => {
       },
     ]);
   });
+
+  it('writes off new lines only for an order entering production', async () => {
+    const seenOnly = fakeClient([], { status: 'PRODUCTION' });
+    const entering = fakeClient([], { status: 'PRODUCTION' });
+
+    expect(await syncOrderMaterials(seenOnly.client, 'order-1')).toBe(false);
+    expect(seenOnly.mutations).toEqual([]);
+
+    expect(
+      await syncOrderMaterials(entering.client, 'order-1', {
+        isEnteringWrittenOff: true,
+      }),
+    ).toBe(true);
+    expect(entering.mutations.map((request) => Object.keys(request))).toEqual([
+      ['createOrderMaterial'],
+      ['createStockMovement'],
+    ]);
+  });
 });

@@ -28,6 +28,7 @@ export type OrderMaterialsInput = {
   lines: OrderMaterialLine[];
   systemMovements: SystemMovement[];
   today: string;
+  isEnteringWrittenOff: boolean;
 };
 
 export type LineUpsert = {
@@ -64,6 +65,9 @@ export const writeOffMovementId = (lineId: string) =>
 export const factMovementId = (lineId: string) =>
   deterministicUuid(`fact:${lineId}`);
 
+export const isWrittenOffStatus = (status: string | null) =>
+  status !== null && WRITTEN_OFF_STATUSES.has(status);
+
 export const keepsOrderDemand = (status: string | null) =>
   status !== null &&
   (RESERVING_STATUSES.has(status) || WRITTEN_OFF_STATUSES.has(status));
@@ -80,6 +84,7 @@ export const planOrderMaterials = ({
   lines,
   systemMovements,
   today,
+  isEnteringWrittenOff,
 }: OrderMaterialsInput): OrderMaterialsPlan => {
   const plan: OrderMaterialsPlan = {
     lineUpserts: [],
@@ -90,8 +95,7 @@ export const planOrderMaterials = ({
   const movementQuantityById = new Map(
     systemMovements.map((movement) => [movement.id, movement.quantity]),
   );
-  const isWrittenOffStatus =
-    status !== null && WRITTEN_OFF_STATUSES.has(status);
+  const writesOff = isWrittenOffStatus(status);
   const writtenLines = lines.filter(
     (
       line,
@@ -133,8 +137,14 @@ export const planOrderMaterials = ({
 
       const id = orderMaterialLineId(orderId, materialId);
       const plannedQuantity = roundTo(quantity, 2);
-      const writtenOffQuantity = isWrittenOffStatus ? plannedQuantity : null;
+      const writtenOffQuantity = writesOff ? plannedQuantity : null;
       const existing = lineById.get(id);
+
+      // Go-live: orders already past price approval when the feature shipped get no
+      // lines; their stock is set by the first stocktake.
+      if (writesOff && existing === undefined && !isEnteringWrittenOff) {
+        continue;
+      }
 
       wantedIds.add(id);
 
