@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { deterministicUuid } from 'src/utils/deterministic-uuid';
 import {
   factMovementId,
   isEmptyOrderMaterialsPlan,
@@ -203,5 +204,31 @@ describe('planOrderMaterials', () => {
     );
 
     expect(isEmptyOrderMaterialsPlan(plan)).toBe(true);
+  });
+
+  it('restores a missing write-off even on a cancelled order', () => {
+    const plan = planOrderMaterials(
+      input({
+        status: 'CANCELLED',
+        lines: [line({ writtenOffQuantity: 16.5 })],
+      }),
+    );
+
+    expect(plan.lineUpserts).toEqual([]);
+    expect(plan.lineDeletes).toEqual([]);
+    expect(plan.movementDeletes).toEqual([]);
+    expect(
+      plan.movementUpserts.map(({ id, quantity }) => ({ id, quantity })),
+    ).toEqual([{ id: writeOffMovementId(LINE), quantity: -16.5 }]);
+  });
+
+  it('derives ids from fixed recipes', () => {
+    expect(writeOffMovementId(LINE)).toBe(
+      deterministicUuid(`writeoff:${LINE}`),
+    );
+    expect(factMovementId(LINE)).toBe(deterministicUuid(`fact:${LINE}`));
+    expect(orderMaterialLineId(ORDER, 'profile')).toBe(
+      deterministicUuid(`orderMaterial:${ORDER}:profile`),
+    );
   });
 });

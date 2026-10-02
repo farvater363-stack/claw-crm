@@ -163,9 +163,7 @@ export const planOrderMaterials = ({
   }
 
   for (const line of writtenLines) {
-    if (isWrittenOffStatus) {
-      ensureWriteOff(line.id, line.materialId, line.writtenOffQuantity);
-    }
+    ensureWriteOff(line.id, line.materialId, line.writtenOffQuantity);
 
     const factId = factMovementId(line.id);
     const delta =
