@@ -79,6 +79,14 @@ describe('warehouse recalculation', () => {
 
     created.push({ mutation: 'destroyMaterial', id: materialId });
 
+    // The creation recalc can overlap the receipt's and overwrite it with onHand 0, so let it settle first.
+    const afterCreate = await waitFor(
+      () => readMaterial(materialId),
+      (material) => material?.stockState === 'LOW',
+    );
+
+    expect(afterCreate?.toBuy).toBe(5);
+
     await createMovement({
       kind: 'RECEIPT',
       materialId,
