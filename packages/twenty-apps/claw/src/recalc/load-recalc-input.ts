@@ -13,7 +13,7 @@ const PAGE_SIZE = 200;
 const money = { amountMicros: true, currencyCode: true } as const;
 
 // planOrderRecalc compares with `!==`, so every value must have the exact type the planner produces.
-const toNumber = (value: unknown): number | null =>
+export const toNumber = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
 
 const toDate = (value: unknown): string | null =>

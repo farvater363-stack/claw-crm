@@ -1,0 +1,129 @@
+import { type CoreApiClient } from 'twenty-client-sdk/core';
+
+import {
+  type MaterialUnit,
+  type StockMovementKind,
+  type StockState,
+} from 'src/constants/select-options';
+import { toNumber } from 'src/recalc/load-recalc-input';
+import { fromCurrency } from 'src/recalc/money';
+import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
+import { type WarehouseRecalcInput } from 'src/warehouse/plan-warehouse-recalc';
+
+const PAGE_SIZE = 200;
+
+const money = { amountMicros: true } as const;
+
+const toText = (value: unknown): string | null =>
+  value === null || value === undefined ? null : String(value);
+
+const toDate = (value: unknown): string | null =>
+  value === null || value === undefined ? null : String(value).slice(0, 10);
+
+// Soft-deleted records are not returned, so their movements simply stop counting.
+export const loadWarehouseRecalcInput = async (
+  client: CoreApiClient,
+): Promise<WarehouseRecalcInput> => {
+  const [materials, norms, movements] = await Promise.all([
+    fetchAllPages(async (after) => {
+      const { materials } = await client.query({
+        materials: {
+          __args: { first: PAGE_SIZE, after },
+          edges: {
+            node: {
+              id: true,
+              name: true,
+              unit: true,
+              safetyPercent: true,
+              minimumStock: true,
+              onHand: true,
+              reserved: true,
+              available: true,
+              toBuy: true,
+              stockState: true,
+              lastPurchasePrice: money,
+            },
+          },
+          pageInfo: PAGE_INFO,
+        },
+      });
+
+      return materials;
+    }),
+    fetchAllPages(async (after) => {
+      const { materialNorms } = await client.query({
+        materialNorms: {
+          __args: { first: PAGE_SIZE, after },
+          edges: {
+            node: {
+              id: true,
+              name: true,
+              materialId: true,
+              quantityPerUnit: true,
+            },
+          },
+          pageInfo: PAGE_INFO,
+        },
+      });
+
+      return materialNorms;
+    }),
+    fetchAllPages(async (after) => {
+      const { stockMovements } = await client.query({
+        stockMovements: {
+          __args: { first: PAGE_SIZE, after },
+          edges: {
+            node: {
+              id: true,
+              name: true,
+              kind: true,
+              materialId: true,
+              quantity: true,
+              countedQuantity: true,
+              unitPrice: money,
+              date: true,
+              createdAt: true,
+            },
+          },
+          pageInfo: PAGE_INFO,
+        },
+      });
+
+      return stockMovements;
+    }),
+  ]);
+
+  return {
+    materials: materials.map((node) => ({
+      id: node.id,
+      name: toText(node.name),
+      unit: (node.unit ?? null) as MaterialUnit | null,
+      safetyPercent: toNumber(node.safetyPercent),
+      minimumStock: toNumber(node.minimumStock),
+      onHand: toNumber(node.onHand),
+      reserved: toNumber(node.reserved),
+      available: toNumber(node.available),
+      toBuy: toNumber(node.toBuy),
+      stockState: (node.stockState ?? null) as StockState | null,
+      lastPurchasePrice: fromCurrency(node.lastPurchasePrice),
+    })),
+    norms: norms.map((node) => ({
+      id: node.id,
+      name: toText(node.name),
+      materialId: toText(node.materialId),
+      quantityPerUnit: toNumber(node.quantityPerUnit),
+    })),
+    movements: movements.map((node) => ({
+      id: node.id,
+      name: toText(node.name),
+      kind: (node.kind ?? null) as StockMovementKind | null,
+      materialId: toText(node.materialId),
+      quantity: toNumber(node.quantity),
+      countedQuantity: toNumber(node.countedQuantity),
+      unitPrice: fromCurrency(node.unitPrice),
+      date: toDate(node.date),
+      createdAt: String(node.createdAt),
+    })),
+    reservedByMaterialId: {},
+  };
+};

@@ -25,6 +25,7 @@ import {
   shiftMonth,
 } from 'src/payroll/payroll-month';
 import { fromCurrency } from 'src/recalc/money';
+import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
 
 type LoadState =
   | { status: 'loading' }
@@ -96,35 +97,6 @@ const describeError = (error: unknown) =>
 // from this query; nothing else is loaded for them.
 const isAccessError = (error: unknown) =>
   /permission|Cannot query field/i.test(describeError(error));
-
-type PageFetcher<TNode> = (after: string | undefined) => Promise<
-  | {
-      edges?: { node: TNode }[];
-      pageInfo?: { hasNextPage?: boolean; endCursor?: string | null };
-    }
-  | undefined
->;
-
-const fetchAllPages = async <TNode,>(
-  fetchPage: PageFetcher<TNode>,
-): Promise<TNode[]> => {
-  const nodes: TNode[] = [];
-  let after: string | undefined;
-
-  for (;;) {
-    const page = await fetchPage(after);
-
-    nodes.push(...(page?.edges ?? []).map(({ node }) => node));
-
-    const endCursor = page?.pageInfo?.endCursor;
-
-    if (!page?.pageInfo?.hasNextPage || !endCursor) return nodes;
-
-    after = endCursor;
-  }
-};
-
-const PAGE_INFO = { hasNextPage: true, endCursor: true } as const;
 
 // Throws on any failure except an access error on payments, which is the owner check.
 const loadPayrollData = async (): Promise<
