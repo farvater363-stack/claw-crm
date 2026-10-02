@@ -239,12 +239,12 @@ describe('order material lifecycle', () => {
       () => readState(materialId),
       (state) =>
         state.lines[0]?.writtenOffQuantity === 4 &&
-        state.material?.onHand === 6,
+        state.material?.onHand === 6 &&
+        state.order?.materialState === null,
     );
 
     expect(writtenOff.movements).toEqual([{ kind: 'WRITE_OFF', quantity: -4 }]);
     expect(writtenOff.material?.reserved).toBe(0);
-    expect(writtenOff.order?.materialState).toBeNull();
 
     await updateOrder({ status: 'PRICE_APPROVAL' });
     await updateOrder({ status: 'PRODUCTION' });
