@@ -408,6 +408,26 @@ describe('planWarehouseRecalc with orders', () => {
     });
   });
 
+  it('returns nothing for a settled order at price approval', () => {
+    const result = plan(
+      [
+        material({
+          onHand: 100,
+          reserved: 60,
+          available: 40,
+          toBuy: 0,
+          stockState: 'OK',
+        }),
+      ],
+      [movement({ name: 'Приход · Профиль 20×20 · +100 м' })],
+      [],
+      [orderLine()],
+      [order({ materialState: 'ENOUGH' })],
+    );
+
+    expect(result.orderUpdates).toEqual([]);
+  });
+
   it('clears the state once the order leaves price approval', () => {
     const result = plan(
       [material()],

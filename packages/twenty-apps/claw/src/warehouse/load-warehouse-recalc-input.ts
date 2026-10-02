@@ -18,6 +18,13 @@ const money = { amountMicros: true } as const;
 const toText = (value: unknown): string | null =>
   value === null || value === undefined ? null : String(value);
 
+// The planner writes null for "no note", so a cleared text read back as '' must compare equal to it.
+const toNoteText = (value: unknown): string | null => {
+  const text = toText(value);
+
+  return text === '' ? null : text;
+};
+
 const toDate = (value: unknown): string | null =>
   value === null || value === undefined ? null : String(value).slice(0, 10);
 
@@ -190,8 +197,8 @@ export const loadWarehouseRecalcInput = async (
       id: node.id,
       status: toText(node.status),
       materialState: (node.materialState ?? null) as OrderMaterialState | null,
-      materialNote: toText(node.materialNote),
-      missingNorms: toText(node.missingNorms),
+      materialNote: toNoteText(node.materialNote),
+      missingNorms: toNoteText(node.missingNorms),
     })),
   };
 };

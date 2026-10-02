@@ -336,8 +336,7 @@ export const planWarehouseRecalc = ({
         }
 
         const shortages = shortagesOf(order.id);
-        const missingNorms =
-          order.missingNorms === '' ? null : order.missingNorms;
+        const { missingNorms } = order;
         const parts = [
           ...(shortages.length > 0
             ? [`Не хватает: ${shortages.join(', ')}`]
