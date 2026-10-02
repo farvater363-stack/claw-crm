@@ -9,7 +9,7 @@ import { assignOrderNumber } from 'src/recalc/assign-order-number';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { linkClientByPhone } from 'src/recalc/link-client-by-phone';
 import { recalcOrder } from 'src/recalc/recalc-order';
-import { isWrittenOffStatus } from 'src/warehouse/plan-order-materials';
+import { isEnteringWrittenOff } from 'src/warehouse/plan-order-materials';
 
 type CreatedOrder = {
   id: string;
@@ -55,7 +55,10 @@ const handler = async (
   }
 
   await recalcOrder(client, payload.recordId, {
-    isEnteringWrittenOff: isWrittenOffStatus(order.status ?? null),
+    isEnteringWrittenOff: isEnteringWrittenOff({
+      status: order.status ?? null,
+      previousStatus: null,
+    }),
   });
 };
 

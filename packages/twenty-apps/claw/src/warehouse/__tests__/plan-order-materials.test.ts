@@ -4,6 +4,7 @@ import { deterministicUuid } from 'src/utils/deterministic-uuid';
 import {
   factMovementId,
   isEmptyOrderMaterialsPlan,
+  isEnteringWrittenOff,
   orderMaterialLineId,
   planOrderMaterials,
   type OrderMaterialLine,
@@ -48,7 +49,6 @@ describe('planOrderMaterials', () => {
           orderId: ORDER,
           materialId: 'profile',
           plannedQuantity: 16.5,
-          writtenOffQuantity: null,
         },
       ],
       lineDeletes: [],
@@ -79,7 +79,6 @@ describe('planOrderMaterials', () => {
         orderId: ORDER,
         materialId: 'profile',
         plannedQuantity: 20,
-        writtenOffQuantity: null,
       },
     ]);
     expect(plan.lineDeletes).toEqual([stale.id]);
@@ -266,5 +265,18 @@ describe('planOrderMaterials', () => {
     expect(orderMaterialLineId(ORDER, 'profile')).toBe(
       deterministicUuid(`orderMaterial:${ORDER}:profile`),
     );
+  });
+});
+
+describe('isEnteringWrittenOff', () => {
+  it.each([
+    ['MEASURED', 'PRODUCTION', true],
+    ['PRICE_APPROVAL', 'PRODUCTION', true],
+    ['QUALITY_CHECK', 'READY', false],
+    ['PRODUCTION', 'PRICE_APPROVAL', false],
+    [null, 'PRODUCTION', true],
+    [null, 'NEW', false],
+  ])('%s -> %s is %s', (previousStatus, status, expected) => {
+    expect(isEnteringWrittenOff({ status, previousStatus })).toBe(expected);
   });
 });

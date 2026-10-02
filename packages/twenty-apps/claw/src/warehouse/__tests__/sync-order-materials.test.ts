@@ -78,7 +78,6 @@ describe('syncOrderMaterials', () => {
               orderId: 'order-1',
               materialId: 'material-1',
               plannedQuantity: 4,
-              writtenOffQuantity: null,
             },
             upsert: true,
           },

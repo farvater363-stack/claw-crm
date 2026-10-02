@@ -36,7 +36,9 @@ export type LineUpsert = {
   orderId: string;
   materialId: string;
   plannedQuantity: number;
-  writtenOffQuantity: number | null;
+  // Absent rather than null: a stale reserve upsert landing after the write-off
+  // must not clear it.
+  writtenOffQuantity?: number;
 };
 
 export type MovementUpsert = {
@@ -67,6 +69,14 @@ export const factMovementId = (lineId: string) =>
 
 export const isWrittenOffStatus = (status: string | null) =>
   status !== null && WRITTEN_OFF_STATUSES.has(status);
+
+export const isEnteringWrittenOff = ({
+  status,
+  previousStatus,
+}: {
+  status: string | null;
+  previousStatus: string | null;
+}) => isWrittenOffStatus(status) && !isWrittenOffStatus(previousStatus);
 
 export const keepsOrderDemand = (status: string | null) =>
   status !== null &&
@@ -140,8 +150,9 @@ export const planOrderMaterials = ({
       const writtenOffQuantity = writesOff ? plannedQuantity : null;
       const existing = lineById.get(id);
 
-      // Go-live: orders already past price approval when the feature shipped get no
-      // lines; their stock is set by the first stocktake.
+      // Only the event that moves an order into a written-off status creates new lines.
+      // So orders already in production at go-live, items added during production and
+      // norms added later are not written off automatically; a stocktake settles them.
       if (writesOff && existing === undefined && !isEnteringWrittenOff) {
         continue;
       }
@@ -158,7 +169,7 @@ export const planOrderMaterials = ({
           orderId,
           materialId,
           plannedQuantity,
-          writtenOffQuantity,
+          ...(writtenOffQuantity !== null && { writtenOffQuantity }),
         });
       }
 
