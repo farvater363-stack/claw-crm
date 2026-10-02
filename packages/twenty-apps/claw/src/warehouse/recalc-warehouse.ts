@@ -6,9 +6,14 @@ import { planWarehouseRecalc } from 'src/warehouse/plan-warehouse-recalc';
 
 // ponytail: full recalc of every material on each change, fine for tens of materials and a few thousand movements;
 // narrow it to the touched material if a run ever shows up as slow in the logic function logs.
-// Two overlapping runs can briefly write values from an older read; the next event or the nightly run corrects them.
+// Overlapping runs can write values from an older read, and computed fields do not retrigger,
+// so a run that wrote re-reads until nothing is left to write.
 export const recalcWarehouse = async (client: CoreApiClient): Promise<void> => {
-  const input = await loadWarehouseRecalcInput(client);
+  for (let pass = 0; pass < 3; pass++) {
+    const plan = planWarehouseRecalc(await loadWarehouseRecalcInput(client));
 
-  await applyWarehouseRecalcPlan(client, planWarehouseRecalc(input));
+    if (Object.values(plan).every((updates) => updates.length === 0)) return;
+
+    await applyWarehouseRecalcPlan(client, plan);
+  }
 };

@@ -79,7 +79,7 @@ describe('warehouse recalculation', () => {
 
     created.push({ mutation: 'destroyMaterial', id: materialId });
 
-    // The creation recalc can overlap the receipt's and overwrite it with onHand 0, so let it settle first.
+    // Let the creation recalc settle so the receipt starts from a known state.
     const afterCreate = await waitFor(
       () => readMaterial(materialId),
       (material) => material?.stockState === 'LOW',
