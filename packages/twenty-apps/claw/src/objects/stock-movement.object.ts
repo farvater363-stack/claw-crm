@@ -90,6 +90,35 @@ export default defineObject({
       isNullable: true,
     },
     {
+      universalIdentifier: stockMovement.order,
+      type: FieldType.RELATION,
+      name: 'order',
+      label: 'Заказ',
+      icon: 'IconClipboardList',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.order.stockMovements,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'orderId',
+      },
+    },
+    {
+      universalIdentifier: stockMovement.orderMaterial,
+      type: FieldType.RELATION,
+      name: 'orderMaterial',
+      label: 'Расход по заказу',
+      icon: 'IconBox',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.orderMaterial.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.orderMaterial.movements,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'orderMaterialId',
+      },
+    },
+    {
       universalIdentifier: stockMovement.comment,
       type: FieldType.TEXT,
       name: 'comment',

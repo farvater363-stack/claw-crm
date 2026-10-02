@@ -81,6 +81,11 @@ export const IDS = {
     readyAt: 'd94dd2d9-c383-44d7-8e57-6c354cec9735',
     masterPenalty: '35d2b49a-ce2c-40e5-9223-2062c5068e80',
     cancelReason: '874cc84a-6a9a-43ba-9379-2d081bb0e54c',
+    materialState: '8c327466-7748-43f2-ab96-b3f821211df1',
+    materialNote: 'c856c580-ed9b-4172-bca6-265d8231f5c9',
+    missingNorms: 'bda1c379-315c-44cb-a323-5c1a90bd6fe3',
+    materials: '15792a1c-a96e-4f21-8bf9-b3b5c0403bfa',
+    stockMovements: 'ef4268c9-fd50-46ce-bb09-a9a910fcc52e',
     // Twenty's deterministic id for the built-in createdAt of this app's order object.
     createdAt: '187b9cd2-2f7c-55cc-ba12-5a1cbeec7bbf',
   },
@@ -137,6 +142,8 @@ export const IDS = {
     lastPurchasePrice: '49b55f27-c8a2-4814-9578-7ff54e13a52b',
     norms: '4e2b5555-46ec-43cb-9cf3-f14331ca005a',
     movements: '63070c36-01c4-454c-b461-bdece708ecf0',
+    orderMaterials: 'f0bed2fd-47c3-41a9-ae87-2e069725dd9d',
+    overrunPercent: 'aab6be0b-4272-4ce6-bb6c-f51dde8ecf98',
   },
   materialNorm: {
     object: '60af72da-6f4e-4df7-ac13-85f381012543',
@@ -156,6 +163,18 @@ export const IDS = {
     unitPrice: '159e2930-52c2-4797-9a3a-400e8be44bc9',
     date: '2b19c37b-d209-4095-9d96-acc189ed920d',
     comment: 'eade413c-85a7-47f9-9ec2-5decb065cec7',
+    order: 'ff95f760-8f03-40cf-ac6c-0e626f24045d',
+    orderMaterial: '7a0ca530-b7c2-4540-a87c-b5dea47a113f',
+  },
+  orderMaterial: {
+    object: '84943a7e-8291-4581-ab63-52f77e8ce599',
+    name: '429ccd9c-7d71-4bbb-83a4-b8d658a67801',
+    order: '37a358aa-7e25-4ea4-9342-bd15a0908386',
+    material: '516b7a41-0cc4-4825-b4ff-5846587a46bf',
+    plannedQuantity: '7c4fa2a1-5002-4071-a90f-0980e36de2e0',
+    writtenOffQuantity: 'c34af6f2-4bf4-4aef-8a17-e9e35453e2b5',
+    actualQuantity: '31837d06-422c-4be4-a436-bbbfc4397d08',
+    movements: '60e4bec6-8a3e-417d-9ea4-eefe63af7823',
   },
   person: {
     orders: '096afa4c-cf9a-49b7-a6b8-c84412d088a6',
@@ -186,6 +205,8 @@ export const IDS = {
     warehousePurchasePlan: '615a5d2f-8da5-4d87-8f0c-74faa2ca5210',
     warehouseMovements: '85cc0f6a-5cf6-434f-b371-22da4a87fb46',
     warehouseNorms: '11ae3607-1db4-4b43-98a7-90a29d8768a2',
+    orderMaterialsTable: '4822592d-5f07-4c2a-9125-c5540d540af0',
+    orderMaterialStatus: 'db3a3e8e-a3b3-4933-b4d0-8682679cdacf',
   },
   navigation: {
     orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: the sidebar uses allOrders; ids are never reused.
@@ -265,5 +286,8 @@ export const IDS = {
     onStockMovementUpdated: 'c8155c6a-38fa-4af0-a712-d4d9f0d690ce',
     onStockMovementDeleted: 'bc73ca06-c481-43e6-9c0b-215292b71c9c',
     onStockMovementRestored: '962363c0-c8b4-4258-9541-13e9eac6021d',
+    onOrderMaterialUpdated: '63431278-566e-4865-88b5-814ecb297ed8',
+    onMaterialNormDeleted: 'd220b223-1581-4478-b54a-0099b19f40a8',
+    onMaterialNormRestored: '46abf261-a045-4da5-b22c-d595256f9970',
   },
 } as const;

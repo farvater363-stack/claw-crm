@@ -34,6 +34,8 @@ export default defineRole({
     readOnly(IDS.orderExtraService.object),
     readOnly(IDS.master.object),
     readOnly(IDS.design.object),
+    readOnly(IDS.material.object),
+    readOnly(IDS.orderMaterial.object),
   ],
   fieldPermissions: [
     ...ADMIN_ONLY_FIELD_PERMISSIONS,
