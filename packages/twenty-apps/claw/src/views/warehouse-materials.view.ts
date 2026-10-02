@@ -27,6 +27,10 @@ export default defineView({
     { field: material.available, viewField: ids.materialsFields.available },
     { field: material.toBuy, viewField: ids.materialsFields.toBuy },
     {
+      field: material.overrunPercent,
+      viewField: ids.materialsFields.overrunPercent,
+    },
+    {
       field: material.minimumStock,
       viewField: ids.materialsFields.minimumStock,
     },

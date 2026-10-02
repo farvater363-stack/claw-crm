@@ -149,6 +149,20 @@ export const VIEW_PART_IDS = {
       prepayment: 'b22b794f-96f7-4bfc-889b-b012c249a170',
       balance: 'db99312e-8ff8-4582-b445-0d7f864022ba',
     },
+    materialStatusWidget: 'fe099e60-5375-4cbe-b907-05230a76eb17',
+    materialsWidget: '1562124c-2987-4d89-84d6-bc5b363e5c24',
+    materialStatusFields: {
+      materialState: '9d9c51e6-e272-4884-bc36-899d238e64ab',
+      materialNote: '74367bbe-8fd3-4619-b808-6aa2663faf46',
+      missingNorms: 'a3f6e600-0b3a-43b2-91cd-f11bf7fe11e9',
+    },
+    materialsTableFields: {
+      material: '0c56b59f-6c67-4c0d-80bc-348818e526a6',
+      plannedQuantity: '81dfeef1-174c-4266-a9fc-e3c1075834c3',
+      writtenOffQuantity: '6b415569-1ad0-4271-a7aa-fe460b67deb4',
+      actualQuantity: '06b49a7f-0857-45a2-aeac-988614a0b05e',
+    },
+    materialsTableFilter: '28137051-ca73-448b-b9d0-1ddcea18f02f',
   },
   ordersKanbanExtraFields: {
     clientPhone: '624dbd61-a9ae-4e9a-ab21-467003e0b899',
@@ -212,6 +226,7 @@ export const VIEW_PART_IDS = {
       toBuy: '8bfadc47-5818-4dd3-9680-e8ef7bdab239',
       minimumStock: 'ce3abe59-88f9-4cc2-943d-d2e7961798d0',
       safetyPercent: 'aeda3344-70e0-49ca-8d5b-4d85a35b243d',
+      overrunPercent: '4d0fd44d-5ce8-4e0f-b249-42030c8712ec',
     },
     materialsSortState: '4cfd238a-d76f-488d-87bb-ed96fbe70420',
     materialsSortName: '6af8cb86-f219-40be-8018-b4431764f148',
