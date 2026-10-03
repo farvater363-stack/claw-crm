@@ -18,6 +18,8 @@ export default defineConfig({
   test: {
     testTimeout: 120_000,
     hookTimeout: 120_000,
+    // The integration files share one API key (100 requests/min) and the app's 500/min budget,
+    // counted per minute across files and back-to-back runs; one file at a time stays under them.
     fileParallelism: false,
     include: ['src/**/*.integration-test.ts'],
     globalSetup: ['src/__tests__/global-setup.ts'],

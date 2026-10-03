@@ -8,12 +8,12 @@ const handler = async (): Promise<void> =>
   resyncReservingOrders(createRecalcClient());
 
 export default defineLogicFunction({
-  universalIdentifier: IDS.logicFunction.onMaterialNormCreated,
-  name: 'on-material-norm-created',
-  description: 'Names a new consumption norm',
+  universalIdentifier: IDS.logicFunction.onMaterialNormRestored,
+  name: 'on-material-norm-restored',
+  description: 'Re-plans orders awaiting approval after a norm is restored',
   timeoutSeconds: 120,
   databaseEventTriggerSettings: {
-    eventName: 'materialNorm.created',
+    eventName: 'materialNorm.restored',
     batchMode: true,
   },
   handler,

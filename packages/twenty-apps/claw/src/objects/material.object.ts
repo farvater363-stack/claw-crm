@@ -96,6 +96,12 @@ export default defineObject({
       isNullable: true,
       universalSettings: FULL_MONEY_DISPLAY,
     },
+    quantity(
+      material.overrunPercent,
+      'overrunPercent',
+      'Перерасход, %',
+      'IconTrendingUp',
+    ),
     {
       universalIdentifier: material.norms,
       type: FieldType.RELATION,
@@ -115,6 +121,17 @@ export default defineObject({
       relationTargetObjectMetadataUniversalIdentifier: IDS.stockMovement.object,
       relationTargetFieldMetadataUniversalIdentifier:
         IDS.stockMovement.material,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+    {
+      universalIdentifier: material.orderMaterials,
+      type: FieldType.RELATION,
+      name: 'orderMaterials',
+      label: 'Расход по заказам',
+      icon: 'IconClipboardList',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.orderMaterial.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.orderMaterial.material,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
   ]),

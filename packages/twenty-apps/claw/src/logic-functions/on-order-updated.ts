@@ -10,6 +10,7 @@ import { readyAtOnStatusChange, todayInTashkent } from 'src/pricing/dates';
 import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { orderNameToRestore } from 'src/recalc/assign-order-number';
 import { recalcOrder } from 'src/recalc/recalc-order';
+import { isEnteringWrittenOff } from 'src/warehouse/plan-order-materials';
 
 type UpdatedOrder = {
   status: string | null;
@@ -88,7 +89,14 @@ const handler = async (
     });
   }
 
-  await recalcOrder(client, payload.recordId);
+  await recalcOrder(client, payload.recordId, {
+    isEnteringWrittenOff:
+      statusChanged &&
+      isEnteringWrittenOff({
+        status: after.status ?? null,
+        previousStatus: before.status ?? null,
+      }),
+  });
 };
 
 export default defineLogicFunction({

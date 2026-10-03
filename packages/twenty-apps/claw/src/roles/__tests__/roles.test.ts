@@ -78,6 +78,15 @@ describe('calculated fields and object access', () => {
       ]),
     );
   });
+
+  it.each([managerRole, workshopRole])(
+    'reads materials and order material lines',
+    (role) => {
+      expect(readableObjectIds(role)).toEqual(
+        expect.arrayContaining([IDS.material.object, IDS.orderMaterial.object]),
+      );
+    },
+  );
 });
 
 describe('workshop', () => {

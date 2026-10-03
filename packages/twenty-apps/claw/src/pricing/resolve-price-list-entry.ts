@@ -7,15 +7,17 @@ export type PriceListEntry = {
 };
 
 // An empty design or size on a price list row means "any"; the most specific match wins.
-export const resolvePriceListEntry = (
-  entries: PriceListEntry[],
+export const resolvePriceListEntry = <
+  TEntry extends Pick<PriceListEntry, 'designId' | 'metal' | 'metalSize'>,
+>(
+  entries: TEntry[],
   item: {
     designId: string | null;
     metal: string | null;
     metalSize: string | null;
   },
-): PriceListEntry | null => {
-  let bestEntry: PriceListEntry | null = null;
+): TEntry | null => {
+  let bestEntry: TEntry | null = null;
   let bestScore = -1;
 
   for (const entry of entries) {

@@ -101,6 +101,26 @@ export default definePageLayout({
             viewUniversalIdentifier: IDS.view.orderTotals,
           },
         },
+        {
+          universalIdentifier: ids.materialStatusWidget,
+          title: 'Материал',
+          type: 'FIELDS',
+          configuration: {
+            configurationType: 'FIELDS',
+            viewUniversalIdentifier: IDS.view.orderMaterialStatus,
+          },
+        },
+        {
+          universalIdentifier: ids.materialsWidget,
+          title: 'Материалы',
+          type: 'FIELD',
+          configuration: {
+            configurationType: 'FIELD',
+            fieldMetadataId: IDS.order.materials,
+            fieldDisplayMode: 'TABLE',
+            viewId: IDS.view.orderMaterialsTable,
+          },
+        },
       ],
     },
     tab(

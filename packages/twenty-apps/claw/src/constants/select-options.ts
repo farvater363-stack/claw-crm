@@ -127,3 +127,12 @@ export const STOCK_MOVEMENT_KIND_OPTIONS = toOptions([
 
 export type StockMovementKind =
   (typeof STOCK_MOVEMENT_KIND_OPTIONS)[number]['value'];
+
+export const ORDER_MATERIAL_STATE_OPTIONS = toOptions([
+  ['ENOUGH', 'Хватает', 'green'],
+  ['SHORTAGE', 'Не хватает', 'red'],
+  ['NO_NORM', 'Нет нормы', 'yellow'],
+] as const);
+
+export type OrderMaterialState =
+  (typeof ORDER_MATERIAL_STATE_OPTIONS)[number]['value'];
