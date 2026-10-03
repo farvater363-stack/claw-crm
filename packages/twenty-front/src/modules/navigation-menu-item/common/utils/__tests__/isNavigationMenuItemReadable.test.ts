@@ -21,7 +21,10 @@ const viewOfReadableObject: ViewWithRelations = {
 };
 
 const objectPermissionsByObjectMetadataId = {
-  [READABLE_OBJECT_ID]: getObjectPermissionsForObject({}, READABLE_OBJECT_ID),
+  [READABLE_OBJECT_ID]: {
+    ...getObjectPermissionsForObject({}, READABLE_OBJECT_ID),
+    canReadObjectRecords: true,
+  },
   [HIDDEN_OBJECT_ID]: {
     ...getObjectPermissionsForObject({}, HIDDEN_OBJECT_ID),
     canReadObjectRecords: false,
@@ -69,6 +72,16 @@ describe('isNavigationMenuItemReadable', () => {
         targetObjectMetadataId: HIDDEN_OBJECT_ID,
       }),
     ).toBe(false);
+  });
+
+  it('fails open: shows a page item whose target object has no entry in the permissions map', () => {
+    expect(
+      readable({
+        type: NavigationMenuItemType.PAGE_LAYOUT,
+        pageLayoutId: 'p',
+        targetObjectMetadataId: 'object-without-permissions-entry',
+      }),
+    ).toBe(true);
   });
 
   it('still shows a folder', () => {
