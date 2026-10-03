@@ -87,7 +87,7 @@ const loadDemand = async (
 export const syncOrderMaterials = async (
   client: CoreApiClient,
   orderId: string,
-  { isEnteringWrittenOff = false }: { isEnteringWrittenOff?: boolean } = {},
+  { entersWrittenOff = false }: { entersWrittenOff?: boolean } = {},
 ): Promise<boolean> => {
   const byOrder = { orderId: { eq: orderId } };
   const {
@@ -182,7 +182,7 @@ export const syncOrderMaterials = async (
       quantity: toNumber(node.quantity),
     })),
     today: todayInTashkent(),
-    isEnteringWrittenOff,
+    entersWrittenOff,
   });
 
   const missingNormsChanged =

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { deterministicUuid } from 'src/utils/deterministic-uuid';
 
-const UUID_V5 = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const UUID_V5 =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 describe('deterministicUuid', () => {
   it('returns the same uuid for the same key', () => {

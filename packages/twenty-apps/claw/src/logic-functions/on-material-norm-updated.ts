@@ -2,16 +2,16 @@ import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
-import { resyncReservingOrders } from 'src/warehouse/resync-reserving-orders';
+import { resyncOrdersHoldingMaterial } from 'src/warehouse/resync-orders-holding-material';
 
 const handler = async (): Promise<void> =>
-  resyncReservingOrders(createRecalcClient());
+  resyncOrdersHoldingMaterial(createRecalcClient());
 
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onMaterialNormUpdated,
   name: 'on-material-norm-updated',
   description:
-    'Renames a consumption norm after its material or amount changes',
+    'Renames a consumption norm and re-plans orders holding material',
   timeoutSeconds: 120,
   databaseEventTriggerSettings: {
     eventName: 'materialNorm.updated',

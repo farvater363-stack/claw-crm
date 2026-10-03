@@ -28,7 +28,7 @@ export type OrderMaterialsInput = {
   lines: OrderMaterialLine[];
   systemMovements: SystemMovement[];
   today: string;
-  isEnteringWrittenOff: boolean;
+  entersWrittenOff: boolean;
 };
 
 export type LineUpsert = {
@@ -94,7 +94,7 @@ export const planOrderMaterials = ({
   lines,
   systemMovements,
   today,
-  isEnteringWrittenOff,
+  entersWrittenOff,
 }: OrderMaterialsInput): OrderMaterialsPlan => {
   const plan: OrderMaterialsPlan = {
     lineUpserts: [],
@@ -153,7 +153,7 @@ export const planOrderMaterials = ({
       // Only the event that moves an order into a written-off status creates new lines.
       // So orders already in production at go-live, items added during production and
       // norms added later are not written off automatically; a stocktake settles them.
-      if (writesOff && existing === undefined && !isEnteringWrittenOff) {
+      if (writesOff && existing === undefined && !entersWrittenOff) {
         continue;
       }
 

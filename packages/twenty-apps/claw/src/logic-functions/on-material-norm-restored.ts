@@ -2,10 +2,10 @@ import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
-import { resyncReservingOrders } from 'src/warehouse/resync-reserving-orders';
+import { resyncOrdersHoldingMaterial } from 'src/warehouse/resync-orders-holding-material';
 
 const handler = async (): Promise<void> =>
-  resyncReservingOrders(createRecalcClient());
+  resyncOrdersHoldingMaterial(createRecalcClient());
 
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onMaterialNormRestored,
