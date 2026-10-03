@@ -244,6 +244,8 @@ export class FlatNavigationMenuItemValidatorService {
     flatEntityUpdate,
     optimisticFlatEntityMapsAndRelatedFlatEntityMaps: {
       flatNavigationMenuItemMaps: optimisticFlatNavigationMenuItemMaps,
+      flatObjectMetadataMaps,
+      flatViewMaps,
     },
   }: FlatEntityUpdateValidationArgs<
     typeof ALL_METADATA_NAME.navigationMenuItem
@@ -293,6 +295,18 @@ export class FlatNavigationMenuItemValidatorService {
         flatNavigationMenuItem: toFlatNavigationMenuItem,
       }),
     );
+
+    // The runner resolves a changed target object to its id, so an
+    // unresolvable one has to fail validation rather than throw there.
+    if (isDefined(flatEntityUpdate.targetObjectMetadataUniversalIdentifier)) {
+      validationResult.errors.push(
+        ...this.getUnresolvedReferenceValidationErrors({
+          flatNavigationMenuItem: toFlatNavigationMenuItem,
+          flatObjectMetadataMaps,
+          flatViewMaps,
+        }),
+      );
+    }
 
     const folderUniversalIdentifierUpdate =
       flatEntityUpdate.folderUniversalIdentifier;

@@ -530,7 +530,10 @@ const EXPORTED_KINDS: ExportedKind[] = [
           }),
       }),
     ),
-    renamedProperties: {},
+    renamedProperties: {
+      targetObjectMetadataUniversalIdentifier:
+        'targetObjectUniversalIdentifier',
+    },
     workspaceLocalProperties: [],
     knownGaps: {},
   },
