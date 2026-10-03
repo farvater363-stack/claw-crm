@@ -250,7 +250,9 @@ export const Field = ({
         )}
       </span>
       {children}
-      {error ? <span style={{ color: colors.danger }}>{error}</span> : null}
+      {error ? (
+        <span style={{ ...TYPE.body, color: colors.danger }}>{error}</span>
+      ) : null}
     </label>
   );
 };
@@ -265,6 +267,8 @@ export const TextInput = ({
 }: {
   value: string;
   onChange: (value: string) => void;
+  // Fires on Enter and on every blur, changed or not: a consumer must skip a
+  // value equal to the saved one, or it saves twice
   onCommit?: () => void;
   inputMode?: 'text' | 'decimal' | 'numeric';
   suffix?: string;
