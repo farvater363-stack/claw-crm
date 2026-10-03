@@ -10,12 +10,7 @@ import {
   useUserId,
 } from 'twenty-sdk/front-component';
 
-import {
-  DISTRICT_OPTIONS,
-  METAL_OPTIONS,
-  METAL_SIZE_OPTIONS,
-  SOURCE_OPTIONS,
-} from 'src/constants/select-options';
+import { DISTRICT_OPTIONS, SOURCE_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import {
   buildMeasurementPayload,
@@ -28,10 +23,10 @@ import {
   createEmptyOpening,
   describePhotoUploadFailure,
   formatUzbekNationalPhone,
+  type GrilleOption,
   MAX_PHOTOS_PER_OPENING,
   type MeasurementDraft,
   type OpeningDraft,
-  type QuotePriceEntry,
   type OpeningPhoto,
   takePhotosWithinLimit,
   toDateTimeLocalInputValue,
@@ -41,8 +36,6 @@ import {
 import { fromCurrency } from 'src/recalc/money';
 import { formatMoney } from 'src/ui/format';
 import { PALETTE } from 'src/ui/tokens';
-
-type Design = { id: string; name: string };
 
 type SavedItem = {
   id: string;
@@ -95,25 +88,20 @@ const wait = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const loadFormContext = async (userId: string) => {
-  const { workspaceMembers, designs, priceListItems, extraServices } =
+  const { workspaceMembers, designs, extraServices } =
     await new CoreApiClient().query({
       workspaceMembers: {
         __args: { filter: { userId: { eq: userId } }, first: 1 },
         edges: { node: { id: true } },
       },
-      designs: {
-        __args: { first: 200, orderBy: [{ name: 'AscNullsLast' }] },
-        edges: { node: { id: true, name: true } },
-      },
       // Price only: the measurer cannot read cost fields, and asking for them
       // fails the whole query.
-      priceListItems: {
-        __args: { first: 200 },
+      designs: {
+        __args: { first: 200, orderBy: [{ name: 'AscNullsLast' }] },
         edges: {
           node: {
-            designId: true,
-            metal: true,
-            metalSize: true,
+            id: true,
+            name: true,
             pricePerSquareMeter: { amountMicros: true, currencyCode: true },
           },
         },
@@ -133,14 +121,10 @@ const loadFormContext = async (userId: string) => {
 
   return {
     measurerId: workspaceMembers?.edges[0]?.node?.id ?? null,
-    designs: (designs?.edges ?? []).map(({ node }) => ({
+    grilles: (designs?.edges ?? []).map(({ node }): GrilleOption => ({
       id: node.id,
       name: node.name ?? '',
-    })),
-    priceList: (priceListItems?.edges ?? []).map(({ node }) => ({
-      designId: node.designId ?? null,
-      metal: node.metal ?? null,
-      metalSize: node.metalSize ?? null,
+      photoUrl: null,
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
     })),
     visorOptions: (extraServices?.edges ?? [])
@@ -272,8 +256,7 @@ const NewMeasurement = () => {
   const colors = PALETTE[useColorScheme()];
   const userId = useUserId();
   const [draft, setDraft] = useState<MeasurementDraft>(createEmptyDraft);
-  const [designs, setDesigns] = useState<Design[]>([]);
-  const [priceList, setPriceList] = useState<QuotePriceEntry[]>([]);
+  const [grilles, setGrilles] = useState<GrilleOption[]>([]);
   const [visorOptions, setVisorOptions] = useState<VisorOption[]>([]);
   const [measurerId, setMeasurerId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -291,8 +274,7 @@ const NewMeasurement = () => {
 
     loadFormContext(userId)
       .then((context) => {
-        setDesigns(context.designs);
-        setPriceList(context.priceList);
+        setGrilles(context.grilles);
         setVisorOptions(context.visorOptions);
         setMeasurerId(context.measurerId);
 
@@ -722,7 +704,7 @@ const NewMeasurement = () => {
   const totalAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
     draft.openings,
   );
-  const openingsTotal = computeDraftTotal(draft.openings, priceList);
+  const openingsTotal = computeDraftTotal(draft.openings, grilles);
   const visorTotal = computeVisorTotal(draft, visorOptions);
   const draftTotal =
     openingsTotal === null ||
@@ -861,7 +843,7 @@ const NewMeasurement = () => {
       <h3 style={styles.heading}>Проёмы</h3>
       {draft.openings.map((opening, index) => {
         const areaSquareMeters = computeOpeningAreaSquareMeters(opening);
-        const quote = computeOpeningQuote(opening, priceList);
+        const quote = computeOpeningQuote(opening, grilles);
 
         return (
           <section
@@ -899,47 +881,9 @@ const NewMeasurement = () => {
                 }
               >
                 <option value="">—</option>
-                {designs.map((design) => (
-                  <option key={design.id} value={design.id}>
-                    {design.name}
-                  </option>
-                ))}
-              </select>,
-            )}
-            {field(
-              'Металл',
-              <select
-                style={styles.input}
-                value={opening.metal}
-                onChange={(event) =>
-                  updateOpening(opening.key, {
-                    metal: event.target.value as OpeningDraft['metal'],
-                  })
-                }
-              >
-                <option value="">—</option>
-                {METAL_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>,
-            )}
-            {field(
-              'Размер металла',
-              <select
-                style={styles.input}
-                value={opening.metalSize}
-                onChange={(event) =>
-                  updateOpening(opening.key, {
-                    metalSize: event.target.value as OpeningDraft['metalSize'],
-                  })
-                }
-              >
-                <option value="">—</option>
-                {METAL_SIZE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                {grilles.map((grille) => (
+                  <option key={grille.id} value={grille.id}>
+                    {grille.name}
                   </option>
                 ))}
               </select>,
@@ -979,7 +923,7 @@ const NewMeasurement = () => {
               )}
               {quote === null &&
                 areaSquareMeters !== null &&
-                opening.metal !== '' && (
+                opening.designId !== '' && (
                   <>
                     <br />
                     Цены нет в прайсе

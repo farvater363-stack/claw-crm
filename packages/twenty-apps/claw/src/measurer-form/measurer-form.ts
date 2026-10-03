@@ -1,7 +1,5 @@
 import {
   type DISTRICT_OPTIONS,
-  type METAL_OPTIONS,
-  type METAL_SIZE_OPTIONS,
   type SOURCE_OPTIONS,
 } from 'src/constants/select-options';
 import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
@@ -9,16 +7,10 @@ import {
   normalizeUzbekPhone,
   toStoredUzbekPhone,
 } from 'src/pricing/normalize-uzbek-phone';
-import {
-  type PriceListEntry,
-  resolvePriceListEntry,
-} from 'src/pricing/resolve-price-list-entry';
 import { roundTo } from 'src/pricing/round';
 
 type District = (typeof DISTRICT_OPTIONS)[number]['value'];
 type Source = (typeof SOURCE_OPTIONS)[number]['value'];
-type Metal = (typeof METAL_OPTIONS)[number]['value'];
-type MetalSize = (typeof METAL_SIZE_OPTIONS)[number]['value'];
 
 export const UZBEK_PHONE_PREFIX = '+998';
 
@@ -35,8 +27,6 @@ export type OpeningPhoto = {
 export type OpeningDraft = {
   key: string;
   designId: string;
-  metal: Metal | '';
-  metalSize: MetalSize | '';
   widthCm: string;
   heightCm: string;
   projectionCm: string;
@@ -74,8 +64,6 @@ export type OrderPayload = {
 
 export type OrderItemPayload = {
   designId: string | null;
-  metal: Metal | null;
-  metalSize: MetalSize | null;
   widthCm: number;
   heightCm: number;
   projectionCm: number;
@@ -86,6 +74,13 @@ export type OrderItemPayload = {
 export type VisorPayload = { extraServiceId: string; quantity: number };
 
 export type VisorOption = { id: string; name: string; price: number | null };
+
+export type GrilleOption = {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  pricePerSquareMeter: number | null;
+};
 
 export type MeasurementPayloadResult =
   | {
@@ -101,8 +96,6 @@ const NATIONAL_PHONE_GROUPS = [2, 3, 2, 2];
 export const createEmptyOpening = (key: string): OpeningDraft => ({
   key,
   designId: '',
-  metal: '',
-  metalSize: '',
   widthCm: '',
   heightCm: '',
   projectionCm: '0',
@@ -199,46 +192,33 @@ const emptyToNull = <TValue extends string>(
   value: TValue | '',
 ): TValue | null => (value.trim() === '' ? null : (value.trim() as TValue));
 
-export type QuotePriceEntry = Pick<
-  PriceListEntry,
-  'designId' | 'metal' | 'metalSize' | 'pricePerSquareMeter'
->;
-
-// Same lookup as the server recalc, so the quote matches the saved order.
+// Same price the server gives a new order item, so the quote matches the
+// saved order.
 export const computeOpeningQuote = (
   opening: OpeningDraft,
-  priceList: QuotePriceEntry[],
+  grilles: Pick<GrilleOption, 'id' | 'pricePerSquareMeter'>[],
 ): { pricePerSquareMeter: number; lineTotal: number } | null => {
   const areaSquareMeters = computeOpeningAreaSquareMeters(opening);
-  const entry = resolvePriceListEntry(
-    priceList.map((row) => ({ ...row, costPerSquareMeter: null })),
-    {
-      designId: emptyToNull(opening.designId),
-      metal: emptyToNull(opening.metal),
-      metalSize: emptyToNull(opening.metalSize),
-    },
-  );
+  const pricePerSquareMeter =
+    grilles.find((grille) => grille.id === opening.designId)
+      ?.pricePerSquareMeter ?? null;
 
-  if (areaSquareMeters === null || entry?.pricePerSquareMeter == null) {
-    return null;
-  }
+  if (areaSquareMeters === null || pricePerSquareMeter === null) return null;
 
   const quantity = parseDecimalInput(opening.quantity) ?? 1;
 
   return {
-    pricePerSquareMeter: entry.pricePerSquareMeter,
-    lineTotal: Math.round(
-      areaSquareMeters * quantity * entry.pricePerSquareMeter,
-    ),
+    pricePerSquareMeter,
+    lineTotal: Math.round(areaSquareMeters * quantity * pricePerSquareMeter),
   };
 };
 
 export const computeDraftTotal = (
   openings: OpeningDraft[],
-  priceList: QuotePriceEntry[],
+  grilles: Pick<GrilleOption, 'id' | 'pricePerSquareMeter'>[],
 ): number | null => {
   const quotes = openings.map((opening) =>
-    computeOpeningQuote(opening, priceList),
+    computeOpeningQuote(opening, grilles),
   );
 
   return quotes.every((quote) => quote !== null)
@@ -340,8 +320,6 @@ export const buildMeasurementPayload = (
 
     items.push({
       designId: emptyToNull(opening.designId),
-      metal: emptyToNull(opening.metal),
-      metalSize: emptyToNull(opening.metalSize),
       widthCm,
       heightCm,
       projectionCm,
