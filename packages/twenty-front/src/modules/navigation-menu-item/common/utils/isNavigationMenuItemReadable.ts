@@ -24,6 +24,19 @@ export const isNavigationMenuItemReadable = ({
 }: IsNavigationMenuItemReadableArgs): boolean => {
   const itemType = item.type;
 
+  // A page (or view) can name an object it cannot work without; roles that
+  // cannot read that object would only get an error from it.
+  if (
+    itemType !== NavigationMenuItemType.OBJECT &&
+    isDefined(item.targetObjectMetadataId) &&
+    !getObjectPermissionsForObject(
+      objectPermissionsByObjectMetadataId,
+      item.targetObjectMetadataId,
+    ).canReadObjectRecords
+  ) {
+    return false;
+  }
+
   if (
     itemType === NavigationMenuItemType.FOLDER ||
     itemType === NavigationMenuItemType.LINK ||
