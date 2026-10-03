@@ -10,4 +10,6 @@ export default defineNavigationMenuItem({
   position: 2,
   type: NavigationMenuItemType.VIEW,
   viewUniversalIdentifier: IDS.view.myMeasurements,
+  // Measurement orders are of no use to a role that cannot read extra services.
+  targetObjectUniversalIdentifier: IDS.extraService.object,
 });
