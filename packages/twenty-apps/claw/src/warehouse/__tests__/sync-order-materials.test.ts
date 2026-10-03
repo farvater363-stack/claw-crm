@@ -138,7 +138,7 @@ describe('syncOrderMaterials', () => {
 
     expect(
       await syncOrderMaterials(entering.client, 'order-1', {
-        isEnteringWrittenOff: true,
+        entersWrittenOff: true,
       }),
     ).toBe(true);
     expect(entering.mutations.map((request) => Object.keys(request))).toEqual([

@@ -84,8 +84,18 @@ describe('order material lifecycle', () => {
             __args: { filter: { orderId: { eq: orderId } }, first: 10 },
             edges: { node: { id: true } },
           },
+          // The sync soft-deletes the fact movement when the actual is cleared.
           stockMovements: {
-            __args: { filter: { orderId: { eq: orderId } }, first: 10 },
+            __args: {
+              filter: {
+                orderId: { eq: orderId },
+                or: [
+                  { deletedAt: { is: 'NULL' } },
+                  { deletedAt: { is: 'NOT_NULL' } },
+                ],
+              },
+              first: 10,
+            },
             edges: { node: { id: true } },
           },
         });
@@ -290,5 +300,23 @@ describe('order material lifecycle', () => {
       expect.arrayContaining([{ kind: 'FACT_ADJUSTMENT', quantity: -1 }]),
     );
     expect(booked.material?.overrunPercent).toBe(25);
+
+    await client.mutation({
+      updateOrderMaterial: {
+        __args: {
+          id: lineId,
+          data: { actualQuantity: null },
+        },
+        id: true,
+      },
+    });
+
+    const cleared = await waitFor(
+      () => readState(materialId),
+      (state) => state.material?.onHand === 6 && state.movements.length === 1,
+    );
+
+    expect(cleared.movements).toEqual([{ kind: 'WRITE_OFF', quantity: -4 }]);
+    expect(cleared.material?.onHand).toBe(6);
   });
 });

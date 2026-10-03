@@ -14,12 +14,21 @@ const readOnly = (objectUniversalIdentifier: string) => ({
   canDestroyObjectRecords: false,
 });
 
+const readUpdate = (objectUniversalIdentifier: string) => ({
+  objectUniversalIdentifier,
+  canReadObjectRecords: true,
+  canUpdateObjectRecords: true,
+  canSoftDeleteObjectRecords: false,
+  canDestroyObjectRecords: false,
+});
+
 export default defineRole({
   universalIdentifier: IDS.role.workshop,
   label: 'Цех',
-  description: 'Общий логин монитора в цехе, только просмотр',
+  description:
+    'Общий логин монитора в цехе: просмотр и ввод фактического расхода',
   icon: 'IconHammer',
-  // A shared monitor login: orders and masters only (spec §3).
+  // Shared monitor login: reads orders, masters and materials; writes only actual consumption (spec §3).
   canReadAllObjectRecords: false,
   canUpdateAllObjectRecords: false,
   canSoftDeleteAllObjectRecords: false,
@@ -35,7 +44,7 @@ export default defineRole({
     readOnly(IDS.master.object),
     readOnly(IDS.design.object),
     readOnly(IDS.material.object),
-    readOnly(IDS.orderMaterial.object),
+    readUpdate(IDS.orderMaterial.object),
   ],
   fieldPermissions: [
     ...ADMIN_ONLY_FIELD_PERMISSIONS,

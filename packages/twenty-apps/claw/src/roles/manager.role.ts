@@ -26,6 +26,14 @@ const readOnly = (objectUniversalIdentifier: string) => ({
   canDestroyObjectRecords: false,
 });
 
+const readUpdate = (objectUniversalIdentifier: string) => ({
+  objectUniversalIdentifier,
+  canReadObjectRecords: true,
+  canUpdateObjectRecords: true,
+  canSoftDeleteObjectRecords: false,
+  canDestroyObjectRecords: false,
+});
+
 export default defineRole({
   universalIdentifier: IDS.role.manager,
   label: 'Менеджер',
@@ -53,6 +61,8 @@ export default defineRole({
     readWrite(STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.task.universalIdentifier),
     readOnly(IDS.material.object),
     readOnly(IDS.orderMaterial.object),
+    readOnly(IDS.materialNorm.object),
+    readUpdate(IDS.stockMovement.object),
   ],
   fieldPermissions: [
     ...ADMIN_ONLY_FIELD_PERMISSIONS,

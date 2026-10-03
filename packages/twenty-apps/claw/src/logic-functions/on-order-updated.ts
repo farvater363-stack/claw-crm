@@ -90,7 +90,7 @@ const handler = async (
   }
 
   await recalcOrder(client, payload.recordId, {
-    isEnteringWrittenOff:
+    entersWrittenOff:
       statusChanged &&
       isEnteringWrittenOff({
         status: after.status ?? null,

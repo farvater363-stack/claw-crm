@@ -1,3 +1,4 @@
+import { type StockState } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 
 type ChartRecordFilter = {
@@ -109,3 +110,13 @@ export const DECIDED_ORDERS: ChartFilter = {
     { ...CANCELLED, recordFilterGroupId: ANY_OF_GROUP_ID },
   ],
 };
+
+export const materialsInStockState = (state: StockState): ChartFilter => ({
+  recordFilters: [
+    {
+      fieldMetadataUniversalIdentifier: IDS.material.stockState,
+      operand: 'IS',
+      value: JSON.stringify([state]),
+    },
+  ],
+});

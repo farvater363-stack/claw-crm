@@ -36,6 +36,17 @@ type ChartConfiguration = {
 
 const graphWidgets = widgets.filter((widget) => widget.type === 'GRAPH');
 
+const WAREHOUSE_COUNT_WIDGETS: string[] = [
+  IDS.ownerDashboard.materialsTotalWidget,
+  IDS.ownerDashboard.materialsOkWidget,
+  IDS.ownerDashboard.materialsLowWidget,
+  IDS.ownerDashboard.materialsBuyWidget,
+];
+
+const analyticsGraphWidgets = graphWidgets.filter(
+  (widget) => !WAREHOUSE_COUNT_WIDGETS.includes(widget.universalIdentifier),
+);
+
 const chartConfigurationOf = (widget: (typeof widgets)[number]) =>
   widget.configuration as ChartConfiguration;
 
@@ -53,7 +64,11 @@ describe('owner dashboard layout', () => {
   });
 
   it('shows the three lists from their order views', () => {
-    const tables = widgets.filter((widget) => widget.type === 'RECORD_TABLE');
+    const tables = widgets.filter(
+      (widget) =>
+        widget.type === 'RECORD_TABLE' &&
+        widget.objectUniversalIdentifier === IDS.order.object,
+    );
 
     expect(tables.map((widget) => widget.title)).toEqual([
       'Просрочены',
@@ -67,15 +82,12 @@ describe('owner dashboard layout', () => {
       IDS.view.dashboardOwesUs,
       IDS.view.dashboardLateThisMonth,
     ]);
-    expect(
-      tables.every(
-        (widget) => widget.objectUniversalIdentifier === IDS.order.object,
-      ),
-    ).toBe(true);
   });
 
-  it('starts with the five monthly KPIs', () => {
-    expect(graphWidgets.slice(0, 5).map((widget) => widget.title)).toEqual([
+  it('starts the analytics with the five monthly KPIs', () => {
+    expect(
+      analyticsGraphWidgets.slice(0, 5).map((widget) => widget.title),
+    ).toEqual([
       'Выручка за месяц',
       'Маржа за месяц',
       'м² за месяц',
@@ -84,9 +96,9 @@ describe('owner dashboard layout', () => {
     ]);
   });
 
-  it('points every chart at orders', () => {
+  it('points every analytics chart at orders', () => {
     expect(
-      graphWidgets.every(
+      analyticsGraphWidgets.every(
         (widget) => widget.objectUniversalIdentifier === IDS.order.object,
       ),
     ).toBe(true);
@@ -150,6 +162,12 @@ describe('owner dashboard layout', () => {
 
   it('lists every widget in reading order', () => {
     expect(widgets.map((widget) => widget.title)).toEqual([
+      'Всего материалов',
+      'Достаточно',
+      'Скоро закончится',
+      'Нужно купить',
+      'План закупок',
+      'Перерасход',
       'Выручка за месяц',
       'Маржа за месяц',
       'м² за месяц',
@@ -183,5 +201,88 @@ describe('owner dashboard layout', () => {
         rangeMax: 100,
       });
     }
+  });
+});
+
+describe('warehouse block', () => {
+  const byId = (universalIdentifier: string) => {
+    const widget = widgets.find(
+      (candidate) => candidate.universalIdentifier === universalIdentifier,
+    );
+
+    if (widget === undefined) throw new Error('widget not found');
+
+    return widget;
+  };
+
+  it('counts materials in total and per stock state', () => {
+    const states = [
+      [IDS.ownerDashboard.materialsTotalWidget, undefined],
+      [IDS.ownerDashboard.materialsOkWidget, 'OK'],
+      [IDS.ownerDashboard.materialsLowWidget, 'LOW'],
+      [IDS.ownerDashboard.materialsBuyWidget, 'BUY'],
+    ] as const;
+
+    for (const [universalIdentifier, state] of states) {
+      const widget = byId(universalIdentifier);
+      const configuration = chartConfigurationOf(widget);
+
+      expect(widget.objectUniversalIdentifier).toBe(IDS.material.object);
+      expect(configuration.aggregateOperation).toBe('COUNT');
+      expect(configuration.filter?.recordFilters ?? []).toEqual(
+        state === undefined
+          ? []
+          : [
+              {
+                fieldMetadataUniversalIdentifier: IDS.material.stockState,
+                operand: 'IS',
+                value: JSON.stringify([state]),
+              },
+            ],
+      );
+    }
+  });
+
+  it('shows the purchase plan and the overrun list from material views', () => {
+    expect(
+      configurationOf(byId(IDS.ownerDashboard.purchasePlanTableWidget))
+        .viewUniversalIdentifier,
+    ).toBe(IDS.view.dashboardPurchasePlan);
+    expect(
+      configurationOf(byId(IDS.ownerDashboard.overrunTableWidget))
+        .viewUniversalIdentifier,
+    ).toBe(IDS.view.dashboardOverrun);
+
+    for (const universalIdentifier of [
+      IDS.ownerDashboard.purchasePlanTableWidget,
+      IDS.ownerDashboard.overrunTableWidget,
+    ]) {
+      expect(byId(universalIdentifier).objectUniversalIdentifier).toBe(
+        IDS.material.object,
+      );
+    }
+  });
+
+  it('sits above the analytics widgets without overlapping them', () => {
+    const rowsOf = (universalIdentifier: string) => {
+      const position = byId(universalIdentifier).position as {
+        row: number;
+        rowSpan: number;
+      };
+
+      return [position.row, position.row + position.rowSpan];
+    };
+
+    expect(rowsOf(IDS.ownerDashboard.materialsTotalWidget)[0]).toBe(0);
+    const firstAnalyticsRow = rowsOf(
+      IDS.ownerDashboard.revenueThisMonthWidget,
+    )[0];
+
+    expect(
+      rowsOf(IDS.ownerDashboard.purchasePlanTableWidget)[1],
+    ).toBeLessThanOrEqual(firstAnalyticsRow);
+    expect(
+      rowsOf(IDS.ownerDashboard.overrunTableWidget)[1],
+    ).toBeLessThanOrEqual(firstAnalyticsRow);
   });
 });

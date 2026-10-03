@@ -25,7 +25,7 @@ const input = (
   lines: [],
   systemMovements: [],
   today: TODAY,
-  isEnteringWrittenOff: false,
+  entersWrittenOff: false,
   ...overrides,
 });
 
@@ -86,7 +86,7 @@ describe('planOrderMaterials', () => {
 
   it('writes off once when production starts, even without price approval first', () => {
     const plan = planOrderMaterials(
-      input({ status: 'PRODUCTION', isEnteringWrittenOff: true }),
+      input({ status: 'PRODUCTION', entersWrittenOff: true }),
     );
 
     expect(plan.lineUpserts).toEqual([

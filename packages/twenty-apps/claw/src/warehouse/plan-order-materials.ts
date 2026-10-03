@@ -1,7 +1,8 @@
+import { type OrderStatus } from 'src/constants/select-options';
 import { roundTo } from 'src/pricing/round';
 import { deterministicUuid } from 'src/utils/deterministic-uuid';
 
-const RESERVING_STATUSES = new Set(['PRICE_APPROVAL']);
+export const RESERVING_STATUSES: OrderStatus[] = ['PRICE_APPROVAL'];
 const WRITTEN_OFF_STATUSES = new Set([
   'PRODUCTION',
   'QUALITY_CHECK',
@@ -28,7 +29,7 @@ export type OrderMaterialsInput = {
   lines: OrderMaterialLine[];
   systemMovements: SystemMovement[];
   today: string;
-  isEnteringWrittenOff: boolean;
+  entersWrittenOff: boolean;
 };
 
 export type LineUpsert = {
@@ -80,7 +81,8 @@ export const isEnteringWrittenOff = ({
 
 export const keepsOrderDemand = (status: string | null) =>
   status !== null &&
-  (RESERVING_STATUSES.has(status) || WRITTEN_OFF_STATUSES.has(status));
+  (RESERVING_STATUSES.some((reserving) => reserving === status) ||
+    WRITTEN_OFF_STATUSES.has(status));
 
 export const isEmptyOrderMaterialsPlan = (plan: OrderMaterialsPlan) =>
   Object.values(plan).every((entries) => entries.length === 0);
@@ -94,7 +96,7 @@ export const planOrderMaterials = ({
   lines,
   systemMovements,
   today,
-  isEnteringWrittenOff,
+  entersWrittenOff,
 }: OrderMaterialsInput): OrderMaterialsPlan => {
   const plan: OrderMaterialsPlan = {
     lineUpserts: [],
@@ -153,7 +155,7 @@ export const planOrderMaterials = ({
       // Only the event that moves an order into a written-off status creates new lines.
       // So orders already in production at go-live, items added during production and
       // norms added later are not written off automatically; a stocktake settles them.
-      if (writesOff && existing === undefined && !isEnteringWrittenOff) {
+      if (writesOff && existing === undefined && !entersWrittenOff) {
         continue;
       }
 

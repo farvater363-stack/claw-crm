@@ -2,6 +2,7 @@ import { SystemPermissionFlag } from 'twenty-sdk/define';
 import { describe, expect, it } from 'vitest';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import functionsRole from 'src/roles/functions.role';
 import managerRole from 'src/roles/manager.role';
 import measurerRole from 'src/roles/measurer.role';
 import workshopRole from 'src/roles/workshop.role';
@@ -89,17 +90,105 @@ describe('calculated fields and object access', () => {
   );
 });
 
+const updatableObjectIds = (role: RoleResult) =>
+  (role.config.objectPermissions ?? [])
+    .filter((permission) => permission.canUpdateObjectRecords === true)
+    .map((permission) => permission.objectUniversalIdentifier);
+
 describe('workshop', () => {
-  it('reads orders and masters only, and writes nothing', () => {
+  it('reads orders and masters, and writes only actual consumption', () => {
     expect(workshopRole.config.canReadAllObjectRecords).toBe(false);
     expect(readableObjectIds(workshopRole)).toEqual(
       expect.arrayContaining([IDS.order.object, IDS.master.object]),
     );
+    expect(updatableObjectIds(workshopRole)).toEqual([
+      IDS.orderMaterial.object,
+    ]);
+  });
+});
+
+describe('warehouse access', () => {
+  it('lets the manager record stock movements and read norms', () => {
+    expect(updatableObjectIds(managerRole)).toContain(IDS.stockMovement.object);
+    expect(readableObjectIds(managerRole)).toEqual(
+      expect.arrayContaining([IDS.materialNorm.object, IDS.material.object]),
+    );
+    expect(updatableObjectIds(managerRole)).not.toContain(IDS.material.object);
+    expect(updatableObjectIds(managerRole)).not.toContain(
+      IDS.materialNorm.object,
+    );
+    expect(updatableObjectIds(managerRole)).not.toContain(
+      IDS.orderMaterial.object,
+    );
+  });
+
+  it('lets the workshop edit only the actual consumption of an order', () => {
+    expect(updatableObjectIds(workshopRole)).toEqual([
+      IDS.orderMaterial.object,
+    ]);
+    expect(readOnlyFieldIds(workshopRole)).toEqual(
+      expect.arrayContaining([
+        IDS.orderMaterial.name,
+        IDS.orderMaterial.plannedQuantity,
+        IDS.orderMaterial.writtenOffQuantity,
+        IDS.orderMaterial.order,
+        IDS.orderMaterial.material,
+      ]),
+    );
+    expect(readOnlyFieldIds(workshopRole)).not.toContain(
+      IDS.orderMaterial.actualQuantity,
+    );
+  });
+
+  it.each([
+    ['manager', managerRole],
+    ['measurer', measurerRole],
+  ])(
+    'keeps the order material state for the recalc to write (%s)',
+    (_, role) => {
+      expect(readOnlyFieldIds(role)).toEqual(
+        expect.arrayContaining([
+          IDS.order.materialState,
+          IDS.order.materialNote,
+          IDS.order.missingNorms,
+        ]),
+      );
+    },
+  );
+
+  it.each([
+    ['material', IDS.material.object],
+    ['materialNorm', IDS.materialNorm.object],
+    ['stockMovement', IDS.stockMovement.object],
+    ['orderMaterial', IDS.orderMaterial.object],
+  ])('does not give the measurer the %s object', (_, objectId) => {
+    expect(readableObjectIds(measurerRole)).not.toContain(objectId);
+  });
+});
+
+describe('functions role', () => {
+  it('soft-deletes only the lines and movements the order sync removes, and destroys nothing', () => {
+    const permissions = functionsRole.config.objectPermissions ?? [];
+
+    expect(functionsRole.config.canSoftDeleteAllObjectRecords).toBe(false);
+    expect(functionsRole.config.canDestroyAllObjectRecords).toBe(false);
     expect(
-      (workshopRole.config.objectPermissions ?? []).some(
-        (permission) => permission.canUpdateObjectRecords,
+      permissions
+        .filter((permission) => permission.canSoftDeleteObjectRecords === true)
+        .map((permission) => permission.objectUniversalIdentifier)
+        .sort(),
+    ).toEqual([IDS.orderMaterial.object, IDS.stockMovement.object].sort());
+    expect(
+      permissions.filter(
+        (permission) => permission.canDestroyObjectRecords !== false,
       ),
-    ).toBe(false);
+    ).toEqual([]);
+    for (const permission of permissions) {
+      expect(permission).toMatchObject({
+        canReadObjectRecords: true,
+        canUpdateObjectRecords: true,
+      });
+    }
   });
 });
 
@@ -133,7 +222,7 @@ describe('file uploads', () => {
     );
   });
 
-  it('keeps the read-only workshop login from uploading', () => {
+  it('keeps the workshop login from uploading', () => {
     expect(
       workshopRole.config.permissionFlagUniversalIdentifiers ?? [],
     ).not.toContain(SystemPermissionFlag.UPLOAD_FILE);
