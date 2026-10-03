@@ -37,7 +37,8 @@ const readOnly = (
 
 // The recalc triggers own these values; names stay writable because Twenty's
 // own create flow writes the label identifier, except on order material lines,
-// which no role creates by hand.
+// which no role creates by hand, so their name, order and material are locked
+// too.
 export const CALCULATED_FIELD_PERMISSIONS: FieldPermission[] = [
   ...readOnly(IDS.order.object, [
     IDS.order.number,
@@ -58,5 +59,7 @@ export const CALCULATED_FIELD_PERMISSIONS: FieldPermission[] = [
     IDS.orderMaterial.name,
     IDS.orderMaterial.plannedQuantity,
     IDS.orderMaterial.writtenOffQuantity,
+    IDS.orderMaterial.order,
+    IDS.orderMaterial.material,
   ]),
 ];

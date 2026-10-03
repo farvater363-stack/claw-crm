@@ -2,6 +2,7 @@ import { SystemPermissionFlag } from 'twenty-sdk/define';
 import { describe, expect, it } from 'vitest';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import functionsRole from 'src/roles/functions.role';
 import managerRole from 'src/roles/manager.role';
 import measurerRole from 'src/roles/measurer.role';
 import workshopRole from 'src/roles/workshop.role';
@@ -113,6 +114,12 @@ describe('warehouse access', () => {
       expect.arrayContaining([IDS.materialNorm.object, IDS.material.object]),
     );
     expect(updatableObjectIds(managerRole)).not.toContain(IDS.material.object);
+    expect(updatableObjectIds(managerRole)).not.toContain(
+      IDS.materialNorm.object,
+    );
+    expect(updatableObjectIds(managerRole)).not.toContain(
+      IDS.orderMaterial.object,
+    );
   });
 
   it('lets the workshop edit only the actual consumption of an order', () => {
@@ -124,6 +131,8 @@ describe('warehouse access', () => {
         IDS.orderMaterial.name,
         IDS.orderMaterial.plannedQuantity,
         IDS.orderMaterial.writtenOffQuantity,
+        IDS.orderMaterial.order,
+        IDS.orderMaterial.material,
       ]),
     );
     expect(readOnlyFieldIds(workshopRole)).not.toContain(
@@ -157,6 +166,32 @@ describe('warehouse access', () => {
   });
 });
 
+describe('functions role', () => {
+  it('soft-deletes only the lines and movements the order sync removes, and destroys nothing', () => {
+    const permissions = functionsRole.config.objectPermissions ?? [];
+
+    expect(functionsRole.config.canSoftDeleteAllObjectRecords).toBe(false);
+    expect(functionsRole.config.canDestroyAllObjectRecords).toBe(false);
+    expect(
+      permissions
+        .filter((permission) => permission.canSoftDeleteObjectRecords === true)
+        .map((permission) => permission.objectUniversalIdentifier)
+        .sort(),
+    ).toEqual([IDS.orderMaterial.object, IDS.stockMovement.object].sort());
+    expect(
+      permissions.filter(
+        (permission) => permission.canDestroyObjectRecords !== false,
+      ),
+    ).toEqual([]);
+    for (const permission of permissions) {
+      expect(permission).toMatchObject({
+        canReadObjectRecords: true,
+        canUpdateObjectRecords: true,
+      });
+    }
+  });
+});
+
 describe('payments', () => {
   it.each([managerRole, measurerRole, workshopRole])(
     'stay admin-only: no app role is granted masterPayment',
@@ -187,7 +222,7 @@ describe('file uploads', () => {
     );
   });
 
-  it('keeps the read-only workshop login from uploading', () => {
+  it('keeps the workshop login from uploading', () => {
     expect(
       workshopRole.config.permissionFlagUniversalIdentifiers ?? [],
     ).not.toContain(SystemPermissionFlag.UPLOAD_FILE);
