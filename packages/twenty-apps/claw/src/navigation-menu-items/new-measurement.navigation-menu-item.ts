@@ -13,4 +13,6 @@ export default defineNavigationMenuItem({
   position: -1,
   type: NavigationMenuItemType.PAGE_LAYOUT,
   pageLayoutUniversalIdentifier: IDS.measurerForm.pageLayout,
+  // The form cannot be filled in without reading extra services.
+  targetObjectUniversalIdentifier: IDS.extraService.object,
 });
