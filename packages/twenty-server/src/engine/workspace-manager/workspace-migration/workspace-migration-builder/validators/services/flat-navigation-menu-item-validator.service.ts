@@ -296,8 +296,6 @@ export class FlatNavigationMenuItemValidatorService {
       }),
     );
 
-    // The runner resolves a changed target object to its id, so an
-    // unresolvable one has to fail validation rather than throw there.
     if (isDefined(flatEntityUpdate.targetObjectMetadataUniversalIdentifier)) {
       validationResult.errors.push(
         ...this.getUnresolvedReferenceValidationErrors({
