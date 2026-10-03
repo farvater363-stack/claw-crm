@@ -179,9 +179,11 @@ describe('grille prices and composition', () => {
     expect(hiddenFieldIds(workshopRole)).toContain(
       IDS.design.pricePerSquareMeter,
     );
-    expect(hiddenFieldIds(measurerRole)).not.toContain(
-      IDS.design.pricePerSquareMeter,
-    );
+    for (const role of [managerRole, measurerRole]) {
+      expect(hiddenFieldIds(role)).not.toContain(
+        IDS.design.pricePerSquareMeter,
+      );
+    }
   });
 
   it('lets the manager edit composition and materials', () => {
@@ -190,7 +192,7 @@ describe('grille prices and composition', () => {
     );
   });
 
-  it('keeps the computed material and norm values for the recalc to write', () => {
+  it('keeps the computed material values for the recalc to write', () => {
     expect(readOnlyFieldIds(managerRole)).toEqual(
       expect.arrayContaining([
         IDS.material.onHand,
@@ -199,9 +201,9 @@ describe('grille prices and composition', () => {
         IDS.material.toBuy,
         IDS.material.stockState,
         IDS.material.overrunPercent,
-        IDS.materialNorm.name,
       ]),
     );
+    expect(readOnlyFieldIds(managerRole)).not.toContain(IDS.materialNorm.name);
   });
 });
 
