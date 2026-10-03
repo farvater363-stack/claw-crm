@@ -20,19 +20,6 @@ import {
 // The warehouse block takes the first rows; every analytics widget sits below it.
 const WAREHOUSE_ROWS = 8;
 
-const grid = (
-  row: number,
-  column: number,
-  rowSpan: number,
-  columnSpan: number,
-): PageLayoutWidgetGridPosition => ({
-  layoutMode: PageLayoutTabLayoutMode.GRID,
-  row: row + WAREHOUSE_ROWS,
-  column,
-  rowSpan,
-  columnSpan,
-});
-
 const topGrid = (
   row: number,
   column: number,
@@ -45,6 +32,14 @@ const topGrid = (
   rowSpan,
   columnSpan,
 });
+
+const grid = (
+  row: number,
+  column: number,
+  rowSpan: number,
+  columnSpan: number,
+): PageLayoutWidgetGridPosition =>
+  topGrid(row + WAREHOUSE_ROWS, column, rowSpan, columnSpan);
 
 const materialCount = (
   universalIdentifier: string,

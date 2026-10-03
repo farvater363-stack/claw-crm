@@ -28,7 +28,7 @@ export default defineRole({
   description:
     'Общий логин монитора в цехе: просмотр и ввод фактического расхода',
   icon: 'IconHammer',
-  // A shared monitor login: orders and masters only (spec §3).
+  // Shared monitor login: reads orders, masters and materials; writes only actual consumption (spec §3).
   canReadAllObjectRecords: false,
   canUpdateAllObjectRecords: false,
   canSoftDeleteAllObjectRecords: false,

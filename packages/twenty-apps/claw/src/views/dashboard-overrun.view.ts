@@ -13,13 +13,12 @@ export default defineView({
   objectUniversalIdentifier: material.object,
   type: ViewType.TABLE_WIDGET,
   fields: toKeyedViewFields([
-    { field: material.name, viewField: ids.overrunFields.name, size: 220 },
+    { field: material.name, viewField: ids.overrunFields.name, size: 190 },
     {
       field: material.overrunPercent,
       viewField: ids.overrunFields.overrunPercent,
       size: 140,
     },
-    { field: material.unit, viewField: ids.overrunFields.unit, size: 70 },
   ]),
   filters: [
     {

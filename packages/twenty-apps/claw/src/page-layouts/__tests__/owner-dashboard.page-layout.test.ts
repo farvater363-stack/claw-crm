@@ -252,6 +252,15 @@ describe('warehouse block', () => {
       configurationOf(byId(IDS.ownerDashboard.overrunTableWidget))
         .viewUniversalIdentifier,
     ).toBe(IDS.view.dashboardOverrun);
+
+    for (const universalIdentifier of [
+      IDS.ownerDashboard.purchasePlanTableWidget,
+      IDS.ownerDashboard.overrunTableWidget,
+    ]) {
+      expect(byId(universalIdentifier).objectUniversalIdentifier).toBe(
+        IDS.material.object,
+      );
+    }
   });
 
   it('sits above the analytics widgets without overlapping them', () => {
@@ -265,10 +274,15 @@ describe('warehouse block', () => {
     };
 
     expect(rowsOf(IDS.ownerDashboard.materialsTotalWidget)[0]).toBe(0);
+    const firstAnalyticsRow = rowsOf(
+      IDS.ownerDashboard.revenueThisMonthWidget,
+    )[0];
+
     expect(
       rowsOf(IDS.ownerDashboard.purchasePlanTableWidget)[1],
-    ).toBeLessThanOrEqual(
-      rowsOf(IDS.ownerDashboard.revenueThisMonthWidget)[0],
-    );
+    ).toBeLessThanOrEqual(firstAnalyticsRow);
+    expect(
+      rowsOf(IDS.ownerDashboard.overrunTableWidget)[1],
+    ).toBeLessThanOrEqual(firstAnalyticsRow);
   });
 });

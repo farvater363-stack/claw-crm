@@ -226,7 +226,6 @@ export const VIEW_PART_IDS = {
     overrunFields: {
       name: '5c401bfa-80d4-4832-ae60-df44c4899e59',
       overrunPercent: '60864117-1a04-4c38-9f22-68c61386afd7',
-      unit: '41409dd4-fa83-4441-971a-0897cb86f919',
     },
     overrunFilter: '0d277846-f550-4191-80d2-9edf21eb237b',
   },
