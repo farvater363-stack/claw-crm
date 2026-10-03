@@ -97,3 +97,33 @@ export const MASTER_PAYMENT_KIND_OPTIONS = toOptions([
 
 export type MasterPaymentKind =
   (typeof MASTER_PAYMENT_KIND_OPTIONS)[number]['value'];
+
+export const MATERIAL_UNIT_OPTIONS = toOptions([
+  ['METER', 'м', 'gray'],
+  ['SQUARE_METER', 'м²', 'gray'],
+  ['KILOGRAM', 'кг', 'gray'],
+  ['LITER', 'л', 'gray'],
+  ['PIECE', 'шт', 'gray'],
+] as const);
+
+export type MaterialUnit = (typeof MATERIAL_UNIT_OPTIONS)[number]['value'];
+
+// Views sort SELECT by value text, so BUY < LOW < OK alphabetically is also the urgency order; keep that when renaming.
+export const STOCK_STATE_OPTIONS = toOptions([
+  ['BUY', 'Нужно купить', 'red'],
+  ['LOW', 'Скоро закончится', 'yellow'],
+  ['OK', 'Достаточно', 'green'],
+] as const);
+
+export type StockState = (typeof STOCK_STATE_OPTIONS)[number]['value'];
+
+export const STOCK_MOVEMENT_KIND_OPTIONS = toOptions([
+  ['RECEIPT', 'Приход', 'green'],
+  ['STOCKTAKE', 'Инвентаризация', 'blue'],
+  ['CORRECTION', 'Корректировка', 'gray'],
+  ['WRITE_OFF', 'Списание на заказ', 'orange'],
+  ['FACT_ADJUSTMENT', 'Корректировка по факту', 'purple'],
+] as const);
+
+export type StockMovementKind =
+  (typeof STOCK_MOVEMENT_KIND_OPTIONS)[number]['value'];

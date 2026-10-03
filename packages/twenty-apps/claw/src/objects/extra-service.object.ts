@@ -60,5 +60,16 @@ export default defineObject({
         IDS.orderExtraService.extraService,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
+    {
+      universalIdentifier: IDS.extraService.norms,
+      type: FieldType.RELATION,
+      name: 'norms',
+      label: 'Нормы расхода (на ед.)',
+      icon: 'IconRuler',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.materialNorm.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.materialNorm.extraService,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
   ]),
 });

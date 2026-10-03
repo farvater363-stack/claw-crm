@@ -96,5 +96,16 @@ export default defineObject({
         joinColumnName: 'designId',
       },
     },
+    {
+      universalIdentifier: IDS.priceListItem.norms,
+      type: FieldType.RELATION,
+      name: 'norms',
+      label: 'Нормы расхода (на 1 м²)',
+      icon: 'IconRuler',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.materialNorm.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.materialNorm.priceListItem,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
   ]),
 });

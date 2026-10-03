@@ -25,6 +25,8 @@ describe('roles', () => {
           IDS.orderItem.lineCost,
           IDS.priceListItem.manufacturingCostPerSquareMeter,
           IDS.master.ratePerSquareMeter,
+          IDS.stockMovement.unitPrice,
+          IDS.material.lastPurchasePrice,
         ]),
       );
     },

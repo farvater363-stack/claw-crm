@@ -4,6 +4,7 @@ import { IDS } from 'src/constants/universal-identifiers';
 import { OPEN_STATUSES } from 'src/pricing/compute-deadline-state';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { recalcOrder } from 'src/recalc/recalc-order';
+import { recalcWarehouse } from 'src/warehouse/recalc-warehouse';
 
 const PAGE_SIZE = 500;
 
@@ -32,12 +33,19 @@ const handler = async (): Promise<void> => {
       console.error(`refresh-deadline-states: order ${node.id} failed`, error);
     }
   }
+
+  try {
+    await recalcWarehouse(client);
+  } catch (error) {
+    console.error('refresh-deadline-states: warehouse recalc failed', error);
+  }
 };
 
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.refreshDeadlineStates,
   name: 'refresh-deadline-states',
-  description: 'Recomputes the deadline state of open orders every night',
+  description:
+    'Recomputes deadline states of open orders and stock levels every night',
   timeoutSeconds: 300,
   // 19:05 UTC is 00:05 in Tashkent.
   cronTriggerSettings: { pattern: '5 19 * * *' },

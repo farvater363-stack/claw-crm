@@ -30,6 +30,8 @@ export const ADMIN_ONLY_FIELD_IDS_BY_OBJECT: Record<string, string[]> = {
     IDS.master.ratePerSquareMeter,
     IDS.master.penaltyPercentPerDay,
   ],
+  [IDS.stockMovement.object]: [IDS.stockMovement.unitPrice],
+  [IDS.material.object]: [IDS.material.lastPurchasePrice],
 };
 
 const ADMIN_ONLY_FIELD_IDS = new Set(
