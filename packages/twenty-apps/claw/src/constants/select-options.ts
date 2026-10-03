@@ -70,6 +70,14 @@ export const EXTRA_SERVICE_UNIT_OPTIONS = toOptions([
 export type ExtraServiceUnit =
   (typeof EXTRA_SERVICE_UNIT_OPTIONS)[number]['value'];
 
+export const EXTRA_SERVICE_KIND_OPTIONS = toOptions([
+  ['VISOR', 'Козырёк', 'gray'],
+  ['SERVICE', 'Услуга', 'gray'],
+] as const);
+
+export type ExtraServiceKind =
+  (typeof EXTRA_SERVICE_KIND_OPTIONS)[number]['value'];
+
 export const DESIGN_CATALOG_OPTIONS = toOptions([
   ['MAIN', 'Основной', 'gray'],
 ] as const);

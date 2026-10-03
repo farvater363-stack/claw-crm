@@ -25,6 +25,11 @@ export const ADMIN_ONLY_FIELD_IDS_BY_OBJECT: Record<string, string[]> = {
     IDS.priceListItem.manufacturingCostPerSquareMeter,
     IDS.priceListItem.installationCostPerSquareMeter,
   ],
+  [IDS.design.object]: [
+    IDS.design.materialCostPerSquareMeter,
+    IDS.design.manufacturingCostPerSquareMeter,
+    IDS.design.installationCostPerSquareMeter,
+  ],
   [IDS.extraService.object]: [IDS.extraService.cost],
   [IDS.master.object]: [
     IDS.master.ratePerSquareMeter,

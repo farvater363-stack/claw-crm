@@ -113,10 +113,6 @@ describe('warehouse access', () => {
     expect(readableObjectIds(managerRole)).toEqual(
       expect.arrayContaining([IDS.materialNorm.object, IDS.material.object]),
     );
-    expect(updatableObjectIds(managerRole)).not.toContain(IDS.material.object);
-    expect(updatableObjectIds(managerRole)).not.toContain(
-      IDS.materialNorm.object,
-    );
     expect(updatableObjectIds(managerRole)).not.toContain(
       IDS.orderMaterial.object,
     );
@@ -163,6 +159,49 @@ describe('warehouse access', () => {
     ['orderMaterial', IDS.orderMaterial.object],
   ])('does not give the measurer the %s object', (_, objectId) => {
     expect(readableObjectIds(measurerRole)).not.toContain(objectId);
+  });
+});
+
+describe('grille prices and composition', () => {
+  it('hides grille costs from every non-admin role', () => {
+    const costIds = [
+      IDS.design.materialCostPerSquareMeter,
+      IDS.design.manufacturingCostPerSquareMeter,
+      IDS.design.installationCostPerSquareMeter,
+    ];
+
+    for (const role of [managerRole, measurerRole, workshopRole]) {
+      expect(hiddenFieldIds(role)).toEqual(expect.arrayContaining(costIds));
+    }
+  });
+
+  it('hides the grille price from the workshop only', () => {
+    expect(hiddenFieldIds(workshopRole)).toContain(
+      IDS.design.pricePerSquareMeter,
+    );
+    expect(hiddenFieldIds(measurerRole)).not.toContain(
+      IDS.design.pricePerSquareMeter,
+    );
+  });
+
+  it('lets the manager edit composition and materials', () => {
+    expect(updatableObjectIds(managerRole)).toEqual(
+      expect.arrayContaining([IDS.materialNorm.object, IDS.material.object]),
+    );
+  });
+
+  it('keeps the computed material and norm values for the recalc to write', () => {
+    expect(readOnlyFieldIds(managerRole)).toEqual(
+      expect.arrayContaining([
+        IDS.material.onHand,
+        IDS.material.reserved,
+        IDS.material.available,
+        IDS.material.toBuy,
+        IDS.material.stockState,
+        IDS.material.overrunPercent,
+        IDS.materialNorm.name,
+      ]),
+    );
   });
 });
 

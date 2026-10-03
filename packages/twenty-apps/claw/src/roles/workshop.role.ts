@@ -49,5 +49,11 @@ export default defineRole({
   fieldPermissions: [
     ...ADMIN_ONLY_FIELD_PERMISSIONS,
     ...CALCULATED_FIELD_PERMISSIONS,
+    {
+      objectUniversalIdentifier: IDS.design.object,
+      fieldUniversalIdentifier: IDS.design.pricePerSquareMeter,
+      canReadFieldValue: false,
+      canUpdateFieldValue: false,
+    },
   ],
 });

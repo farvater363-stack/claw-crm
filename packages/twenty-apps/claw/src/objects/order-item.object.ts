@@ -143,7 +143,7 @@ export default defineObject({
       universalIdentifier: IDS.orderItem.design,
       type: FieldType.RELATION,
       name: 'design',
-      label: 'Дизайн',
+      label: 'Решётка',
       icon: 'IconPalette',
       relationTargetObjectMetadataUniversalIdentifier: IDS.design.object,
       relationTargetFieldMetadataUniversalIdentifier: IDS.design.orderItems,

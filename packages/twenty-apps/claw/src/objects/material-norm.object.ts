@@ -37,8 +37,8 @@ export default defineObject({
   universalIdentifier: materialNorm.object,
   nameSingular: 'materialNorm',
   namePlural: 'materialNorms',
-  labelSingular: 'Норма расхода',
-  labelPlural: 'Нормы расхода',
+  labelSingular: 'Материал в составе',
+  labelPlural: 'Из чего делается',
   icon: 'IconRuler',
   labelIdentifierFieldMetadataUniversalIdentifier: materialNorm.name,
   fields: [
@@ -64,6 +64,14 @@ export default defineObject({
       'IconReceipt2',
       IDS.priceListItem.object,
       IDS.priceListItem.norms,
+    ),
+    manyToOne(
+      materialNorm.design,
+      'design',
+      'Решётка (на 1 м²)',
+      'IconPalette',
+      IDS.design.object,
+      IDS.design.norms,
     ),
     manyToOne(
       materialNorm.extraService,

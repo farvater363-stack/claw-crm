@@ -10,6 +10,12 @@ export const IDS = {
     photos: 'a2fb8689-c3bb-49f0-a49b-6d13275aa04d',
     priceListItems: '7cebff66-e19b-41d6-9f4c-986e101fb14d',
     orderItems: '34b0d24e-ef9f-409f-a8b1-13f158b6387c',
+    metal: '456a19db-edbf-4a8b-8451-3524533f7a8c',
+    pricePerSquareMeter: 'b6c9c031-3d5a-49a2-9a1d-a2e733fb13cd',
+    materialCostPerSquareMeter: '3bf0b146-f2d1-4b18-b3d5-03ed971eb28b',
+    manufacturingCostPerSquareMeter: 'a1802127-18bb-49d3-beff-503a6b0040dc',
+    installationCostPerSquareMeter: 'a635bad0-c224-492b-ad57-e93dc788affb',
+    norms: '9f651b17-f028-4f0c-8473-57493bc3ed45',
   },
   priceListItem: {
     object: '02aeeadc-e68d-469c-877d-5b7d94e1d467',
@@ -31,6 +37,7 @@ export const IDS = {
     cost: 'ebd40805-e164-4a6d-9210-244776d40eaa',
     orderExtraServices: '4bd79707-6f3b-40b2-ab30-502318c36367',
     norms: '94d0ad0d-1c01-4e6a-9830-c4361d2dcb70',
+    kind: '285a9743-93b1-4f0e-acfb-c12fa8fe5ab4',
   },
   master: {
     object: 'fe130af4-1d8b-48e0-b9ff-b8257e80af63',
@@ -152,6 +159,7 @@ export const IDS = {
     priceListItem: 'c94fc579-4535-43ee-bd37-f9e5ea03fd8f',
     extraService: 'bf8a4f05-43dd-4c88-b91d-7c7b250459e7',
     quantityPerUnit: '1126566d-0f16-49c3-b9bc-761541c14ac0',
+    design: '99bba579-e976-45ea-8f06-ee59b6ccbcdb',
   },
   stockMovement: {
     object: 'c8b297b5-936f-4efe-95a3-7b1eddd3f0b0',
