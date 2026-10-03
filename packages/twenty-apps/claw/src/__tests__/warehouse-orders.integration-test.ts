@@ -129,24 +129,6 @@ describe('order material lifecycle', () => {
     });
     const designId = remember('destroyDesign', createDesign?.id);
 
-    const { createPriceListItem } = await client.mutation({
-      createPriceListItem: {
-        __args: {
-          data: {
-            name: 'Склад (тест)',
-            metal: 'ROD',
-            designId,
-            pricePerSquareMeter: {
-              amountMicros: 180_000_000_000,
-              currencyCode: 'UZS',
-            },
-          },
-        },
-        id: true,
-      },
-    });
-    const rowId = remember('destroyPriceListItem', createPriceListItem?.id);
-
     const { createMaterial } = await client.mutation({
       createMaterial: {
         __args: {
@@ -165,7 +147,7 @@ describe('order material lifecycle', () => {
     const { createMaterialNorm } = await client.mutation({
       createMaterialNorm: {
         __args: {
-          data: { materialId, priceListItemId: rowId, quantityPerUnit: 2 },
+          data: { materialId, designId, quantityPerUnit: 2 },
         },
         id: true,
       },
