@@ -1,7 +1,8 @@
+import { type OrderStatus } from 'src/constants/select-options';
 import { roundTo } from 'src/pricing/round';
 import { deterministicUuid } from 'src/utils/deterministic-uuid';
 
-const RESERVING_STATUSES = new Set(['PRICE_APPROVAL']);
+export const RESERVING_STATUSES: OrderStatus[] = ['PRICE_APPROVAL'];
 const WRITTEN_OFF_STATUSES = new Set([
   'PRODUCTION',
   'QUALITY_CHECK',
@@ -80,7 +81,8 @@ export const isEnteringWrittenOff = ({
 
 export const keepsOrderDemand = (status: string | null) =>
   status !== null &&
-  (RESERVING_STATUSES.has(status) || WRITTEN_OFF_STATUSES.has(status));
+  (RESERVING_STATUSES.some((reserving) => reserving === status) ||
+    WRITTEN_OFF_STATUSES.has(status));
 
 export const isEmptyOrderMaterialsPlan = (plan: OrderMaterialsPlan) =>
   Object.values(plan).every((entries) => entries.length === 0);
