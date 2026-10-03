@@ -8,7 +8,7 @@ import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { recalcOrder } from 'src/recalc/recalc-order';
 
-const PRICE_KEY_FIELDS = ['designId', 'metal', 'metalSize'];
+const PRICE_KEY_FIELDS = ['designId'];
 
 const handler = async (
   payload: DatabaseEventPayload<
@@ -41,8 +41,6 @@ export default defineLogicFunction({
     eventName: 'orderItem.updated',
     updatedFields: [
       'designId',
-      'metal',
-      'metalSize',
       'widthCm',
       'heightCm',
       'projectionCm',
