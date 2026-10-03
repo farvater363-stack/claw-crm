@@ -214,6 +214,21 @@ export const VIEW_PART_IDS = {
     lateFilterDaysLate: '1ccee8a6-ffa5-47e3-9481-b138d6bd0054',
     lateFilterNotCancelled: 'f7a51da5-8bf9-4413-b366-1731f46c1877',
     lateSortMaster: '58db3e25-8f40-4f78-85ca-2c87519ca4d7',
+    purchasePlanFields: {
+      name: 'a54629d6-4ee1-4382-825f-60643e6f54f6',
+      unit: '8a793e10-de03-461f-afce-cc188d967555',
+      toBuy: '87338467-b362-48dc-adc8-5ec9d9fcde2a',
+      onHand: '8a78cac9-a63e-4fe6-9b09-50518fbd68d1',
+      reserved: 'e362c2b7-84e0-4b07-87b8-0affdc9eb16b',
+    },
+    purchasePlanFilterState: '90511f2b-5805-40ac-8652-c1814fa59497',
+    purchasePlanSortState: '40c4f05b-9683-4c91-b85f-87552f6dc082',
+    overrunFields: {
+      name: '5c401bfa-80d4-4832-ae60-df44c4899e59',
+      overrunPercent: '60864117-1a04-4c38-9f22-68c61386afd7',
+      unit: '41409dd4-fa83-4441-971a-0897cb86f919',
+    },
+    overrunFilter: '0d277846-f550-4191-80d2-9edf21eb237b',
   },
   warehouse: {
     materialsFields: {

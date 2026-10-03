@@ -207,6 +207,8 @@ export const IDS = {
     warehouseNorms: '11ae3607-1db4-4b43-98a7-90a29d8768a2',
     orderMaterialsTable: '4822592d-5f07-4c2a-9125-c5540d540af0',
     orderMaterialStatus: 'db3a3e8e-a3b3-4933-b4d0-8682679cdacf',
+    dashboardPurchasePlan: 'c8875f81-bfed-4cf3-a37d-a8c66a6b4221',
+    dashboardOverrun: '25cbe306-0c48-4d04-a0ed-ef8cee407fd0',
   },
   navigation: {
     orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: the sidebar uses allOrders; ids are never reused.
@@ -253,6 +255,12 @@ export const IDS = {
     overdueTableWidget: '284f3def-3ffe-44a9-a448-f6dda376928d',
     owesUsTableWidget: '6192770d-28fe-4660-93f4-03b9ae9fe5c7',
     lateThisMonthTableWidget: 'a312ac6a-2983-4b55-922f-cb29ea7c024c',
+    materialsTotalWidget: '534919a9-f829-4b23-bf23-51df2818c1be',
+    materialsOkWidget: '68eb843d-a637-45b5-8a6b-0d9c9d55a9a2',
+    materialsLowWidget: 'fa70bf1f-9dc8-4202-9822-a828e14dd396',
+    materialsBuyWidget: 'a5215eac-7c29-4eca-8ef5-b75525deda11',
+    purchasePlanTableWidget: '3e5f6037-4815-468d-a38e-456926656f15',
+    overrunTableWidget: 'dabc602c-9188-4ff9-a220-48f0ecba5dc7',
   },
   measurerForm: {
     frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',

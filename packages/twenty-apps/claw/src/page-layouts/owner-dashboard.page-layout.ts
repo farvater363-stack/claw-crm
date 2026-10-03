@@ -10,12 +10,30 @@ import { IDS } from 'src/constants/universal-identifiers';
 import {
   CANCELLED_IN_LAST_TWELVE_MONTHS,
   CHART_DEFAULTS,
+  type ChartFilter,
   DECIDED_ORDERS,
+  materialsInStockState,
   READY_IN_LAST_TWELVE_MONTHS,
   READY_THIS_MONTH,
 } from 'src/page-layouts/owner-dashboard-filters';
 
+// The warehouse block takes the first rows; every analytics widget sits below it.
+const WAREHOUSE_ROWS = 8;
+
 const grid = (
+  row: number,
+  column: number,
+  rowSpan: number,
+  columnSpan: number,
+): PageLayoutWidgetGridPosition => ({
+  layoutMode: PageLayoutTabLayoutMode.GRID,
+  row: row + WAREHOUSE_ROWS,
+  column,
+  rowSpan,
+  columnSpan,
+});
+
+const topGrid = (
   row: number,
   column: number,
   rowSpan: number,
@@ -26,6 +44,27 @@ const grid = (
   column,
   rowSpan,
   columnSpan,
+});
+
+const materialCount = (
+  universalIdentifier: string,
+  title: string,
+  column: number,
+  filter?: ChartFilter,
+) => ({
+  universalIdentifier,
+  title,
+  type: 'GRAPH' as const,
+  objectUniversalIdentifier: IDS.material.object,
+  position: topGrid(0, column, 2, 3),
+  configuration: {
+    configurationType: 'AGGREGATE_CHART' as const,
+    aggregateFieldMetadataUniversalIdentifier: IDS.material.name,
+    aggregateOperation: AggregateOperations.COUNT,
+    numberFormat: 'FULL' as const,
+    ...(filter !== undefined && { filter }),
+    ...CHART_DEFAULTS,
+  },
 });
 
 const BAR_DEFAULTS = {
@@ -47,6 +86,51 @@ export default definePageLayout({
       icon: 'IconChartBar',
       layoutMode: PageLayoutTabLayoutMode.GRID,
       widgets: [
+        materialCount(
+          IDS.ownerDashboard.materialsTotalWidget,
+          'Всего материалов',
+          0,
+        ),
+        materialCount(
+          IDS.ownerDashboard.materialsOkWidget,
+          'Достаточно',
+          3,
+          materialsInStockState('OK'),
+        ),
+        materialCount(
+          IDS.ownerDashboard.materialsLowWidget,
+          'Скоро закончится',
+          6,
+          materialsInStockState('LOW'),
+        ),
+        materialCount(
+          IDS.ownerDashboard.materialsBuyWidget,
+          'Нужно купить',
+          9,
+          materialsInStockState('BUY'),
+        ),
+        {
+          universalIdentifier: IDS.ownerDashboard.purchasePlanTableWidget,
+          title: 'План закупок',
+          type: 'RECORD_TABLE',
+          objectUniversalIdentifier: IDS.material.object,
+          position: topGrid(2, 0, 6, 8),
+          configuration: {
+            configurationType: 'RECORD_TABLE',
+            viewUniversalIdentifier: IDS.view.dashboardPurchasePlan,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.overrunTableWidget,
+          title: 'Перерасход',
+          type: 'RECORD_TABLE',
+          objectUniversalIdentifier: IDS.material.object,
+          position: topGrid(2, 8, 6, 4),
+          configuration: {
+            configurationType: 'RECORD_TABLE',
+            viewUniversalIdentifier: IDS.view.dashboardOverrun,
+          },
+        },
         {
           universalIdentifier: IDS.ownerDashboard.revenueThisMonthWidget,
           title: 'Выручка за месяц',
