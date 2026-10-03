@@ -321,6 +321,31 @@ describe('planWarehouseRecalc', () => {
       { id: 'norm-2', update: { name: '' } },
     ]);
   });
+
+  it('restores a typed-over norm name and leaves a current one alone', () => {
+    const result = plan(
+      [material()],
+      [],
+      [
+        {
+          id: 'norm-1',
+          name: 'Своё название',
+          materialId: 'material-1',
+          quantityPerUnit: 5.5,
+        },
+        {
+          id: 'norm-2',
+          name: 'Профиль 20×20 — 5,5 м',
+          materialId: 'material-1',
+          quantityPerUnit: 5.5,
+        },
+      ],
+    );
+
+    expect(result.normUpdates).toEqual([
+      { id: 'norm-1', update: { name: 'Профиль 20×20 — 5,5 м' } },
+    ]);
+  });
 });
 
 describe('planWarehouseRecalc with orders', () => {

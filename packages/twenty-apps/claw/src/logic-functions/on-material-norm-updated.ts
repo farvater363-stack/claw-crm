@@ -16,7 +16,9 @@ export default defineLogicFunction({
   timeoutSeconds: 120,
   databaseEventTriggerSettings: {
     eventName: 'materialNorm.updated',
+    // `name` restores a typed-over name; the recalc's own rename costs one extra no-op run.
     updatedFields: [
+      'name',
       'materialId',
       'designId',
       'extraServiceId',
