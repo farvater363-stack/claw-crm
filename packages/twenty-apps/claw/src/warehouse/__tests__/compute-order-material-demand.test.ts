@@ -4,29 +4,18 @@ import {
   computeOrderMaterialDemand,
   type DemandItem,
   type DemandNorm,
-  type DemandPriceListRow,
 } from 'src/warehouse/compute-order-material-demand';
-
-const row: DemandPriceListRow = {
-  id: 'row-wave',
-  name: 'Волна / профиль',
-  designId: 'design-wave',
-  metal: 'PROFILE',
-  metalSize: null,
-};
 
 const item = (overrides: Partial<DemandItem> = {}): DemandItem => ({
   name: '100×150',
-  designId: 'design-wave',
-  metal: 'PROFILE',
-  metalSize: 'SIZE_15_15',
+  designId: 'grille-1',
   areaSquareMeters: 1.5,
   quantity: 2,
   ...overrides,
 });
 
 const norm = (overrides: Partial<DemandNorm> = {}): DemandNorm => ({
-  priceListItemId: 'row-wave',
+  designId: 'grille-1',
   extraServiceId: null,
   materialId: 'profile',
   quantityPerUnit: 5.5,
@@ -38,7 +27,7 @@ describe('computeOrderMaterialDemand', () => {
     const demand = computeOrderMaterialDemand({
       items: [item()],
       extraServiceLines: [],
-      priceList: [row],
+      grilles: [{ id: 'grille-1', name: 'Волна' }],
       norms: [norm(), norm({ materialId: 'paint', quantityPerUnit: 0.25 })],
     });
 
@@ -53,11 +42,11 @@ describe('computeOrderMaterialDemand', () => {
     const demand = computeOrderMaterialDemand({
       items: [item(), item({ areaSquareMeters: 1, quantity: 1 })],
       extraServiceLines: [{ extraServiceId: 'visor', quantity: 3 }],
-      priceList: [row],
+      grilles: [{ id: 'grille-1', name: 'Волна' }],
       norms: [
         norm(),
         norm({
-          priceListItemId: null,
+          designId: null,
           extraServiceId: 'visor',
           quantityPerUnit: 2,
         }),
@@ -67,17 +56,17 @@ describe('computeOrderMaterialDemand', () => {
     expect(demand.quantityByMaterialId.get('profile')).toBe(28);
   });
 
-  it('names items without a price list row or without norms, once each', () => {
+  it('names each grille without a composition once', () => {
     const demand = computeOrderMaterialDemand({
-      items: [item(), item(), item({ name: '90×90', metal: 'ROD' })],
+      items: [item(), item(), item({ designId: 'grille-2' })],
       extraServiceLines: [{ extraServiceId: 'delivery', quantity: 1 }],
-      priceList: [row],
+      grilles: [{ id: 'grille-1', name: 'Волна' }],
       norms: [],
     });
 
     expect(demand.quantityByMaterialId.size).toBe(0);
     expect(demand.missingNorms).toBe(
-      'Нет нормы: Волна / профиль; Нет строки прайса: 90×90',
+      'Не указано, из чего делается: Волна, решётка',
     );
   });
 
@@ -85,15 +74,56 @@ describe('computeOrderMaterialDemand', () => {
     const demand = computeOrderMaterialDemand({
       items: [item({ areaSquareMeters: null })],
       extraServiceLines: [{ extraServiceId: 'visor', quantity: 2 }],
-      priceList: [row],
+      grilles: [{ id: 'grille-1', name: 'Волна' }],
       norms: [
         norm({
-          priceListItemId: null,
+          designId: null,
           extraServiceId: 'visor',
           materialId: null,
         }),
         norm({ extraServiceId: 'visor' }),
       ],
+    });
+
+    expect(demand.quantityByMaterialId.size).toBe(0);
+    expect(demand.missingNorms).toBeNull();
+  });
+
+  it('multiplies area and quantity by each material of the grille', () => {
+    const demand = computeOrderMaterialDemand({
+      items: [item({ designId: 'grille-1', areaSquareMeters: 2, quantity: 3 })],
+      extraServiceLines: [],
+      grilles: [{ id: 'grille-1', name: 'Волна' }],
+      norms: [
+        norm({
+          designId: 'grille-1',
+          materialId: 'profile',
+          quantityPerUnit: 4,
+        }),
+      ],
+    });
+
+    expect(demand.quantityByMaterialId.get('profile')).toBe(24);
+    expect(demand.missingNorms).toBeNull();
+  });
+
+  it('reports a grille with no composition by name', () => {
+    const demand = computeOrderMaterialDemand({
+      items: [item({ designId: 'grille-1', areaSquareMeters: 2 })],
+      extraServiceLines: [],
+      grilles: [{ id: 'grille-1', name: 'Волна' }],
+      norms: [],
+    });
+
+    expect(demand.missingNorms).toBe('Не указано, из чего делается: Волна');
+  });
+
+  it('skips a position without a grille', () => {
+    const demand = computeOrderMaterialDemand({
+      items: [item({ designId: null, areaSquareMeters: 2 })],
+      extraServiceLines: [],
+      grilles: [],
+      norms: [],
     });
 
     expect(demand.quantityByMaterialId.size).toBe(0);

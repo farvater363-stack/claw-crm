@@ -26,8 +26,6 @@ const fakeClient = (
           {
             name: '100×100',
             designId: 'design-1',
-            metal: 'ROD',
-            metalSize: null,
             areaSquareMeters: 1,
             quantity: 2,
           },
@@ -35,18 +33,10 @@ const fakeClient = (
         orderExtraServices: page([]),
         orderMaterials: page(lines),
         stockMovements: page([]),
-        priceListItems: page([
-          {
-            id: 'row-1',
-            name: 'Тест',
-            designId: 'design-1',
-            metal: 'ROD',
-            metalSize: null,
-          },
-        ]),
+        designs: page([{ id: 'design-1', name: 'Тест' }]),
         materialNorms: page([
           {
-            priceListItemId: 'row-1',
+            designId: 'design-1',
             extraServiceId: null,
             materialId: 'material-1',
             quantityPerUnit: 2,

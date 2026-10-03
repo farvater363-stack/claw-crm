@@ -18,7 +18,7 @@ export default defineLogicFunction({
     eventName: 'materialNorm.updated',
     updatedFields: [
       'materialId',
-      'priceListItemId',
+      'designId',
       'extraServiceId',
       'quantityPerUnit',
     ],
