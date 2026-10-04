@@ -9,7 +9,6 @@ import {
   carrySentence,
   earnedHeading,
   listMonthOrders,
-  openAttempts,
   parsePenaltyPercent,
   payRuleLabel,
   payRuleSuffix,
@@ -19,6 +18,7 @@ import {
   payWorksOf,
   rowTitle,
   skippedNote,
+  storedAttempts,
   summarizeEarned,
   withCategory,
 } from 'src/payroll/payroll-screen';
@@ -245,16 +245,20 @@ describe('canPayInMonth', () => {
   });
 });
 
-describe('openAttempts', () => {
-  it('keeps the attempts whose record is not stored', () => {
-    const attempts = { 'farhod:pay': 'id-1', add: 'id-2' };
-
-    expect(openAttempts(attempts, ['other'])).toEqual(attempts);
+describe('storedAttempts', () => {
+  it('names no attempt whose record is not stored', () => {
+    expect(storedAttempts({ 'farhod:pay': 'id-1', add: 'id-2' }, ['other'])).toEqual([]);
+    expect(storedAttempts({}, ['id-1'])).toEqual([]);
   });
 
-  it('ends the attempts whose record was read back', () => {
-    expect(openAttempts({ 'farhod:pay': 'id-1', 'farhod:rule': 'id-2', add: 'id-3' }, ['id-1', 'id-3'])).toEqual({
-      'farhod:rule': 'id-2',
-    });
+  it('names the attempts whose record was read back', () => {
+    expect(storedAttempts({ 'farhod:pay': 'id-1', 'farhod:rule': 'id-2', add: 'id-3' }, ['id-1', 'id-3'])).toEqual([
+      'farhod:pay',
+      'add',
+    ]);
+  });
+
+  it('names one row attempt and leaves the same form of another row open', () => {
+    expect(storedAttempts({ 'farhod:pay': 'id-1', 'aziz:pay': 'id-2' }, ['id-2'])).toEqual(['aziz:pay']);
   });
 });

@@ -1,4 +1,4 @@
-import { type MutableRefObject, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { defineFrontComponent } from 'twenty-sdk/define';
 
@@ -34,7 +34,6 @@ import {
   CATEGORY_REQUIRED,
   earnedHeading,
   listMonthOrders,
-  openAttempts,
   parsePenaltyPercent,
   payRuleLabel,
   payRuleSuffix,
@@ -44,6 +43,7 @@ import {
   payWorksOf,
   rowTitle,
   skippedNote,
+  storedAttempts,
   summarizeEarned,
   withCategory,
 } from 'src/payroll/payroll-screen';
@@ -105,18 +105,6 @@ const readState = async (month: string): Promise<LoadState> => {
   }
 };
 
-const endStoredAttempts = (attemptIds: MutableRefObject<Record<string, string>>, next: LoadState) => {
-  if (next.status !== 'ready') return;
-
-  const { payments, rules, workers } = next.data;
-
-  // Ids are unique across the three kinds, so one pool tells a stored record of any of them.
-  attemptIds.current = openAttempts(
-    attemptIds.current,
-    [...payments, ...rules, ...workers].map((record) => record.id),
-  );
-};
-
 const Payroll = () => {
   const [month, setMonth] = useState(currentMonthInTashkent);
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
@@ -137,6 +125,11 @@ const Payroll = () => {
   // a second tap in the same render would pass a check on it. A ref is current.
   const inFlight = useRef(new Set<string>());
   const attemptIds = useRef<Record<string, string>>({});
+  // Beside each attempt's id: what its going through does to its form.
+  const attemptFinishes = useRef<Record<string, () => void>>({});
+  // An attempt outlives its form (another row or another form is opened), and
+  // it is finished from a read that lands later: what is open is asked then.
+  const shownForm = useRef({ openId, panel });
   const shownMonth = useRef(month);
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
 
@@ -145,20 +138,15 @@ const Payroll = () => {
     const firstMonth = shownMonth.current;
 
     void readState(firstMonth).then((next) => {
-      endStoredAttempts(attemptIds, next);
       if (shownMonth.current === firstMonth) setLoad(next);
     });
 
     return () => pending.forEach(clearTimeout);
   }, []);
 
-  // A read that lands after the month was changed again is dropped.
-  const read = async (shown: string) => {
-    const next = await readState(shown);
-
-    endStoredAttempts(attemptIds, next);
-    if (shownMonth.current === shown) setLoad(next);
-  };
+  useEffect(() => {
+    shownForm.current = { openId, panel };
+  }, [openId, panel]);
 
   const setDraft = (key: string, value: string) => setDrafts((current) => ({ ...current, [key]: value }));
   const setError = (key: string, error: string) => setErrors((current) => ({ ...current, [key]: error }));
@@ -193,6 +181,42 @@ const Payroll = () => {
   const endAttempt = (key: string) => {
     attemptIds.current = dropKey(attemptIds.current, key);
   };
+  // Run once per attempt, by its own answer or by a read that returns its
+  // record, whichever comes first: a record that was read back was saved.
+  const finishAttempt = (key: string) => {
+    attemptFinishes.current[key]?.();
+    attemptFinishes.current = dropKey(attemptFinishes.current, key);
+    endAttempt(key);
+    clearError(key);
+    setFailures((current) => dropKey(current, key));
+  };
+  // A row's form is closed only while that row still shows it.
+  const closeRowForm = (workerId: string, kind: Panel, reset: () => void) => () => {
+    if (shownForm.current.openId !== workerId) return;
+
+    reset();
+    if (shownForm.current.panel === kind) setPanel(null);
+  };
+
+  // A read that lands after the month was changed again is dropped. A quiet
+  // read that fails is dropped too: it only looks for a record, the screen stays.
+  const read = async (shown: string, isQuiet = false) => {
+    const next = await readState(shown);
+
+    if (shownMonth.current !== shown || (isQuiet && next.status !== 'ready')) return;
+
+    if (next.status === 'ready') {
+      const { payments, rules, workers } = next.data;
+
+      // Ids are unique across the three kinds, so one pool tells a stored record of any of them.
+      storedAttempts(
+        attemptIds.current,
+        [...payments, ...rules, ...workers].map((record) => record.id),
+      ).forEach(finishAttempt);
+    }
+
+    setLoad(next);
+  };
 
   // A key in flight is not started twice (a second tap, or Enter and the blur
   // that follows). Every write is followed by a read, so the row shows what
@@ -211,6 +235,14 @@ const Payroll = () => {
       onSaved?.();
     } catch (error) {
       console.error(error);
+
+      // The answer of a create may be lost and its record stored: one look, and a record found is a save.
+      if (key in attemptIds.current && !isAccessError(error)) {
+        await read(shownMonth.current, true);
+
+        if (!(key in attemptIds.current)) return;
+      }
+
       setFailures((current) => ({
         ...current,
         [key]: { isDenied: isAccessError(error), retry: () => void run(key, write, onSaved) },
@@ -412,16 +444,14 @@ const Payroll = () => {
     }
 
     clearError(key);
+    attemptFinishes.current[key] = closeRowForm(workerId, 'rule', () => setNewRule(NEW_RULE));
     void run(
       key,
       async () => {
         await savePayRule(new CoreApiClient(), built.rule);
         endAttempt(key);
       },
-      () => {
-        setNewRule(NEW_RULE);
-        setPanel((current) => (current === 'rule' ? null : current));
-      },
+      () => finishAttempt(key),
     );
   };
 
@@ -459,16 +489,14 @@ const Payroll = () => {
     const paymentId = attemptId(key);
 
     clearError(key);
+    attemptFinishes.current[key] = closeRowForm(row.workerId, 'pay', () => setPayForm(null));
     void run(
       key,
       async () => {
         await createPayment(new CoreApiClient(), paymentId, result.data);
         endAttempt(key);
       },
-      () => {
-        setPayForm(null);
-        setPanel((current) => (current === 'pay' ? null : current));
-      },
+      () => finishAttempt(key),
     );
   };
 
@@ -484,18 +512,22 @@ const Payroll = () => {
     const workerId = attemptId(ADD_KEY);
 
     clearError(ADD_KEY);
+    attemptFinishes.current[ADD_KEY] = () => {
+      setNewWorker(NEW_WORKER);
+
+      if (shownForm.current.panel !== 'worker') return;
+
+      setPanel(null);
+      // Opened so the first pay rule can be added straight away.
+      showRow(workerId);
+    };
     void run(
       ADD_KEY,
       async () => {
         await saveWorker(new CoreApiClient(), workerId, built.data);
         endAttempt(ADD_KEY);
       },
-      () => {
-        setNewWorker(NEW_WORKER);
-        setPanel(null);
-        // Opened so the first pay rule can be added straight away.
-        showRow(workerId);
-      },
+      () => finishAttempt(ADD_KEY),
     );
   };
 

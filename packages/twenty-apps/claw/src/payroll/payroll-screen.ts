@@ -194,10 +194,12 @@ export const canPayInMonth = (shownMonth: string, currentMonth: string): boolean
 
 // An attempt whose record was read back went through, whatever its answer said:
 // the next create under the same id would overwrite that record.
-export const openAttempts = (attempts: Record<string, string>, storedIds: Iterable<string>): Record<string, string> => {
+export const storedAttempts = (attempts: Record<string, string>, storedIds: Iterable<string>): string[] => {
   const stored = new Set(storedIds);
 
-  return Object.fromEntries(Object.entries(attempts).filter(([, id]) => !stored.has(id)));
+  return Object.entries(attempts)
+    .filter(([, id]) => stored.has(id))
+    .map(([key]) => key);
 };
 
 // A record without its worker, date or amount is in no sum, so the screen says how many there are.
