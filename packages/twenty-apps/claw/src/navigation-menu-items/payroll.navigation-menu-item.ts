@@ -5,7 +5,6 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 
-// Page items show for every role; the page itself refuses non-admins.
 export default defineNavigationMenuItem({
   universalIdentifier: IDS.navigation.payroll,
   name: 'ЗП за месяц',
@@ -13,4 +12,6 @@ export default defineNavigationMenuItem({
   position: 4,
   type: NavigationMenuItemType.PAGE_LAYOUT,
   pageLayoutUniversalIdentifier: IDS.payroll.pageLayout,
+  // Payroll is built from payments, so only roles that read them get the item.
+  targetObjectUniversalIdentifier: IDS.masterPayment.object,
 });

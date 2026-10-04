@@ -7,6 +7,7 @@ import {
 } from 'twenty-sdk/front-component';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import { PALETTE } from 'src/ui/tokens';
 
 type OpeningNote = {
   id: string;
@@ -14,11 +15,6 @@ type OpeningNote = {
   label: string;
   notes: string;
 };
-
-const PALETTE = {
-  light: { text: '#1f1f1f', muted: '#666666', border: '#ebebeb' },
-  dark: { text: '#ebebeb', muted: '#a6a6a6', border: '#333333' },
-} as const;
 
 const PAGE_SIZE = 200;
 

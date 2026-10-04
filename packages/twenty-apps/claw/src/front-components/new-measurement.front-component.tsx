@@ -39,6 +39,8 @@ import {
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
 import { fromCurrency } from 'src/recalc/money';
+import { formatMoney } from 'src/ui/format';
+import { PALETTE } from 'src/ui/tokens';
 
 type Design = { id: string; name: string };
 
@@ -61,29 +63,6 @@ type SaveResult = {
 const ORDER_NAME_POLL_ATTEMPTS = 20;
 const ORDER_NAME_POLL_INTERVAL_MS = 750;
 const THUMBNAIL_MAX_SIDE_PX = 160;
-
-const PALETTE = {
-  light: {
-    text: '#1f1f1f',
-    muted: '#666666',
-    border: '#d6d6d6',
-    surface: '#ffffff',
-    panel: '#f6f6f6',
-    accent: '#1961ed',
-    danger: '#b42318',
-    success: '#067647',
-  },
-  dark: {
-    text: '#ebebeb',
-    muted: '#a6a6a6',
-    border: '#3d3d3d',
-    surface: '#1b1b1b',
-    panel: '#242424',
-    accent: '#5b8def',
-    danger: '#f97066',
-    success: '#47cd89',
-  },
-} as const;
 
 // crypto.randomUUID is missing in the sandbox (no secure context); keys only
 // need to be unique within this page.
@@ -108,9 +87,6 @@ const createEmptyDraft = (): MeasurementDraft => ({
 
 const formatSquareMeters = (value: number) =>
   `${value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} м²`;
-
-const formatMoney = (value: number) =>
-  `${value.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} сум`;
 
 const describeError = (error: unknown) =>
   error instanceof Error ? error.message : String(error);

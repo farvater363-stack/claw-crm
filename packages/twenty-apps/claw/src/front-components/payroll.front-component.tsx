@@ -25,6 +25,8 @@ import {
   shiftMonth,
 } from 'src/payroll/payroll-month';
 import { fromCurrency } from 'src/recalc/money';
+import { formatMoney } from 'src/ui/format';
+import { PALETTE } from 'src/ui/tokens';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
 
 type LoadState =
@@ -49,30 +51,6 @@ type PaymentForm = {
 
 // Twenty caps a page at 200 records.
 const PAGE_SIZE = 200;
-
-const PALETTE = {
-  light: {
-    text: '#1f1f1f',
-    muted: '#666666',
-    border: '#d6d6d6',
-    surface: '#ffffff',
-    panel: '#f6f6f6',
-    accent: '#1961ed',
-    danger: '#b42318',
-  },
-  dark: {
-    text: '#ebebeb',
-    muted: '#a6a6a6',
-    border: '#3d3d3d',
-    surface: '#1b1b1b',
-    panel: '#242424',
-    accent: '#5b8def',
-    danger: '#f97066',
-  },
-} as const;
-
-const formatMoney = (value: number) =>
-  `${value.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} сум`;
 
 const formatSquareMeters = (value: number) =>
   value.toLocaleString('ru-RU', {

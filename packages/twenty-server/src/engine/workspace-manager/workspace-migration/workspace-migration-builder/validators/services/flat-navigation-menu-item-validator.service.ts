@@ -244,6 +244,8 @@ export class FlatNavigationMenuItemValidatorService {
     flatEntityUpdate,
     optimisticFlatEntityMapsAndRelatedFlatEntityMaps: {
       flatNavigationMenuItemMaps: optimisticFlatNavigationMenuItemMaps,
+      flatObjectMetadataMaps,
+      flatViewMaps,
     },
   }: FlatEntityUpdateValidationArgs<
     typeof ALL_METADATA_NAME.navigationMenuItem
@@ -293,6 +295,16 @@ export class FlatNavigationMenuItemValidatorService {
         flatNavigationMenuItem: toFlatNavigationMenuItem,
       }),
     );
+
+    if (isDefined(flatEntityUpdate.targetObjectMetadataUniversalIdentifier)) {
+      validationResult.errors.push(
+        ...this.getUnresolvedReferenceValidationErrors({
+          flatNavigationMenuItem: toFlatNavigationMenuItem,
+          flatObjectMetadataMaps,
+          flatViewMaps,
+        }),
+      );
+    }
 
     const folderUniversalIdentifierUpdate =
       flatEntityUpdate.folderUniversalIdentifier;

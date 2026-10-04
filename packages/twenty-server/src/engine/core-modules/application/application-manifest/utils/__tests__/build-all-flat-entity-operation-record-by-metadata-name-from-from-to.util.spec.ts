@@ -308,6 +308,30 @@ describe('buildAllFlatEntityOperationRecordByMetadataNameFromFromTo', () => {
     ).toBeDefined();
   });
 
+  it('updates a navigation item whose target object changed', () => {
+    const navigationMenuItemWithTargetObject: FlatNavigationMenuItem = {
+      ...NAVIGATION_MENU_ITEM,
+      targetObjectMetadataId: 'object-metadata-id',
+      targetObjectMetadataUniversalIdentifier:
+        'object-metadata-universal-identifier',
+    };
+
+    const result = buildAllFlatEntityOperationRecordByMetadataNameFromFromTo({
+      fromAllFlatEntityMaps: withNavigationMenuItem(NAVIGATION_MENU_ITEM)(
+        createEmptyAllFlatEntityMaps(),
+      ),
+      toAllUniversalFlatEntityMaps: withNavigationMenuItem(
+        navigationMenuItemWithTargetObject,
+      )(createEmptyAllFlatEntityMaps()),
+      buildOptions: BUILD_OPTIONS,
+    });
+
+    expect(result.navigationMenuItem?.flatEntityToUpdate).toEqual({
+      [NAVIGATION_MENU_ITEM.universalIdentifier]:
+        navigationMenuItemWithTargetObject,
+    });
+  });
+
   it('does not update an unpinned layout when its manifest is unchanged', () => {
     const result = buildAllFlatEntityOperationRecordByMetadataNameFromFromTo({
       fromAllFlatEntityMaps: buildAllFlatEntityMapsWithPageLayout({
