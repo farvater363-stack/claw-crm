@@ -7,7 +7,10 @@ export const fromCurrency = (
     return null;
   }
 
-  return Math.round(Number(value.amountMicros) / MICROS_PER_UNIT);
+  const amount = Math.round(Number(value.amountMicros) / MICROS_PER_UNIT);
+
+  // A NaN never equals itself, so the recalc would rewrite it on every run.
+  return Number.isFinite(amount) ? amount : null;
 };
 
 export const toCurrency = (amount: number | null) =>

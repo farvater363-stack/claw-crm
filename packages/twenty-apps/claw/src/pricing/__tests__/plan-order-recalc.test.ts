@@ -15,7 +15,7 @@ const emptyOrder: OrderSnapshot = {
   discountValue: null,
   discount: null,
   total: null,
-  prepayment: null,
+  paid: null,
   balance: null,
   costTotal: null,
   margin: null,
@@ -103,6 +103,7 @@ const input = (overrides: Partial<RecalcInput> = {}): RecalcInput => ({
     },
   ],
   master: { ratePerSquareMeter: 10_000, penaltyPercentPerDay: 4 },
+  paymentsTotal: 0,
   today: '2026-10-01',
   refreshPriceItemIds: [],
   refreshPriceExtraServiceLineIds: [],
@@ -132,6 +133,7 @@ describe('planOrderRecalc', () => {
       discount: 0,
       total: 768_000,
       costTotal: 460_800,
+      paid: 0,
       balance: 768_000,
       margin: 307_200,
       marginPercent: 40,
@@ -297,9 +299,9 @@ describe('planOrderRecalc', () => {
   it('computes balance, deadline and late master pay', () => {
     const plan = planOrderRecalc(
       input({
+        paymentsTotal: 1_000_000,
         order: {
           ...emptyOrder,
-          prepayment: 1_000_000,
           productionStartDate: '2026-06-17',
           readyAt: '2026-06-27',
           masterBonus: 10_000,
@@ -308,6 +310,7 @@ describe('planOrderRecalc', () => {
     );
 
     expect(plan.orderUpdate).toMatchObject({
+      paid: 1_000_000,
       balance: -232_000,
       installationDeadline: '2026-06-24',
       daysLate: 3,
@@ -361,12 +364,12 @@ describe('planOrderRecalc', () => {
     const plan = planOrderRecalc(
       input({
         items: [],
+        paymentsTotal: 500_000,
         order: {
           ...emptyOrder,
           areaSquareMeters: 12.5,
           total: 4_000_000,
           costTotal: 2_500_000,
-          prepayment: 500_000,
         },
       }),
     );
@@ -374,6 +377,7 @@ describe('planOrderRecalc', () => {
     expect(plan.orderUpdate).toEqual({
       subtotal: 4_000_000,
       discount: 0,
+      paid: 500_000,
       balance: 3_500_000,
       margin: 1_500_000,
       marginPercent: 37.5,
@@ -417,7 +421,11 @@ describe('planOrderRecalc', () => {
   it('never discounts more than the sum', () => {
     const plan = planOrderRecalc(
       input({
-        order: { ...emptyOrder, discountKind: 'AMOUNT', discountValue: 900_000 },
+        order: {
+          ...emptyOrder,
+          discountKind: 'AMOUNT',
+          discountValue: 900_000,
+        },
       }),
     );
 
@@ -463,7 +471,30 @@ describe('planOrderRecalc', () => {
 
     expect(
       planOrderRecalc(input({ items: [], order, master: null })).orderUpdate,
-    ).toEqual({ balance: 3_600_000 });
+    ).toEqual({ paid: 0, balance: 3_600_000 });
+  });
+
+  it('counts what is paid and what is left from the payments, after the discount', () => {
+    const plan = planOrderRecalc(
+      input({
+        paymentsTotal: 500_000,
+        order: { ...emptyOrder, discountKind: 'AMOUNT', discountValue: 68_000 },
+      }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({
+      total: 700_000,
+      paid: 500_000,
+      balance: 200_000,
+    });
+  });
+
+  it('shows what is paid even while the total is unknown', () => {
+    const plan = planOrderRecalc(
+      input({ items: [], paymentsTotal: 100_000, master: null }),
+    );
+
+    expect(plan.orderUpdate).toEqual({ paid: 100_000 });
   });
 
   it('plans nothing when everything is already up to date', () => {

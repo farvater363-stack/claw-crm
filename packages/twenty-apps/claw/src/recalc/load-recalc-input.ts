@@ -39,6 +39,7 @@ export const loadRecalcInput = async (
     orderExtraServices,
     designs,
     extraServices,
+    orderPayments,
   } = await client.query({
     orders: {
       __args: { filter: { id: { eq: orderId } }, first: 1 },
@@ -51,7 +52,7 @@ export const loadRecalcInput = async (
           discountValue: true,
           discount: money,
           total: money,
-          prepayment: money,
+          paid: money,
           balance: money,
           costTotal: money,
           margin: money,
@@ -123,6 +124,11 @@ export const loadRecalcInput = async (
         node: { id: true, name: true, unit: true, price: money, cost: money },
       },
     },
+    // Deleted payments are left out by the API, so this is what was really paid.
+    orderPayments: {
+      __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
+      edges: { node: { amount: money } },
+    },
   });
 
   const order = orders?.edges[0]?.node;
@@ -139,7 +145,7 @@ export const loadRecalcInput = async (
       discountValue: toNumber(order.discountValue),
       discount: fromCurrency(order.discount),
       total: fromCurrency(order.total),
-      prepayment: fromCurrency(order.prepayment),
+      paid: fromCurrency(order.paid),
       balance: fromCurrency(order.balance),
       costTotal: fromCurrency(order.costTotal),
       margin: fromCurrency(order.margin),
@@ -164,6 +170,10 @@ export const loadRecalcInput = async (
             toNumber(order.master.penaltyPercentPerDay) ?? 0,
         }
       : null,
+    paymentsTotal: (orderPayments?.edges ?? []).reduce(
+      (sum, { node }) => sum + (fromCurrency(node.amount) ?? 0),
+      0,
+    ),
     items: (orderItems?.edges ?? []).map(({ node }) => ({
       id: node.id,
       name: node.name ?? null,

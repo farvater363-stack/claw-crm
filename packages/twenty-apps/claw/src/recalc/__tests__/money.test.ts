@@ -17,4 +17,8 @@ describe('money', () => {
     expect(fromCurrency({ amountMicros: null })).toBeNull();
     expect(toCurrency(null)).toBeNull();
   });
+
+  it('reads an amount that is not a number as empty', () => {
+    expect(fromCurrency({ amountMicros: 'много' })).toBeNull();
+  });
 });

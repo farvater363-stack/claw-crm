@@ -6,7 +6,11 @@ const client = new CoreApiClient();
 const TEST_PHONE = '+998 93 000 00 01';
 const TEST_PHONE_NATIONAL = '930000001';
 
-type Destroyable = 'destroyOrderItem' | 'destroyOrder' | 'destroyDesign';
+type Destroyable =
+  | 'destroyOrderPayment'
+  | 'destroyOrderItem'
+  | 'destroyOrder'
+  | 'destroyDesign';
 
 const created: { mutation: Destroyable; id: string }[] = [];
 
@@ -51,6 +55,7 @@ const readOrder = async (id: string) => {
           clientId: true,
           areaSquareMeters: true,
           total: { amountMicros: true },
+          paid: { amountMicros: true },
           balance: { amountMicros: true },
         },
       },
@@ -87,10 +92,7 @@ const createGrille = async () => {
   return createDesign?.id as string;
 };
 
-const createOrder = async (data: {
-  clientPhone?: string;
-  prepayment?: number;
-}) => {
+const createOrder = async (data: { clientPhone?: string }) => {
   const { createOrder: order } = await client.mutation({
     createOrder: {
       __args: {
@@ -98,10 +100,6 @@ const createOrder = async (data: {
           name: '',
           clientName: 'Тест',
           clientPhone: data.clientPhone,
-          prepayment: {
-            amountMicros: (data.prepayment ?? 0) * 1_000_000,
-            currencyCode: 'UZS',
-          },
         },
       },
       id: true,
@@ -158,10 +156,7 @@ describe('order recalculation', () => {
   it('numbers the order, links the client and totals an item from the grille price', async () => {
     const designId = await createGrille();
 
-    const orderId = await createOrder({
-      clientPhone: TEST_PHONE,
-      prepayment: 1_000_000,
-    });
+    const orderId = await createOrder({ clientPhone: TEST_PHONE });
 
     await createItem(orderId, designId, {
       widthCm: 140,
@@ -175,7 +170,31 @@ describe('order recalculation', () => {
     expect(order?.name).toMatch(/^№\d{4}$/);
     expect(order?.clientId).toBeTruthy();
     expect(order?.areaSquareMeters).toBe(7.68);
-    expect(Number(order?.balance?.amountMicros)).toBe(382_400_000_000);
+
+    const { createOrderPayment } = await client.mutation({
+      createOrderPayment: {
+        __args: {
+          data: {
+            orderId,
+            method: 'CASH',
+            amount: { amountMicros: 1_000_000_000_000, currencyCode: 'UZS' },
+          },
+        },
+        id: true,
+      },
+    });
+
+    created.push({
+      mutation: 'destroyOrderPayment',
+      id: createOrderPayment?.id as string,
+    });
+
+    const paidOrder = await waitFor(
+      () => readOrder(orderId),
+      (current) => Number(current?.paid?.amountMicros) === 1_000_000_000_000,
+    );
+
+    expect(Number(paidOrder?.balance?.amountMicros)).toBe(382_400_000_000);
   });
 
   it('recalculates when an item is soft-deleted, restored and destroyed', async () => {

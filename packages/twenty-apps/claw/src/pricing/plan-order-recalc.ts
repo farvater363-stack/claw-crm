@@ -60,7 +60,7 @@ export type OrderSnapshot = {
   discountValue: number | null;
   discount: number | null;
   total: number | null;
-  prepayment: number | null;
+  paid: number | null;
   balance: number | null;
   costTotal: number | null;
   margin: number | null;
@@ -90,6 +90,8 @@ export type RecalcInput = {
   extraServiceCatalog: ExtraServiceCatalogEntry[];
   grilles: GrillePrice[];
   master: MasterSnapshot | null;
+  // Sum of the order's payments that are not deleted
+  paymentsTotal: number;
   today: string;
   refreshPriceItemIds: string[];
   refreshPriceExtraServiceLineIds: string[];
@@ -221,11 +223,7 @@ const sumTreatingNullAsZero = (values: (number | null)[]): number =>
 
 export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
   const plannedItems = input.items.map((item) =>
-    planItem(
-      item,
-      input.grilles,
-      input.refreshPriceItemIds.includes(item.id),
-    ),
+    planItem(item, input.grilles, input.refreshPriceItemIds.includes(item.id)),
   );
 
   const hasLines = input.items.length + input.extraServiceLines.length > 0;
@@ -311,7 +309,8 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
     discount,
     total,
     costTotal,
-    balance: total !== null ? total - (order.prepayment ?? 0) : null,
+    paid: input.paymentsTotal,
+    balance: total !== null ? total - input.paymentsTotal : null,
     margin,
     marginPercent:
       margin !== null && total !== null && total !== 0

@@ -125,7 +125,6 @@ export default defineLogicFunction({
       'name',
       'clientPhone',
       'status',
-      'prepayment',
       'discountKind',
       'discountValue',
       'productionStartDate',
