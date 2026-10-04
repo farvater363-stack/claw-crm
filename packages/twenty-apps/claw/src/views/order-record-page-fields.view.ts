@@ -7,11 +7,19 @@ import { toKeyedViewFields } from 'src/utils/to-view-fields';
 const { order } = IDS;
 const { fields, groups } = VIEW_PART_IDS.orderRecordPage;
 
-const section = (
-  group: string,
-  names: readonly (keyof typeof fields & keyof typeof order)[],
-) =>
+type FieldName = keyof typeof fields & keyof typeof order;
+
+const section = (group: string, names: readonly FieldName[]) =>
   names.map((name) => ({ field: order[name], viewField: fields[name], group }));
+
+// Shown elsewhere on the card (the header, the tables) or replaced
+// (prepayment, until its field goes): kept in the view, hidden.
+const hidden = (names: readonly FieldName[]) =>
+  names.map((name) => ({
+    field: order[name],
+    viewField: fields[name],
+    isVisible: false,
+  }));
 
 // Sections a role cannot read any field of disappear for that role.
 export default defineView({
@@ -21,50 +29,31 @@ export default defineView({
   type: ViewType.FIELDS_WIDGET,
   fieldGroups: [
     {
-      universalIdentifier: groups.order,
-      name: 'Заказ',
+      universalIdentifier: groups.client,
+      name: 'Клиент',
       position: 0,
       isVisible: true,
     },
     {
-      universalIdentifier: groups.client,
-      name: 'Клиент',
+      universalIdentifier: groups.production,
+      name: 'Срок и люди',
       position: 1,
       isVisible: true,
     },
     {
-      universalIdentifier: groups.measurement,
-      name: 'Замер',
-      position: 2,
-      isVisible: true,
-    },
-    {
       universalIdentifier: groups.itemsAndTotal,
-      name: 'Позиции и сумма',
-      position: 3,
-      isVisible: true,
-    },
-    {
-      universalIdentifier: groups.production,
-      name: 'Производство',
-      position: 4,
+      name: 'Деньги',
+      position: 2,
       isVisible: true,
     },
     {
       universalIdentifier: groups.economics,
       name: 'Экономика',
-      position: 5,
-      isVisible: true,
-    },
-    {
-      universalIdentifier: groups.pay,
-      name: 'ЗП',
-      position: 6,
+      position: 3,
       isVisible: true,
     },
   ],
   fields: toKeyedViewFields([
-    ...section(groups.order, ['name', 'status', 'cancelReason']),
     ...section(groups.client, [
       'clientName',
       'clientPhone',
@@ -73,34 +62,51 @@ export default defineView({
       'floor',
       'source',
       'client',
-    ]),
-    ...section(groups.measurement, ['measurementDate', 'measurer', 'comment']),
-    ...section(groups.itemsAndTotal, [
-      'items',
-      'extraServices',
-      'areaSquareMeters',
-      'total',
-      'prepayment',
-      'balance',
+      'measurementDate',
+      'measurer',
+      'comment',
     ]),
     ...section(groups.production, [
-      'manager',
       'master',
+      'installer',
+      'soldBy',
+      'manager',
       'productionStartDate',
       'installationDeadline',
-      'deadlineState',
       'readyAt',
       'installedAt',
       'finishedPhotos',
+      // Last, for corrections: the header moves an order forward
+      'status',
+      'cancelReason',
     ]),
-    ...section(groups.economics, ['costTotal', 'margin', 'marginPercent']),
-    ...section(groups.pay, [
-      'daysLate',
+    ...section(groups.itemsAndTotal, [
+      'subtotal',
+      'discountKind',
+      'discountValue',
+      'discount',
+      'total',
+      'paid',
+      'balance',
+    ]),
+    ...section(groups.economics, [
+      'costTotal',
+      'margin',
+      'marginPercent',
       'masterPayCalculated',
       'masterPenalty',
       'masterBonus',
       'masterPayTotal',
+      'daysLate',
     ]),
-    { field: order.number, viewField: fields.number, isVisible: false },
+    ...hidden([
+      'name',
+      'number',
+      'items',
+      'extraServices',
+      'areaSquareMeters',
+      'prepayment',
+      'deadlineState',
+    ]),
   ]),
 });

@@ -5,43 +5,31 @@ import { VIEW_PART_IDS } from 'src/constants/view-part-identifiers';
 
 const ids = VIEW_PART_IDS.orderRecordPage;
 
-const tab = (
+const table = (
   universalIdentifier: string,
-  widgetUniversalIdentifier: string,
   title: string,
-  icon: string,
-  position: number,
-  type: 'TIMELINE' | 'NOTES' | 'FILES',
+  fieldMetadataId: string,
+  viewId: string,
 ) => ({
   universalIdentifier,
   title,
-  position,
-  icon,
-  layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
-  widgets: [
-    {
-      universalIdentifier: widgetUniversalIdentifier,
-      title,
-      type,
-      configuration: { configurationType: type },
-    },
-  ],
+  type: 'FIELD' as const,
+  configuration: {
+    configurationType: 'FIELD' as const,
+    fieldMetadataId,
+    fieldDisplayMode: 'TABLE' as const,
+    viewId,
+  },
 });
-
-const notesTab = tab(
-  ids.notesTab,
-  ids.notesWidget,
-  'Заметки',
-  'IconNotes',
-  30,
-  'NOTES',
-);
 
 export default definePageLayout({
   universalIdentifier: ids.layout,
   name: 'Карточка заказа',
   type: 'RECORD_PAGE',
   objectUniversalIdentifier: IDS.order.object,
+  // A phone and the side panel show one tab at a time: they open on the work,
+  // not on the fields.
+  defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier: ids.itemsTab,
   tabs: [
     {
       universalIdentifier: ids.homeTab,
@@ -62,78 +50,55 @@ export default definePageLayout({
       ],
     },
     // On the full page the first tab is pinned to the left column, so this tab
-    // is what the main area opens on: openings with their area and total.
+    // is what the main area opens on: the next step, then what is being made.
     {
       universalIdentifier: ids.itemsTab,
-      title: 'Позиции',
+      title: 'Работа',
       position: 15,
-      icon: 'IconRuler',
+      icon: 'IconHammer',
       layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
       widgets: [
         {
-          universalIdentifier: ids.itemsWidget,
-          title: 'Проёмы',
-          type: 'FIELD',
+          universalIdentifier: IDS.orderHeader.orderPageWidget,
+          title: 'Что дальше',
+          type: 'FRONT_COMPONENT',
           configuration: {
-            configurationType: 'FIELD',
-            fieldMetadataId: IDS.order.items,
-            fieldDisplayMode: 'TABLE',
-            viewId: IDS.view.orderItemsTable,
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier: IDS.orderHeader.frontComponent,
           },
         },
-        {
-          universalIdentifier: ids.extraServicesWidget,
-          title: 'Доп. услуги',
-          type: 'FIELD',
-          configuration: {
-            configurationType: 'FIELD',
-            fieldMetadataId: IDS.order.extraServices,
-            fieldDisplayMode: 'TABLE',
-            viewId: IDS.view.orderExtraServicesTable,
-          },
-        },
-        {
-          universalIdentifier: ids.totalsWidget,
-          title: 'Итого',
-          type: 'FIELDS',
-          configuration: {
-            configurationType: 'FIELDS',
-            viewUniversalIdentifier: IDS.view.orderTotals,
-          },
-        },
-        {
-          universalIdentifier: ids.materialStatusWidget,
-          title: 'Материал',
-          type: 'FIELDS',
-          configuration: {
-            configurationType: 'FIELDS',
-            viewUniversalIdentifier: IDS.view.orderMaterialStatus,
-          },
-        },
-        {
-          universalIdentifier: ids.materialsWidget,
-          title: 'Материалы',
-          type: 'FIELD',
-          configuration: {
-            configurationType: 'FIELD',
-            fieldMetadataId: IDS.order.materials,
-            fieldDisplayMode: 'TABLE',
-            viewId: IDS.view.orderMaterialsTable,
-          },
-        },
+        table(
+          ids.itemsWidget,
+          'Что делаем',
+          IDS.order.items,
+          IDS.view.orderItemsTable,
+        ),
+        table(
+          ids.extraServicesWidget,
+          'Козырьки и услуги',
+          IDS.order.extraServices,
+          IDS.view.orderExtraServicesTable,
+        ),
+        table(
+          ids.paymentsWidget,
+          'Оплаты',
+          IDS.order.payments,
+          IDS.view.orderPaymentsTable,
+        ),
+        table(
+          ids.materialsWidget,
+          'Материалы',
+          IDS.order.materials,
+          IDS.view.orderMaterialsTable,
+        ),
       ],
     },
-    tab(
-      ids.timelineTab,
-      ids.timelineWidget,
-      'История',
-      'IconTimelineEvent',
-      20,
-      'TIMELINE',
-    ),
     {
-      ...notesTab,
-      // The notes list fills the tab, so the SDK requires it to come last.
+      universalIdentifier: ids.notesTab,
+      title: 'Фото и заметки',
+      position: 20,
+      icon: 'IconNotes',
+      layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
       widgets: [
         {
           universalIdentifier: IDS.measurementNotes.orderPageWidget,
@@ -145,9 +110,37 @@ export default definePageLayout({
               IDS.measurementNotes.frontComponent,
           },
         },
-        ...notesTab.widgets,
+        {
+          universalIdentifier: ids.filesWidget,
+          title: 'Файлы',
+          type: 'FILES',
+          // Files fill a tab by default, and a tab may hold one such widget.
+          heightBehavior: 'FIT_CONTENT',
+          configuration: { configurationType: 'FILES' },
+        },
+        // The notes list fills the tab, so the SDK requires it to come last.
+        {
+          universalIdentifier: ids.notesWidget,
+          title: 'Заметки',
+          type: 'NOTES',
+          configuration: { configurationType: 'NOTES' },
+        },
       ],
     },
-    tab(ids.filesTab, ids.filesWidget, 'Файлы', 'IconPaperclip', 40, 'FILES'),
+    {
+      universalIdentifier: ids.timelineTab,
+      title: 'История',
+      position: 30,
+      icon: 'IconTimelineEvent',
+      layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
+      widgets: [
+        {
+          universalIdentifier: ids.timelineWidget,
+          title: 'История',
+          type: 'TIMELINE',
+          configuration: { configurationType: 'TIMELINE' },
+        },
+      ],
+    },
   ],
 });
