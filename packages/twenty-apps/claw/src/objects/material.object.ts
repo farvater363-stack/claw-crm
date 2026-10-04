@@ -6,12 +6,12 @@ import {
 } from 'twenty-sdk/define';
 
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import {
   MATERIAL_UNIT_OPTIONS,
   STOCK_STATE_OPTIONS,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
+import { money } from 'src/objects/money-field';
 
 const { material } = IDS;
 
@@ -77,15 +77,7 @@ export default defineObject({
       isNullable: true,
       options: STOCK_STATE_OPTIONS,
     },
-    {
-      universalIdentifier: material.lastPurchasePrice,
-      type: FieldType.CURRENCY,
-      name: 'lastPurchasePrice',
-      label: 'Цена закупки',
-      icon: 'IconCurrency',
-      isNullable: true,
-      universalSettings: FULL_MONEY_DISPLAY,
-    },
+    money(material.lastPurchasePrice, 'lastPurchasePrice', 'Цена закупки'),
     quantity(
       material.overrunPercent,
       'overrunPercent',

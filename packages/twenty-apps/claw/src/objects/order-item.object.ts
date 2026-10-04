@@ -6,9 +6,9 @@ import {
   RelationType,
 } from 'twenty-sdk/define';
 
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
+import { money } from 'src/objects/money-field';
 
 const centimeters = (
   universalIdentifier: string,
@@ -23,17 +23,6 @@ const centimeters = (
     icon: 'IconRuler2',
     isNullable: true,
   }) as const;
-const money = (universalIdentifier: string, name: string, label: string) =>
-  ({
-    universalIdentifier,
-    type: FieldType.CURRENCY,
-    name,
-    label,
-    icon: 'IconCurrency',
-    isNullable: true,
-    universalSettings: FULL_MONEY_DISPLAY,
-  }) as const;
-
 export default defineObject({
   universalIdentifier: IDS.orderItem.object,
   nameSingular: 'orderItem',

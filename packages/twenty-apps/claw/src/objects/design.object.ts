@@ -1,24 +1,9 @@
 import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
 
 import { METAL_OPTIONS } from 'src/constants/select-options';
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
-
-const currencyField = (
-  universalIdentifier: string,
-  name: string,
-  label: string,
-) =>
-  ({
-    universalIdentifier,
-    type: FieldType.CURRENCY,
-    universalSettings: FULL_MONEY_DISPLAY,
-    name,
-    label,
-    icon: 'IconCurrency',
-    isNullable: true,
-  }) as const;
+import { money } from 'src/objects/money-field';
 
 export default defineObject({
   universalIdentifier: IDS.design.object,
@@ -54,22 +39,18 @@ export default defineObject({
       isNullable: true,
       options: METAL_OPTIONS,
     },
-    currencyField(
-      IDS.design.pricePerSquareMeter,
-      'pricePerSquareMeter',
-      'Цена за м²',
-    ),
-    currencyField(
+    money(IDS.design.pricePerSquareMeter, 'pricePerSquareMeter', 'Цена за м²'),
+    money(
       IDS.design.materialCostPerSquareMeter,
       'materialCostPerSquareMeter',
       'Материал за м²',
     ),
-    currencyField(
+    money(
       IDS.design.manufacturingCostPerSquareMeter,
       'manufacturingCostPerSquareMeter',
       'Работа за м²',
     ),
-    currencyField(
+    money(
       IDS.design.installationCostPerSquareMeter,
       'installationCostPerSquareMeter',
       'Установка за м²',

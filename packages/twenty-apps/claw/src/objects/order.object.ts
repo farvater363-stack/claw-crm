@@ -14,9 +14,9 @@ import {
   ORDER_STATUS_OPTIONS,
   SOURCE_OPTIONS,
 } from 'src/constants/select-options';
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
+import { money } from 'src/objects/money-field';
 
 const text = (
   universalIdentifier: string,
@@ -31,16 +31,6 @@ const text = (
     label,
     icon,
     isNullable: true,
-  }) as const;
-const money = (universalIdentifier: string, name: string, label: string) =>
-  ({
-    universalIdentifier,
-    type: FieldType.CURRENCY,
-    name,
-    label,
-    icon: 'IconCurrency',
-    isNullable: true,
-    universalSettings: FULL_MONEY_DISPLAY,
   }) as const;
 const date = (universalIdentifier: string, name: string, label: string) =>
   ({
