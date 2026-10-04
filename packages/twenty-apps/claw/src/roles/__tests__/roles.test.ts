@@ -208,7 +208,7 @@ describe('grille prices and composition', () => {
 });
 
 describe('functions role', () => {
-  it('soft-deletes only the lines and movements the order sync removes, and destroys nothing', () => {
+  it('soft-deletes only what the order sync and the price list screen remove, and destroys nothing', () => {
     const permissions = functionsRole.config.objectPermissions ?? [];
 
     expect(functionsRole.config.canSoftDeleteAllObjectRecords).toBe(false);
@@ -218,7 +218,15 @@ describe('functions role', () => {
         .filter((permission) => permission.canSoftDeleteObjectRecords === true)
         .map((permission) => permission.objectUniversalIdentifier)
         .sort(),
-    ).toEqual([IDS.orderMaterial.object, IDS.stockMovement.object].sort());
+    ).toEqual(
+      [
+        IDS.orderMaterial.object,
+        IDS.stockMovement.object,
+        IDS.design.object,
+        IDS.extraService.object,
+        IDS.materialNorm.object,
+      ].sort(),
+    );
     expect(
       permissions.filter(
         (permission) => permission.canDestroyObjectRecords !== false,

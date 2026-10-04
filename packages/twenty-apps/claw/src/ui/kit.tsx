@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode, useState } from 'react';
 import { useColorScheme } from 'twenty-sdk/front-component';
 
 import {
+  COLUMNS_MIN_WIDTH,
   CONTENT_MAX_WIDTH,
   CONTROL_HEIGHT,
   PALETTE,
@@ -321,6 +322,8 @@ export const TextInput = ({
   value,
   onChange,
   onCommit,
+  onEnter,
+  onCancel,
   inputMode = 'text',
   suffix,
   placeholder,
@@ -330,6 +333,10 @@ export const TextInput = ({
   // Fires on Enter and on every blur, changed or not: a consumer must skip a
   // value equal to the saved one, or it saves twice
   onCommit?: () => void;
+  // Enter alone, for a form that must not save when the field loses focus
+  onEnter?: () => void;
+  // Escape, for a field in a form that can be closed
+  onCancel?: () => void;
   inputMode?: 'text' | 'decimal' | 'numeric';
   suffix?: string;
   placeholder?: string;
@@ -363,7 +370,12 @@ export const TextInput = ({
           onCommit?.();
         }}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') onCommit?.();
+          if (event.key === 'Enter') {
+            onCommit?.();
+            onEnter?.();
+          }
+
+          if (event.key === 'Escape') onCancel?.();
         }}
         style={{
           flex: 1,
@@ -626,11 +638,21 @@ export const Group = ({
   </div>
 );
 
-// Fields side by side on a tablet, one under another on a phone
+// Fields in one row when the block is wider than a phone, one under another
+// when it is not. The basis is nothing above the threshold and huge below it,
+// so the fields never split two and one; without minWidth an input's own
+// width would still push the last field to a second row.
 export const Columns = ({ children }: { children: ReactNode[] }) => (
   <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.md }}>
     {children.map((child, index) => (
-      <div key={index} style={{ flex: '1 1 160px', display: 'grid' }}>
+      <div
+        key={index}
+        style={{
+          flex: `1 1 calc((${COLUMNS_MIN_WIDTH}px - 100%) * 999)`,
+          minWidth: 0,
+          display: 'grid',
+        }}
+      >
         {child}
       </div>
     ))}

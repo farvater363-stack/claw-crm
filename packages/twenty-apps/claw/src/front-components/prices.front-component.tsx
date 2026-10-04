@@ -121,10 +121,10 @@ const UNIT_OPTIONS = EXTRA_SERVICE_UNIT_OPTIONS.map(({ value }) => ({
 const moneyText = (value: number | null) =>
   value === null ? '' : value.toLocaleString('ru-RU');
 
-const dropKey = (
-  current: Record<string, string>,
+const dropKey = <TValue,>(
+  current: Record<string, TValue>,
   key: string,
-): Record<string, string> => {
+): Record<string, TValue> => {
   const { [key]: _dropped, ...rest } = current;
 
   return rest;
@@ -384,10 +384,9 @@ const Prices = () => {
   } | null>(null);
   const [newRowId, setNewRowId] = useState<string | null>(null);
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
-  const [failure, setFailure] = useState<{
-    scope: string;
-    retry: () => void;
-  } | null>(null);
+  const [failures, setFailures] = useState<
+    Record<string, { scope: string; retry: () => void }>
+  >({});
   const [removed, setRemoved] = useState<Pick<
     PriceRow,
     'id' | 'section'
@@ -459,40 +458,52 @@ const Prices = () => {
     setErrors({});
     setConfirmKey(null);
     setNewLine(null);
-    setFailure(null);
   };
 
-  // `scope` is where a failure is shown; `key` names the action, so a second
-  // identical one (Enter, then the blur that follows) is not sent twice.
+  // `scope` is where a failure is shown and `key` names the action: a failure
+  // stays until that same action is run again, whatever else is saved in
+  // between. `flightKey` keeps an identical request (Enter, then the blur
+  // that follows) from being sent twice.
   const run = async (
     scope: string,
     key: string,
     action: () => Promise<void>,
+    flightKey = key,
   ) => {
-    if (inFlight.current.has(key)) return;
+    if (inFlight.current.has(flightKey)) return;
 
-    inFlight.current.add(key);
+    inFlight.current.add(flightKey);
     setBusyKeys([...inFlight.current]);
-    setFailure(null);
+    setFailures((current) => dropKey(current, key));
 
     try {
       await action();
     } catch (error) {
       console.error(error);
-      setFailure({ scope, retry: () => void run(scope, key, action) });
+      setFailures((current) => ({
+        ...current,
+        [key]: { scope, retry: () => void run(scope, key, action, flightKey) },
+      }));
     } finally {
-      inFlight.current.delete(key);
+      inFlight.current.delete(flightKey);
       setBusyKeys([...inFlight.current]);
     }
   };
 
-  const failureNote = (scope: string) =>
-    failure?.scope === scope ? (
-      <ErrorNote
-        text={'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"'}
-        onRetry={failure.retry}
-      />
-    ) : null;
+  const failureNotes = (scope: string) =>
+    Object.entries(failures).flatMap(([key, failure]) =>
+      failure.scope === scope
+        ? [
+            <ErrorNote
+              key={key}
+              text={
+                'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"'
+              }
+              onRetry={failure.retry}
+            />,
+          ]
+        : [],
+    );
 
   const commit = <TValue,>(
     row: PriceRow,
@@ -523,13 +534,18 @@ const Prices = () => {
       return;
     }
 
-    void run(row.id, `${key}=${parsed.value}`, async () => {
-      await save(parsed.value);
-      setDrafts((current) =>
-        current[key] === draft ? dropKey(current, key) : current,
-      );
-      showSaved(key);
-    });
+    void run(
+      row.id,
+      key,
+      async () => {
+        await save(parsed.value);
+        setDrafts((current) =>
+          current[key] === draft ? dropKey(current, key) : current,
+        );
+        showSaved(key);
+      },
+      `${key}=${parsed.value}`,
+    );
   };
 
   const addRow = (section: (typeof SECTIONS)[number]) =>
@@ -564,7 +580,10 @@ const Prices = () => {
       showRow(created.id);
     });
 
-  const removeRow = (row: PriceRow) =>
+  // The question closes as soon as it is answered: if the delete is refused,
+  // the row is back as it was, with the failure note under it.
+  const removeRow = (row: PriceRow) => {
+    setConfirmKey(null);
     void run(row.id, `remove:${row.id}`, async () => {
       const entry = { id: row.id, section: row.section };
 
@@ -589,6 +608,7 @@ const Prices = () => {
         UNDO_MS,
       );
     });
+  };
 
   const restoreRow = (entry: Pick<PriceRow, 'id' | 'section'>) =>
     void run('undo', `restore:${entry.id}`, async () => {
@@ -723,19 +743,24 @@ const Prices = () => {
             quantityPerUnit: parsed.value,
           },
         ]);
-        setNewLine(null);
-        setErrors((current) => dropKey(current, newKey));
+        closeNewLine();
       });
     };
 
-    const removeLine = (line: CompositionLine) =>
+    const removeLine = (line: CompositionLine) => {
+      setConfirmKey(null);
       void run(row.id, `remove:${line.normId}`, async () => {
         await new CoreApiClient().mutation({
           deleteMaterialNorm: { __args: { id: line.normId }, id: true },
         });
         patchNorms((norms) => norms.filter((norm) => norm.id !== line.normId));
-        setConfirmKey(null);
       });
+    };
+
+    const closeNewLine = () => {
+      setNewLine(null);
+      setErrors((current) => dropKey(current, newKey));
+    };
 
     const quantityField = (line: CompositionLine) => {
       const key = `${row.id}:${line.normId}`;
@@ -835,13 +860,18 @@ const Prices = () => {
                   />
                 </Field>
                 <Field label="Сколько" error={errors[newKey]}>
+                  {/* No onCommit: leaving the amount for the material select
+                      must not save the line. */}
                   <TextInput
                     inputMode="decimal"
                     value={newLine.quantity}
                     suffix={material.unitLabel}
-                    onChange={(quantity) =>
-                      setNewLine({ ...newLine, quantity })
-                    }
+                    onChange={(quantity) => {
+                      setNewLine({ ...newLine, quantity });
+                      setErrors((current) => dropKey(current, newKey));
+                    }}
+                    onEnter={() => addLine(material.id)}
+                    onCancel={closeNewLine}
                   />
                 </Field>
               </Columns>
@@ -854,7 +884,7 @@ const Prices = () => {
                 + Добавить материал
               </Button>
               {newLine === null ? null : (
-                <Button variant="link" onClick={() => setNewLine(null)}>
+                <Button variant="link" onClick={closeNewLine}>
                   Отмена
                 </Button>
               )}
@@ -927,11 +957,16 @@ const Prices = () => {
       serviceData: CoreSchema.ExtraServiceUpdateInput,
       changes: Parameters<typeof patchRow>[1],
     ) =>
-      void run(row.id, `${choiceKey}=${value}`, async () => {
-        await updateRow(row, grilleData, serviceData);
-        patchRow(row, changes);
-        showSaved(choiceKey);
-      });
+      void run(
+        row.id,
+        choiceKey,
+        async () => {
+          await updateRow(row, grilleData, serviceData);
+          patchRow(row, changes);
+          showSaved(choiceKey);
+        },
+        `${choiceKey}=${value}`,
+      );
 
     return (
       <>
@@ -1082,7 +1117,7 @@ const Prices = () => {
           title={section.title}
           footer={
             <>
-              {failureNote(section.key)}
+              {failureNotes(section.key)}
               <Button
                 isBusy={busyKeys.includes(`add:${section.key}`)}
                 onClick={() => addRow(section)}
@@ -1119,12 +1154,12 @@ const Prices = () => {
                 </Row>
                 {/* Outside the row, so a save that fails after the row was
                     closed is still seen. */}
-                {failureNote(row.id)}
+                {failureNotes(row.id)}
               </Fragment>
             ))}
         </Section>
       ))}
-      {failureNote('undo')}
+      {failureNotes('undo')}
       {removed ? (
         <UndoBar text="Убрано." onUndo={() => restoreRow(removed)} />
       ) : null}

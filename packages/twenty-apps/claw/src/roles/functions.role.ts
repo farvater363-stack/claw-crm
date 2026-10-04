@@ -2,7 +2,9 @@ import { defineApplicationRole } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
 
-// The order material sync soft-deletes the lines and movements it no longer needs.
+// A screen's requests are bounded by this role as well as by the user's own.
+// The order material sync soft-deletes the lines and movements it no longer
+// needs; «Цены» removes grilles, services and composition rows.
 const readUpdateSoftDelete = (objectUniversalIdentifier: string) => ({
   objectUniversalIdentifier,
   canReadObjectRecords: true,
@@ -25,5 +27,8 @@ export default defineApplicationRole({
   objectPermissions: [
     readUpdateSoftDelete(IDS.orderMaterial.object),
     readUpdateSoftDelete(IDS.stockMovement.object),
+    readUpdateSoftDelete(IDS.design.object),
+    readUpdateSoftDelete(IDS.extraService.object),
+    readUpdateSoftDelete(IDS.materialNorm.object),
   ],
 });
