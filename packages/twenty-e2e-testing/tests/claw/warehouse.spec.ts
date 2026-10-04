@@ -1,10 +1,14 @@
 import { expect, type Page, test } from '@playwright/test';
 import {
   chooseOption,
+  destroyRecord,
+  equalTo,
+  findIds,
   FORCE,
   graphql,
   type Role,
   signIn,
+  throwCleanupFailures,
 } from './claw-helpers';
 
 test.use({
@@ -62,32 +66,8 @@ const create = async (
   return result[`create${object}`].id;
 };
 
-const findIds = async (
-  plural: TestObject,
-  filter: string,
-): Promise<string[]> => {
-  const ids: string[] = [];
-
-  // A row removed by the app is soft-deleted, and a plain query skips it.
-  for (const deletedAt of ['NULL', 'NOT_NULL']) {
-    const data =
-      await graphql(`{ ${plural}(filter: { ${filter}, deletedAt: { is: ${deletedAt} } }) { edges { node { id } } } }`);
-
-    ids.push(
-      ...data[plural].edges.map(
-        ({ node }: { node: { id: string } }) => node.id,
-      ),
-    );
-  }
-
-  return ids;
-};
-
 const startsWithPrefix = (field: string) =>
   `${field}: { like: ${JSON.stringify(`${PREFIX} %`)} }`;
-
-const belongsTo = (field: string, id: string) =>
-  `${field}: { eq: ${JSON.stringify(id)} }`;
 
 // Every step is independent so one failure does not skip the rest.
 const destroyTestData = async () => {
@@ -105,21 +85,13 @@ const destroyTestData = async () => {
 
   const destroy = async (plural: TestObject, ids: string[]) => {
     for (const id of ids) {
-      try {
-        await graphql(
-          `mutation($id: UUID!) { destroy${SINGULAR[plural]}(id: $id) { id } }`,
-          { id },
-        );
-      } catch (error) {
-        failures.push(`${SINGULAR[plural]} ${id}: ${String(error)}`);
-      }
-
+      await destroyRecord(SINGULAR[plural], id, failures);
       await pause(DESTROY_PAUSE);
     }
   };
 
   for (const orderId of await find('orders', startsWithPrefix('clientName'))) {
-    const ofOrder = belongsTo('orderId', orderId);
+    const ofOrder = equalTo('orderId', orderId);
 
     // Positions first: while one is left, the sync can write the order's
     // material lines again.
@@ -129,8 +101,11 @@ const destroyTestData = async () => {
   }
 
   for (const materialId of await find('materials', startsWithPrefix('name'))) {
-    const ofMaterial = belongsTo('materialId', materialId);
+    const ofMaterial = equalTo('materialId', materialId);
 
+    // A sync still running when its order was destroyed can write a line
+    // after it, which no order leads to any more.
+    await destroy('orderMaterials', await find('orderMaterials', ofMaterial));
     // History and composition lines outlive their material.
     await destroy('stockMovements', await find('stockMovements', ofMaterial));
     await destroy('materialNorms', await find('materialNorms', ofMaterial));
@@ -139,9 +114,7 @@ const destroyTestData = async () => {
 
   await destroy('designs', await find('designs', startsWithPrefix('name')));
 
-  if (failures.length > 0) {
-    throw new Error(`Cleanup left data behind:\n${failures.join('\n')}`);
-  }
+  throwCleanupFailures(failures);
 };
 
 test.beforeAll(async () => {
@@ -309,7 +282,12 @@ const workspaceMenuEntries = (page: Page): Promise<string[]> =>
     const items = Array.from(
       document.querySelectorAll('.navigation-drawer-item'),
     );
-    const textOf = (item: Element) => (item.textContent ?? '').trim();
+    // The label is the only text read: an entry's avatar holds a letter too.
+    const textOf = (item: Element) =>
+      (
+        (item.querySelector('[data-testid="tooltip"]') ?? item).textContent ??
+        ''
+      ).trim();
     const firstItem = items.find((item) => textOf(item).startsWith(firstLabel));
     const lastItem = items.find((item) => textOf(item).startsWith(lastLabel));
 
@@ -329,6 +307,7 @@ const workspaceMenuEntries = (page: Page): Promise<string[]> =>
 // A view's entry reads «Все заказы · Заказы»: the view, then its object.
 const entryName = (entry: string) => entry.split(' · ')[0];
 
+// In the order of the phase 1 spec §7.5, which is the order on screen.
 const MENUS: { role: Role; title: string; entries: string[] }[] = [
   {
     role: 'ADMIN',
@@ -385,13 +364,11 @@ for (const { role, title, entries } of MENUS) {
       page.getByRole('link', { name: MENU_ANCHORS[0] }).first(),
     ).toBeVisible({ timeout: 60_000 });
 
-    // Compared without order: the spec lists the entries, not their order.
     await expect
-      .poll(
-        async () => (await workspaceMenuEntries(page)).map(entryName).sort(),
-        { timeout: 30_000 },
-      )
-      .toEqual([...entries].sort());
+      .poll(async () => (await workspaceMenuEntries(page)).map(entryName), {
+        timeout: 30_000,
+      })
+      .toEqual(entries);
 
     expect(
       (await workspaceMenuEntries(page)).filter((entry) =>

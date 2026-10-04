@@ -106,11 +106,15 @@ describe('workshop', () => {
     expect(updatableObjectIds(workshopRole)).toEqual([]);
   });
 
-  // «Склад» opens the stock history object, so a role that cannot read it gets no menu item.
-  it('has no stock screen', () => {
-    expect(readableObjectIds(workshopRole)).not.toContain(
-      IDS.stockMovement.object,
-    );
+  // A menu entry shows only to a role that reads its object; there is no
+  // workshop login to check the menu in a browser.
+  it.each([
+    ['«Склад»', IDS.stockMovement.object],
+    ['«Цены»', IDS.materialNorm.object],
+    ['«Новый замер» and «Мои замеры»', IDS.extraService.object],
+    ['«ЗП за месяц» and «Выплаты»', IDS.masterPayment.object],
+  ])('has no %s in its menu', (_, objectId) => {
+    expect(readableObjectIds(workshopRole)).not.toContain(objectId);
   });
 });
 
@@ -121,12 +125,6 @@ describe('warehouse access', () => {
       expect.arrayContaining([IDS.materialNorm.object, IDS.material.object]),
     );
     expect(updatableObjectIds(managerRole)).not.toContain(
-      IDS.orderMaterial.object,
-    );
-  });
-
-  it('keeps order material lines read-only for the workshop', () => {
-    expect(updatableObjectIds(workshopRole)).not.toContain(
       IDS.orderMaterial.object,
     );
   });

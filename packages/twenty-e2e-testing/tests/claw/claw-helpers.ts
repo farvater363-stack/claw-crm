@@ -57,6 +57,54 @@ export const graphql = async (
   return body.data;
 };
 
+export const equalTo = (field: string, value: string) =>
+  `${field}: { eq: ${JSON.stringify(value)} }`;
+
+// `filter` is the inside of a GraphQL filter object, e.g. equalTo('name', …).
+export const findIds = async (
+  plural: string,
+  filter: string,
+): Promise<string[]> => {
+  const ids: string[] = [];
+
+  // A row removed on a screen or by the app is soft-deleted, and a plain
+  // query skips it.
+  for (const deletedAt of ['NULL', 'NOT_NULL']) {
+    const data =
+      await graphql(`{ ${plural}(filter: { ${filter}, deletedAt: { is: ${deletedAt} } }) { edges { node { id } } } }`);
+
+    ids.push(
+      ...data[plural].edges.map(
+        ({ node }: { node: { id: string } }) => node.id,
+      ),
+    );
+  }
+
+  return ids;
+};
+
+// A failure is recorded, not thrown, so one failed step does not skip the
+// rest of a cleanup; throwCleanupFailures reports them all at the end.
+export const destroyRecord = async (
+  object: string,
+  id: string,
+  failures: string[],
+) => {
+  try {
+    await graphql(`mutation($id: UUID!) { destroy${object}(id: $id) { id } }`, {
+      id,
+    });
+  } catch (error) {
+    failures.push(`${object} ${id}: ${String(error)}`);
+  }
+};
+
+export const throwCleanupFailures = (failures: string[]) => {
+  if (failures.length > 0) {
+    throw new Error(`Cleanup left data behind:\n${failures.join('\n')}`);
+  }
+};
+
 export const signIn = async (page: Page, role: Role) => {
   const loginPage = new LoginPage(page);
 

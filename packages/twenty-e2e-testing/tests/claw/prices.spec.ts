@@ -1,5 +1,14 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { chooseOption, FORCE, graphql, signIn } from './claw-helpers';
+import {
+  chooseOption,
+  destroyRecord,
+  equalTo,
+  findIds,
+  FORCE,
+  graphql,
+  signIn,
+  throwCleanupFailures,
+} from './claw-helpers';
 
 test.use({
   actionTimeout: 20_000,
@@ -25,58 +34,23 @@ const PRICE_TEXT = /123\s000 сум за м²/;
 const MEASUREMENT_TOTAL = /^Итого: 944\s640 сум$/;
 const MATERIAL_AMOUNT = '2,5';
 
-type TestObject = 'designs' | 'materials' | 'materialNorms';
-
-const findIds = async (
-  plural: TestObject,
-  field: string,
-  value: string,
-): Promise<string[]> => {
-  const ids: string[] = [];
-
-  // A row removed on the screen is soft-deleted, and a plain query skips it.
-  for (const deletedAt of ['NULL', 'NOT_NULL']) {
-    const query = `{ ${plural}(filter: { ${field}: { eq: ${JSON.stringify(value)} }, deletedAt: { is: ${deletedAt} } }) { edges { node { id } } } }`;
-    const data = await graphql(query);
-
-    ids.push(
-      ...data[plural].edges.map(
-        ({ node }: { node: { id: string } }) => node.id,
-      ),
-    );
-  }
-
-  return ids;
-};
-
 // Every step is independent so one failure does not skip the rest.
 const destroyTestData = async () => {
   const failures: string[] = [];
 
-  const destroy = async (
+  const destroy = (
     object: 'Design' | 'Material' | 'MaterialNorm',
     id: string,
-  ) => {
-    try {
-      await graphql(
-        `mutation($id: UUID!) { destroy${object}(id: $id) { id } }`,
-        { id },
-      );
-    } catch (error) {
-      failures.push(`${object} ${id}: ${String(error)}`);
-    }
-  };
+  ) => destroyRecord(object, id, failures);
 
   for (const materialId of await findIds(
     'materials',
-    'name',
-    TEST_MATERIAL_NAME,
+    equalTo('name', TEST_MATERIAL_NAME),
   )) {
     // A composition line outlives both its grille and its material.
     for (const normId of await findIds(
       'materialNorms',
-      'materialId',
-      materialId,
+      equalTo('materialId', materialId),
     )) {
       await destroy('MaterialNorm', normId);
     }
@@ -84,13 +58,14 @@ const destroyTestData = async () => {
     await destroy('Material', materialId);
   }
 
-  for (const designId of await findIds('designs', 'name', TEST_GRILLE_NAME)) {
+  for (const designId of await findIds(
+    'designs',
+    equalTo('name', TEST_GRILLE_NAME),
+  )) {
     await destroy('Design', designId);
   }
 
-  if (failures.length > 0) {
-    throw new Error(`Cleanup left data behind:\n${failures.join('\n')}`);
-  }
+  throwCleanupFailures(failures);
 };
 
 test.beforeAll(async () => {
@@ -135,8 +110,7 @@ const openRow = async (page: Page, name: string) => {
 const destroyPlaceholdersAddedSince = async (idsBefore: string[]) => {
   for (const designId of await findIds(
     'designs',
-    'name',
-    NEW_GRILLE_PLACEHOLDER,
+    equalTo('name', NEW_GRILLE_PLACEHOLDER),
   )) {
     if (!idsBefore.includes(designId)) {
       await graphql('mutation($id: UUID!) { destroyDesign(id: $id) { id } }', {
@@ -166,8 +140,7 @@ test('the owner adds a grille and its price stays after a reload', async ({
 
   const placeholderIdsBefore = await findIds(
     'designs',
-    'name',
-    NEW_GRILLE_PLACEHOLDER,
+    equalTo('name', NEW_GRILLE_PLACEHOLDER),
   );
 
   await page.getByRole('button', { name: '+ Добавить решётку' }).click(FORCE);

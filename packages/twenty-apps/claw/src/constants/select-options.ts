@@ -1,11 +1,16 @@
+// The server carries stored values over by option id, and the id the SDK
+// generates changes with the label: an option that is relabelled gets, as the
+// optional fourth entry, the id its first label produced. Without it every row
+// holding that value falls back to the field's default.
 const toOptions = <TValue extends string, TColor extends string>(
-  entries: ReadonlyArray<readonly [TValue, string, TColor]>,
+  entries: ReadonlyArray<readonly [TValue, string, TColor, string?]>,
 ) =>
-  entries.map(([value, label, color], position) => ({
+  entries.map(([value, label, color, id], position) => ({
     value,
     label,
     color,
     position,
+    ...(id === undefined ? {} : { id }),
   }));
 
 export const METAL_OPTIONS = toOptions([
@@ -119,9 +124,14 @@ export const STOCK_STATE_OPTIONS = toOptions([
 export type StockState = (typeof STOCK_STATE_OPTIONS)[number]['value'];
 
 export const STOCK_MOVEMENT_KIND_OPTIONS = toOptions([
-  ['RECEIPT', 'Купил', 'green'],
-  ['STOCKTAKE', 'Пересчёт', 'blue'],
-  ['WRITE_OFF', 'Ушло на заказ', 'orange'],
+  ['RECEIPT', 'Купил', 'green', 'f3a49374-82bc-5de5-bdeb-b177c8a7dabd'],
+  ['STOCKTAKE', 'Пересчёт', 'blue', '39c60125-a523-58d9-a592-bf57d41ec9cd'],
+  [
+    'WRITE_OFF',
+    'Ушло на заказ',
+    'orange',
+    'c4613eef-94a1-512e-87c6-deae83f82f51',
+  ],
 ] as const);
 
 export type StockMovementKind =
@@ -130,7 +140,12 @@ export type StockMovementKind =
 export const ORDER_MATERIAL_STATE_OPTIONS = toOptions([
   ['ENOUGH', 'Хватает', 'green'],
   ['SHORTAGE', 'Не хватает', 'red'],
-  ['NO_NORM', 'Не указан состав', 'yellow'],
+  [
+    'NO_NORM',
+    'Не указан состав',
+    'yellow',
+    '7c5c1feb-5c5f-5d83-bfff-7985de022885',
+  ],
 ] as const);
 
 export type OrderMaterialState =

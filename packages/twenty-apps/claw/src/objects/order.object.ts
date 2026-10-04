@@ -270,7 +270,7 @@ export default defineObject({
       universalIdentifier: IDS.order.stockMovements,
       type: FieldType.RELATION,
       name: 'stockMovements',
-      label: 'Движения склада',
+      label: 'История склада',
       icon: 'IconArrowsExchange',
       relationTargetObjectMetadataUniversalIdentifier: IDS.stockMovement.object,
       relationTargetFieldMetadataUniversalIdentifier: IDS.stockMovement.order,
