@@ -159,8 +159,8 @@ export const VIEW_PART_IDS = {
     materialsTableFields: {
       material: '0c56b59f-6c67-4c0d-80bc-348818e526a6',
       plannedQuantity: '81dfeef1-174c-4266-a9fc-e3c1075834c3',
-      writtenOffQuantity: '6b415569-1ad0-4271-a7aa-fe460b67deb4',
-      actualQuantity: '06b49a7f-0857-45a2-aeac-988614a0b05e',
+      writtenOffQuantity: '6b415569-1ad0-4271-a7aa-fe460b67deb4', // Retired: the order page shows only the planned amount; ids are never reused.
+      actualQuantity: '06b49a7f-0857-45a2-aeac-988614a0b05e', // Retired: orders no longer record actual consumption; ids are never reused.
     },
     materialsTableFilter: '28137051-ca73-448b-b9d0-1ddcea18f02f',
   },

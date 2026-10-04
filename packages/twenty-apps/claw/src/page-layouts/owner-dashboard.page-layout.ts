@@ -117,7 +117,7 @@ export default definePageLayout({
         },
         {
           universalIdentifier: IDS.ownerDashboard.overrunTableWidget,
-          title: 'Перерасход',
+          title: 'Уходит больше нормы',
           type: 'RECORD_TABLE',
           objectUniversalIdentifier: IDS.material.object,
           position: topGrid(2, 8, 6, 4),

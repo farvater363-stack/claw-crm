@@ -119,11 +119,9 @@ export const STOCK_STATE_OPTIONS = toOptions([
 export type StockState = (typeof STOCK_STATE_OPTIONS)[number]['value'];
 
 export const STOCK_MOVEMENT_KIND_OPTIONS = toOptions([
-  ['RECEIPT', 'Приход', 'green'],
-  ['STOCKTAKE', 'Инвентаризация', 'blue'],
-  ['CORRECTION', 'Корректировка', 'gray'],
-  ['WRITE_OFF', 'Списание на заказ', 'orange'],
-  ['FACT_ADJUSTMENT', 'Корректировка по факту', 'purple'],
+  ['RECEIPT', 'Купил', 'green'],
+  ['STOCKTAKE', 'Пересчёт', 'blue'],
+  ['WRITE_OFF', 'Ушло на заказ', 'orange'],
 ] as const);
 
 export type StockMovementKind =

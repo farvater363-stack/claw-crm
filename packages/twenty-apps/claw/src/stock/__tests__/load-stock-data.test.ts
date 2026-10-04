@@ -144,16 +144,6 @@ describe('loadStockData', () => {
     expect((await loadStockData(client, true)).canSeePrice).toBe(true);
     expect(JSON.stringify(queries)).not.toContain('lastPurchasePrice');
   });
-
-  it('leaves alone the fields the next task removes', async () => {
-    const { client, queries } = fakeClient();
-
-    await loadStockData(client);
-
-    expect(JSON.stringify(queries)).not.toMatch(
-      /safetyPercent|available|actualQuantity/,
-    );
-  });
 });
 
 describe('loadLatestMovements', () => {

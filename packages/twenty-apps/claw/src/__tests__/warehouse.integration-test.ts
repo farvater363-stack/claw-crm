@@ -68,7 +68,6 @@ describe('warehouse recalculation', () => {
           data: {
             name: 'Профиль (тест)',
             unit: 'METER',
-            safetyPercent: 10,
             minimumStock: 5,
           },
         },

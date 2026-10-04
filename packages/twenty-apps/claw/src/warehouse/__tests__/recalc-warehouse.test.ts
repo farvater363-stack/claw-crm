@@ -34,7 +34,7 @@ const input = (materialRecord: WarehouseMaterial): WarehouseRecalcInput => ({
   movements: [
     {
       id: 'movement-1',
-      name: 'Приход · Профиль 20×20 · +100 м',
+      name: 'Купил · Профиль 20×20 · +100 м',
       kind: 'RECEIPT',
       materialId: 'material-1',
       quantity: 100,

@@ -65,7 +65,6 @@ export const CALCULATED_FIELD_PERMISSIONS: FieldPermission[] = [
   ...readOnly(IDS.material.object, [
     IDS.material.onHand,
     IDS.material.reserved,
-    IDS.material.available,
     IDS.material.toBuy,
     IDS.material.stockState,
     IDS.material.overrunPercent,

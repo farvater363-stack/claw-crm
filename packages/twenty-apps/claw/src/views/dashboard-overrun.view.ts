@@ -9,7 +9,7 @@ const { material } = IDS;
 
 export default defineView({
   universalIdentifier: IDS.view.dashboardOverrun,
-  name: 'Перерасход',
+  name: 'Уходит больше нормы',
   objectUniversalIdentifier: material.object,
   type: ViewType.TABLE_WIDGET,
   fields: toKeyedViewFields([

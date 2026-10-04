@@ -137,8 +137,8 @@ describe('planWarehouseRecalc', () => {
       [
         movement({ id: 'receipt', quantity: 100 }),
         movement({
-          id: 'correction',
-          kind: 'CORRECTION',
+          id: 'write-off',
+          kind: 'WRITE_OFF',
           quantity: -2.5,
           createdAt: '2026-10-01T06:00:00.000Z',
         }),
@@ -157,10 +157,10 @@ describe('planWarehouseRecalc', () => {
       },
     ]);
     expect(result.movementUpdates).toEqual([
-      { id: 'receipt', update: { name: 'Приход · Профиль 20×20 · +100 м' } },
+      { id: 'receipt', update: { name: 'Купил · Профиль 20×20 · +100 м' } },
       {
-        id: 'correction',
-        update: { name: 'Корректировка · Профиль 20×20 · -2,5 м' },
+        id: 'write-off',
+        update: { name: 'Ушло на заказ · Профиль 20×20 · -2,5 м' },
       },
     ]);
   });
@@ -175,7 +175,7 @@ describe('planWarehouseRecalc', () => {
           stockState: 'OK',
         }),
       ],
-      [movement({ name: 'Приход · Профиль 20×20 · +100 м' })],
+      [movement({ name: 'Купил · Профиль 20×20 · +100 м' })],
     );
 
     expect(result).toEqual({
@@ -207,7 +207,7 @@ describe('planWarehouseRecalc', () => {
       id: 'stocktake',
       update: {
         quantity: -7,
-        name: 'Инвентаризация · Профиль 20×20 · -7 м',
+        name: 'Пересчёт · Профиль 20×20 · -7 м',
       },
     });
     expect(result.materialUpdates[0]?.update.onHand).toBe(93);
@@ -238,7 +238,7 @@ describe('planWarehouseRecalc', () => {
       id: 'stocktake',
       update: {
         quantity: 30,
-        name: 'Инвентаризация · Профиль 20×20 · +30 м',
+        name: 'Пересчёт · Профиль 20×20 · +30 м',
       },
     });
     expect(result.materialUpdates[0]?.update.onHand).toBe(50);
@@ -260,8 +260,8 @@ describe('planWarehouseRecalc', () => {
         movement({ id: 'old', unitPrice: 9_000, date: '2026-09-01' }),
         movement({ id: 'new', unitPrice: 10_000, date: '2026-10-01' }),
         movement({
-          id: 'correction',
-          kind: 'CORRECTION',
+          id: 'write-off',
+          kind: 'WRITE_OFF',
           unitPrice: 1,
           date: '2026-10-02',
         }),
@@ -445,7 +445,7 @@ describe('planWarehouseRecalc with orders', () => {
           stockState: 'OK',
         }),
       ],
-      [movement({ name: 'Приход · Профиль 20×20 · +100 м' })],
+      [movement({ name: 'Купил · Профиль 20×20 · +100 м' })],
       [],
       [orderLine()],
       [order({ materialState: 'ENOUGH' })],

@@ -19,8 +19,8 @@ export default defineObject({
   universalIdentifier: stockMovement.object,
   nameSingular: 'stockMovement',
   namePlural: 'stockMovements',
-  labelSingular: 'Движение склада',
-  labelPlural: 'Движения склада',
+  labelSingular: 'История склада',
+  labelPlural: 'История склада',
   icon: 'IconArrowsExchange',
   labelIdentifierFieldMetadataUniversalIdentifier: stockMovement.name,
   fields: withoutAuditOfAdminOnlyFields([

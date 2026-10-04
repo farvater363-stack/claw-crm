@@ -140,11 +140,11 @@ export const IDS = {
     object: '22ed336d-302e-48aa-ba6b-eabc47b8f016',
     name: '2003f8e7-1a58-4643-af62-23188d613e51',
     unit: '398721c2-d328-405b-b375-35f57e5f6fb0',
-    safetyPercent: 'dccc5f04-69e5-4f19-abb6-f0945236cfb8',
+    safetyPercent: 'dccc5f04-69e5-4f19-abb6-f0945236cfb8', // Retired: waste belongs in the grille's composition; ids are never reused.
     minimumStock: '8a17dc5f-83fa-4107-9410-dcc8dd36e620',
     onHand: '9cb16135-8c08-44a5-863c-879e70d5ce8d',
     reserved: 'dbffa501-4913-425d-b2fb-88b7ebbb44d8',
-    available: 'e894bfe4-69a7-41ba-9ec5-b23bc5547200',
+    available: 'e894bfe4-69a7-41ba-9ec5-b23bc5547200', // Retired: the stock screen shows what to buy instead; ids are never reused.
     toBuy: '2f6c8f60-1ca0-474d-9fb4-186143b7a0d4',
     stockState: 'ad9bda72-8947-4009-8270-a5de16f427ef',
     lastPurchasePrice: '49b55f27-c8a2-4814-9578-7ff54e13a52b',
@@ -182,7 +182,7 @@ export const IDS = {
     material: '516b7a41-0cc4-4825-b4ff-5846587a46bf',
     plannedQuantity: '7c4fa2a1-5002-4071-a90f-0980e36de2e0',
     writtenOffQuantity: 'c34af6f2-4bf4-4aef-8a17-e9e35453e2b5',
-    actualQuantity: '31837d06-422c-4be4-a436-bbbfc4397d08',
+    actualQuantity: '31837d06-422c-4be4-a436-bbbfc4397d08', // Retired: orders no longer record actual consumption; ids are never reused.
     movements: '60e4bec6-8a3e-417d-9ea4-eefe63af7823',
   },
   person: {

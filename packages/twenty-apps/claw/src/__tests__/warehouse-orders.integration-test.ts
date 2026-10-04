@@ -5,6 +5,7 @@ const client = new CoreApiClient();
 
 const created: { mutation: string; id: string }[] = [];
 let orderId = '';
+let materialId = '';
 
 const waitFor = async <TValue>(
   read: () => Promise<TValue>,
@@ -29,7 +30,7 @@ const remember = (mutation: string, id: string | undefined) => {
   return id;
 };
 
-const readState = async (materialId: string) => {
+const readState = async () => {
   const { orders, orderMaterials, stockMovements, materials } =
     await client.query({
       orders: {
@@ -52,7 +53,6 @@ const readState = async (materialId: string) => {
           node: {
             onHand: true,
             reserved: true,
-            available: true,
             stockState: true,
             overrunPercent: true,
           },
@@ -84,18 +84,8 @@ describe('order material lifecycle', () => {
             __args: { filter: { orderId: { eq: orderId } }, first: 10 },
             edges: { node: { id: true } },
           },
-          // The sync soft-deletes the fact movement when the actual is cleared.
           stockMovements: {
-            __args: {
-              filter: {
-                orderId: { eq: orderId },
-                or: [
-                  { deletedAt: { is: 'NULL' } },
-                  { deletedAt: { is: 'NOT_NULL' } },
-                ],
-              },
-              first: 10,
-            },
+            __args: { filter: { orderId: { eq: orderId } }, first: 10 },
             edges: { node: { id: true } },
           },
         });
@@ -123,7 +113,7 @@ describe('order material lifecycle', () => {
     }
   });
 
-  it('reserves, flags shortage, writes off once and books the actual', async () => {
+  it('reserves, flags shortage and writes off once', async () => {
     const { createDesign } = await client.mutation({
       createDesign: { __args: { data: { name: 'Склад (тест)' } }, id: true },
     });
@@ -135,32 +125,32 @@ describe('order material lifecycle', () => {
           data: {
             name: 'Пруток (тест)',
             unit: 'METER',
-            safetyPercent: 0,
             minimumStock: 0,
           },
         },
         id: true,
       },
     });
-    const materialId = remember('destroyMaterial', createMaterial?.id);
+    materialId = remember('destroyMaterial', createMaterial?.id);
 
     const { createMaterialNorm } = await client.mutation({
       createMaterialNorm: {
         __args: {
-          data: { materialId, designId, quantityPerUnit: 2 },
+          data: { materialId, designId, quantityPerUnit: 25 },
         },
         id: true,
       },
     });
     remember('destroyMaterialNorm', createMaterialNorm?.id);
 
+    // The opening recount: overuse is measured from the second one on.
     const { createStockMovement } = await client.mutation({
       createStockMovement: {
         __args: {
           data: {
-            kind: 'RECEIPT',
+            kind: 'STOCKTAKE',
             materialId,
-            quantity: 10,
+            countedQuantity: 100,
             date: '2026-10-01',
           },
         },
@@ -201,103 +191,87 @@ describe('order material lifecycle', () => {
       });
 
     await waitFor(
-      () => readState(materialId),
-      (state) => state.material?.onHand === 10,
+      () => readState(),
+      (state) => state.material?.onHand === 100,
     );
     await updateOrder({ status: 'PRICE_APPROVAL' });
 
     const reserved = await waitFor(
-      () => readState(materialId),
+      () => readState(),
       (state) =>
         state.order?.materialState === 'ENOUGH' &&
-        state.material?.reserved === 4,
+        state.material?.reserved === 50,
     );
 
     expect(reserved.lines).toMatchObject([
-      { plannedQuantity: 4, writtenOffQuantity: null },
+      { plannedQuantity: 50, writtenOffQuantity: null },
     ]);
-    expect(reserved.material?.available).toBe(6);
 
     await setPieces(6);
 
     const short = await waitFor(
-      () => readState(materialId),
+      () => readState(),
       (state) => state.order?.materialState === 'SHORTAGE',
     );
 
     expect(short.order?.materialNote).toContain(
-      'Не хватает: Пруток (тест) — 2 м',
+      'Не хватает: Пруток (тест) — 50 м',
     );
     expect(short.material?.stockState).toBe('BUY');
 
     await setPieces(2);
     await waitFor(
-      () => readState(materialId),
+      () => readState(),
       (state) => state.order?.materialState === 'ENOUGH',
     );
     await updateOrder({ status: 'PRODUCTION' });
 
     const writtenOff = await waitFor(
-      () => readState(materialId),
+      () => readState(),
       (state) =>
-        state.lines[0]?.writtenOffQuantity === 4 &&
-        state.material?.onHand === 6 &&
+        state.lines[0]?.writtenOffQuantity === 50 &&
+        state.material?.onHand === 50 &&
         state.order?.materialState === null,
     );
 
-    expect(writtenOff.movements).toEqual([{ kind: 'WRITE_OFF', quantity: -4 }]);
+    expect(writtenOff.movements).toEqual([
+      { kind: 'WRITE_OFF', quantity: -50 },
+    ]);
     expect(writtenOff.material?.reserved).toBe(0);
+    expect(writtenOff.material?.overrunPercent).toBeNull();
 
     await updateOrder({ status: 'PRICE_APPROVAL' });
     await updateOrder({ status: 'PRODUCTION' });
     await new Promise((resolve) => setTimeout(resolve, 5_000));
 
-    const again = await readState(materialId);
+    const again = await readState();
 
-    expect(again.movements).toEqual([{ kind: 'WRITE_OFF', quantity: -4 }]);
-    expect(again.material?.onHand).toBe(6);
+    expect(again.movements).toEqual([{ kind: 'WRITE_OFF', quantity: -50 }]);
+    expect(again.material?.onHand).toBe(50);
+  });
 
-    const lineId = again.lines[0]?.id;
+  it('measures overuse at the next recount', async () => {
+    if (materialId === '') {
+      throw new Error('the write-off case created no material to recount');
+    }
 
-    if (lineId === undefined) throw new Error('order material line missing');
-
-    await updateOrder({ status: 'READY' });
-    await client.mutation({
-      updateOrderMaterial: {
+    // No date: it falls on today, after the write-off, which the sync dates today.
+    const { createStockMovement } = await client.mutation({
+      createStockMovement: {
         __args: {
-          id: lineId,
-          data: { actualQuantity: 5 },
+          data: { kind: 'STOCKTAKE', materialId, countedQuantity: 46 },
         },
         id: true,
       },
     });
+    remember('destroyStockMovement', createStockMovement?.id);
 
-    const booked = await waitFor(
-      () => readState(materialId),
-      (state) => state.material?.onHand === 5,
+    const recounted = await waitFor(
+      () => readState(),
+      (state) => state.material?.onHand === 46,
     );
 
-    expect(booked.movements).toEqual(
-      expect.arrayContaining([{ kind: 'FACT_ADJUSTMENT', quantity: -1 }]),
-    );
-    expect(booked.material?.overrunPercent).toBe(25);
-
-    await client.mutation({
-      updateOrderMaterial: {
-        __args: {
-          id: lineId,
-          data: { actualQuantity: null },
-        },
-        id: true,
-      },
-    });
-
-    const cleared = await waitFor(
-      () => readState(materialId),
-      (state) => state.material?.onHand === 6 && state.movements.length === 1,
-    );
-
-    expect(cleared.movements).toEqual([{ kind: 'WRITE_OFF', quantity: -4 }]);
-    expect(cleared.material?.onHand).toBe(6);
+    // 50 went to the order and 4 more are missing: 4 / 50.
+    expect(recounted.material?.overrunPercent).toBe(8);
   });
 });

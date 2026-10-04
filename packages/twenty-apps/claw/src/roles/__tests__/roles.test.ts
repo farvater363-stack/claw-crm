@@ -97,14 +97,20 @@ const updatableObjectIds = (role: RoleResult) =>
     .map((permission) => permission.objectUniversalIdentifier);
 
 describe('workshop', () => {
-  it('reads orders and masters, and writes only actual consumption', () => {
+  it('reads orders and masters, and writes nothing', () => {
     expect(workshopRole.config.canReadAllObjectRecords).toBe(false);
+    expect(workshopRole.config.canUpdateAllObjectRecords).toBe(false);
     expect(readableObjectIds(workshopRole)).toEqual(
       expect.arrayContaining([IDS.order.object, IDS.master.object]),
     );
-    expect(updatableObjectIds(workshopRole)).toEqual([
-      IDS.orderMaterial.object,
-    ]);
+    expect(updatableObjectIds(workshopRole)).toEqual([]);
+  });
+
+  // «Склад» opens the stock history object, so a role that cannot read it gets no menu item.
+  it('has no stock screen', () => {
+    expect(readableObjectIds(workshopRole)).not.toContain(
+      IDS.stockMovement.object,
+    );
   });
 });
 
@@ -119,21 +125,9 @@ describe('warehouse access', () => {
     );
   });
 
-  it('lets the workshop edit only the actual consumption of an order', () => {
-    expect(updatableObjectIds(workshopRole)).toEqual([
+  it('keeps order material lines read-only for the workshop', () => {
+    expect(updatableObjectIds(workshopRole)).not.toContain(
       IDS.orderMaterial.object,
-    ]);
-    expect(readOnlyFieldIds(workshopRole)).toEqual(
-      expect.arrayContaining([
-        IDS.orderMaterial.name,
-        IDS.orderMaterial.plannedQuantity,
-        IDS.orderMaterial.writtenOffQuantity,
-        IDS.orderMaterial.order,
-        IDS.orderMaterial.material,
-      ]),
-    );
-    expect(readOnlyFieldIds(workshopRole)).not.toContain(
-      IDS.orderMaterial.actualQuantity,
     );
   });
 
@@ -216,7 +210,6 @@ describe('grille prices and composition', () => {
       expect.arrayContaining([
         IDS.material.onHand,
         IDS.material.reserved,
-        IDS.material.available,
         IDS.material.toBuy,
         IDS.material.stockState,
         IDS.material.overrunPercent,
