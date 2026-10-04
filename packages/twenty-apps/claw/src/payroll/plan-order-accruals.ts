@@ -1,6 +1,11 @@
 import { isInstalled } from 'src/constants/order-status-sets';
 import { type AccrualMethod } from 'src/constants/select-options';
-import { type PayRule, type PayWork, workLabel } from 'src/payroll/pay-rules';
+import {
+  isAreaMissingForRates,
+  type PayRule,
+  type PayWork,
+  workLabel,
+} from 'src/payroll/pay-rules';
 import { formatQuantity, formatWhole } from 'src/ui/format';
 import { deterministicUuid } from 'src/utils/deterministic-uuid';
 
@@ -175,10 +180,20 @@ export const planOrderAccruals = ({
       ['MEASURER', order.measurerWorkerId],
     ];
 
+    // The order shows no pay for a master whose pay cannot be counted, so he gets no line either.
+    let isMasterPayUnknown = false;
+
     for (const [work, workerId] of people) {
       if (workerId === null) continue;
 
-      for (const { method, rate } of ratesOf(workerId, work, ORDER_METHODS)) {
+      const rates = ratesOf(workerId, work, ORDER_METHODS);
+
+      if (isAreaMissingForRates(order.areaSquareMeters, rates)) {
+        isMasterPayUnknown ||= work === 'MASTER';
+        continue;
+      }
+
+      for (const { method, rate } of rates) {
         const basis =
           method === 'PER_SQUARE_METER' ? (order.areaSquareMeters ?? 0) : 1;
 
@@ -201,7 +216,7 @@ export const planOrderAccruals = ({
       }
     }
 
-    if (order.masterId !== null) {
+    if (order.masterId !== null && !isMasterPayUnknown) {
       const extras: [AccrualMethod, number][] = [
         ['BONUS', finiteOrZero(order.masterBonus)],
         ['PENALTY', finiteOrZero(order.masterPenalty)],

@@ -79,6 +79,15 @@ const masterRatesOf = (rules: PayRule[]): KeptRate[] =>
     return first ? [{ method, rate: first.amount ?? 0 }] : [];
   });
 
+// Pay per m² cannot be counted without the area. The pay on the order and the
+// accrual lines both ask this, so an order never shows no pay while lines exist.
+export const isAreaMissingForRates = (
+  areaSquareMeters: number | null,
+  rates: { method: string }[],
+): boolean =>
+  areaSquareMeters === null &&
+  rates.some((rate) => rate.method === 'PER_SQUARE_METER');
+
 // Each part is rounded by itself, as each accrual line is, so the master's
 // lines for an order add up to the pay shown on the order.
 export const computeMasterBasePay = ({
@@ -92,12 +101,7 @@ export const computeMasterBasePay = ({
 }): number | null => {
   const rates = keptRates.length > 0 ? keptRates : masterRatesOf(rules);
 
-  if (
-    areaSquareMeters === null &&
-    rates.some((rate) => rate.method === 'PER_SQUARE_METER')
-  ) {
-    return null;
-  }
+  if (isAreaMissingForRates(areaSquareMeters, rates)) return null;
 
   return rates.reduce((sum, { method, rate }) => {
     const part = Math.round(

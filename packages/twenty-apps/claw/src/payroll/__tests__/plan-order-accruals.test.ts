@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type PayRule } from 'src/payroll/pay-rules';
+import { computeMasterBasePay, type PayRule } from 'src/payroll/pay-rules';
 import {
   accrualId,
   type AccrualLine,
@@ -376,6 +376,100 @@ describe('planOrderAccruals', () => {
       upserts: [],
       deleteIds: [],
     });
+  });
+
+  describe('an order without an area', () => {
+    const MASTER_RULES = [
+      rule({ id: 'a', workerId: 'rustam', work: 'MASTER', amount: 25_000 }),
+      rule({
+        id: 'b',
+        workerId: 'rustam',
+        work: 'MASTER',
+        method: 'PER_ORDER',
+        amount: 100_000,
+      }),
+    ];
+    const master = {
+      masterId: 'rustam',
+      masterBonus: 100_000,
+      masterPenalty: 12_000,
+    };
+
+    it('writes no line for a master paid per m², as the order shows no pay for him', () => {
+      expect(
+        computeMasterBasePay({
+          rules: MASTER_RULES,
+          keptRates: [],
+          areaSquareMeters: null,
+        }),
+      ).toBeNull();
+      expect(plan({ ...master, areaSquareMeters: null }, MASTER_RULES)).toEqual(
+        { upserts: [], deleteIds: [] },
+      );
+    });
+
+    it('removes the lines of a master paid per m² when the order loses its area', () => {
+      const written = plan(master, MASTER_RULES).upserts;
+      const { upserts, deleteIds } = plan(
+        { ...master, areaSquareMeters: null },
+        [],
+        written,
+      );
+
+      expect(written).toHaveLength(4);
+      expect(upserts).toEqual([]);
+      expect(deleteIds).toEqual(written.map((line) => line.id));
+    });
+
+    it('still pays a worker who has no per-m² rate, and the master his bonus', () => {
+      const { upserts } = plan(
+        { ...master, installerId: 'farhod', areaSquareMeters: null },
+        [
+          ...MASTER_RULES,
+          rule({ id: 'c', method: 'PER_ORDER', amount: 80_000 }),
+        ],
+      );
+
+      expect(
+        upserts.map((line) => [line.workerId, line.method, line.amount]),
+      ).toEqual([['farhod', 'PER_ORDER', 80_000]]);
+      expect(
+        plan({ ...master, areaSquareMeters: null }, [
+          MASTER_RULES[1],
+        ]).upserts.map((line) => [line.method, line.amount]),
+      ).toEqual([
+        ['PER_ORDER', 100_000],
+        ['BONUS', 100_000],
+        ['PENALTY', -12_000],
+      ]);
+    });
+  });
+
+  it("makes the master's lines add up to the pay the order shows", () => {
+    const rules = [
+      rule({ id: 'a', workerId: 'rustam', work: 'MASTER', amount: 25_000 }),
+      rule({
+        id: 'b',
+        workerId: 'rustam',
+        work: 'MASTER',
+        method: 'PER_ORDER',
+        amount: 100_000,
+      }),
+    ];
+    const { upserts } = plan(
+      { masterId: 'rustam', masterBonus: 100_000, masterPenalty: 12_000 },
+      rules,
+    );
+    const basePay = computeMasterBasePay({
+      rules,
+      keptRates: [],
+      areaSquareMeters: 3.84,
+    });
+
+    expect(basePay).toBe(196_000);
+    expect(upserts.reduce((sum, line) => sum + line.amount, 0)).toBe(
+      (basePay ?? 0) + 100_000 - 12_000,
+    );
   });
 
   it('counts a kept rate that is not a number as zero', () => {
