@@ -109,16 +109,12 @@ export const syncOrderMaterials = async (
           materialId: true,
           plannedQuantity: true,
           writtenOffQuantity: true,
-          actualQuantity: true,
         },
       },
     },
     stockMovements: {
       __args: {
-        filter: {
-          ...byOrder,
-          kind: { in: ['WRITE_OFF', 'FACT_ADJUSTMENT'] },
-        },
+        filter: { ...byOrder, kind: { eq: 'WRITE_OFF' } },
         first: PAGE_SIZE,
       },
       edges: { node: { id: true, quantity: true } },
@@ -155,7 +151,6 @@ export const syncOrderMaterials = async (
       materialId: toText(node.materialId),
       plannedQuantity: toNumber(node.plannedQuantity),
       writtenOffQuantity: toNumber(node.writtenOffQuantity),
-      actualQuantity: toNumber(node.actualQuantity),
     })),
     systemMovements: (stockMovements?.edges ?? []).map(({ node }) => ({
       id: node.id,
@@ -184,12 +179,6 @@ export const syncOrderMaterials = async (
         __args: { data: { id, ...data }, upsert: true },
         id: true,
       },
-    });
-  }
-
-  for (const id of plan.movementDeletes) {
-    await client.mutation({
-      deleteStockMovement: { __args: { id }, id: true },
     });
   }
 

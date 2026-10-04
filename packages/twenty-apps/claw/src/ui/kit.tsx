@@ -259,6 +259,7 @@ export const Button = ({
   isBusy = false,
   busyText = 'Сохраняем…',
   label,
+  isWideOnPhone = false,
   onClick,
   children,
 }: {
@@ -267,13 +268,20 @@ export const Button = ({
   busyText?: string;
   // The accessible name of a button whose text is a symbol, like «×»
   label?: string;
+  // The primary button of a form is as wide as its block on a phone, where a
+  // thumb has to find it
+  isWideOnPhone?: boolean;
   onClick: () => void;
   children: ReactNode;
 }) => {
   const colors = usePalette();
   const base: CSSProperties = {
     minHeight: CONTROL_HEIGHT,
-    minWidth: CONTROL_HEIGHT,
+    // The same switch as in Columns: the whole width while the block is
+    // narrower than the threshold, the control's own minimum above it.
+    minWidth: isWideOnPhone
+      ? `min(100%, max(${CONTROL_HEIGHT}px, (${COLUMNS_MIN_WIDTH}px - 100%) * 999))`
+      : CONTROL_HEIGHT,
     padding: `0 ${SPACE.lg}px`,
     borderRadius: RADIUS.control,
     font: 'inherit',
@@ -385,9 +393,13 @@ export const TextInput = ({
   inputMode = 'text',
   suffix,
   placeholder,
+  label,
 }: {
   value: string;
   onChange: (value: string) => void;
+  // The accessible name. Without it the name is all the text of the field
+  // around the input: its label, the unit, «Сохранено», an error
+  label?: string;
   // Fires on Enter and on every blur, changed or not: a consumer must skip a
   // value equal to the saved one, or it saves twice
   onCommit?: () => void;
@@ -418,6 +430,7 @@ export const TextInput = ({
       }}
     >
       <input
+        aria-label={label}
         inputMode={inputMode}
         value={value}
         placeholder={placeholder}
@@ -462,15 +475,18 @@ export const SelectInput = ({
   value,
   onChange,
   options,
+  label,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
+  label?: string;
 }) => {
   const colors = usePalette();
 
   return (
     <select
+      aria-label={label}
       value={value}
       onChange={(event) => onChange(event.target.value)}
       style={{
@@ -753,10 +769,98 @@ export const Wrap = ({ children }: { children: ReactNode }) => (
   </div>
 );
 
-export const Hint = ({ text }: { text: string }) => {
+// A line of text that is not a field's own: a note in the urgency's colour,
+// or, in `danger`, an error that belongs to several fields at once
+export const Hint = ({
+  text,
+  tone = 'neutral',
+}: {
+  text: string;
+  tone?: Tone;
+}) => {
   const colors = usePalette();
 
-  return <div style={{ color: colors.muted }}>{text}</div>;
+  return (
+    <div
+      role={tone === 'danger' ? 'alert' : undefined}
+      style={{ color: toneColors(colors, tone).color }}
+    >
+      {text}
+    </div>
+  );
+};
+
+export const Link = ({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <a
+      href={href}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: SPACE.xs,
+        minHeight: CONTROL_HEIGHT,
+        color: colors.accent,
+        textDecoration: 'none',
+      }}
+    >
+      {children}
+    </a>
+  );
+};
+
+// On top, not at the bottom like UndoBar: the save button of a long list has
+// to be in reach from any row, and Twenty's own floating navigation covers
+// the bottom of a phone screen.
+export const StickyBar = ({ children }: { children: ReactNode }) => {
+  const colors = usePalette();
+
+  return (
+    <div
+      style={{
+        ...SHRINKABLE_GRID,
+        position: 'sticky',
+        top: 0,
+        // Above the inputs of the rows that scroll under it
+        zIndex: 1,
+        gap: SPACE.sm,
+        marginBottom: SPACE.lg,
+        padding: `${SPACE.md}px ${SPACE.lg}px`,
+        // Opaque, or the rows would show through
+        background: colors.panel,
+        border: `1px solid ${colors.border}`,
+        borderRadius: RADIUS.card,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+export const StaticRow = ({ children }: { children: ReactNode }) => {
+  const colors = usePalette();
+
+  return (
+    <div
+      style={{
+        ...SHRINKABLE_GRID,
+        alignContent: 'center',
+        gap: SPACE.md,
+        minHeight: ROW_MIN_HEIGHT,
+        padding: `${SPACE.sm}px ${SPACE.lg}px`,
+        borderTop: `1px solid ${colors.border}`,
+      }}
+    >
+      {children}
+    </div>
+  );
 };
 
 export const Thumbnail = ({

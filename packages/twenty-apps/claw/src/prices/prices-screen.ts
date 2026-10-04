@@ -162,7 +162,7 @@ export const buildPriceSections = ({
   };
 };
 
-const PLAIN_DECIMAL = /^\d+([.,]\d+)?$/;
+export const PLAIN_DECIMAL = /^\d+([.,]\d+)?$/;
 // Thousands groups: one kind of separator throughout, and a first group that is not all zeros.
 const WHOLE_SUM = /^(\d+|(?!0+[.,])\d{1,3}((\.\d{3})+|(,\d{3})+))$/;
 

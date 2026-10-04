@@ -18,11 +18,9 @@ const material = (
   id: 'material-1',
   name: 'Профиль 20×20',
   unit: 'METER',
-  safetyPercent: 10,
   minimumStock: 0,
   onHand: null,
   reserved: null,
-  available: null,
   toBuy: null,
   stockState: null,
   lastPurchasePrice: null,
@@ -36,7 +34,7 @@ const input = (materialRecord: WarehouseMaterial): WarehouseRecalcInput => ({
   movements: [
     {
       id: 'movement-1',
-      name: 'Приход · Профиль 20×20 · +100 м',
+      name: 'Купил · Профиль 20×20 · +100 м',
       kind: 'RECEIPT',
       materialId: 'material-1',
       quantity: 100,
@@ -55,7 +53,6 @@ const settled = input(
   material({
     onHand: 100,
     reserved: 0,
-    available: 100,
     toBuy: 0,
     stockState: 'OK',
   }),

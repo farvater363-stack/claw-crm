@@ -1,5 +1,5 @@
 import {
-  MATERIAL_UNIT_OPTIONS,
+  materialUnitLabel,
   type MaterialUnit,
   type OrderMaterialState,
   STOCK_MOVEMENT_KIND_OPTIONS,
@@ -13,11 +13,9 @@ export type WarehouseMaterial = {
   id: string;
   name: string | null;
   unit: MaterialUnit | null;
-  safetyPercent: number | null;
   minimumStock: number | null;
   onHand: number | null;
   reserved: number | null;
-  available: number | null;
   toBuy: number | null;
   stockState: StockState | null;
   lastPurchasePrice: number | null;
@@ -50,7 +48,6 @@ export type WarehouseOrderMaterial = {
   materialId: string | null;
   plannedQuantity: number | null;
   writtenOffQuantity: number | null;
-  actualQuantity: number | null;
 };
 
 export type WarehouseOrder = {
@@ -97,9 +94,6 @@ const round = (value: number) => roundTo(value, 2);
 export const formatQuantity = (value: number): string =>
   value.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
-const unitLabel = (unit: MaterialUnit | null) =>
-  MATERIAL_UNIT_OPTIONS.find((option) => option.value === unit)?.label ?? '';
-
 const kindLabel = (kind: StockMovementKind | null) =>
   STOCK_MOVEMENT_KIND_OPTIONS.find((option) => option.value === kind)?.label ??
   '';
@@ -107,27 +101,22 @@ const kindLabel = (kind: StockMovementKind | null) =>
 export const computeMaterialStock = ({
   onHand,
   reserved,
-  safetyPercent,
   minimumStock,
 }: {
   onHand: number;
   reserved: number;
-  safetyPercent: number;
   minimumStock: number;
-}): Pick<WarehouseMaterial, 'onHand' | 'reserved' | 'available' | 'toBuy'> & {
+}): Pick<WarehouseMaterial, 'onHand' | 'reserved' | 'toBuy'> & {
   stockState: StockState;
 } => {
-  const available = round(onHand - reserved);
-  const toBuy = round(
-    Math.max(0, reserved * (1 + safetyPercent / 100) + minimumStock - onHand),
-  );
+  const toBuy = round(Math.max(0, reserved + minimumStock - onHand));
 
   return {
     onHand: round(onHand),
     reserved: round(reserved),
-    available,
     toBuy,
-    stockState: available < 0 ? 'BUY' : toBuy > 0 ? 'LOW' : 'OK',
+    // Rounded, so a float remainder of summed quantities is not a shortage.
+    stockState: round(reserved - onHand) > 0 ? 'BUY' : toBuy > 0 ? 'LOW' : 'OK',
   };
 };
 
@@ -181,6 +170,9 @@ export const planWarehouseRecalc = ({
   const materialById = new Map(materials.map((item) => [item.id, item]));
   const onHandByMaterialId = new Map<string, number>();
   const lastPriceByMaterialId = new Map<string, number>();
+  const writtenOffSinceRecount = new Map<string, number>();
+  const recountCount = new Map<string, number>();
+  const overrunByMaterialId = new Map<string, number | null>();
   const movementEntries: Entry<MovementWrite>[] = [];
 
   for (const movement of inStockOrder(movements)) {
@@ -199,6 +191,26 @@ export const planWarehouseRecalc = ({
 
     onHandByMaterialId.set(material.id, round(balance + quantity));
 
+    if (movement.kind === 'WRITE_OFF') {
+      writtenOffSinceRecount.set(
+        material.id,
+        (writtenOffSinceRecount.get(material.id) ?? 0) + Math.abs(quantity),
+      );
+    }
+
+    if (movement.kind === 'STOCKTAKE' && movement.countedQuantity !== null) {
+      const base = writtenOffSinceRecount.get(material.id) ?? 0;
+      const isFirst = (recountCount.get(material.id) ?? 0) === 0;
+
+      // The first recount is the opening balance, not a drift.
+      overrunByMaterialId.set(
+        material.id,
+        isFirst || base === 0 ? null : round((-quantity / base) * 100),
+      );
+      recountCount.set(material.id, (recountCount.get(material.id) ?? 0) + 1);
+      writtenOffSinceRecount.set(material.id, 0);
+    }
+
     if (movement.kind === 'RECEIPT' && movement.unitPrice !== null) {
       lastPriceByMaterialId.set(material.id, movement.unitPrice);
     }
@@ -208,7 +220,7 @@ export const planWarehouseRecalc = ({
       {
         quantity,
         date: effectiveDate(movement),
-        name: `${kindLabel(movement.kind)} · ${material.name ?? ''} · ${signed(quantity)} ${unitLabel(material.unit)}`,
+        name: `${kindLabel(movement.kind)} · ${material.name ?? ''} · ${signed(quantity)} ${materialUnitLabel(material.unit)}`,
       },
     ]);
   }
@@ -221,44 +233,23 @@ export const planWarehouseRecalc = ({
       .map((order) => order.id),
   );
   const reservedByMaterialId = new Map<string, number>();
-  const actualByMaterialId = new Map<
-    string,
-    { actual: number; writtenOff: number }
-  >();
 
   for (const line of lines) {
-    if (line.materialId === null) continue;
-
-    if (line.writtenOffQuantity === null) {
-      if (line.orderId === null || !reservingOrderIds.has(line.orderId)) {
-        continue;
-      }
-
-      reservedByMaterialId.set(
-        line.materialId,
-        (reservedByMaterialId.get(line.materialId) ?? 0) +
-          (line.plannedQuantity ?? 0),
-      );
-    } else if (line.actualQuantity !== null && line.writtenOffQuantity > 0) {
-      const sums = actualByMaterialId.get(line.materialId) ?? {
-        actual: 0,
-        writtenOff: 0,
-      };
-
-      actualByMaterialId.set(line.materialId, {
-        actual: sums.actual + line.actualQuantity,
-        writtenOff: sums.writtenOff + line.writtenOffQuantity,
-      });
+    if (
+      line.materialId === null ||
+      line.writtenOffQuantity !== null ||
+      line.orderId === null ||
+      !reservingOrderIds.has(line.orderId)
+    ) {
+      continue;
     }
+
+    reservedByMaterialId.set(
+      line.materialId,
+      (reservedByMaterialId.get(line.materialId) ?? 0) +
+        (line.plannedQuantity ?? 0),
+    );
   }
-
-  const overrunPercent = (materialId: string) => {
-    const sums = actualByMaterialId.get(materialId);
-
-    return sums === undefined
-      ? null
-      : round((sums.actual / sums.writtenOff - 1) * 100);
-  };
 
   const stockByMaterialId = new Map(
     materials.map((material) => [
@@ -266,7 +257,6 @@ export const planWarehouseRecalc = ({
       computeMaterialStock({
         onHand: onHandByMaterialId.get(material.id) ?? 0,
         reserved: reservedByMaterialId.get(material.id) ?? 0,
-        safetyPercent: material.safetyPercent ?? 0,
         minimumStock: material.minimumStock ?? 0,
       }),
     ]),
@@ -283,11 +273,12 @@ export const planWarehouseRecalc = ({
       }
 
       const material = materialById.get(line.materialId);
-      const available = stockByMaterialId.get(line.materialId)?.available ?? 0;
+      const stock = stockByMaterialId.get(line.materialId);
+      const shortBy = round((stock?.reserved ?? 0) - (stock?.onHand ?? 0));
 
-      return material !== undefined && available < 0
+      return material !== undefined && shortBy > 0
         ? [
-            `${material.name ?? ''} — ${formatQuantity(-available)} ${unitLabel(material.unit)}`,
+            `${material.name ?? ''} — ${formatQuantity(shortBy)} ${materialUnitLabel(material.unit)}`,
           ]
         : [];
     });
@@ -299,7 +290,7 @@ export const planWarehouseRecalc = ({
         {
           ...stockByMaterialId.get(material.id),
           lastPurchasePrice: lastPriceByMaterialId.get(material.id) ?? null,
-          overrunPercent: overrunPercent(material.id),
+          overrunPercent: overrunByMaterialId.get(material.id) ?? null,
         },
       ]),
     ),
@@ -316,7 +307,7 @@ export const planWarehouseRecalc = ({
             name:
               material === undefined
                 ? ''
-                : `${material.name ?? ''} — ${formatQuantity(norm.quantityPerUnit ?? 0)} ${unitLabel(material.unit)}`,
+                : `${material.name ?? ''} — ${formatQuantity(norm.quantityPerUnit ?? 0)} ${materialUnitLabel(material.unit)}`,
           },
         ];
       }),
@@ -335,7 +326,7 @@ export const planWarehouseRecalc = ({
             name:
               material === undefined
                 ? ''
-                : `${material.name ?? ''} — ${formatQuantity(line.plannedQuantity ?? 0)} ${unitLabel(material.unit)}`,
+                : `${material.name ?? ''} — ${formatQuantity(line.plannedQuantity ?? 0)} ${materialUnitLabel(material.unit)}`,
           },
         ];
       }),

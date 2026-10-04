@@ -97,14 +97,24 @@ const updatableObjectIds = (role: RoleResult) =>
     .map((permission) => permission.objectUniversalIdentifier);
 
 describe('workshop', () => {
-  it('reads orders and masters, and writes only actual consumption', () => {
+  it('reads orders and masters, and writes nothing', () => {
     expect(workshopRole.config.canReadAllObjectRecords).toBe(false);
+    expect(workshopRole.config.canUpdateAllObjectRecords).toBe(false);
     expect(readableObjectIds(workshopRole)).toEqual(
       expect.arrayContaining([IDS.order.object, IDS.master.object]),
     );
-    expect(updatableObjectIds(workshopRole)).toEqual([
-      IDS.orderMaterial.object,
-    ]);
+    expect(updatableObjectIds(workshopRole)).toEqual([]);
+  });
+
+  // A menu entry shows only to a role that reads its object; there is no
+  // workshop login to check the menu in a browser.
+  it.each([
+    ['«Склад»', IDS.stockMovement.object],
+    ['«Цены»', IDS.materialNorm.object],
+    ['«Новый замер» and «Мои замеры»', IDS.extraService.object],
+    ['«ЗП за месяц» and «Выплаты»', IDS.masterPayment.object],
+  ])('has no %s in its menu', (_, objectId) => {
+    expect(readableObjectIds(workshopRole)).not.toContain(objectId);
   });
 });
 
@@ -116,24 +126,6 @@ describe('warehouse access', () => {
     );
     expect(updatableObjectIds(managerRole)).not.toContain(
       IDS.orderMaterial.object,
-    );
-  });
-
-  it('lets the workshop edit only the actual consumption of an order', () => {
-    expect(updatableObjectIds(workshopRole)).toEqual([
-      IDS.orderMaterial.object,
-    ]);
-    expect(readOnlyFieldIds(workshopRole)).toEqual(
-      expect.arrayContaining([
-        IDS.orderMaterial.name,
-        IDS.orderMaterial.plannedQuantity,
-        IDS.orderMaterial.writtenOffQuantity,
-        IDS.orderMaterial.order,
-        IDS.orderMaterial.material,
-      ]),
-    );
-    expect(readOnlyFieldIds(workshopRole)).not.toContain(
-      IDS.orderMaterial.actualQuantity,
     );
   });
 
@@ -216,7 +208,6 @@ describe('grille prices and composition', () => {
       expect.arrayContaining([
         IDS.material.onHand,
         IDS.material.reserved,
-        IDS.material.available,
         IDS.material.toBuy,
         IDS.material.stockState,
         IDS.material.overrunPercent,

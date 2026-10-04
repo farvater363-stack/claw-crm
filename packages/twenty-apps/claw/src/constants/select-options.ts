@@ -1,11 +1,16 @@
+// The server carries stored values over by option id, and the id the SDK
+// generates changes with the label: an option that is relabelled gets, as the
+// optional fourth entry, the id its first label produced. Without it every row
+// holding that value falls back to the field's default.
 const toOptions = <TValue extends string, TColor extends string>(
-  entries: ReadonlyArray<readonly [TValue, string, TColor]>,
+  entries: ReadonlyArray<readonly [TValue, string, TColor, string?]>,
 ) =>
-  entries.map(([value, label, color], position) => ({
+  entries.map(([value, label, color, id], position) => ({
     value,
     label,
     color,
     position,
+    ...(id === undefined ? {} : { id }),
   }));
 
 export const METAL_OPTIONS = toOptions([
@@ -106,6 +111,9 @@ export const MATERIAL_UNIT_OPTIONS = toOptions([
 
 export type MaterialUnit = (typeof MATERIAL_UNIT_OPTIONS)[number]['value'];
 
+export const materialUnitLabel = (unit: string | null | undefined): string =>
+  MATERIAL_UNIT_OPTIONS.find((option) => option.value === unit)?.label ?? '';
+
 // Views sort SELECT by value text, so BUY < LOW < OK alphabetically is also the urgency order; keep that when renaming.
 export const STOCK_STATE_OPTIONS = toOptions([
   ['BUY', 'Нужно купить', 'red'],
@@ -116,11 +124,14 @@ export const STOCK_STATE_OPTIONS = toOptions([
 export type StockState = (typeof STOCK_STATE_OPTIONS)[number]['value'];
 
 export const STOCK_MOVEMENT_KIND_OPTIONS = toOptions([
-  ['RECEIPT', 'Приход', 'green'],
-  ['STOCKTAKE', 'Инвентаризация', 'blue'],
-  ['CORRECTION', 'Корректировка', 'gray'],
-  ['WRITE_OFF', 'Списание на заказ', 'orange'],
-  ['FACT_ADJUSTMENT', 'Корректировка по факту', 'purple'],
+  ['RECEIPT', 'Купил', 'green', 'f3a49374-82bc-5de5-bdeb-b177c8a7dabd'],
+  ['STOCKTAKE', 'Пересчёт', 'blue', '39c60125-a523-58d9-a592-bf57d41ec9cd'],
+  [
+    'WRITE_OFF',
+    'Ушло на заказ',
+    'orange',
+    'c4613eef-94a1-512e-87c6-deae83f82f51',
+  ],
 ] as const);
 
 export type StockMovementKind =
@@ -129,7 +140,12 @@ export type StockMovementKind =
 export const ORDER_MATERIAL_STATE_OPTIONS = toOptions([
   ['ENOUGH', 'Хватает', 'green'],
   ['SHORTAGE', 'Не хватает', 'red'],
-  ['NO_NORM', 'Не указан состав', 'yellow'],
+  [
+    'NO_NORM',
+    'Не указан состав',
+    'yellow',
+    '7c5c1feb-5c5f-5d83-bfff-7985de022885',
+  ],
 ] as const);
 
 export type OrderMaterialState =

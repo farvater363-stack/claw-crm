@@ -57,26 +57,16 @@ export default defineObject({
       options: MATERIAL_UNIT_OPTIONS,
     },
     {
-      universalIdentifier: material.safetyPercent,
-      type: FieldType.NUMBER,
-      name: 'safetyPercent',
-      label: 'Запас, %',
-      icon: 'IconPercentage',
-      isNullable: true,
-      defaultValue: 10,
-    },
-    {
       ...quantity(
         material.minimumStock,
         'minimumStock',
-        'Минимальный остаток',
+        'Запас не меньше',
         'IconArrowBarToDown',
       ),
       defaultValue: 0,
     },
-    quantity(material.onHand, 'onHand', 'На складе', 'IconBuildingWarehouse'),
-    quantity(material.reserved, 'reserved', 'Нужно под заказы', 'IconLock'),
-    quantity(material.available, 'available', 'Свободно', 'IconCheck'),
+    quantity(material.onHand, 'onHand', 'Есть', 'IconBuildingWarehouse'),
+    quantity(material.reserved, 'reserved', 'Нужно на заказы', 'IconLock'),
     quantity(material.toBuy, 'toBuy', 'Купить', 'IconShoppingCart'),
     {
       universalIdentifier: material.stockState,
@@ -99,7 +89,7 @@ export default defineObject({
     quantity(
       material.overrunPercent,
       'overrunPercent',
-      'Перерасход, %',
+      'Уходит больше, %',
       'IconTrendingUp',
     ),
     {
@@ -116,7 +106,7 @@ export default defineObject({
       universalIdentifier: material.movements,
       type: FieldType.RELATION,
       name: 'movements',
-      label: 'Движения',
+      label: 'История склада',
       icon: 'IconArrowsExchange',
       relationTargetObjectMetadataUniversalIdentifier: IDS.stockMovement.object,
       relationTargetFieldMetadataUniversalIdentifier:

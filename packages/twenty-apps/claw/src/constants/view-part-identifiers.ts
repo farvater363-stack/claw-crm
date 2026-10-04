@@ -159,8 +159,8 @@ export const VIEW_PART_IDS = {
     materialsTableFields: {
       material: '0c56b59f-6c67-4c0d-80bc-348818e526a6',
       plannedQuantity: '81dfeef1-174c-4266-a9fc-e3c1075834c3',
-      writtenOffQuantity: '6b415569-1ad0-4271-a7aa-fe460b67deb4',
-      actualQuantity: '06b49a7f-0857-45a2-aeac-988614a0b05e',
+      writtenOffQuantity: '6b415569-1ad0-4271-a7aa-fe460b67deb4', // Retired: the order page shows only the planned amount; ids are never reused.
+      actualQuantity: '06b49a7f-0857-45a2-aeac-988614a0b05e', // Retired: orders no longer record actual consumption; ids are never reused.
     },
     materialsTableFilter: '28137051-ca73-448b-b9d0-1ddcea18f02f',
   },
@@ -230,6 +230,7 @@ export const VIEW_PART_IDS = {
     overrunFilter: '0d277846-f550-4191-80d2-9edf21eb237b',
   },
   warehouse: {
+    // Retired: replaced by the stock screen; ids are never reused.
     materialsFields: {
       name: '3e61b78e-c100-4019-b101-c3358d632b4a',
       unit: '0880e168-0ecf-4029-9861-f76c88c19309',
@@ -242,8 +243,9 @@ export const VIEW_PART_IDS = {
       safetyPercent: 'aeda3344-70e0-49ca-8d5b-4d85a35b243d',
       overrunPercent: '4d0fd44d-5ce8-4e0f-b249-42030c8712ec',
     },
-    materialsSortState: '4cfd238a-d76f-488d-87bb-ed96fbe70420',
-    materialsSortName: '6af8cb86-f219-40be-8018-b4431764f148',
+    materialsSortState: '4cfd238a-d76f-488d-87bb-ed96fbe70420', // Retired: replaced by the stock screen; ids are never reused.
+    materialsSortName: '6af8cb86-f219-40be-8018-b4431764f148', // Retired: replaced by the stock screen; ids are never reused.
+    // Retired: replaced by the stock screen; ids are never reused.
     purchasePlanFields: {
       name: '88fe3d6e-f905-4233-a930-c8d1b7c423ac',
       unit: '830f6908-a453-45ab-9710-0f2531e8c024',
@@ -252,8 +254,8 @@ export const VIEW_PART_IDS = {
       reserved: 'bd546a18-844d-44c0-b467-5454aa9900e6',
       stockState: 'ca86a7a8-87d1-47b2-8230-804b57ccc1a1',
     },
-    purchasePlanFilterState: '17ac0a6a-6418-4eca-95ce-8c54b96a86af',
-    purchasePlanSortState: '8771d9f2-5612-4cfe-b54a-a86d512d0129',
+    purchasePlanFilterState: '17ac0a6a-6418-4eca-95ce-8c54b96a86af', // Retired: replaced by the stock screen; ids are never reused.
+    purchasePlanSortState: '8771d9f2-5612-4cfe-b54a-a86d512d0129', // Retired: replaced by the stock screen; ids are never reused.
     movementsFields: {
       name: '79d3ced9-af6b-4edb-b065-b625ac36fab9',
       date: '69efa072-99f8-4b5b-b11c-c3e3cb4dc743',
@@ -265,6 +267,7 @@ export const VIEW_PART_IDS = {
       comment: 'beb3d609-3e2d-4804-928c-d45e56eeb835',
     },
     movementsSortDate: 'f0f37b73-a7c1-45a7-a70d-62b4933d36dd',
+    // Retired: composition is edited on the prices screen; ids are never reused.
     normsFields: {
       name: '071fefa5-3c6d-401d-8ff4-df94175a0028',
       material: '761c4177-60cb-4f73-bcae-791081d42620',

@@ -83,17 +83,11 @@ export default defineObject({
       'Списано',
       'IconPackageExport',
     ),
-    quantity(
-      orderMaterial.actualQuantity,
-      'actualQuantity',
-      'Фактически',
-      'IconListCheck',
-    ),
     {
       universalIdentifier: orderMaterial.movements,
       type: FieldType.RELATION,
       name: 'movements',
-      label: 'Движения',
+      label: 'История склада',
       icon: 'IconArrowsExchange',
       relationTargetObjectMetadataUniversalIdentifier: IDS.stockMovement.object,
       relationTargetFieldMetadataUniversalIdentifier:
