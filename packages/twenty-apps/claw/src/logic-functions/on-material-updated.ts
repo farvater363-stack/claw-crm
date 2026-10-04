@@ -16,7 +16,7 @@ export default defineLogicFunction({
   databaseEventTriggerSettings: {
     eventName: 'material.updated',
     // Only inputs: the recalc writes the computed fields and must not retrigger itself.
-    updatedFields: ['name', 'unit', 'safetyPercent', 'minimumStock'],
+    updatedFields: ['name', 'unit', 'minimumStock'],
     batchMode: true,
   },
   handler,

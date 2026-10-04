@@ -17,11 +17,9 @@ const material = (
   id: 'material-1',
   name: 'Профиль 20×20',
   unit: 'METER',
-  safetyPercent: 10,
   minimumStock: 0,
   onHand: null,
   reserved: null,
-  available: null,
   toBuy: null,
   stockState: null,
   lastPurchasePrice: null,
@@ -53,7 +51,6 @@ const orderLine = (
   materialId: 'material-1',
   plannedQuantity: 60,
   writtenOffQuantity: null,
-  actualQuantity: null,
   ...overrides,
 });
 
@@ -74,44 +71,34 @@ const plan = (
   orders: WarehouseOrder[] = [],
 ) => planWarehouseRecalc({ materials, norms, movements, lines, orders });
 
-describe('computeMaterialStock', () => {
-  it('is OK when stock covers reserve, safety and minimum', () => {
+describe('stock rules', () => {
+  it('asks to buy what orders need plus the minimum, less what is there', () => {
     expect(
-      computeMaterialStock({
-        onHand: 200,
-        reserved: 100,
-        safetyPercent: 10,
-        minimumStock: 50,
-      }),
+      computeMaterialStock({ onHand: 10, reserved: 25, minimumStock: 5 }),
     ).toEqual({
-      onHand: 200,
-      reserved: 100,
-      available: 100,
-      toBuy: 0,
-      stockState: 'OK',
+      onHand: 10,
+      reserved: 25,
+      toBuy: 20,
+      stockState: 'BUY',
     });
   });
 
-  it('is LOW when orders are covered but safety or minimum are not', () => {
+  it('is LOW when orders are covered but the minimum is not', () => {
     expect(
-      computeMaterialStock({
-        onHand: 120,
-        reserved: 100,
-        safetyPercent: 10,
-        minimumStock: 50,
-      }),
-    ).toMatchObject({ available: 20, toBuy: 40, stockState: 'LOW' });
+      computeMaterialStock({ onHand: 30, reserved: 25, minimumStock: 10 }),
+    ).toMatchObject({
+      toBuy: 5,
+      stockState: 'LOW',
+    });
   });
 
-  it('is BUY when confirmed orders are not covered', () => {
+  it('is OK when both are covered', () => {
     expect(
-      computeMaterialStock({
-        onHand: 80,
-        reserved: 100,
-        safetyPercent: 10,
-        minimumStock: 0,
-      }),
-    ).toMatchObject({ available: -20, toBuy: 30, stockState: 'BUY' });
+      computeMaterialStock({ onHand: 40, reserved: 25, minimumStock: 10 }),
+    ).toMatchObject({
+      toBuy: 0,
+      stockState: 'OK',
+    });
   });
 
   it('rounds to 2 decimals', () => {
@@ -119,10 +106,19 @@ describe('computeMaterialStock', () => {
       computeMaterialStock({
         onHand: 0.1 + 0.2,
         reserved: 0,
-        safetyPercent: 0,
         minimumStock: 0,
       }).onHand,
     ).toBe(0.3);
+  });
+
+  it('does not ask to buy over a float remainder when stock equals the reserve', () => {
+    expect(
+      computeMaterialStock({
+        onHand: 0.3,
+        reserved: 0.1 + 0.2,
+        minimumStock: 0,
+      }),
+    ).toMatchObject({ toBuy: 0, stockState: 'OK' });
   });
 });
 
@@ -155,7 +151,6 @@ describe('planWarehouseRecalc', () => {
         update: {
           onHand: 97.5,
           reserved: 0,
-          available: 97.5,
           toBuy: 0,
           stockState: 'OK',
         },
@@ -176,7 +171,6 @@ describe('planWarehouseRecalc', () => {
         material({
           onHand: 100,
           reserved: 0,
-          available: 100,
           toBuy: 0,
           stockState: 'OK',
         }),
@@ -277,9 +271,9 @@ describe('planWarehouseRecalc', () => {
     expect(result.materialUpdates[0]?.update.lastPurchasePrice).toBe(10_000);
   });
 
-  it('uses reserved quantities for available, to-buy and state', () => {
+  it('uses reserved quantities for to-buy and state', () => {
     const result = plan(
-      [material({ safetyPercent: 10 })],
+      [material()],
       [movement({ quantity: 50 })],
       [],
       [orderLine({ plannedQuantity: 60 })],
@@ -288,8 +282,7 @@ describe('planWarehouseRecalc', () => {
 
     expect(result.materialUpdates[0]?.update).toMatchObject({
       reserved: 60,
-      available: -10,
-      toBuy: 16,
+      toBuy: 10,
       stockState: 'BUY',
     });
   });
@@ -349,7 +342,7 @@ describe('planWarehouseRecalc', () => {
 });
 
 describe('planWarehouseRecalc with orders', () => {
-  it('reserves only unwritten lines and computes the overrun of booked actuals', () => {
+  it('reserves only unwritten lines', () => {
     const result = plan(
       [material()],
       [movement({ quantity: 100 })],
@@ -360,21 +353,12 @@ describe('planWarehouseRecalc with orders', () => {
           id: 'done',
           plannedQuantity: 20,
           writtenOffQuantity: 20,
-          actualQuantity: 22,
-        }),
-        orderLine({
-          id: 'no-actual',
-          plannedQuantity: 30,
-          writtenOffQuantity: 30,
         }),
       ],
       [order()],
     );
 
-    expect(result.materialUpdates[0]?.update).toMatchObject({
-      reserved: 10,
-      overrunPercent: 10,
-    });
+    expect(result.materialUpdates[0]?.update.reserved).toBe(10);
   });
 
   it('reserves only lines of orders still at price approval', () => {
@@ -457,7 +441,6 @@ describe('planWarehouseRecalc with orders', () => {
         material({
           onHand: 100,
           reserved: 60,
-          available: 40,
           toBuy: 0,
           stockState: 'OK',
         }),
@@ -489,5 +472,117 @@ describe('planWarehouseRecalc with orders', () => {
     expect(result.orderUpdates).toEqual([
       { id: 'order-1', update: { materialState: null, materialNote: null } },
     ]);
+  });
+});
+
+describe('overuse from recounts', () => {
+  const profile = material({ id: 'profile' });
+  const at = (
+    date: string,
+    kind: 'RECEIPT' | 'STOCKTAKE' | 'WRITE_OFF',
+    values: object,
+  ) =>
+    movement({
+      id: `${kind}-${date}`,
+      materialId: 'profile',
+      kind,
+      date,
+      createdAt: `${date}T08:00:00Z`,
+      ...values,
+    });
+
+  it('is empty after the first recount only', () => {
+    const result = plan(
+      [profile],
+      [at('2026-10-01', 'STOCKTAKE', { countedQuantity: 100 })],
+    );
+
+    expect(result.materialUpdates[0]?.update.overrunPercent ?? null).toBeNull();
+  });
+
+  it('compares the shortage at the latest recount with what orders took since the previous one', () => {
+    const result = plan(
+      [profile],
+      [
+        at('2026-10-01', 'STOCKTAKE', { countedQuantity: 100 }),
+        at('2026-10-02', 'WRITE_OFF', { quantity: -50 }),
+        at('2026-10-03', 'STOCKTAKE', { countedQuantity: 46 }),
+      ],
+    );
+
+    // Expected 50 left, found 46: 4 short on 50 written off.
+    expect(result.materialUpdates[0].update.overrunPercent).toBe(8);
+  });
+
+  it('is empty when nothing was written off between recounts', () => {
+    const result = plan(
+      [profile],
+      [
+        at('2026-10-01', 'STOCKTAKE', { countedQuantity: 100 }),
+        at('2026-10-03', 'STOCKTAKE', { countedQuantity: 90 }),
+      ],
+    );
+
+    expect(result.materialUpdates[0]?.update.overrunPercent ?? null).toBeNull();
+  });
+
+  it('leaves out what was written off before the first recount', () => {
+    const result = plan(
+      [profile],
+      [
+        at('2026-09-29', 'RECEIPT', { quantity: 200 }),
+        at('2026-09-30', 'WRITE_OFF', { quantity: -70 }),
+        at('2026-10-01', 'STOCKTAKE', { countedQuantity: 100 }),
+        at('2026-10-02', 'WRITE_OFF', { quantity: -50 }),
+        at('2026-10-03', 'STOCKTAKE', { countedQuantity: 46 }),
+      ],
+    );
+
+    expect(result.materialUpdates[0]?.update.overrunPercent).toBe(8);
+  });
+
+  it('follows the latest recount, so a later one with nothing written off clears it', () => {
+    const result = plan(
+      [material({ id: 'profile', overrunPercent: 8 })],
+      [
+        at('2026-10-01', 'STOCKTAKE', { countedQuantity: 100 }),
+        at('2026-10-02', 'WRITE_OFF', { quantity: -50 }),
+        at('2026-10-03', 'STOCKTAKE', { countedQuantity: 46 }),
+        at('2026-10-05', 'STOCKTAKE', { countedQuantity: 46 }),
+      ],
+    );
+
+    expect(result.materialUpdates[0]?.update.overrunPercent).toBeNull();
+  });
+
+  it('goes negative when the recount finds more than expected', () => {
+    const result = plan(
+      [profile],
+      [
+        at('2026-10-01', 'STOCKTAKE', { countedQuantity: 100 }),
+        at('2026-10-02', 'WRITE_OFF', { quantity: -50 }),
+        at('2026-10-03', 'STOCKTAKE', { countedQuantity: 54 }),
+      ],
+    );
+
+    expect(result.materialUpdates[0]?.update.overrunPercent).toBe(-8);
+  });
+
+  it('counts a same-day write-off by entry time: before the recount it is in, after it waits for the next', () => {
+    const overrunWithWriteOffEnteredAt = (createdAt: string) =>
+      plan(
+        [profile],
+        [
+          at('2026-10-01', 'STOCKTAKE', { countedQuantity: 100 }),
+          at('2026-10-02', 'WRITE_OFF', { quantity: -40 }),
+          at('2026-10-03', 'WRITE_OFF', { quantity: -10, createdAt }),
+          at('2026-10-03', 'STOCKTAKE', { countedQuantity: 46 }),
+        ],
+      ).materialUpdates[0]?.update.overrunPercent;
+
+    // Entered before the recount: 50 expected, 4 short on 50 written off.
+    expect(overrunWithWriteOffEnteredAt('2026-10-03T07:00:00Z')).toBe(8);
+    // Entered after it: 60 expected at the recount, 14 short on 40 written off.
+    expect(overrunWithWriteOffEnteredAt('2026-10-03T09:00:00Z')).toBe(35);
   });
 });
