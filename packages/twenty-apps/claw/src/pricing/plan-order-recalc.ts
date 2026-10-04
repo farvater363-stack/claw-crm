@@ -3,13 +3,15 @@ import {
   type DiscountKind,
   type ExtraServiceUnit,
 } from 'src/constants/select-options';
+import {
+  applyLatePenalty,
+  computeMasterBasePay,
+  type KeptRate,
+  type PayRule,
+} from 'src/payroll/pay-rules';
 import { computeDeadlineState } from 'src/pricing/compute-deadline-state';
 import { computeDiscount } from 'src/pricing/compute-discount';
 import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
-import {
-  computeMasterBasePay,
-  computeMasterPay,
-} from 'src/pricing/compute-master-pay';
 import { addDays, computeDaysLate } from 'src/pricing/dates';
 import { roundTo } from 'src/pricing/round';
 
@@ -79,8 +81,11 @@ export type OrderSnapshot = {
 };
 
 export type MasterSnapshot = {
-  ratePerSquareMeter: number;
   penaltyPercentPerDay: number;
+  // All pay rules of the order's master
+  rules: PayRule[];
+  // The rates already written on this order's accrual lines; they win over the rules
+  keptRates: KeptRate[];
 };
 
 export type RecalcInput = {
@@ -283,23 +288,25 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
     deadline: installationDeadline,
     readyAt: order.readyAt,
   });
-  const masterPayCalculated =
-    input.master !== null && areaSquareMeters !== null
-      ? computeMasterPay({
+  const masterBasePay =
+    input.master !== null
+      ? computeMasterBasePay({
+          rules: input.master.rules,
+          keptRates: input.master.keptRates,
           areaSquareMeters,
-          ratePerSquareMeter: input.master.ratePerSquareMeter,
+        })
+      : null;
+  const masterPayCalculated =
+    input.master !== null && masterBasePay !== null
+      ? applyLatePenalty({
+          basePay: masterBasePay,
           penaltyPercentPerDay: input.master.penaltyPercentPerDay,
           daysLate: daysLate ?? 0,
         })
       : null;
   const masterPenalty =
-    input.master !== null &&
-    areaSquareMeters !== null &&
-    masterPayCalculated !== null
-      ? computeMasterBasePay({
-          areaSquareMeters,
-          ratePerSquareMeter: input.master.ratePerSquareMeter,
-        }) - masterPayCalculated
+    masterBasePay !== null && masterPayCalculated !== null
+      ? masterBasePay - masterPayCalculated
       : null;
 
   const nextOrder: OrderSnapshot = {
