@@ -24,7 +24,7 @@ export type GrilleNumbers = Pick<
 >;
 
 export type CatalogMigrationInput = {
-  designs: { id: string; name: string | null }[];
+  designs: { id: string; name: string | null; metal: string | null }[];
   priceRows: MigrationPriceRow[];
   items: {
     id: string;
@@ -75,7 +75,7 @@ export const planCatalogMigration = ({
   norms,
   services,
 }: CatalogMigrationInput): CatalogMigrationPlan => {
-  // The rule the app used until now; the migration freezes its answers into rows.
+  // The app's old lookup with metal size left out: a sized row never matches.
   const resolve = (designId: string | null, metal: string) =>
     resolvePriceListEntry(priceRows, { designId, metal, metalSize: null });
 
@@ -90,19 +90,26 @@ export const planCatalogMigration = ({
 
       return [
         design.id,
-        mostUsed(ownRowMetals) ?? mostUsed(itemMetals) ?? DEFAULT_METAL,
+        design.metal ??
+          mostUsed(ownRowMetals) ??
+          mostUsed(itemMetals) ??
+          DEFAULT_METAL,
       ];
     }),
   );
 
-  const designUpdates = designs.map((design) => {
-    const metal = mainMetalByDesignId.get(design.id) ?? DEFAULT_METAL;
+  // A metal on a design means an earlier run migrated it. Planning it again
+  // would overwrite a grille that run created: no price row names its id.
+  const designUpdates = designs
+    .filter((design) => design.metal === null)
+    .map((design) => {
+      const metal = mainMetalByDesignId.get(design.id) ?? DEFAULT_METAL;
 
-    return {
-      id: design.id,
-      numbers: numbersOf(resolve(design.id, metal), metal),
-    };
-  });
+      return {
+        id: design.id,
+        numbers: numbersOf(resolve(design.id, metal), metal),
+      };
+    });
 
   const designCreates = new Map<
     string,

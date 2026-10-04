@@ -21,8 +21,8 @@ const row = (overrides: Partial<MigrationPriceRow>): MigrationPriceRow => ({
 
 const base: CatalogMigrationInput = {
   designs: [
-    { id: 'wave', name: 'Волна' },
-    { id: 'rail', name: 'Рельс' },
+    { id: 'wave', name: 'Волна', metal: null },
+    { id: 'rail', name: 'Рельс', metal: null },
   ],
   priceRows: [
     row({
@@ -157,6 +157,51 @@ describe('planCatalogMigration', () => {
   it('is stable: the same input gives the same created ids', () => {
     expect(planCatalogMigration(base).designCreates).toEqual(
       planCatalogMigration(base).designCreates,
+    );
+  });
+
+  it('plans no updates and no repoints for a catalog it has already migrated', () => {
+    const before: CatalogMigrationInput = {
+      ...base,
+      items: [
+        { id: 'i1', designId: 'rail', metal: 'REBAR', metalSize: null },
+        { id: 'i2', designId: 'wave', metal: 'REBAR', metalSize: null },
+        { id: 'i3', designId: null, metal: 'PROFILE', metalSize: null },
+      ],
+    };
+    const first = planCatalogMigration(before);
+    const after: CatalogMigrationInput = {
+      ...before,
+      designs: [
+        ...before.designs.map((design) => ({
+          ...design,
+          metal:
+            first.designUpdates.find((update) => update.id === design.id)
+              ?.numbers.metal ?? design.metal,
+        })),
+        ...first.designCreates.map((grille) => ({
+          id: grille.id,
+          name: grille.name,
+          metal: grille.numbers.metal,
+        })),
+      ],
+      items: before.items.map((item) => ({
+        ...item,
+        designId:
+          first.itemRepoints.find((repoint) => repoint.itemId === item.id)
+            ?.designId ?? item.designId,
+      })),
+    };
+
+    const second = planCatalogMigration(after);
+
+    expect(first.designUpdates).toHaveLength(2);
+    expect(first.designCreates).toHaveLength(3);
+    expect(first.itemRepoints).toHaveLength(2);
+    expect(second.designUpdates).toEqual([]);
+    expect(second.itemRepoints).toEqual([]);
+    expect(first.designCreates).toEqual(
+      expect.arrayContaining(second.designCreates),
     );
   });
 });
