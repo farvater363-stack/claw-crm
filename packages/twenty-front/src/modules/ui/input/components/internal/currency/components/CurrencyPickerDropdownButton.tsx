@@ -44,9 +44,11 @@ const StyledIconContainer = styled.div`
 
 export const CurrencyPickerDropdownButton = ({
   selectedCurrencyCode,
+  allowedCurrencyCodes,
   onChange,
 }: {
   selectedCurrencyCode: string;
+  allowedCurrencyCodes?: string[];
   onChange: (currency: Currency) => void;
 }) => {
   const theme = useTheme();
@@ -77,6 +79,7 @@ export const CurrencyPickerDropdownButton = ({
       >
         <CurrencyPickerDropdownSelect
           selectedCurrency={currency}
+          allowedCurrencyCodes={allowedCurrencyCodes}
           onChange={onChange}
         />
       </DropdownContent>
