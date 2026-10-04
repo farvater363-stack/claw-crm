@@ -36,8 +36,8 @@ const findIds = async (
 
   // A row removed on the screen is soft-deleted, and a plain query skips it.
   for (const deletedAt of ['NULL', 'NOT_NULL']) {
-    const data =
-      await graphql(`{ ${plural}(filter: { ${field}: { eq: ${JSON.stringify(value)} }, deletedAt: { is: ${deletedAt} } }) { edges { node { id } } } }`);
+    const query = `{ ${plural}(filter: { ${field}: { eq: ${JSON.stringify(value)} }, deletedAt: { is: ${deletedAt} } }) { edges { node { id } } } }`;
+    const data = await graphql(query);
 
     ids.push(
       ...data[plural].edges.map(
@@ -105,8 +105,12 @@ test.beforeAll(async () => {
 
 test.afterAll(destroyTestData);
 
+// A role name matches by substring unless it is exact.
+const pricesLink = (page: Page) =>
+  page.getByRole('link', { name: 'Цены', exact: true });
+
 const openPrices = async (page: Page) => {
-  await page.getByRole('link', { name: 'Цены' }).first().click();
+  await pricesLink(page).first().click();
   await expect(
     page.getByRole('button', { name: '+ Добавить решётку' }),
   ).toBeVisible({ timeout: 60_000 });
@@ -123,6 +127,23 @@ const openRow = async (page: Page, name: string) => {
   await expect(header).toHaveAttribute('aria-expanded', 'true');
 
   return header.locator('xpath=..');
+};
+
+// A grille added on the screen and not yet renamed has the name every new
+// grille gets, so cleanup by name would miss it: of the rows with that name,
+// the ones added since `idsBefore` was read are this test's.
+const destroyPlaceholdersAddedSince = async (idsBefore: string[]) => {
+  for (const designId of await findIds(
+    'designs',
+    'name',
+    NEW_GRILLE_PLACEHOLDER,
+  )) {
+    if (!idsBefore.includes(designId)) {
+      await graphql('mutation($id: UUID!) { destroyDesign(id: $id) { id } }', {
+        id: designId,
+      });
+    }
+  }
 };
 
 const field = (row: Locator, label: string) =>
@@ -165,20 +186,11 @@ test('the owner adds a grille and its price stays after a reload', async ({
     await typeAndSave(newRow, 'Название', TEST_GRILLE_NAME);
     await expect(rowHeader(page, TEST_GRILLE_NAME)).toBeVisible();
   } catch (error) {
-    // Not renamed, so cleanup by name would miss it: of the rows with the
-    // name every new grille gets, the ones added since the click are ours.
-    for (const designId of await findIds(
-      'designs',
-      'name',
-      NEW_GRILLE_PLACEHOLDER,
-    )) {
-      if (!placeholderIdsBefore.includes(designId)) {
-        await graphql(
-          'mutation($id: UUID!) { destroyDesign(id: $id) { id } }',
-          { id: designId },
-        );
-      }
-    }
+    // A cleanup that fails too is logged, so the error rethrown is the one
+    // that explains the test.
+    await destroyPlaceholdersAddedSince(placeholderIdsBefore).catch(
+      console.error,
+    );
 
     throw error;
   }
@@ -268,7 +280,7 @@ test('the measurer has no «Цены» and gets the new grille in «Новый �
 
   // Wait for the menu to render before asserting that an item is missing.
   await expect(newMeasurement).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole('link', { name: 'Цены' })).toHaveCount(0);
+  await expect(pricesLink(page)).toHaveCount(0);
 
   await newMeasurement.click();
 
@@ -303,12 +315,20 @@ test('the owner removes the grille and brings it back with «Вернуть»', 
   // exact: the composition line's button is «Убрать "…" из состава».
   await row.getByRole('button', { name: 'Убрать', exact: true }).click(FORCE);
 
-  await expect(page.getByText('Убрано.')).toBeVisible({ timeout: 30_000 });
+  const undoBar = page.getByText('Убрано.', { exact: true });
+
+  await expect(undoBar).toBeVisible({ timeout: 30_000 });
   await expect(rowHeader(page, TEST_GRILLE_NAME)).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Вернуть' }).click(FORCE);
+  // exact: «Вернуть» is also inside «Свернуть боковую панель».
+  await page.getByRole('button', { name: 'Вернуть', exact: true }).click(FORCE);
 
-  await expect(rowHeader(page, TEST_GRILLE_NAME)).toBeVisible({
-    timeout: 30_000,
-  });
+  // The screen reloads its data, so the row comes back closed.
+  await expect(rowHeader(page, TEST_GRILLE_NAME)).toHaveAttribute(
+    'aria-expanded',
+    'false',
+    { timeout: 30_000 },
+  );
+  await expect(rowHeader(page, TEST_GRILLE_NAME)).toContainText(PRICE_TEXT);
+  await expect(undoBar).toHaveCount(0);
 });

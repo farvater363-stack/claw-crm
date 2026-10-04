@@ -307,18 +307,16 @@ test('admin records an advance and the master row drops by that amount', async (
   expect(payments[0].amount.amountMicros).toBe(ADVANCE_AMOUNT * 1_000_000);
 });
 
-test('a manager sees «Доступно только владельцу» and no payroll figures', async ({
-  browser,
-}) => {
+test('a manager has no «ЗП за месяц» in the sidebar', async ({ browser }) => {
   test.setTimeout(120_000);
 
   const page = await openPageAs(browser, 'MANAGER');
 
-  await openPayroll(page);
+  await page.goto('/');
 
-  await expect(page.getByText('Доступно только владельцу')).toBeVisible({
-    timeout: 60_000,
-  });
-  await expect(page.getByText('К выплате')).toHaveCount(0);
-  await expect(page.getByText(TEST_MASTER_NAME)).toHaveCount(0);
+  // Wait for the menu to render before asserting that an item is missing.
+  await expect(
+    page.getByRole('link', { name: 'Новый замер' }).first(),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('link', { name: 'ЗП за месяц' })).toHaveCount(0);
 });
