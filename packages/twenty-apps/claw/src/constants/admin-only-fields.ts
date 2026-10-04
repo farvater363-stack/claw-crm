@@ -1,3 +1,5 @@
+import { STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS } from 'twenty-sdk/define';
+
 import { IDS } from 'src/constants/universal-identifiers';
 
 // Cost, margin and pay: only admins may read them (spec §3).
@@ -29,6 +31,18 @@ export const ADMIN_ONLY_FIELD_IDS_BY_OBJECT: Record<string, string[]> = {
   [IDS.master.object]: [
     IDS.master.ratePerSquareMeter,
     IDS.master.penaltyPercentPerDay,
+    IDS.master.login,
+  ],
+  // The server does not copy a relation's permission to its other side, so the
+  // member's side of the worker's login is hidden here by name.
+  [STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.workspaceMember.universalIdentifier]: [
+    IDS.workspaceMember.workers,
+  ],
+  [IDS.payRule.object]: [IDS.payRule.amount, IDS.payRule.percent],
+  [IDS.payAccrual.object]: [
+    IDS.payAccrual.amount,
+    IDS.payAccrual.basis,
+    IDS.payAccrual.rate,
   ],
   [IDS.stockMovement.object]: [IDS.stockMovement.unitPrice],
   [IDS.material.object]: [IDS.material.lastPurchasePrice],

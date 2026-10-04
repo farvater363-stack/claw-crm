@@ -1,8 +1,14 @@
-import { SystemPermissionFlag } from 'twenty-sdk/define';
+import {
+  STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
+  SystemPermissionFlag,
+} from 'twenty-sdk/define';
 import { describe, expect, it } from 'vitest';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import loginOnMasterField from 'src/fields/login-on-master.field';
 import designObject from 'src/objects/design.object';
+import payAccrualObject from 'src/objects/pay-accrual.object';
+import payRuleObject from 'src/objects/pay-rule.object';
 import functionsRole from 'src/roles/functions.role';
 import managerRole from 'src/roles/manager.role';
 import measurerRole from 'src/roles/measurer.role';
@@ -225,7 +231,7 @@ describe('grille prices and composition', () => {
 });
 
 describe('functions role', () => {
-  it('soft-deletes only what the order sync and the price list screen remove, and destroys nothing', () => {
+  it('soft-deletes only what the order sync, the accrual sync and the screens remove, and destroys nothing', () => {
     const permissions = functionsRole.config.objectPermissions ?? [];
 
     expect(functionsRole.config.canSoftDeleteAllObjectRecords).toBe(false);
@@ -242,6 +248,8 @@ describe('functions role', () => {
         IDS.design.object,
         IDS.extraService.object,
         IDS.materialNorm.object,
+        IDS.payRule.object,
+        IDS.payAccrual.object,
       ].sort(),
     );
     expect(
@@ -272,6 +280,66 @@ describe('payments', () => {
       ).not.toContain(IDS.masterPayment.object);
     },
   );
+});
+
+describe('pay rules and accruals', () => {
+  it.each([managerRole, measurerRole, workshopRole])(
+    'stay owner-only: no app role is granted payRule or payAccrual',
+    (role) => {
+      const grantedObjectIds = (role.config.objectPermissions ?? []).map(
+        (permission) => permission.objectUniversalIdentifier,
+      );
+
+      expect(grantedObjectIds).not.toContain(IDS.payRule.object);
+      expect(grantedObjectIds).not.toContain(IDS.payAccrual.object);
+    },
+  );
+
+  it.each([managerRole, measurerRole, workshopRole])(
+    'hides the pay numbers and the worker login',
+    (role) => {
+      expect(hiddenFieldIds(role)).toEqual(
+        expect.arrayContaining([
+          IDS.master.login,
+          IDS.payRule.amount,
+          IDS.payRule.percent,
+          IDS.payAccrual.amount,
+          IDS.payAccrual.basis,
+          IDS.payAccrual.rate,
+        ]),
+      );
+    },
+  );
+
+  // The server does not copy a relation's permission to its other side, so the
+  // member's list of workers is hidden by a permission of its own.
+  it.each([managerRole, measurerRole, workshopRole])(
+    'hides the login from the workspace member side as well',
+    (role) => {
+      expect(role.config.fieldPermissions ?? []).toContainEqual({
+        objectUniversalIdentifier:
+          STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.workspaceMember
+            .universalIdentifier,
+        fieldUniversalIdentifier: IDS.workspaceMember.workers,
+        canReadFieldValue: false,
+        canUpdateFieldValue: false,
+      });
+    },
+  );
+
+  // The timeline is readable by every role, so an audited pay value would leak there.
+  it.each([payRuleObject, payAccrualObject])(
+    'keeps every pay field out of the audit log',
+    (object) => {
+      expect(
+        object.config.fields.filter((field) => field.isAuditLogged !== false),
+      ).toEqual([]);
+    },
+  );
+
+  it('keeps the worker login out of the audit log', () => {
+    expect(loginOnMasterField.config.isAuditLogged).toBe(false);
+  });
 });
 
 describe('client payments', () => {

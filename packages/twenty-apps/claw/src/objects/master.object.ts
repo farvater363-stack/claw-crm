@@ -2,6 +2,7 @@ import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
 
 import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
+import { WORKER_CATEGORY_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 
 const DEFAULT_RATE_PER_SQUARE_METER = 0;
@@ -11,8 +12,8 @@ export default defineObject({
   universalIdentifier: IDS.master.object,
   nameSingular: 'master',
   namePlural: 'masters',
-  labelSingular: 'Мастер',
-  labelPlural: 'Мастера',
+  labelSingular: 'Работник',
+  labelPlural: 'Работники',
   icon: 'IconHammer',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.master.name,
   fields: withoutAuditOfAdminOnlyFields([
@@ -38,6 +39,15 @@ export default defineObject({
       label: 'Активен',
       icon: 'IconCheck',
       defaultValue: true,
+    },
+    {
+      universalIdentifier: IDS.master.categories,
+      type: FieldType.MULTI_SELECT,
+      name: 'categories',
+      label: 'Кто',
+      icon: 'IconUsers',
+      isNullable: true,
+      options: WORKER_CATEGORY_OPTIONS,
     },
     {
       universalIdentifier: IDS.master.ratePerSquareMeter,
@@ -81,6 +91,48 @@ export default defineObject({
       relationTargetFieldMetadataUniversalIdentifier: IDS.masterPayment.master,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
       isAuditLogged: false,
+    },
+    {
+      universalIdentifier: IDS.master.payRules,
+      type: FieldType.RELATION,
+      name: 'payRules',
+      label: 'Как платим',
+      icon: 'IconCoins',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.payRule.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.payRule.worker,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+      isAuditLogged: false,
+    },
+    {
+      universalIdentifier: IDS.master.accruals,
+      type: FieldType.RELATION,
+      name: 'accruals',
+      label: 'Начисления',
+      icon: 'IconReceipt',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.payAccrual.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.payAccrual.worker,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+      isAuditLogged: false,
+    },
+    {
+      universalIdentifier: IDS.master.installedOrders,
+      type: FieldType.RELATION,
+      name: 'installedOrders',
+      label: 'Заказы на установку',
+      icon: 'IconTool',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.order.installer,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+    {
+      universalIdentifier: IDS.master.soldOrders,
+      type: FieldType.RELATION,
+      name: 'soldOrders',
+      label: 'Проданные заказы',
+      icon: 'IconClipboardList',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.order.soldBy,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
   ]),
 });
