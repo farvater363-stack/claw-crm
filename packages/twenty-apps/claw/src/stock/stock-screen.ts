@@ -5,7 +5,7 @@ import {
   parsePositiveNumber,
 } from 'src/prices/prices-screen';
 import { roundTo } from 'src/pricing/round';
-import { formatQuantity } from 'src/ui/format';
+import { formatDayMonth, formatQuantity } from 'src/ui/format';
 
 export type StockMaterial = {
   id: string;
@@ -51,6 +51,16 @@ export type StockRecountEntry = {
   materialId: string;
   countedQuantity: number;
   date: string;
+};
+
+// One entry of «Последнее». A recount carries the counted amount, a
+// write-off a negative one.
+export type StockMovementLine = {
+  id: string;
+  kind: 'RECEIPT' | 'STOCKTAKE' | 'WRITE_OFF';
+  quantity: number;
+  date: string | null;
+  orderName: string | null;
 };
 
 const QUANTITY_DECIMALS = 2;
@@ -174,3 +184,46 @@ export const buildRecount = (
     ? { ok: false, errors }
     : { ok: true, data };
 };
+
+const MATERIALS_WORD: Partial<Record<Intl.LDMLPluralRule, string>> = {
+  one: 'материал',
+  few: 'материала',
+};
+
+export const recountSummary = (
+  typed: Record<string, string>,
+): string | null => {
+  const count = Object.values(typed).filter((raw) => raw.trim() !== '').length;
+
+  return count === 0
+    ? null
+    : `Изменится ${count} ${MATERIALS_WORD[new Intl.PluralRules('ru').select(count)] ?? 'материалов'}`;
+};
+
+export const parseMinimumStock = (
+  raw: string,
+): { ok: true; value: number } | { ok: false; error: string } => {
+  const trimmed = raw.trim();
+
+  if (trimmed === '') return { ok: true, value: 0 };
+
+  const value = PLAIN_DECIMAL.test(trimmed) ? parseDecimalInput(trimmed) : null;
+
+  return value === null
+    ? { ok: false, error: 'Введите число, ноль или больше' }
+    : { ok: true, value: roundTo(value, QUANTITY_DECIMALS) };
+};
+
+export const movementText = (
+  movement: StockMovementLine,
+  unitLabel: string,
+): string =>
+  [
+    ...(movement.date === null ? [] : [formatDayMonth(movement.date)]),
+    movement.kind === 'RECEIPT'
+      ? 'купил'
+      : movement.kind === 'STOCKTAKE'
+        ? 'пересчёт'
+        : `ушло на ${movement.orderName ?? 'заказ'}`,
+    formatQuantity(Math.abs(movement.quantity), unitLabel),
+  ].join(' ');

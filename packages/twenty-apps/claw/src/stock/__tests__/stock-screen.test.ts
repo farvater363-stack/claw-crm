@@ -4,6 +4,9 @@ import {
   buildReceipt,
   buildRecount,
   buildStockRows,
+  movementText,
+  parseMinimumStock,
+  recountSummary,
   type StockMaterial,
 } from 'src/stock/stock-screen';
 
@@ -259,5 +262,77 @@ describe('buildRecount', () => {
         },
       ],
     });
+  });
+});
+
+describe('recountSummary', () => {
+  it('says nothing until an amount is typed', () => {
+    expect(recountSummary({})).toBeNull();
+    expect(recountSummary({ a: '', b: '  ' })).toBeNull();
+  });
+
+  it.each([
+    [1, 'Изменится 1 материал'],
+    [3, 'Изменится 3 материала'],
+    [5, 'Изменится 5 материалов'],
+    [21, 'Изменится 21 материал'],
+  ])('counts %i filled rows', (count, text) => {
+    const typed = Object.fromEntries(
+      Array.from({ length: count }, (_, index) => [`m${index}`, '1']),
+    );
+
+    expect(recountSummary({ ...typed, empty: ' ' })).toBe(text);
+  });
+});
+
+describe('parseMinimumStock', () => {
+  it('reads an empty field as no minimum', () => {
+    expect(parseMinimumStock('  ')).toEqual({ ok: true, value: 0 });
+  });
+
+  it('takes a comma or a dot and keeps two decimals', () => {
+    expect(parseMinimumStock('20')).toEqual({ ok: true, value: 20 });
+    expect(parseMinimumStock(' 2,345 ')).toEqual({ ok: true, value: 2.35 });
+    expect(parseMinimumStock('0.5')).toEqual({ ok: true, value: 0.5 });
+  });
+
+  it.each(['-1', 'x', '1e3'])('rejects %j', (raw) => {
+    expect(parseMinimumStock(raw)).toEqual({
+      ok: false,
+      error: 'Введите число, ноль или больше',
+    });
+  });
+});
+
+describe('movementText', () => {
+  const movement = {
+    id: 'movement',
+    kind: 'RECEIPT' as const,
+    quantity: 60,
+    date: '2026-10-03',
+    orderName: null,
+  };
+
+  it('words a purchase and a recount with the day and the unit', () => {
+    expect(movementText(movement, 'м')).toBe('3 октября купил 60 м');
+    expect(
+      movementText({ ...movement, kind: 'STOCKTAKE', quantity: 55.5 }, 'м'),
+    ).toBe('3 октября пересчёт 55,5 м');
+  });
+
+  it('names the order a write-off went to, without the minus', () => {
+    expect(
+      movementText(
+        { ...movement, kind: 'WRITE_OFF', quantity: -23, orderName: '№1031' },
+        'м',
+      ),
+    ).toBe('3 октября ушло на №1031 23 м');
+    expect(
+      movementText({ ...movement, kind: 'WRITE_OFF', quantity: -23 }, 'м'),
+    ).toBe('3 октября ушло на заказ 23 м');
+  });
+
+  it('leaves out a missing day', () => {
+    expect(movementText({ ...movement, date: null }, 'м')).toBe('купил 60 м');
   });
 });

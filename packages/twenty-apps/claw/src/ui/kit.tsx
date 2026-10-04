@@ -385,9 +385,13 @@ export const TextInput = ({
   inputMode = 'text',
   suffix,
   placeholder,
+  label,
 }: {
   value: string;
   onChange: (value: string) => void;
+  // The accessible name. Without it the name is all the text of the field
+  // around the input: its label, the unit, «Сохранено», an error
+  label?: string;
   // Fires on Enter and on every blur, changed or not: a consumer must skip a
   // value equal to the saved one, or it saves twice
   onCommit?: () => void;
@@ -418,6 +422,7 @@ export const TextInput = ({
       }}
     >
       <input
+        aria-label={label}
         inputMode={inputMode}
         value={value}
         placeholder={placeholder}
@@ -462,15 +467,18 @@ export const SelectInput = ({
   value,
   onChange,
   options,
+  label,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
+  label?: string;
 }) => {
   const colors = usePalette();
 
   return (
     <select
+      aria-label={label}
       value={value}
       onChange={(event) => onChange(event.target.value)}
       style={{
@@ -753,10 +761,71 @@ export const Wrap = ({ children }: { children: ReactNode }) => (
   </div>
 );
 
-export const Hint = ({ text }: { text: string }) => {
+// A line of text that is not a field's own: a note in the urgency's colour,
+// or, in `danger`, an error that belongs to several fields at once
+export const Hint = ({
+  text,
+  tone = 'neutral',
+}: {
+  text: string;
+  tone?: Tone;
+}) => {
   const colors = usePalette();
 
-  return <div style={{ color: colors.muted }}>{text}</div>;
+  return (
+    <div
+      role={tone === 'danger' ? 'alert' : undefined}
+      style={{ color: toneColors(colors, tone).color }}
+    >
+      {text}
+    </div>
+  );
+};
+
+export const Link = ({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <a
+      href={href}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: SPACE.xs,
+        minHeight: CONTROL_HEIGHT,
+        color: colors.accent,
+        textDecoration: 'none',
+      }}
+    >
+      {children}
+    </a>
+  );
+};
+
+// A row that does not open: its control is in the row itself
+export const StaticRow = ({ children }: { children: ReactNode }) => {
+  const colors = usePalette();
+
+  return (
+    <div
+      style={{
+        ...SHRINKABLE_GRID,
+        alignContent: 'center',
+        gap: SPACE.md,
+        minHeight: ROW_MIN_HEIGHT,
+        padding: `${SPACE.sm}px ${SPACE.lg}px`,
+        borderTop: `1px solid ${colors.border}`,
+      }}
+    >
+      {children}
+    </div>
+  );
 };
 
 export const Thumbnail = ({

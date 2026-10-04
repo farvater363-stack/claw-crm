@@ -210,10 +210,10 @@ export const IDS = {
     dashboardOverdue: '174f3195-48cc-45cb-9fb3-3a0c9d8ee9a1',
     dashboardOwesUs: '9d20587f-8238-40fa-a04d-7fa4e28e5858',
     dashboardLateThisMonth: 'f1e21b5b-c6ad-46a1-a84b-27efeae70485',
-    warehouseMaterials: '0de24506-8f77-4f98-b2f2-28fa004c48ca',
-    warehousePurchasePlan: '615a5d2f-8da5-4d87-8f0c-74faa2ca5210',
+    warehouseMaterials: '0de24506-8f77-4f98-b2f2-28fa004c48ca', // Retired: replaced by the stock screen; ids are never reused.
+    warehousePurchasePlan: '615a5d2f-8da5-4d87-8f0c-74faa2ca5210', // Retired: replaced by the stock screen; ids are never reused.
     warehouseMovements: '85cc0f6a-5cf6-434f-b371-22da4a87fb46',
-    warehouseNorms: '11ae3607-1db4-4b43-98a7-90a29d8768a2',
+    warehouseNorms: '11ae3607-1db4-4b43-98a7-90a29d8768a2', // Retired: composition is edited on the prices screen; ids are never reused.
     orderMaterialsTable: '4822592d-5f07-4c2a-9125-c5540d540af0',
     orderMaterialStatus: 'db3a3e8e-a3b3-4933-b4d0-8682679cdacf',
     dashboardPurchasePlan: 'c8875f81-bfed-4cf3-a37d-a8c66a6b4221',
@@ -233,12 +233,19 @@ export const IDS = {
     payroll: '2e98d495-7d32-4a64-abaf-7866fa2206b5',
     newMeasurement: 'd9580fb9-a409-4e83-92a5-42f87706486e',
     allOrders: 'ae5debb5-3b25-4a50-bb34-99a2c561ef57',
-    warehouse: 'd6702970-1943-4462-8355-a7ac13d372bc',
-    warehouseMaterials: 'abdeddd8-d102-4991-956b-8206771de190',
-    warehousePurchasePlan: 'db6da1ac-23e0-4b55-b1a3-318fd75281e1',
-    warehouseMovements: '6c5f9ec5-8389-4cbd-8237-eb6c757a0f03',
-    warehouseNorms: '335e4eeb-d9e1-4369-abb5-b2049d93b425',
+    warehouse: 'd6702970-1943-4462-8355-a7ac13d372bc', // Retired: replaced by the stock screen; ids are never reused.
+    warehouseMaterials: 'abdeddd8-d102-4991-956b-8206771de190', // Retired: replaced by the stock screen; ids are never reused.
+    warehousePurchasePlan: 'db6da1ac-23e0-4b55-b1a3-318fd75281e1', // Retired: replaced by the stock screen; ids are never reused.
+    warehouseMovements: '6c5f9ec5-8389-4cbd-8237-eb6c757a0f03', // Retired: replaced by the stock screen; ids are never reused.
+    warehouseNorms: '335e4eeb-d9e1-4369-abb5-b2049d93b425', // Retired: replaced by the stock screen; ids are never reused.
     prices: '5270c73e-d422-4d41-b0d4-1489b25265f5',
+    stock: '3b354a86-2ee7-49b5-88aa-8164f323fb63',
+  },
+  stock: {
+    frontComponent: '0f9c4b6b-3d4d-4979-ba26-84ba1cc57c06',
+    pageLayout: 'b974efe9-eeb3-42fc-80cf-4cf5b8716369',
+    pageLayoutTab: '2e51f3b0-0c05-4c9c-8124-7f7cfc82ba11',
+    pageLayoutWidget: '1ae69cea-ca09-4026-9485-a7d21fd758ed',
   },
   prices: {
     frontComponent: '2896e143-b42d-49d0-9e0a-be492ad9aa8b',

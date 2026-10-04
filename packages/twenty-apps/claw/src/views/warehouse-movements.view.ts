@@ -9,7 +9,7 @@ const { stockMovement } = IDS;
 
 export default defineView({
   universalIdentifier: IDS.view.warehouseMovements,
-  name: 'Движения',
+  name: 'История склада',
   objectUniversalIdentifier: stockMovement.object,
   type: ViewType.TABLE,
   icon: 'IconArrowsExchange',
