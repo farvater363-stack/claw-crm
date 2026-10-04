@@ -129,7 +129,7 @@ export type StockMovementKind =
 export const ORDER_MATERIAL_STATE_OPTIONS = toOptions([
   ['ENOUGH', 'Хватает', 'green'],
   ['SHORTAGE', 'Не хватает', 'red'],
-  ['NO_NORM', 'Нет нормы', 'yellow'],
+  ['NO_NORM', 'Не указан состав', 'yellow'],
 ] as const);
 
 export type OrderMaterialState =

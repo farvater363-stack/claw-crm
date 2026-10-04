@@ -411,7 +411,7 @@ describe('planWarehouseRecalc with orders', () => {
       [movement({ quantity: 50 })],
       [],
       [orderLine()],
-      [order({ missingNorms: 'Нет нормы: Волна' })],
+      [order({ missingNorms: 'Не указано, из чего делается: Волна' })],
     );
 
     expect(result.orderUpdates).toEqual([
@@ -419,7 +419,7 @@ describe('planWarehouseRecalc with orders', () => {
         id: 'order-1',
         update: {
           materialState: 'SHORTAGE',
-          materialNote: 'Не хватает: Профиль 20×20 — 10 м. Нет нормы: Волна',
+          materialNote: 'Не хватает: Профиль 20×20 — 10 м. Не указано, из чего делается: Волна',
         },
       },
     ]);
@@ -438,7 +438,7 @@ describe('planWarehouseRecalc with orders', () => {
       [],
       [],
       [],
-      [order({ missingNorms: 'Нет нормы: Волна' })],
+      [order({ missingNorms: 'Не указано, из чего делается: Волна' })],
     );
 
     expect(covered.orderUpdates[0]?.update).toEqual({
@@ -446,7 +446,7 @@ describe('planWarehouseRecalc with orders', () => {
     });
     expect(noNorm.orderUpdates[0]?.update).toEqual({
       materialState: 'NO_NORM',
-      materialNote: 'Нет нормы: Волна',
+      materialNote: 'Не указано, из чего делается: Волна',
     });
   });
 

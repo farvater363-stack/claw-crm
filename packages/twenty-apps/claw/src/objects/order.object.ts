@@ -250,7 +250,12 @@ export default defineObject({
       'По материалу',
       'IconAlertTriangle',
     ),
-    text(IDS.order.missingNorms, 'missingNorms', 'Нет нормы', 'IconRulerOff'),
+    text(
+      IDS.order.missingNorms,
+      'missingNorms',
+      'Не указано, из чего делается',
+      'IconRulerOff',
+    ),
     {
       universalIdentifier: IDS.order.materials,
       type: FieldType.RELATION,

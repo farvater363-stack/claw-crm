@@ -68,7 +68,7 @@ export default defineObject({
     manyToOne(
       materialNorm.extraService,
       'extraService',
-      'Из чего делается',
+      'Козырёк или услуга (на ед.)',
       'IconTool',
       IDS.extraService.object,
       IDS.extraService.norms,

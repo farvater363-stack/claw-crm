@@ -163,7 +163,8 @@ export const buildPriceSections = ({
 };
 
 const PLAIN_DECIMAL = /^\d+([.,]\d+)?$/;
-const WHOLE_SUM = /^(\d+|\d{1,3}([.,]\d{3})+)$/;
+// Thousands groups: one kind of separator throughout, and a first group that is not all zeros.
+const WHOLE_SUM = /^(\d+|(?!0+[.,])\d{1,3}((\.\d{3})+|(,\d{3})+))$/;
 
 export const parsePositiveNumber = (
   raw: string,
@@ -186,7 +187,12 @@ export const parseOptionalMoney = (
 
   // A price in сум has no fraction, so a dot or a comma can only group
   // thousands; anything else is refused rather than rounded.
-  return WHOLE_SUM.test(compact)
-    ? { ok: true, value: Number(compact.replace(/[.,]/g, '')) }
+  const value = WHOLE_SUM.test(compact)
+    ? Number(compact.replace(/[.,]/g, ''))
+    : Number.NaN;
+
+  // Digits alone can still be too many to fit a number.
+  return Number.isFinite(value)
+    ? { ok: true, value }
     : { ok: false, error: 'Введите цену целым числом, без минуса' };
 };

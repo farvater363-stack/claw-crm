@@ -7,7 +7,6 @@ import {
 } from 'src/warehouse/compute-order-material-demand';
 
 const item = (overrides: Partial<DemandItem> = {}): DemandItem => ({
-  name: '100×150',
   designId: 'grille-1',
   areaSquareMeters: 1.5,
   quantity: 2,

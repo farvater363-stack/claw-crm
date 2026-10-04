@@ -11,6 +11,7 @@ import {
   createEmptyOpening,
   describePhotoUploadFailure,
   formatUzbekNationalPhone,
+  hasOpeningWithoutPrice,
   type MeasurementDraft,
   type OpeningDraft,
   takePhotosWithinLimit,
@@ -246,6 +247,22 @@ describe('quote by grille', () => {
         grilles,
       ),
     ).toBeNull();
+  });
+
+  it('finds an opening whose grille has no price, whatever its dimensions', () => {
+    expect(
+      hasOpeningWithoutPrice(
+        [opening({ designId: 'grille-1' }), opening({ designId: 'grille-2' })],
+        grilles,
+      ),
+    ).toBe(true);
+    expect(hasOpeningWithoutPrice([opening({ designId: '' })], grilles)).toBe(
+      true,
+    );
+    expect(
+      hasOpeningWithoutPrice([opening({ designId: 'grille-1' })], grilles),
+    ).toBe(false);
+    expect(hasOpeningWithoutPrice([], grilles)).toBe(false);
   });
 });
 

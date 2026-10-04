@@ -16,7 +16,7 @@ describe('buildPriceSections', () => {
       grilles: [
         {
           id: 'b',
-          name: 'Хайтек',
+          name: 'Ромб',
           metal: 'PROFILE',
           price: 150_000,
           photoUrl: null,
@@ -34,7 +34,7 @@ describe('buildPriceSections', () => {
       materials: [],
     });
 
-    expect(grilles.map((row) => row.name)).toEqual(['Волна', 'Хайтек']);
+    expect(grilles.map((row) => row.name)).toEqual(['Волна', 'Ромб']);
     expect(plain(grilles[0].priceText)).toBe('100 000 сум за м²');
   });
 
@@ -200,13 +200,31 @@ describe('input checks', () => {
     expect(parseOptionalMoney(raw)).toEqual({ ok: true, value });
   });
 
-  it.each(['0,4', '1,5', '250,5', '250.00', '-5', '-1', 'abc', '1e3', '0x10'])(
-    'rejects the price %j instead of rounding or guessing',
-    (raw) => {
-      expect(parseOptionalMoney(raw)).toEqual({
-        ok: false,
-        error: 'Введите цену целым числом, без минуса',
-      });
-    },
-  );
+  it.each([
+    '0,4',
+    '1,5',
+    '250,5',
+    '250.00',
+    '-5',
+    '-1',
+    'abc',
+    '1e3',
+    '0x10',
+    '0.250',
+    '000.250',
+    '1.250,000',
+    '1,250.000',
+  ])('rejects the price %j instead of rounding or guessing', (raw) => {
+    expect(parseOptionalMoney(raw)).toEqual({
+      ok: false,
+      error: 'Введите цену целым числом, без минуса',
+    });
+  });
+
+  it('rejects a price too long to be a number', () => {
+    expect(parseOptionalMoney('9'.repeat(400))).toEqual({
+      ok: false,
+      error: 'Введите цену целым числом, без минуса',
+    });
+  });
 });

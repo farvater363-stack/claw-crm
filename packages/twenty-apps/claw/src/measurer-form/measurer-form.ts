@@ -192,16 +192,23 @@ const emptyToNull = <TValue extends string>(
   value: TValue | '',
 ): TValue | null => (value.trim() === '' ? null : (value.trim() as TValue));
 
+type GrillePrice = Pick<GrilleOption, 'id' | 'pricePerSquareMeter'>;
+
+const findGrillePrice = (
+  opening: OpeningDraft,
+  grilles: GrillePrice[],
+): number | null =>
+  grilles.find((grille) => grille.id === opening.designId)
+    ?.pricePerSquareMeter ?? null;
+
 // Same price the server gives a new order item, so the quote matches the
 // saved order.
 export const computeOpeningQuote = (
   opening: OpeningDraft,
-  grilles: Pick<GrilleOption, 'id' | 'pricePerSquareMeter'>[],
+  grilles: GrillePrice[],
 ): { pricePerSquareMeter: number; lineTotal: number } | null => {
   const areaSquareMeters = computeOpeningAreaSquareMeters(opening);
-  const pricePerSquareMeter =
-    grilles.find((grille) => grille.id === opening.designId)
-      ?.pricePerSquareMeter ?? null;
+  const pricePerSquareMeter = findGrillePrice(opening, grilles);
 
   if (areaSquareMeters === null || pricePerSquareMeter === null) return null;
 
@@ -215,7 +222,7 @@ export const computeOpeningQuote = (
 
 export const computeDraftTotal = (
   openings: OpeningDraft[],
-  grilles: Pick<GrilleOption, 'id' | 'pricePerSquareMeter'>[],
+  grilles: GrillePrice[],
 ): number | null => {
   const quotes = openings.map((opening) =>
     computeOpeningQuote(opening, grilles),
@@ -225,6 +232,13 @@ export const computeDraftTotal = (
     ? quotes.reduce((total, quote) => total + (quote?.lineTotal ?? 0), 0)
     : null;
 };
+
+// A total is also missing while sizes are still empty; only a missing price is the manager's to name.
+export const hasOpeningWithoutPrice = (
+  openings: OpeningDraft[],
+  grilles: GrillePrice[],
+): boolean =>
+  openings.some((opening) => findGrillePrice(opening, grilles) === null);
 
 export const computeVisorTotal = (
   draft: Pick<MeasurementDraft, 'visorServiceId' | 'visorLengthMeters'>,

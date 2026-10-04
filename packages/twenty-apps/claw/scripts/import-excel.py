@@ -10,7 +10,6 @@ import openpyxl
 
 INSTALLATION_DAYS_AFTER_START = 7
 
-METAL = {'Прут': 'ROD', 'Профиль': 'PROFILE', 'Арматура': 'REBAR'}
 SOURCE = {'OLX': 'OLX', 'Instagram': 'INSTAGRAM', 'Facebook': 'FACEBOOK',
           'Telegram': 'TELEGRAM', 'Через знакомых': 'REFERRAL'}
 DISTRICT = {'Алмазарский': 'ALMAZAR', 'Бектемирский': 'BEKTEMIR', 'Мирабадский': 'MIRABAD',

@@ -192,6 +192,36 @@ describe('planOrderRecalc', () => {
       expect(plan.itemUpdates[0].update.pricePerSquareMeter).toBe(150_000);
     });
 
+    it('keeps a stored cost when the grille did not change', () => {
+      const plan = planOrderRecalc(
+        input({
+          items: [
+            item({ pricePerSquareMeter: 100_000, costPerSquareMeter: 55_000 }),
+          ],
+        }),
+      );
+
+      expect(plan.itemUpdates[0].update.costPerSquareMeter).toBeUndefined();
+      expect(plan.itemUpdates[0].update.lineCost).toBe(422_400);
+    });
+
+    it('takes the new grille cost when the grille changed', () => {
+      const plan = planOrderRecalc(
+        input({
+          items: [
+            item({
+              designId: 'grille-2',
+              pricePerSquareMeter: 100_000,
+              costPerSquareMeter: 55_000,
+            }),
+          ],
+          refreshPriceItemIds: ['item-1'],
+        }),
+      );
+
+      expect(plan.itemUpdates[0].update.costPerSquareMeter).toBe(90_000);
+    });
+
     it('leaves the price empty for an item without a grille', () => {
       const plan = planOrderRecalc(
         input({ items: [item({ designId: null })] }),

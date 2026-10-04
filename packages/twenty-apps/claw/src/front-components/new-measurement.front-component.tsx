@@ -24,6 +24,7 @@ import {
   describePhotoUploadFailure,
   formatUzbekNationalPhone,
   type GrilleOption,
+  hasOpeningWithoutPrice,
   MAX_PHOTOS_PER_OPENING,
   type MeasurementDraft,
   type OpeningDraft,
@@ -709,10 +710,9 @@ const NewMeasurement = () => {
     (draft.visorServiceId !== '' && visorTotal === null)
       ? null
       : openingsTotal + (visorTotal ?? 0);
-  const hasOpeningWithoutPrice = draft.openings.some(
-    (opening) =>
-      (grilles.find((grille) => grille.id === opening.designId)
-        ?.pricePerSquareMeter ?? null) === null,
+  const totalAwaitsManagerPrice = hasOpeningWithoutPrice(
+    draft.openings,
+    grilles,
   );
 
   return (
@@ -1075,7 +1075,7 @@ const NewMeasurement = () => {
         Итого площадь: {formatQuantity(totalAreaSquareMeters, 'м²')}
       </p>
 
-      {(draftTotal !== null || hasOpeningWithoutPrice) && (
+      {(draftTotal !== null || totalAwaitsManagerPrice) && (
         <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
           {draftTotal === null
             ? 'Цену назовёт менеджер'

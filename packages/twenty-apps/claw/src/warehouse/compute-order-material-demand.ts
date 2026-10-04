@@ -1,7 +1,6 @@
 import { roundTo } from 'src/pricing/round';
 
 export type DemandItem = {
-  name: string | null;
   designId: string | null;
   areaSquareMeters: number | null;
   quantity: number | null;

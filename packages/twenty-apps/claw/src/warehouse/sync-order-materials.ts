@@ -91,7 +91,6 @@ export const syncOrderMaterials = async (
       __args: { filter: byOrder, first: PAGE_SIZE },
       edges: {
         node: {
-          name: true,
           designId: true,
           areaSquareMeters: true,
           quantity: true,
@@ -136,7 +135,6 @@ export const syncOrderMaterials = async (
     ? await loadDemand(
         client,
         (orderItems?.edges ?? []).map(({ node }) => ({
-          name: toText(node.name),
           designId: toText(node.designId),
           areaSquareMeters: toNumber(node.areaSquareMeters),
           quantity: toNumber(node.quantity),

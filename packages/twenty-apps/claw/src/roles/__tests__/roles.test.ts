@@ -2,6 +2,7 @@ import { SystemPermissionFlag } from 'twenty-sdk/define';
 import { describe, expect, it } from 'vitest';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import designObject from 'src/objects/design.object';
 import functionsRole from 'src/roles/functions.role';
 import managerRole from 'src/roles/manager.role';
 import measurerRole from 'src/roles/measurer.role';
@@ -172,6 +173,24 @@ describe('grille prices and composition', () => {
 
     for (const role of [managerRole, measurerRole, workshopRole]) {
       expect(hiddenFieldIds(role)).toEqual(expect.arrayContaining(costIds));
+    }
+  });
+
+  // The timeline is readable by every role, so an audited cost would leak there.
+  it('keeps grille costs out of the audit log', () => {
+    const auditFlagByFieldId = new Map(
+      designObject.config.fields.map((field) => [
+        field.universalIdentifier,
+        field.isAuditLogged,
+      ]),
+    );
+
+    for (const costId of [
+      IDS.design.materialCostPerSquareMeter,
+      IDS.design.manufacturingCostPerSquareMeter,
+      IDS.design.installationCostPerSquareMeter,
+    ]) {
+      expect(auditFlagByFieldId.get(costId)).toBe(false);
     }
   });
 
