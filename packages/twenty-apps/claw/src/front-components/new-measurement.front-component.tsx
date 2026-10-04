@@ -22,6 +22,7 @@ import {
   buildOpeningPhotoLabel,
   createEmptyOpening,
   describePhotoUploadFailure,
+  EMPTY_PAYMENT_DRAFT,
   formatUzbekNationalPhone,
   type GrilleOption,
   hasOpeningWithoutPrice,
@@ -34,6 +35,7 @@ import {
   UZBEK_PHONE_PREFIX,
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
+import { todayInTashkent } from 'src/pricing/dates';
 import { fromCurrency } from 'src/recalc/money';
 import { formatMoney, formatQuantity } from 'src/ui/format';
 import { PhotoTile } from 'src/ui/kit';
@@ -481,7 +483,12 @@ const NewMeasurement = () => {
   const handleSave = async () => {
     if (measurerId === null || isSaving) return;
 
-    const payload = buildMeasurementPayload(draft, measurerId);
+    const payload = buildMeasurementPayload(draft, measurerId, {
+      orderId: null,
+      payment: EMPTY_PAYMENT_DRAFT,
+      subtotal: null,
+      today: todayInTashkent(),
+    });
 
     if (!payload.isValid) {
       setErrors(payload.errors);
