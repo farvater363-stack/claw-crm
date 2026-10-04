@@ -40,6 +40,14 @@ export const AWAITING_MEASUREMENT_STATUSES: readonly OrderStatus[] = [
   'MEASUREMENT_SCHEDULED',
 ];
 
+// Orders that hold reserved or freshly written-off material. An installed
+// order is settled and is left out, so the nightly resync stays small.
+export const STATUSES_HOLDING_MATERIAL: readonly OrderStatus[] = [
+  'MEASURED',
+  'PRODUCTION',
+  'QUALITY_CHECK',
+];
+
 // A status read from a record is a plain string, and it may be empty.
 export const isStatusIn = (
   statuses: readonly OrderStatus[],

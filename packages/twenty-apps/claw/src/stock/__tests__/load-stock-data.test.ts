@@ -33,7 +33,7 @@ const line = (overrides: Record<string, unknown>) => ({
   materialId: 'material-1',
   plannedQuantity: 4,
   writtenOffQuantity: null,
-  order: { id: 'order-1', name: '№1001', status: 'PRICE_APPROVAL' },
+  order: { id: 'order-1', name: '№1001', status: 'MEASURED' },
   ...overrides,
 });
 
@@ -88,7 +88,7 @@ describe('loadStockData', () => {
     ]);
   });
 
-  it('counts a line as a need only while it is not written off and its order awaits price approval', async () => {
+  it('counts a line as a need only while it is not written off and its order is at the measured step', async () => {
     const { client, queries } = fakeClient({
       lines: [
         line({ id: 'needed' }),

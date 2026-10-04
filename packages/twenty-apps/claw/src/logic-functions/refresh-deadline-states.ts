@@ -1,13 +1,11 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
+import { STATUSES_HOLDING_MATERIAL } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import { OPEN_STATUSES } from 'src/pricing/compute-deadline-state';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { recalcOrder } from 'src/recalc/recalc-order';
-import {
-  resyncOrdersHoldingMaterial,
-  STATUSES_HOLDING_MATERIAL,
-} from 'src/warehouse/resync-orders-holding-material';
+import { resyncOrdersHoldingMaterial } from 'src/warehouse/resync-orders-holding-material';
 
 const PAGE_SIZE = 500;
 

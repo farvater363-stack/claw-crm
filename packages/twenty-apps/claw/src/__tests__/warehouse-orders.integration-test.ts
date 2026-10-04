@@ -194,7 +194,7 @@ describe('order material lifecycle', () => {
       () => readState(),
       (state) => state.material?.onHand === 100,
     );
-    await updateOrder({ status: 'PRICE_APPROVAL' });
+    await updateOrder({ status: 'MEASURED' });
 
     const reserved = await waitFor(
       () => readState(),
@@ -240,7 +240,7 @@ describe('order material lifecycle', () => {
     expect(writtenOff.material?.reserved).toBe(0);
     expect(writtenOff.material?.overrunPercent).toBeNull();
 
-    await updateOrder({ status: 'PRICE_APPROVAL' });
+    await updateOrder({ status: 'MEASURED' });
     await updateOrder({ status: 'PRODUCTION' });
     await new Promise((resolve) => setTimeout(resolve, 5_000));
 

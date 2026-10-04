@@ -1,5 +1,6 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
+import { isReserving } from 'src/constants/order-status-sets';
 import {
   materialUnitLabel,
   type MaterialUnit,
@@ -116,11 +117,12 @@ export const loadStockData = async (
       overrunPercent: node.overrunPercent ?? null,
     })),
     // The rule the recalc uses for «Нужно на заказы»: a line holds material
-    // until it is written off, and only while its order awaits price approval.
+    // until it is written off, and only while its order is at the reserving step.
     needs: lineNodes
       .flatMap((line) =>
         (line.writtenOffQuantity ?? null) === null &&
-        line.order?.status === 'PRICE_APPROVAL' &&
+        line.order &&
+        isReserving(line.order.status ?? null) &&
         line.materialId
           ? [
               {

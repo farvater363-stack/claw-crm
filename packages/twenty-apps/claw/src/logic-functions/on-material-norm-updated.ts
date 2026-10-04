@@ -4,10 +4,10 @@ import {
   type ObjectRecordUpdateEvent,
 } from 'twenty-sdk/define';
 
+import { RESERVING_STATUSES } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { changesNoCompositionField } from 'src/warehouse/changes-no-composition-field';
-import { RESERVING_STATUSES } from 'src/warehouse/plan-order-materials';
 import { recalcWarehouse } from 'src/warehouse/recalc-warehouse';
 import { resyncOrdersHoldingMaterial } from 'src/warehouse/resync-orders-holding-material';
 
@@ -30,7 +30,7 @@ export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onMaterialNormUpdated,
   name: 'on-material-norm-updated',
   description:
-    'Re-plans orders awaiting approval after a composition row changes, and restores a typed-over row name',
+    'Re-plans measured orders after a composition row changes, and restores a typed-over row name',
   timeoutSeconds: 120,
   databaseEventTriggerSettings: {
     eventName: 'materialNorm.updated',

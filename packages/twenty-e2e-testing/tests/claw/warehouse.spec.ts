@@ -448,7 +448,7 @@ for (const { role, title, entries } of MENUS) {
   });
 }
 
-test('an order in «Согласование цены» is a need on the material and the pill reads «Купить»', async ({
+test('an order in «Замер выполнен» is a need on the material and the pill reads «Купить»', async ({
   page,
 }) => {
   test.setTimeout(300_000);
@@ -488,7 +488,7 @@ test('an order in «Согласование цены» is a need on the materia
   await pause(RECALC_PAUSE);
   await graphql(
     'mutation($id: UUID!, $data: OrderUpdateInput!) { updateOrder(id: $id, data: $data) { id } }',
-    { id: orderId, data: { status: 'PRICE_APPROVAL' } },
+    { id: orderId, data: { status: 'MEASURED' } },
   );
 
   // The order's material lines and the material's totals are written by

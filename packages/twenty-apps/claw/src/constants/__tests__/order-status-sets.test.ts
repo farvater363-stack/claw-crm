@@ -11,6 +11,7 @@ import {
   MEASURER_BOARD_STATUSES,
   READY_AT_STATUSES,
   RESERVING_STATUSES,
+  STATUSES_HOLDING_MATERIAL,
   STATUSES_WITHOUT_DEADLINE,
   WRITTEN_OFF_STATUSES,
 } from 'src/constants/order-status-sets';
@@ -22,6 +23,14 @@ describe('order status sets', () => {
     expect(isReserving('MEASURED')).toBe(true);
     expect(isReserving('PRODUCTION')).toBe(false);
     expect(isReserving(null)).toBe(false);
+  });
+
+  it('resyncs orders that hold reserved or freshly written-off material', () => {
+    expect(STATUSES_HOLDING_MATERIAL).toEqual([
+      'MEASURED',
+      'PRODUCTION',
+      'QUALITY_CHECK',
+    ]);
   });
 
   it('counts material as written off from production to installed', () => {

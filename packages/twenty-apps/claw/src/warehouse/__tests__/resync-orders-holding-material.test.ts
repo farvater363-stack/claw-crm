@@ -1,12 +1,12 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { RESERVING_STATUSES } from 'src/warehouse/plan-order-materials';
-import { recalcWarehouse } from 'src/warehouse/recalc-warehouse';
 import {
-  resyncOrdersHoldingMaterial,
+  RESERVING_STATUSES,
   STATUSES_HOLDING_MATERIAL,
-} from 'src/warehouse/resync-orders-holding-material';
+} from 'src/constants/order-status-sets';
+import { recalcWarehouse } from 'src/warehouse/recalc-warehouse';
+import { resyncOrdersHoldingMaterial } from 'src/warehouse/resync-orders-holding-material';
 import { syncOrderMaterials } from 'src/warehouse/sync-order-materials';
 
 vi.mock('src/warehouse/recalc-warehouse');
@@ -39,11 +39,11 @@ describe('resyncOrdersHoldingMaterial', () => {
   });
 
   it.each([
-    ['only orders awaiting approval', RESERVING_STATUSES, ['PRICE_APPROVAL']],
+    ['only measured orders', RESERVING_STATUSES, ['MEASURED']],
     [
-      'orders up to quality check',
+      'orders up to the one sent to installation',
       STATUSES_HOLDING_MATERIAL,
-      ['PRICE_APPROVAL', 'PRODUCTION', 'QUALITY_CHECK'],
+      ['MEASURED', 'PRODUCTION', 'QUALITY_CHECK'],
     ],
   ])('queries %s when given those statuses', async (_, statuses, expected) => {
     const { client, requests } = fakeClient(['order-1', 'order-2']);

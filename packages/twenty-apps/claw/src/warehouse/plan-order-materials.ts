@@ -1,9 +1,6 @@
-import { isWrittenOff } from 'src/constants/order-status-sets';
-import { type OrderStatus } from 'src/constants/select-options';
+import { isReserving, isWrittenOff } from 'src/constants/order-status-sets';
 import { roundTo } from 'src/pricing/round';
 import { deterministicUuid } from 'src/utils/deterministic-uuid';
-
-export const RESERVING_STATUSES: OrderStatus[] = ['PRICE_APPROVAL'];
 
 export type OrderMaterialLine = {
   id: string;
@@ -65,8 +62,7 @@ export const isEnteringWrittenOff = ({
 }) => isWrittenOff(status) && !isWrittenOff(previousStatus);
 
 export const keepsOrderDemand = (status: string | null) =>
-  RESERVING_STATUSES.some((reserving) => reserving === status) ||
-  isWrittenOff(status);
+  isReserving(status) || isWrittenOff(status);
 
 export const isEmptyOrderMaterialsPlan = (plan: OrderMaterialsPlan) =>
   Object.values(plan).every((entries) => entries.length === 0);

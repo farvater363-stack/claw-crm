@@ -1,3 +1,4 @@
+import { isReserving } from 'src/constants/order-status-sets';
 import {
   materialUnitLabel,
   type MaterialUnit,
@@ -225,11 +226,11 @@ export const planWarehouseRecalc = ({
     ]);
   }
 
-  // Only orders still at price approval reserve, so a deleted order or one whose
-  // sync failed on leaving it cannot hold its reserve forever.
+  // Only orders still at the reserving step reserve, so a deleted order or one
+  // whose sync failed on leaving it cannot hold its reserve forever.
   const reservingOrderIds = new Set(
     orders
-      .filter((order) => order.status === 'PRICE_APPROVAL')
+      .filter((order) => isReserving(order.status))
       .map((order) => order.id),
   );
   const reservedByMaterialId = new Map<string, number>();
@@ -333,7 +334,7 @@ export const planWarehouseRecalc = ({
     ),
     orderUpdates: toUpdates(
       orders.map((order): Entry<OrderWrite> => {
-        if (order.status !== 'PRICE_APPROVAL') {
+        if (!isReserving(order.status)) {
           return [order, { materialState: null, materialNote: null }];
         }
 
