@@ -56,6 +56,8 @@ describe('calculated fields and object access', () => {
       expect(readOnlyFieldIds(role)).toEqual(
         expect.arrayContaining([
           IDS.order.areaSquareMeters,
+          IDS.order.subtotal,
+          IDS.order.discount,
           IDS.order.total,
           IDS.order.balance,
           IDS.orderItem.areaSquareMeters,
@@ -65,6 +67,10 @@ describe('calculated fields and object access', () => {
         ]),
       );
       expect(readOnlyFieldIds(role)).not.toContain(IDS.order.prepayment);
+      expect(readOnlyFieldIds(role)).not.toContain(IDS.order.discountKind);
+      expect(readOnlyFieldIds(role)).not.toContain(IDS.order.discountValue);
+      expect(hiddenFieldIds(role)).not.toContain(IDS.order.discountKind);
+      expect(hiddenFieldIds(role)).not.toContain(IDS.order.discountValue);
     },
   );
 

@@ -95,6 +95,10 @@ export const IDS = {
     materials: '15792a1c-a96e-4f21-8bf9-b3b5c0403bfa',
     stockMovements: 'ef4268c9-fd50-46ce-bb09-a9a910fcc52e',
     measuredAt: '29060f27-2896-47b4-aad9-5fe8e9657aba',
+    subtotal: 'a7aa3329-65b4-45b6-9ba7-6497a618b3e3',
+    discountKind: '1fa07676-4d5b-436e-b6ed-ce1533aa6e29',
+    discountValue: 'fa1efcd7-88a6-4634-98ca-f7e42e10340f',
+    discount: '2d2cef8c-c32d-45c2-959e-6fc3a1f7feb4',
     // Twenty's deterministic id for the built-in createdAt of this app's order object.
     createdAt: '187b9cd2-2f7c-55cc-ba12-5a1cbeec7bbf',
   },

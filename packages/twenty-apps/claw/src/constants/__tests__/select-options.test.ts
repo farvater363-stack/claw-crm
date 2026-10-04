@@ -218,6 +218,8 @@ describe('every select option of every object keeps its id', () => {
         "order.deadlineState.DUE_TODAY": "0dd28c3b-18a7-5f3a-9cde-ad6102ff91a3",
         "order.deadlineState.ON_TIME": "bb148f29-497c-5202-b2ce-334169ebda4f",
         "order.deadlineState.OVERDUE": "6a7a0025-138f-5136-958a-9ff7c3df215f",
+        "order.discountKind.AMOUNT": "174ae085-2818-558d-a7f6-a3ea894dc361",
+        "order.discountKind.PERCENT": "5967281b-4dcb-5b9a-861b-6e109886906c",
         "order.district.ALMAZAR": "e0db67e9-897e-53bf-9993-9549648d31c4",
         "order.district.BEKTEMIR": "304a2dcb-55f8-5621-8024-60802eea61e9",
         "order.district.CHILANZAR": "aeef05df-b71f-533c-a792-361e24156e7b",
