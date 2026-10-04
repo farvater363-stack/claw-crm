@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { IDS } from 'src/constants/universal-identifiers';
 import loginOnMasterField from 'src/fields/login-on-master.field';
 import designObject from 'src/objects/design.object';
+import orderObject from 'src/objects/order.object';
 import payAccrualObject from 'src/objects/pay-accrual.object';
 import payRuleObject from 'src/objects/pay-rule.object';
 import functionsRole from 'src/roles/functions.role';
@@ -110,13 +111,82 @@ const updatableObjectIds = (role: RoleResult) =>
     .map((permission) => permission.objectUniversalIdentifier);
 
 describe('workshop', () => {
-  it('reads orders and masters, and writes nothing', () => {
+  it('reads orders and workers, and updates orders only', () => {
     expect(workshopRole.config.canReadAllObjectRecords).toBe(false);
     expect(workshopRole.config.canUpdateAllObjectRecords).toBe(false);
     expect(readableObjectIds(workshopRole)).toEqual(
-      expect.arrayContaining([IDS.order.object, IDS.master.object]),
+      expect.arrayContaining([
+        IDS.order.object,
+        IDS.orderItem.object,
+        IDS.orderExtraService.object,
+        IDS.master.object,
+        IDS.design.object,
+      ]),
     );
-    expect(updatableObjectIds(workshopRole)).toEqual([]);
+    expect(updatableObjectIds(workshopRole)).toEqual([IDS.order.object]);
+  });
+
+  it('may change only the status and the finished photos of an order', () => {
+    const limited = new Set([
+      ...hiddenFieldIds(workshopRole),
+      ...readOnlyFieldIds(workshopRole),
+    ]);
+    // A one-to-many relation holds no value on the order itself.
+    const valueFieldIds = [
+      ...orderObject.config.fields
+        .filter((field) => field.type !== 'RELATION')
+        .map((field) => field.universalIdentifier),
+      IDS.order.master,
+      IDS.order.installer,
+      IDS.order.soldBy,
+      IDS.order.client,
+      IDS.order.manager,
+      IDS.order.measurer,
+    ];
+
+    expect(valueFieldIds.filter((id) => !limited.has(id)).sort()).toEqual(
+      [IDS.order.finishedPhotos, IDS.order.status].sort(),
+    );
+  });
+
+  it('names each order field once', () => {
+    const orderFieldIds = (workshopRole.config.fieldPermissions ?? [])
+      .filter(
+        (permission) =>
+          permission.objectUniversalIdentifier === IDS.order.object,
+      )
+      .map((permission) => permission.fieldUniversalIdentifier);
+
+    expect(new Set(orderFieldIds).size).toBe(orderFieldIds.length);
+  });
+
+  it('removes and destroys nothing, and reads no more than before', () => {
+    const permissions = workshopRole.config.objectPermissions ?? [];
+
+    expect(workshopRole.config.canSoftDeleteAllObjectRecords).toBe(false);
+    expect(workshopRole.config.canDestroyAllObjectRecords).toBe(false);
+    expect(
+      permissions.filter(
+        (permission) =>
+          permission.canSoftDeleteObjectRecords !== false ||
+          permission.canDestroyObjectRecords !== false,
+      ),
+    ).toEqual([]);
+    expect(
+      permissions
+        .map((permission) => permission.objectUniversalIdentifier)
+        .sort(),
+    ).toEqual(
+      [
+        IDS.order.object,
+        IDS.orderItem.object,
+        IDS.orderExtraService.object,
+        IDS.master.object,
+        IDS.design.object,
+        IDS.material.object,
+        IDS.orderMaterial.object,
+      ].sort(),
+    );
   });
 
   // A menu entry shows only to a role that reads its object; there is no

@@ -39,10 +39,13 @@ const toneColors = (colors: Palette, tone: Tone) =>
 export const Screen = ({
   title,
   action,
+  isWide = false,
   children,
 }: {
   title: string;
   action?: ReactNode;
+  // The wall screen uses the whole width; every other screen is a column
+  isWide?: boolean;
   children: ReactNode;
 }) => {
   const colors = usePalette();
@@ -50,7 +53,7 @@ export const Screen = ({
   return (
     <div
       style={{
-        maxWidth: CONTENT_MAX_WIDTH,
+        maxWidth: isWide ? 'none' : CONTENT_MAX_WIDTH,
         margin: '0 auto',
         padding: SPACE.lg,
         color: colors.text,
@@ -569,6 +572,7 @@ export const InlineConfirm = ({
   question,
   confirmText,
   cancelText,
+  confirmVariant = 'quiet',
   isBusy = false,
   onConfirm,
   onCancel,
@@ -576,6 +580,8 @@ export const InlineConfirm = ({
   question: string;
   confirmText: string;
   cancelText: string;
+  // `primary` where confirming is the one thing the screen asks for
+  confirmVariant?: 'primary' | 'quiet';
   isBusy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -589,7 +595,7 @@ export const InlineConfirm = ({
     }}
   >
     <span style={{ flex: '1 1 200px' }}>{question}</span>
-    <Button isBusy={isBusy} onClick={onConfirm}>
+    <Button variant={confirmVariant} isBusy={isBusy} onClick={onConfirm}>
       {confirmText}
     </Button>
     <Button variant="link" onClick={onCancel}>
@@ -1071,5 +1077,80 @@ export const StepTracker = ({ steps, currentKey }: StepTrackerProps) => {
         );
       })}
     </ol>
+  );
+};
+
+// One order on the workshop's wall, read from across the room: its number and
+// the days left in the wall sizes, what to build under them, then its action.
+// The words of `note` carry the urgency; the colour only repeats it.
+export const WallCard = ({
+  title,
+  note,
+  tone,
+  lines,
+  children,
+}: {
+  title: string;
+  note: string;
+  tone: 'danger' | 'warning' | null;
+  lines: string[];
+  children?: ReactNode;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <article
+      aria-label={title}
+      style={{
+        ...SHRINKABLE_GRID,
+        gap: SPACE.sm,
+        padding: SPACE.lg,
+        marginBottom: SPACE.md,
+        background: colors.surface,
+        border: `1px solid ${colors.border}`,
+        borderRadius: RADIUS.card,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: SPACE.sm,
+        }}
+      >
+        <span style={TYPE.wallRowTitle}>{title}</span>
+        <span
+          style={{
+            ...TYPE.wall,
+            ...TABULAR_NUMBERS,
+            minWidth: 0,
+            overflowWrap: 'anywhere',
+            color:
+              tone === 'danger'
+                ? colors.danger
+                : tone === 'warning'
+                  ? colors.warning
+                  : colors.text,
+          }}
+        >
+          {note}
+        </span>
+      </div>
+      {lines.map((line, index) => (
+        <div
+          key={index}
+          style={{
+            ...TYPE.rowTitle,
+            fontWeight: 400,
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {line}
+        </div>
+      ))}
+      {children}
+    </article>
   );
 };

@@ -288,6 +288,7 @@ export const IDS = {
     warehouseNorms: '335e4eeb-d9e1-4369-abb5-b2049d93b425', // Retired: replaced by the stock screen; ids are never reused.
     prices: '5270c73e-d422-4d41-b0d4-1489b25265f5',
     stock: '3b354a86-2ee7-49b5-88aa-8164f323fb63',
+    workshop: 'fb6b018a-7e6d-4375-93af-e20acb846878',
   },
   stock: {
     frontComponent: '0f9c4b6b-3d4d-4979-ba26-84ba1cc57c06',
@@ -346,6 +347,12 @@ export const IDS = {
   orderHeader: {
     frontComponent: 'f085c652-a22d-4954-94b6-0c381d443efb',
     orderPageWidget: 'a075d6e9-7538-4a50-81b5-db059ce66ee1',
+  },
+  workshop: {
+    frontComponent: '0c5802c0-53cd-4f7d-a9eb-baeef90bd2fb',
+    pageLayout: 'da67f406-7b5f-48fc-8b40-3d43b86b0ea3',
+    pageLayoutTab: 'b7469839-e48b-4230-b43d-1c99a7235575',
+    pageLayoutWidget: 'df63d9ee-7389-4d5d-8ef1-374280ab2eb9',
   },
   logicFunction: {
     onOrderCreated: '9f84f9bb-0b71-4991-8531-fc479be51150',
