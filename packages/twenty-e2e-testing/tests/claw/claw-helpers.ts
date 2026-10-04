@@ -83,6 +83,20 @@ export const findIds = async (
   return ids;
 };
 
+const LOCAL_API_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
+// A destroy cannot be undone and CLAW_API_URL can name any server. A cleanup
+// calls this first, so a run against another server stops before it writes.
+export const assertLocalApi = () => {
+  const { hostname } = new URL(API_URL);
+
+  if (!LOCAL_API_HOSTS.includes(hostname)) {
+    throw new Error(
+      `Refusing to destroy records on ${hostname}: the cleanup of these specs runs only against a local server (CLAW_API_URL on localhost, 127.0.0.1 or [::1])`,
+    );
+  }
+};
+
 // A failure is recorded, not thrown, so one failed step does not skip the
 // rest of a cleanup; throwCleanupFailures reports them all at the end.
 export const destroyRecord = async (
@@ -90,6 +104,8 @@ export const destroyRecord = async (
   id: string,
   failures: string[],
 ) => {
+  assertLocalApi();
+
   try {
     await graphql(`mutation($id: UUID!) { destroy${object}(id: $id) { id } }`, {
       id,

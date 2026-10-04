@@ -42,7 +42,6 @@ const fakeClient = ({
   lines = [] as Record<string, unknown>[],
   movements = [] as Record<string, unknown>[],
   priceError = null as Error | null,
-  created = { id: 'created-1' },
 } = {}) => {
   const queries: Request[] = [];
   const mutations: Record<string, unknown>[] = [];
@@ -63,7 +62,7 @@ const fakeClient = ({
     mutation: async (request: Record<string, unknown>) => {
       mutations.push(request);
 
-      return { createMaterial: created };
+      return {};
     },
   } as unknown as CoreApiClient;
 
@@ -208,7 +207,7 @@ describe('stock writes', () => {
   it('records a purchase with its price', async () => {
     const { client, mutations } = fakeClient();
 
-    await createStockMovement(client, {
+    await createStockMovement(client, 'attempt-1', {
       kind: 'RECEIPT',
       materialId: 'material-1',
       quantity: 60,
@@ -221,12 +220,14 @@ describe('stock writes', () => {
         createStockMovement: {
           __args: {
             data: {
+              id: 'attempt-1',
               kind: 'RECEIPT',
               materialId: 'material-1',
               quantity: 60,
               unitPrice: { amountMicros: 1_000_000_000, currencyCode: 'UZS' },
               date: '2026-10-04',
             },
+            upsert: true,
           },
           id: true,
         },
@@ -238,7 +239,7 @@ describe('stock writes', () => {
   it('sends no price with a purchase that has none', async () => {
     const { client, mutations } = fakeClient();
 
-    await createStockMovement(client, {
+    await createStockMovement(client, 'attempt-1', {
       kind: 'RECEIPT',
       materialId: 'material-1',
       quantity: 60,
@@ -251,11 +252,13 @@ describe('stock writes', () => {
         createStockMovement: {
           __args: {
             data: {
+              id: 'attempt-1',
               kind: 'RECEIPT',
               materialId: 'material-1',
               quantity: 60,
               date: '2026-10-04',
             },
+            upsert: true,
           },
           id: true,
         },
@@ -266,7 +269,7 @@ describe('stock writes', () => {
   it('records a recount as the counted amount', async () => {
     const { client, mutations } = fakeClient();
 
-    await createStockMovement(client, {
+    await createStockMovement(client, 'attempt-1', {
       kind: 'STOCKTAKE',
       materialId: 'material-1',
       countedQuantity: 55,
@@ -278,11 +281,13 @@ describe('stock writes', () => {
         createStockMovement: {
           __args: {
             data: {
+              id: 'attempt-1',
               kind: 'STOCKTAKE',
               materialId: 'material-1',
               countedQuantity: 55,
               date: '2026-10-04',
             },
+            upsert: true,
           },
           id: true,
         },
@@ -305,20 +310,27 @@ describe('stock writes', () => {
     ]);
   });
 
-  it('adds a material and returns its id', async () => {
+  it('adds a material under the id of its attempt', async () => {
     const { client, mutations } = fakeClient();
 
-    expect(
-      await createMaterial(client, {
-        name: 'Прут',
-        unit: 'METER',
-        minimumStock: 5,
-      }),
-    ).toBe('created-1');
+    await createMaterial(client, 'attempt-1', {
+      name: 'Прут',
+      unit: 'METER',
+      minimumStock: 5,
+    });
+
     expect(mutations).toEqual([
       {
         createMaterial: {
-          __args: { data: { name: 'Прут', unit: 'METER', minimumStock: 5 } },
+          __args: {
+            data: {
+              id: 'attempt-1',
+              name: 'Прут',
+              unit: 'METER',
+              minimumStock: 5,
+            },
+            upsert: true,
+          },
           id: true,
         },
       },

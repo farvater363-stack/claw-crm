@@ -1,5 +1,5 @@
 import {
-  MATERIAL_UNIT_OPTIONS,
+  materialUnitLabel,
   type MaterialUnit,
   type OrderMaterialState,
   STOCK_MOVEMENT_KIND_OPTIONS,
@@ -93,9 +93,6 @@ const round = (value: number) => roundTo(value, 2);
 
 export const formatQuantity = (value: number): string =>
   value.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
-
-const unitLabel = (unit: MaterialUnit | null) =>
-  MATERIAL_UNIT_OPTIONS.find((option) => option.value === unit)?.label ?? '';
 
 const kindLabel = (kind: StockMovementKind | null) =>
   STOCK_MOVEMENT_KIND_OPTIONS.find((option) => option.value === kind)?.label ??
@@ -223,7 +220,7 @@ export const planWarehouseRecalc = ({
       {
         quantity,
         date: effectiveDate(movement),
-        name: `${kindLabel(movement.kind)} · ${material.name ?? ''} · ${signed(quantity)} ${unitLabel(material.unit)}`,
+        name: `${kindLabel(movement.kind)} · ${material.name ?? ''} · ${signed(quantity)} ${materialUnitLabel(material.unit)}`,
       },
     ]);
   }
@@ -281,7 +278,7 @@ export const planWarehouseRecalc = ({
 
       return material !== undefined && shortBy > 0
         ? [
-            `${material.name ?? ''} — ${formatQuantity(shortBy)} ${unitLabel(material.unit)}`,
+            `${material.name ?? ''} — ${formatQuantity(shortBy)} ${materialUnitLabel(material.unit)}`,
           ]
         : [];
     });
@@ -310,7 +307,7 @@ export const planWarehouseRecalc = ({
             name:
               material === undefined
                 ? ''
-                : `${material.name ?? ''} — ${formatQuantity(norm.quantityPerUnit ?? 0)} ${unitLabel(material.unit)}`,
+                : `${material.name ?? ''} — ${formatQuantity(norm.quantityPerUnit ?? 0)} ${materialUnitLabel(material.unit)}`,
           },
         ];
       }),
@@ -329,7 +326,7 @@ export const planWarehouseRecalc = ({
             name:
               material === undefined
                 ? ''
-                : `${material.name ?? ''} — ${formatQuantity(line.plannedQuantity ?? 0)} ${unitLabel(material.unit)}`,
+                : `${material.name ?? ''} — ${formatQuantity(line.plannedQuantity ?? 0)} ${materialUnitLabel(material.unit)}`,
           },
         ];
       }),

@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import {
+  assertLocalApi,
   chooseOption,
   destroyRecord,
   equalTo,
@@ -36,6 +37,8 @@ const MATERIAL_AMOUNT = '2,5';
 
 // Every step is independent so one failure does not skip the rest.
 const destroyTestData = async () => {
+  assertLocalApi();
+
   const failures: string[] = [];
 
   const destroy = (

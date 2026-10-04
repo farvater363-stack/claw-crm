@@ -200,13 +200,16 @@ const toMovementData = (movement: StockReceipt | StockRecountEntry) => {
 };
 
 // No name is sent: the stock recalc writes the movement's name itself.
+// The id belongs to one attempt of the user: a request whose answer was lost
+// may already be stored, and its retry must overwrite that record, not add one.
 export const createStockMovement = async (
   client: CoreApiClient,
+  id: string,
   movement: StockReceipt | StockRecountEntry,
 ): Promise<void> => {
   await client.mutation({
     createStockMovement: {
-      __args: { data: toMovementData(movement) },
+      __args: { data: { id, ...toMovementData(movement) }, upsert: true },
       id: true,
     },
   });
@@ -227,13 +230,13 @@ export const updateMinimumStock = async (
 
 export const createMaterial = async (
   client: CoreApiClient,
+  id: string,
   data: { name: string; unit: MaterialUnit; minimumStock: number },
-): Promise<string> => {
-  const { createMaterial: created } = await client.mutation({
-    createMaterial: { __args: { data }, id: true },
+): Promise<void> => {
+  await client.mutation({
+    createMaterial: {
+      __args: { data: { id, ...data }, upsert: true },
+      id: true,
+    },
   });
-
-  if (!created) throw new Error('the created material was not returned');
-
-  return created.id;
 };

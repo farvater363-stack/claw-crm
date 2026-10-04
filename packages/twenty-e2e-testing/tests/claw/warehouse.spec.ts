@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import {
+  assertLocalApi,
   chooseOption,
   destroyRecord,
   equalTo,
@@ -24,6 +25,7 @@ const PREFIX = 'Спек склад';
 const RUN = String(Date.now());
 const MATERIAL = `${PREFIX} пруток ${RUN}`;
 const MANAGER_MATERIAL = `${PREFIX} уголок ${RUN}`;
+const RETRY_MATERIAL = `${PREFIX} труба ${RUN}`;
 const ORDER_MATERIAL = `${PREFIX} лист ${RUN}`;
 const GRILLE = `${PREFIX} решётка ${RUN}`;
 const CLIENT = `${PREFIX} клиент ${RUN}`;
@@ -71,6 +73,8 @@ const startsWithPrefix = (field: string) =>
 
 // Every step is independent so one failure does not skip the rest.
 const destroyTestData = async () => {
+  assertLocalApi();
+
   const failures: string[] = [];
 
   const find = async (plural: TestObject, filter: string) => {
@@ -233,6 +237,72 @@ test.describe('the owner keeps stock', () => {
     });
     await expect.poll(() => readOnHand(MATERIAL), POLL).toBe(55);
   });
+});
+
+test('a failed purchase, corrected and retried, is recorded once with the corrected amount', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+
+  const materialId = await create('Material', {
+    name: RETRY_MATERIAL,
+    unit: 'METER',
+  });
+
+  await pause(RECALC_PAUSE);
+
+  let hasFailedOnce = false;
+
+  // Only the first purchase request is lost; the retry and every read pass.
+  await page.route(
+    (url) => url.pathname.endsWith('/graphql'),
+    async (route) => {
+      const body = route.request().postData() ?? '';
+
+      if (!hasFailedOnce && body.includes('createStockMovement')) {
+        hasFailedOnce = true;
+        await route.abort();
+
+        return;
+      }
+
+      await route.fallback();
+    },
+  );
+
+  await signIn(page, 'ADMIN');
+  await openStock(page);
+
+  const row = await openRow(page, RETRY_MATERIAL);
+  const bought = row.getByRole('textbox', { name: 'Купил', exact: true });
+
+  await bought.fill('60', FORCE);
+  await row.getByRole('button', { name: 'Добавить', exact: true }).click(FORCE);
+
+  const failure = page
+    .getByRole('alert')
+    .filter({ hasText: 'Не удалось сохранить' });
+
+  await expect(failure).toBeVisible({ timeout: 30_000 });
+  expect(hasFailedOnce).toBe(true);
+
+  await bought.fill('70', FORCE);
+  await failure.getByRole('button', { name: 'Повторить' }).click(FORCE);
+
+  await expect(rowHeader(page, RETRY_MATERIAL)).toContainText(/Есть 70\sм/, {
+    timeout: 30_000,
+  });
+  await expect(failure).toHaveCount(0);
+  await expect.poll(() => readOnHand(RETRY_MATERIAL), POLL).toBe(70);
+
+  const { stockMovements } =
+    await graphql(`{ stockMovements(filter: { ${equalTo('materialId', materialId)} }) { edges { node { quantity } } } }`);
+
+  expect(
+    stockMovements.edges.map(
+      ({ node }: { node: { quantity: number } }) => node.quantity,
+    ),
+  ).toEqual([70]);
 });
 
 test('a manager opens «Склад» and a row has no price field', async ({

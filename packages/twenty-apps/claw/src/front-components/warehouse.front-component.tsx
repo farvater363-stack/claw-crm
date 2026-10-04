@@ -48,9 +48,12 @@ import {
   Wrap,
 } from 'src/ui/kit';
 import { dropKey } from 'src/utils/drop-key';
+import { isAccessError } from 'src/utils/is-access-error';
+import { randomUuid } from 'src/utils/random-uuid';
 
 type LoadState =
   | { status: 'loading' }
+  | { status: 'forbidden' }
   | { status: 'error'; message: string }
   | { status: 'ready'; data: StockData };
 
@@ -75,6 +78,8 @@ const SAVE_FAILED =
   'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
 const LOAD_FAILED =
   'Не удалось загрузить склад. Проверьте интернет и нажмите "Повторить"';
+// Shown in place of a failure when the cause is the role, not the network.
+const NO_ACCESS = 'Склад ведут владелец и менеджер';
 const EMPTY_TEXT =
   'Добавьте то, что покупаете для работы: профиль, прут, краску. Приложение будет считать, сколько нужно на заказы.';
 const NEW_MATERIAL: NewMaterial = { name: '', unit: 'METER', minimumStock: '' };
@@ -88,7 +93,9 @@ const loadState = async (knownCanSeePrice?: boolean): Promise<LoadState> => {
   } catch (error) {
     console.error(error);
 
-    return { status: 'error', message: LOAD_FAILED };
+    return isAccessError(error)
+      ? { status: 'forbidden' }
+      : { status: 'error', message: LOAD_FAILED };
   }
 };
 
@@ -104,7 +111,9 @@ const Stock = () => {
     Record<string, StockMovementLine[]>
   >({});
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
-  const [failures, setFailures] = useState<Record<string, () => void>>({});
+  const [failures, setFailures] = useState<
+    Record<string, { isDenied: boolean; retry: () => void }>
+  >({});
   // Material id -> the amount shown until the server's numbers have caught
   // up; null when the save did not change the amount.
   const [settling, setSettling] = useState<
@@ -114,6 +123,9 @@ const Stock = () => {
   // shown until a read succeeds.
   const [unsettledToken, setUnsettledToken] = useState<number | null>(null);
   const inFlight = useRef(new Set<string>());
+  const attemptIds = useRef<Record<string, string>>({});
+  const startedReads = useRef(0);
+  const shownRead = useRef(0);
   const settleCount = useRef(0);
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
 
@@ -154,14 +166,38 @@ const Stock = () => {
       // leaves «Последнее» out.
       .catch((error) => console.error(error));
 
+  // A request whose answer was lost may already be stored. Each attempt at a
+  // create keeps one id from the press until it goes through, so its retry
+  // overwrites that record instead of adding a second one.
+  const attemptId = (key: string) => {
+    attemptIds.current[key] ??= randomUuid();
+
+    return attemptIds.current[key];
+  };
+
+  const endAttempt = (key: string) => {
+    attemptIds.current = dropKey(attemptIds.current, key);
+  };
+
   // One thing is open at a time, a row or the new material form: what is
-  // typed and the errors under it belong to that one thing.
+  // typed and the errors under it belong to that one thing. A purchase or a
+  // new material that has not gone through keeps its fields: «Повторить»
+  // sends what they hold.
   const showRow = (rowId: string | null) => {
     setOpenId(rowId);
-    setDrafts({});
+    setDrafts((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(
+          ([key]) =>
+            attemptIds.current[
+              key.replace(/:(quantity|price)$/, ':receipt')
+            ] !== undefined,
+        ),
+      ),
+    );
     setErrors({});
-    setNewMaterial(null);
 
+    if (attemptIds.current.add === undefined) setNewMaterial(null);
     if (rowId !== null) showMovements(rowId);
   };
 
@@ -180,7 +216,10 @@ const Stock = () => {
       console.error(error);
       setFailures((current) => ({
         ...current,
-        [key]: () => void run(key, action),
+        [key]: {
+          isDenied: isAccessError(error),
+          retry: () => void run(key, action),
+        },
       }));
     } finally {
       inFlight.current.delete(key);
@@ -188,19 +227,47 @@ const Stock = () => {
     }
   };
 
-  const failureNote = (key: string, retry = failures[key]) =>
-    failures[key] ? <ErrorNote text={SAVE_FAILED} onRetry={retry} /> : null;
+  // The stored retry repeats the action as it was sent. A place whose fields
+  // may have been corrected since passes its own, which reads them again.
+  const failureNote = (key: string, retry = failures[key]?.retry) => {
+    const failure = failures[key];
+
+    if (!failure) return null;
+
+    // Trying again cannot help a role that may not write here.
+    return failure.isDenied ? (
+      <ErrorNote text={NO_ACCESS} />
+    ) : (
+      <ErrorNote text={SAVE_FAILED} onRetry={retry} />
+    );
+  };
 
   // The role does not change while the screen is open, so the price check of
   // the first load is not repeated.
   const knownCanSeePrice =
     load.status === 'ready' ? load.data.canSeePrice : undefined;
 
+  // Reads are numbered: one that lands after a newer one was shown is dropped
+  // (null), or old amounts would come back without the «Обновляем…» mark.
+  const readList = async (): Promise<LoadState | null> => {
+    startedReads.current += 1;
+
+    const read = startedReads.current;
+    const next = await loadState(knownCanSeePrice);
+
+    if (read < shownRead.current) return null;
+    if (next.status === 'ready') shownRead.current = read;
+
+    return next;
+  };
+
   // The amounts shown in advance give way to the server's only when the last
   // read after a save succeeds. If it fails they stay, with the mark: a row
   // falling back to its old amount would get the purchase recorded twice.
   const readAgain = async (token: number, isLast: boolean) => {
-    const next = await loadState(knownCanSeePrice);
+    const next = await readList();
+
+    if (next === null) return;
 
     if (next.status !== 'ready') {
       if (isLast) {
@@ -256,6 +323,14 @@ const Stock = () => {
     );
   }
 
+  if (load.status === 'forbidden') {
+    return (
+      <Screen title="Склад">
+        <Hint text={NO_ACCESS} />
+      </Screen>
+    );
+  }
+
   if (load.status === 'error') {
     return (
       <Screen title="Склад">
@@ -263,7 +338,9 @@ const Stock = () => {
           text={load.message}
           onRetry={() => {
             setLoad({ status: 'loading' });
-            void loadState().then(setLoad);
+            void readList().then((next) => {
+              if (next !== null) setLoad(next);
+            });
           }}
         />
       </Screen>
@@ -291,6 +368,9 @@ const Stock = () => {
     });
 
     if (!receipt.ok) {
+      // «Повторить» under a closed row: the error is shown inside the row.
+      if (openId !== row.id) showRow(row.id);
+
       setErrors((current) => ({ ...current, [key]: receipt.error }));
 
       return;
@@ -298,7 +378,12 @@ const Stock = () => {
 
     setErrors((current) => dropKey(current, key));
     void run(key, async () => {
-      await createStockMovement(new CoreApiClient(), receipt.data);
+      await createStockMovement(
+        new CoreApiClient(),
+        attemptId(key),
+        receipt.data,
+      );
+      endAttempt(key);
       setDrafts((current) =>
         dropKey(dropKey(current, `${row.id}:quantity`), `${row.id}:price`),
       );
@@ -367,6 +452,17 @@ const Stock = () => {
     setFailures((current) => dropKey(current, 'recount'));
   };
 
+  const startRecount = () => {
+    showRow(null);
+    // A recount left unfinished is not the attempt this one continues.
+    attemptIds.current = Object.fromEntries(
+      Object.entries(attemptIds.current).filter(
+        ([key]) => !key.startsWith('recount:'),
+      ),
+    );
+    setMode({ kind: 'recount', typed: {}, errors: {} });
+  };
+
   const saveRecount = (typed: Record<string, string>) => {
     const recount = buildRecount(typed, todayInTashkent());
 
@@ -388,7 +484,14 @@ const Stock = () => {
 
       try {
         for (const entry of recount.data) {
-          await createStockMovement(new CoreApiClient(), entry);
+          const entryKey = `recount:${entry.materialId}`;
+
+          await createStockMovement(
+            new CoreApiClient(),
+            attemptId(entryKey),
+            entry,
+          );
+          endAttempt(entryKey);
           counted[entry.materialId] = entry.countedQuantity;
           // A saved amount leaves the form, so whatever is sent next (the
           // retry after a failure) cannot count the material again: a second
@@ -411,6 +514,9 @@ const Stock = () => {
     setNewMaterial(null);
     setErrors({});
     setFailures((current) => dropKey(current, 'add'));
+    // A form opened later is another material: it must not overwrite the one
+    // a lost request of this form may have stored.
+    endAttempt('add');
   };
 
   const addMaterial = () => {
@@ -432,13 +538,19 @@ const Stock = () => {
     if (name === '' || !minimumStock.ok) return;
 
     void run('add', async () => {
-      const materialId = await createMaterial(new CoreApiClient(), {
+      const materialId = attemptId('add');
+
+      await createMaterial(new CoreApiClient(), materialId, {
         name,
         unit: newMaterial.unit,
         minimumStock: minimumStock.value,
       });
+      endAttempt('add');
 
-      setLoad(await loadState(data.canSeePrice));
+      const next = await readList();
+
+      if (next !== null) setLoad(next);
+
       // Opened so the first purchase can be typed straight away.
       showRow(materialId);
       settle({ [materialId]: null });
@@ -568,7 +680,7 @@ const Stock = () => {
         </Row>
         {/* Outside the row, so a save that fails after the row was closed is
             still seen. */}
-        {failureNote(`${row.id}:receipt`)}
+        {failureNote(`${row.id}:receipt`, () => addReceipt(row))}
         {failureNote(`${row.id}:minimumStock`)}
       </Fragment>
     );
@@ -591,7 +703,11 @@ const Stock = () => {
           // The unit stands in the field already, so only the number is shown.
           placeholder={formatQuantity(onHandById.get(row.id) ?? 0, '').trim()}
           suffix={row.unitLabel}
-          onChange={(value) =>
+          onChange={(value) => {
+            // The amounts being saved were read at the press: a change typed
+            // during the save would be dropped with the old number recorded.
+            if (inFlight.current.has('recount')) return;
+
             setMode((current) =>
               current.kind === 'recount'
                 ? {
@@ -600,8 +716,8 @@ const Stock = () => {
                     errors: dropKey(current.errors, row.id),
                   }
                 : current,
-            )
-          }
+            );
+          }}
           onEnter={() => saveRecount(recount.typed)}
           onCancel={leaveRecount}
         />
@@ -714,14 +830,7 @@ const Stock = () => {
       title="Склад"
       action={
         rows.length > 0 ? (
-          <Button
-            onClick={() => {
-              showRow(null);
-              setMode({ kind: 'recount', typed: {}, errors: {} });
-            }}
-          >
-            Пересчитать склад
-          </Button>
+          <Button onClick={startRecount}>Пересчитать склад</Button>
         ) : undefined
       }
     >
@@ -730,7 +839,7 @@ const Stock = () => {
         title="Материалы"
         footer={
           <>
-            {failureNote('add')}
+            {failureNote('add', addMaterial)}
             <Wrap>
               <Button isBusy={busyKeys.includes('add')} onClick={addMaterial}>
                 + Добавить материал
