@@ -28,6 +28,7 @@ import {
   loadOrderHeader,
   openWithHandOff,
   type OrderHeaderData,
+  type OrderWriteOutcome,
   writeStep,
 } from 'src/order-header/load-order-header';
 import {
@@ -135,20 +136,23 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
   // payment keeps one id until it goes through, is cancelled or is read back,
   // so its retry overwrites that record and nothing later does.
   const paymentAttemptId = useRef<string | null>(null);
+  // Counts the payments sent, so a look started before a send can tell that
+  // the id it was looking for has been sent again since.
+  const paymentSendCount = useRef(0);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // A write that ends after the header is gone must not start a timer nobody
   // clears.
   const isGone = useRef(false);
 
-  // What a write that went through leaves behind: its form closed, its fields
+  // What a write that is over leaves behind: its form closed, its fields
   // empty, its failure note gone.
-  const finish = useCallback((kind: Kind) => {
+  const finish = useCallback((kind: Kind, isSaved = true) => {
     if (kind === 'payment') paymentAttemptId.current = null;
 
     setPanel((current) => (current === kind ? 'none' : current));
     setDraft((current) => ({ ...current, ...EMPTY_FIELDS[kind] }));
     setFailure((current) => (current?.kind === kind ? null : current));
-    setIsSaved(true);
+    setIsSaved(isSaved);
   }, []);
 
   // A quiet read that fails changes nothing: the header stays as it is.
@@ -200,7 +204,10 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
     );
   };
 
-  const run = async (kind: Kind, write: () => Promise<void>) => {
+  const run = async (
+    kind: Kind,
+    write: () => Promise<OrderWriteOutcome | void>,
+  ) => {
     if (inFlight.current !== null) return;
 
     inFlight.current = kind;
@@ -210,7 +217,15 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
     setIsSaved(false);
 
     try {
-      await write();
+      // Somebody else moved the order first: nothing was written, and the
+      // header shows where the order really is.
+      if ((await write()) === 'moved') {
+        finish(kind, false);
+        await load(true);
+
+        return;
+      }
+
       finish(kind);
       await load();
       loadAgainSoon();
@@ -311,17 +326,18 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
     setFailure((current) => (current?.kind === panel ? null : current));
 
     const attemptId = paymentAttemptId.current;
+    const sendCount = paymentSendCount.current;
 
     if (panel !== 'payment' || attemptId === null) return;
 
     // A payment that failed may be stored all the same: one look before its id
     // is let go. Found, the read ends the attempt as saved. Not found, the
     // next opening is another payment, under another id; a payment sent again
-    // meanwhile keeps the id until its own answer.
+    // meanwhile may be stored after this look, and keeps the id.
     void load(true).then(() => {
       if (
         paymentAttemptId.current === attemptId &&
-        inFlight.current !== 'payment'
+        paymentSendCount.current === sendCount
       ) {
         paymentAttemptId.current = null;
       }
@@ -362,7 +378,7 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
     }
 
     void run('step', () =>
-      writeStep(new CoreApiClient(), order.id, built.data),
+      writeStep(new CoreApiClient(), order.id, order.status, built.data),
     );
   };
 
@@ -386,12 +402,15 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
 
     const id = paymentAttemptId.current;
 
-    void run('payment', () =>
-      acceptPayment(new CoreApiClient(), id, {
+    void run('payment', () => {
+      // Counted here, so «Повторить» counts as well.
+      paymentSendCount.current += 1;
+
+      return acceptPayment(new CoreApiClient(), id, {
         orderId: order.id,
         ...built.data,
-      }),
-    );
+      });
+    });
   };
 
   const submitCancel = () => {
@@ -406,7 +425,7 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
     }
 
     void run('cancel', () =>
-      cancelOrder(new CoreApiClient(), order.id, cancelReason),
+      cancelOrder(new CoreApiClient(), order.id, order.status, cancelReason),
     );
   };
 

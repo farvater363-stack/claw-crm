@@ -59,6 +59,7 @@ const fakeClient = ({
   orders = [ORDER] as Record<string, unknown>[],
   payments = [] as Record<string, unknown>[],
   workersError = null as Error | null,
+  updatedOrders = [{ id: 'order-1' }] as { id: string }[],
 } = {}) => {
   const queries: Request[] = [];
   const mutations: Request[] = [];
@@ -78,7 +79,7 @@ const fakeClient = ({
     mutation: async (request: Request) => {
       mutations.push(request);
 
-      return {};
+      return { updateOrders: updatedOrders };
     },
   } as unknown as CoreApiClient;
 
@@ -160,19 +161,20 @@ describe('loadOrderHeader', () => {
 });
 
 describe('writes', () => {
-  it('writes a step as one update of the order', async () => {
+  it('writes a step only while the order is in the status the header showed', async () => {
     const { client, mutations } = fakeClient();
 
-    await writeStep(client, 'order-1', {
-      status: 'PRODUCTION',
-      masterId: 'worker-1',
-    });
-
+    expect(
+      await writeStep(client, 'order-1', 'MEASURED', {
+        status: 'PRODUCTION',
+        masterId: 'worker-1',
+      }),
+    ).toBe('saved');
     expect(mutations).toEqual([
       {
-        updateOrder: {
+        updateOrders: {
           __args: {
-            id: 'order-1',
+            filter: { id: { eq: 'order-1' }, status: { eq: 'MEASURED' } },
             data: { status: 'PRODUCTION', masterId: 'worker-1' },
           },
           id: true,
@@ -181,14 +183,52 @@ describe('writes', () => {
     ]);
   });
 
-  it('cancels with the reason', async () => {
+  // The server applies the status filter, so an order somebody else has
+  // moved or cancelled is matched by nothing and stays where it is.
+  it('reports a step on an order that is no longer in that status as moved', async () => {
+    const { client, mutations } = fakeClient({ updatedOrders: [] });
+
+    expect(
+      await writeStep(client, 'order-1', 'MEASURED', { status: 'PRODUCTION' }),
+    ).toBe('moved');
+    expect(mutations).toHaveLength(1);
+  });
+
+  it('cancels with the reason, only while the order is in the status the header showed', async () => {
     const { client, mutations } = fakeClient();
 
-    await cancelOrder(client, 'order-1', 'TOO_EXPENSIVE');
+    expect(
+      await cancelOrder(client, 'order-1', 'PRODUCTION', 'TOO_EXPENSIVE'),
+    ).toBe('saved');
+    expect(mutations).toEqual([
+      {
+        updateOrders: {
+          __args: {
+            filter: { id: { eq: 'order-1' }, status: { eq: 'PRODUCTION' } },
+            data: { status: 'CANCELLED', cancelReason: 'TOO_EXPENSIVE' },
+          },
+          id: true,
+        },
+      },
+    ]);
+  });
 
-    expect(mutations[0]?.updateOrder.__args).toEqual({
-      id: 'order-1',
-      data: { status: 'CANCELLED', cancelReason: 'TOO_EXPENSIVE' },
+  it('reports a cancel of an order that is no longer in that status as moved', async () => {
+    const { client, mutations } = fakeClient({ updatedOrders: [] });
+
+    expect(
+      await cancelOrder(client, 'order-1', 'PRODUCTION', 'TOO_EXPENSIVE'),
+    ).toBe('moved');
+    expect(mutations).toHaveLength(1);
+  });
+
+  it('matches an order without a status by its empty status', async () => {
+    const { client, mutations } = fakeClient();
+
+    await cancelOrder(client, 'order-1', null, 'TOO_EXPENSIVE');
+
+    expect(mutations[0]?.updateOrders.__args).toMatchObject({
+      filter: { id: { eq: 'order-1' }, status: { is: 'NULL' } },
     });
   });
 

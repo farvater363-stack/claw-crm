@@ -4,6 +4,7 @@ import { type MetadataApiClient } from 'twenty-client-sdk/metadata';
 import {
   type CANCEL_REASON_OPTIONS,
   DISTRICT_OPTIONS,
+  type OrderStatus,
   type PaymentMethod,
   type WorkerCategory,
 } from 'src/constants/select-options';
@@ -19,7 +20,7 @@ export type CancelReason = (typeof CANCEL_REASON_OPTIONS)[number]['value'];
 export type HeaderOrder = {
   id: string;
   name: string;
-  status: string | null;
+  status: OrderStatus | null;
   clientName: string | null;
   clientPhone: string | null;
   districtLabel: string | null;
@@ -152,31 +153,51 @@ export const loadOrderHeader = async (
   };
 };
 
-export const writeStep = async (
-  client: CoreApiClient,
-  orderId: string,
-  data: StepWrite,
-): Promise<void> => {
-  await client.mutation({
-    updateOrder: { __args: { id: orderId, data }, id: true },
-  });
-};
+export type OrderWriteOutcome = 'saved' | 'moved';
 
-export const cancelOrder = async (
+// The header is as old as its last load: the update is filtered on the order
+// still being in the status the header showed, so one that somebody else has
+// moved or cancelled meanwhile is left where it is.
+const updateOrderInStatus = async (
   client: CoreApiClient,
   orderId: string,
-  cancelReason: CancelReason,
-): Promise<void> => {
-  await client.mutation({
-    updateOrder: {
+  shownStatus: OrderStatus | null,
+  data: StepWrite | { status: OrderStatus; cancelReason: CancelReason },
+): Promise<OrderWriteOutcome> => {
+  const { updateOrders } = await client.mutation({
+    updateOrders: {
       __args: {
-        id: orderId,
-        data: { status: STEP_STATUS.cancelled, cancelReason },
+        filter: {
+          id: { eq: orderId },
+          status: shownStatus === null ? { is: 'NULL' } : { eq: shownStatus },
+        },
+        data,
       },
       id: true,
     },
   });
+
+  return (updateOrders ?? []).length > 0 ? 'saved' : 'moved';
 };
+
+export const writeStep = (
+  client: CoreApiClient,
+  orderId: string,
+  shownStatus: OrderStatus | null,
+  data: StepWrite,
+): Promise<OrderWriteOutcome> =>
+  updateOrderInStatus(client, orderId, shownStatus, data);
+
+export const cancelOrder = (
+  client: CoreApiClient,
+  orderId: string,
+  shownStatus: OrderStatus | null,
+  cancelReason: CancelReason,
+): Promise<OrderWriteOutcome> =>
+  updateOrderInStatus(client, orderId, shownStatus, {
+    status: STEP_STATUS.cancelled,
+    cancelReason,
+  });
 
 // No name is sent: the payment's trigger writes it. The id belongs to one
 // attempt of the user: a request whose answer was lost may already be stored,
