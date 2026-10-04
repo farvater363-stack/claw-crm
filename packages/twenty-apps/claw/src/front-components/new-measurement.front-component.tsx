@@ -10,7 +10,15 @@ import {
   useUserId,
 } from 'twenty-sdk/front-component';
 
-import { DISTRICT_OPTIONS, SOURCE_OPTIONS } from 'src/constants/select-options';
+import { AWAITING_MEASUREMENT_STATUSES } from 'src/constants/order-status-sets';
+import {
+  DISCOUNT_KIND_OPTIONS,
+  type DiscountKind,
+  DISTRICT_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
+  type PaymentMethod,
+  SOURCE_OPTIONS,
+} from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import {
   buildMeasurementPayload,
@@ -18,28 +26,39 @@ import {
   computeOpeningAreaSquareMeters,
   computeOpeningQuote,
   computeOpeningsTotalAreaSquareMeters,
+  computePaymentPreview,
   computeVisorTotal,
   buildOpeningPhotoLabel,
   createEmptyOpening,
   describePhotoUploadFailure,
+  draftFromScheduledOrder,
   EMPTY_PAYMENT_DRAFT,
   formatUzbekNationalPhone,
   type GrilleOption,
   hasOpeningWithoutPrice,
   MAX_PHOTOS_PER_OPENING,
+  MEASUREMENT_ORDER_STORAGE_KEY,
   type MeasurementDraft,
+  NEW_CLIENT_TARGET,
   type OpeningDraft,
   type OpeningPhoto,
+  type PaymentDraft,
+  resolveTargetOrderId,
+  type ScheduledOrder,
+  scheduledOrderLabel,
+  sortScheduledOrders,
   takePhotosWithinLimit,
   toDateTimeLocalInputValue,
+  toOrderUpdateData,
   UZBEK_PHONE_PREFIX,
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
 import { todayInTashkent } from 'src/pricing/dates';
-import { fromCurrency } from 'src/recalc/money';
+import { fromCurrency, toCurrency } from 'src/recalc/money';
 import { formatMoney, formatQuantity } from 'src/ui/format';
-import { PhotoTile } from 'src/ui/kit';
+import { Columns, Field, PhotoTile, SelectInput, TextInput } from 'src/ui/kit';
 import { PALETTE, SPACE } from 'src/ui/tokens';
+import { randomUuid } from 'src/utils/random-uuid';
 
 type SavedItem = {
   id: string;
@@ -55,16 +74,18 @@ type SaveResult = {
   failedOpeningNumbers: number[];
   photoFailureOpeningNumbers: number[];
   isVisorFailed: boolean;
+  isPaymentFailed: boolean;
 };
 
 const ORDER_NAME_POLL_ATTEMPTS = 20;
 const ORDER_NAME_POLL_INTERVAL_MS = 750;
 const THUMBNAIL_MAX_SIDE_PX = 160;
 
+// An opening's key is also the id of the order item it is saved as, so a save
+// sent twice writes the same item again and does not add a second one.
+const createOpeningKey = randomUuid;
 // crypto.randomUUID is missing in the sandbox (no secure context); keys only
 // need to be unique within this page.
-let openingKeySequence = 0;
-const createOpeningKey = () => `opening-${openingKeySequence++}`;
 let photoKeySequence = 0;
 const createPhotoKey = () => `photo-${photoKeySequence++}`;
 
@@ -139,6 +160,86 @@ const loadFormContext = async (userId: string) => {
       ),
   };
 };
+
+const SCHEDULED_ORDERS_LIMIT = 50;
+
+// Read once and removed, so a later visit to the form starts with nothing picked.
+const readPreselectedOrderId = (): string | null => {
+  try {
+    const orderId = globalThis.sessionStorage.getItem(
+      MEASUREMENT_ORDER_STORAGE_KEY,
+    );
+
+    globalThis.sessionStorage.removeItem(MEASUREMENT_ORDER_STORAGE_KEY);
+
+    return orderId;
+  } catch {
+    return null;
+  }
+};
+
+// The measurer's own scheduled measurements, plus the order the form was opened
+// for, whoever its measurer is (a manager can open it from the order card).
+const loadScheduledOrders = async (
+  measurerId: string,
+  preselectedOrderId: string | null,
+): Promise<ScheduledOrder[]> => {
+  const { orders } = await new CoreApiClient().query({
+    orders: {
+      __args: {
+        filter: {
+          or: [
+            {
+              measurerId: { eq: measurerId },
+              status: { in: [...AWAITING_MEASUREMENT_STATUSES] },
+            },
+            ...(preselectedOrderId === null
+              ? []
+              : [{ id: { eq: preselectedOrderId } }]),
+          ],
+        },
+        first: SCHEDULED_ORDERS_LIMIT,
+      },
+      edges: {
+        node: {
+          id: true,
+          name: true,
+          clientName: true,
+          clientPhone: true,
+          district: true,
+          addressLine: true,
+          floor: true,
+          measurementDate: true,
+        },
+      },
+    },
+  });
+
+  return sortScheduledOrders(
+    (orders?.edges ?? []).map(({ node }) => ({
+      id: node.id,
+      name: node.name ?? '',
+      clientName: node.clientName ?? null,
+      clientPhone: node.clientPhone ?? null,
+      district: node.district ?? null,
+      addressLine: node.addressLine ?? null,
+      floor:
+        node.floor === null || node.floor === undefined
+          ? null
+          : Number(node.floor),
+      measurementDate: node.measurementDate ?? null,
+    })),
+  );
+};
+
+// One set per filled form: every record a save creates carries its id, so a
+// save sent twice (a lost response, a double tap) writes the same records again
+// and never a second order, visor line or prepayment.
+const createSaveIds = () => ({
+  order: randomUuid(),
+  visor: randomUuid(),
+  payment: randomUuid(),
+});
 
 const readAsDataUrl = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
@@ -269,18 +370,44 @@ const NewMeasurement = () => {
     skippedCount: number;
   } | null>(null);
   const [photoPickCount, setPhotoPickCount] = useState(0);
+  const [payment, setPayment] = useState<PaymentDraft>(EMPTY_PAYMENT_DRAFT);
+  const [scheduledOrders, setScheduledOrders] = useState<ScheduledOrder[]>([]);
+  // What «Чей замер» holds: '' until the measurer chooses
+  const [target, setTarget] = useState('');
+  const [saveIds, setSaveIds] = useState(createSaveIds);
 
   useEffect(() => {
     if (userId === null) return;
 
     loadFormContext(userId)
-      .then((context) => {
+      .then(async (context) => {
         setGrilles(context.grilles);
         setVisorOptions(context.visorOptions);
         setMeasurerId(context.measurerId);
 
         if (context.measurerId === null) {
           setLoadError('Не удалось определить текущего пользователя.');
+
+          return;
+        }
+
+        const preselectedOrderId = readPreselectedOrderId();
+        const orders = await loadScheduledOrders(
+          context.measurerId,
+          preselectedOrderId,
+        );
+        const preselected = orders.find(
+          (order) => order.id === preselectedOrderId,
+        );
+
+        setScheduledOrders(orders);
+
+        if (preselected !== undefined) {
+          setTarget(preselected.id);
+          setDraft((current) => ({
+            ...current,
+            ...draftFromScheduledOrder(preselected),
+          }));
         }
       })
       .catch((error: unknown) =>
@@ -310,6 +437,7 @@ const NewMeasurement = () => {
       padding: '16px',
     },
     heading: { fontSize: '18px', fontWeight: 600, margin: '0 0 12px' },
+    sum: { fontSize: '18px', fontWeight: 600, margin: 0 },
     label: {
       color: colors.muted,
       display: 'flex',
@@ -419,6 +547,20 @@ const NewMeasurement = () => {
       openings: current.openings.filter((opening) => opening.key !== key),
     }));
 
+  const updatePayment = (changes: Partial<PaymentDraft>) =>
+    setPayment((current) => ({ ...current, ...changes }));
+
+  // «Новый клиент» keeps what is already typed.
+  const pickTarget = (value: string) => {
+    const order = scheduledOrders.find((candidate) => candidate.id === value);
+
+    setTarget(value);
+
+    if (order !== undefined) {
+      updateDraft(draftFromScheduledOrder(order));
+    }
+  };
+
   const updateOpeningPhotos = (
     openingKey: string,
     update: (photos: OpeningPhoto[]) => OpeningPhoto[],
@@ -474,20 +616,52 @@ const NewMeasurement = () => {
     );
 
   const resetForm = () => {
+    // The order just measured no longer waits for a measurement.
+    setScheduledOrders((current) =>
+      current.filter((order) => order.id !== result?.orderId),
+    );
     setDraft(createEmptyDraft());
+    setPayment(EMPTY_PAYMENT_DRAFT);
+    setSaveIds(createSaveIds());
+    setTarget('');
     setErrors([]);
     setResult(null);
     setPhotoLimitNotice(null);
   };
 
+  const totalAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
+    draft.openings,
+  );
+  const openingsTotal = computeDraftTotal(draft.openings, grilles);
+  const visorTotal = computeVisorTotal(draft, visorOptions);
+  const draftTotal =
+    openingsTotal === null ||
+    (draft.visorServiceId !== '' && visorTotal === null)
+      ? null
+      : openingsTotal + (visorTotal ?? 0);
+  const totalAwaitsManagerPrice = hasOpeningWithoutPrice(
+    draft.openings,
+    grilles,
+  );
+  const preview = computePaymentPreview(draftTotal, payment);
+  const today = todayInTashkent();
+
   const handleSave = async () => {
     if (measurerId === null || isSaving) return;
 
+    const targetOrder = resolveTargetOrderId(target, scheduledOrders);
+
+    if (!targetOrder.ok) {
+      setErrors([targetOrder.error]);
+
+      return;
+    }
+
     const payload = buildMeasurementPayload(draft, measurerId, {
-      orderId: null,
-      payment: EMPTY_PAYMENT_DRAFT,
-      subtotal: null,
-      today: todayInTashkent(),
+      orderId: targetOrder.orderId,
+      payment,
+      subtotal: draftTotal,
+      today,
     });
 
     if (!payload.isValid) {
@@ -503,11 +677,31 @@ const NewMeasurement = () => {
     let orderId: string | null = null;
 
     try {
-      const { createOrder } = await client.mutation({
-        createOrder: { __args: { data: payload.order }, id: true },
-      });
+      if (payload.orderId === null) {
+        const { createOrder } = await client.mutation({
+          createOrder: {
+            __args: {
+              data: { id: saveIds.order, ...payload.order },
+              upsert: true,
+            },
+            id: true,
+          },
+        });
 
-      orderId = createOrder?.id ?? null;
+        orderId = createOrder?.id ?? null;
+      } else {
+        const { updateOrder } = await client.mutation({
+          updateOrder: {
+            __args: {
+              id: payload.orderId,
+              data: toOrderUpdateData(payload.order),
+            },
+            id: true,
+          },
+        });
+
+        orderId = updateOrder?.id ?? null;
+      }
     } catch (error) {
       setErrors([
         `Заказ не сохранён. Данные формы на месте, попробуйте ещё раз. (${describeError(error)})`,
@@ -530,7 +724,13 @@ const NewMeasurement = () => {
     for (const [index, item] of payload.items.entries()) {
       try {
         const { createOrderItem } = await client.mutation({
-          createOrderItem: { __args: { data: { ...item, orderId } }, id: true },
+          createOrderItem: {
+            __args: {
+              data: { id: draft.openings[index].key, ...item, orderId },
+              upsert: true,
+            },
+            id: true,
+          },
         });
 
         if (!createOrderItem?.id) throw new Error('empty response');
@@ -581,7 +781,10 @@ const NewMeasurement = () => {
       try {
         const { createOrderExtraService } = await client.mutation({
           createOrderExtraService: {
-            __args: { data: { ...payload.visor, orderId } },
+            __args: {
+              data: { id: saveIds.visor, ...payload.visor, orderId },
+              upsert: true,
+            },
             id: true,
           },
         });
@@ -589,6 +792,33 @@ const NewMeasurement = () => {
         if (!createOrderExtraService?.id) throw new Error('empty response');
       } catch {
         isVisorFailed = true;
+      }
+    }
+
+    let isPaymentFailed = false;
+
+    if (payload.firstPayment !== null) {
+      const { amount, ...firstPayment } = payload.firstPayment;
+
+      try {
+        const { createOrderPayment } = await client.mutation({
+          createOrderPayment: {
+            __args: {
+              data: {
+                id: saveIds.payment,
+                orderId,
+                ...firstPayment,
+                amount: toCurrency(amount),
+              },
+              upsert: true,
+            },
+            id: true,
+          },
+        });
+
+        if (!createOrderPayment?.id) throw new Error('empty response');
+      } catch {
+        isPaymentFailed = true;
       }
     }
 
@@ -601,6 +831,7 @@ const NewMeasurement = () => {
       failedOpeningNumbers,
       photoFailureOpeningNumbers,
       isVisorFailed,
+      isPaymentFailed,
     });
     setIsSaving(false);
   };
@@ -633,6 +864,12 @@ const NewMeasurement = () => {
             <p role="alert" style={styles.error}>
               Заказ создан, но козырёк не сохранён. Откройте заказ и добавьте
               его в доп. услуги вручную.
+            </p>
+          )}
+          {result.isPaymentFailed && (
+            <p role="alert" style={styles.error}>
+              Заказ сохранён, но предоплата не записана. Откройте заказ и
+              запишите её вручную.
             </p>
           )}
           {result.photoFailureOpeningNumbers.length > 0 && (
@@ -707,21 +944,6 @@ const NewMeasurement = () => {
     </label>
   );
 
-  const totalAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
-    draft.openings,
-  );
-  const openingsTotal = computeDraftTotal(draft.openings, grilles);
-  const visorTotal = computeVisorTotal(draft, visorOptions);
-  const draftTotal =
-    openingsTotal === null ||
-    (draft.visorServiceId !== '' && visorTotal === null)
-      ? null
-      : openingsTotal + (visorTotal ?? 0);
-  const totalAwaitsManagerPrice = hasOpeningWithoutPrice(
-    draft.openings,
-    grilles,
-  );
-
   return (
     <div style={styles.page}>
       <h2 style={{ ...styles.heading, fontSize: '22px' }}>Новый замер</h2>
@@ -729,6 +951,26 @@ const NewMeasurement = () => {
         <p role="alert" style={styles.error}>
           {loadError}
         </p>
+      )}
+
+      {scheduledOrders.length > 0 && (
+        <section style={{ ...styles.section, display: 'block' }}>
+          <Field label="Чей замер">
+            <SelectInput
+              label="Чей замер"
+              value={target}
+              onChange={pickTarget}
+              options={[
+                { value: '', label: 'Выберите' },
+                ...scheduledOrders.map((order) => ({
+                  value: order.id,
+                  label: scheduledOrderLabel(order, today),
+                })),
+                { value: NEW_CLIENT_TARGET, label: 'Новый клиент' },
+              ]}
+            />
+          </Field>
+        </section>
       )}
 
       <h3 style={styles.heading}>Клиент</h3>
@@ -1083,11 +1325,89 @@ const NewMeasurement = () => {
       </p>
 
       {(draftTotal !== null || totalAwaitsManagerPrice) && (
-        <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
-          {draftTotal === null
-            ? 'Цену назовёт менеджер'
-            : `Итого: ${formatMoney(draftTotal)}`}
-        </p>
+        <>
+          <h3 style={styles.heading}>Оплата</h3>
+          <section style={{ ...styles.section, display: 'block' }}>
+            {preview.subtotal === null ||
+            preview.total === null ||
+            preview.balance === null ? (
+              <p style={styles.sum}>Цену назовёт менеджер</p>
+            ) : (
+              <div style={{ display: 'grid', gap: SPACE.md }}>
+                <p style={styles.sum}>
+                  {`Сумма: ${formatMoney(preview.subtotal)}`}
+                </p>
+                <Columns>
+                  <Field label="Скидка" error={preview.errors.discountValue}>
+                    <TextInput
+                      label="Скидка"
+                      inputMode="decimal"
+                      value={payment.discountValue}
+                      onChange={(discountValue) =>
+                        updatePayment({ discountValue })
+                      }
+                    />
+                  </Field>
+                  <Field label="Скидка в">
+                    <SelectInput
+                      label="Скидка в"
+                      value={payment.discountKind}
+                      onChange={(discountKind) =>
+                        updatePayment({
+                          discountKind: discountKind as DiscountKind,
+                        })
+                      }
+                      options={DISCOUNT_KIND_OPTIONS.map(
+                        ({ value, label }) => ({ value, label }),
+                      )}
+                    />
+                  </Field>
+                </Columns>
+                {preview.discount > 0 && (
+                  <p style={styles.sum}>
+                    {`Скидка: −${formatMoney(preview.discount)}`}
+                  </p>
+                )}
+                <p style={styles.sum}>
+                  {`Итого: ${formatMoney(preview.total)}`}
+                </p>
+                <Columns>
+                  <Field label="Предоплата" error={preview.errors.prepayment}>
+                    <TextInput
+                      label="Предоплата"
+                      inputMode="numeric"
+                      suffix="сум"
+                      value={payment.prepayment}
+                      onChange={(prepayment) => updatePayment({ prepayment })}
+                    />
+                  </Field>
+                  <Field label="Способ">
+                    <SelectInput
+                      label="Способ"
+                      value={payment.method}
+                      onChange={(method) =>
+                        updatePayment({ method: method as PaymentMethod })
+                      }
+                      options={PAYMENT_METHOD_OPTIONS.map(
+                        ({ value, label }) => ({ value, label }),
+                      )}
+                    />
+                  </Field>
+                </Columns>
+                <Field label="Комментарий к оплате">
+                  <TextInput
+                    label="Комментарий к оплате"
+                    value={payment.comment}
+                    onChange={(comment) => updatePayment({ comment })}
+                  />
+                </Field>
+                <p style={styles.sum}>
+                  {`Остаток: ${formatMoney(preview.balance)}`}
+                </p>
+              </div>
+            )}
+          </section>
+        </>
       )}
 
       {errors.length > 0 && (

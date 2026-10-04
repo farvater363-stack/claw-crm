@@ -189,6 +189,22 @@ test.afterAll(async () => {
   });
 
   for (const orderId of orderIds) {
+    await attempt(`payments of order ${orderId}`, async () => {
+      const { orderPayments } = await graphql(
+        'query($orderId: UUID!) { orderPayments(filter: { orderId: { eq: $orderId } }) { edges { node { id } } } }',
+        { orderId },
+      );
+
+      for (const { node } of orderPayments.edges) {
+        await attempt(`payment ${node.id}`, () =>
+          graphql(
+            'mutation($id: UUID!) { destroyOrderPayment(id: $id) { id } }',
+            { id: node.id },
+          ),
+        );
+      }
+    });
+
     await attempt(`items of order ${orderId}`, async () => {
       const { orderItems } = await graphql(
         'query($orderId: UUID!) { orderItems(filter: { orderId: { eq: $orderId } }) { edges { node { id } } } }',
@@ -333,6 +349,22 @@ test('measurer records a measurement from the tablet form', async ({
       .click(FORCE);
     await expect(opening.getByText('Фото: 1 из 5')).toBeVisible();
 
+    // The price is agreed on site: 5 % off 1 920 000 and a prepayment by card.
+    await page.getByLabel('Скидка', { exact: true }).fill('5', FORCE);
+    await expect(page.getByText(/^Итого: 1\D824\D000 сум$/)).toBeVisible();
+    await page.getByLabel('Предоплата').fill('500000', FORCE);
+    await chooseOption(page.getByLabel('Способ'), 'Карта');
+    await page.getByLabel('Комментарий к оплате').fill('E2E предоплата', FORCE);
+    await expect(page.getByText(/^Остаток: 1\D324\D000 сум$/)).toBeVisible();
+
+    // «Чей замер» is there only while this measurer has a scheduled order, and
+    // then the form refuses to save until it is answered.
+    const measurementTarget = page.getByLabel('Чей замер');
+
+    if (await measurementTarget.isVisible()) {
+      await chooseOption(measurementTarget, 'Новый клиент');
+    }
+
     // Step 4: save.
     await page.getByRole('button', { name: 'Сохранить' }).click(FORCE);
 
@@ -401,6 +433,54 @@ test('measurer records a measurement from the tablet form', async ({
             areaSquareMeters: 3.84,
             quantity: 2,
             photoLabels: ['Проём 1, фото 1.png'],
+          },
+        ],
+      });
+
+    await expect
+      .poll(
+        async () => {
+          const { order } = await graphql(
+            'query($id: UUID!) { order(filter: { id: { eq: $id } }) { discountKind discountValue total { amountMicros } paid { amountMicros } balance { amountMicros } payments { edges { node { method comment amount { amountMicros } } } } } }',
+            { id: orderIds[0] },
+          );
+
+          return {
+            discountKind: order.discountKind,
+            discountValue: order.discountValue,
+            total: Number(order.total?.amountMicros),
+            paid: Number(order.paid?.amountMicros),
+            balance: Number(order.balance?.amountMicros),
+            payments: order.payments.edges.map(
+              ({
+                node,
+              }: {
+                node: {
+                  method: string;
+                  comment: string | null;
+                  amount: { amountMicros: number };
+                };
+              }) => ({
+                method: node.method,
+                comment: node.comment,
+                amount: Number(node.amount.amountMicros),
+              }),
+            ),
+          };
+        },
+        { timeout: 60_000 },
+      )
+      .toEqual({
+        discountKind: 'PERCENT',
+        discountValue: 5,
+        total: 1_824_000_000_000,
+        paid: 500_000_000_000,
+        balance: 1_324_000_000_000,
+        payments: [
+          {
+            method: 'CARD',
+            comment: 'E2E предоплата',
+            amount: 500_000_000_000,
           },
         ],
       });
