@@ -124,19 +124,30 @@ export const loadWorkshopOrders = async (
   }));
 };
 
-// The workshop role may write the status and nothing else, so nothing else is sent.
+// The workshop role may write the status and nothing else, so nothing else is
+// sent. The wall is up to a minute old: the update is filtered on the order
+// still being in production, so one a manager has already moved on or
+// cancelled is left where it is.
 export const markReady = async (
   client: CoreApiClient,
   orderId: string,
-): Promise<void> => {
+): Promise<'ready' | 'moved'> => {
   if (READY_STATUS === null) {
     throw new Error('An order in production has no next step');
   }
 
-  await client.mutation({
-    updateOrder: {
-      __args: { id: orderId, data: { status: READY_STATUS } },
+  const { updateOrders } = await client.mutation({
+    updateOrders: {
+      __args: {
+        filter: {
+          id: { eq: orderId },
+          status: { eq: STEP_STATUS.production },
+        },
+        data: { status: READY_STATUS },
+      },
       id: true,
     },
   });
+
+  return (updateOrders ?? []).length > 0 ? 'ready' : 'moved';
 };

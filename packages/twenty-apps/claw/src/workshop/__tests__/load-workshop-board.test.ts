@@ -62,7 +62,11 @@ const SERVICES = [
   { id: 'line-1', orderId: 'order-1', name: 'Козырёк пробный' },
 ];
 
-const fakeClient = (orders: Record<string, unknown>[] = ORDERS) => {
+const fakeClient = (
+  orders: Record<string, unknown>[] = ORDERS,
+  // What the filtered update matched: nothing when the order has moved on
+  updatedOrders: { id: string }[] = [{ id: 'order-1' }],
+) => {
   const queries: Request[] = [];
   const mutations: Request[] = [];
   const client = {
@@ -78,7 +82,7 @@ const fakeClient = (orders: Record<string, unknown>[] = ORDERS) => {
     mutation: async (request: Request) => {
       mutations.push(request);
 
-      return {};
+      return { updateOrders: updatedOrders };
     },
   } as unknown as CoreApiClient;
 
@@ -169,18 +173,32 @@ describe('loadWorkshopOrders', () => {
 });
 
 describe('markReady', () => {
-  it('sends the order to installation and writes nothing else', async () => {
+  it('sends an order still in production to installation and writes nothing else', async () => {
     const { client, mutations } = fakeClient();
 
-    await markReady(client, 'order-1');
-
+    expect(await markReady(client, 'order-1')).toBe('ready');
     expect(mutations).toEqual([
       {
-        updateOrder: {
-          __args: { id: 'order-1', data: { status: 'QUALITY_CHECK' } },
+        updateOrders: {
+          __args: {
+            filter: { id: { eq: 'order-1' }, status: { eq: 'PRODUCTION' } },
+            data: { status: 'QUALITY_CHECK' },
+          },
           id: true,
         },
       },
     ]);
+  });
+
+  // The server applies the status filter, so an order a manager has already
+  // moved on or cancelled is matched by nothing and stays where it is.
+  it('reports an order that has left production as moved', async () => {
+    const { client, mutations } = fakeClient(ORDERS, []);
+
+    expect(await markReady(client, 'order-1')).toBe('moved');
+    expect(mutations).toHaveLength(1);
+    expect(mutations[0]?.updateOrders?.__args).toMatchObject({
+      filter: { status: { eq: 'PRODUCTION' } },
+    });
   });
 });
