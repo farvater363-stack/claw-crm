@@ -80,8 +80,23 @@ describe('loadPayrollData', () => {
 
     await loadPayrollData(client, '2026-12');
 
-    expect(argsOf(queries, 'payAccruals')).toMatchObject({ filter: { earnedOn: { lt: '2027-01-01' } } });
-    expect(argsOf(queries, 'masterPayments')).toMatchObject({ filter: { paidOn: { lt: '2027-01-01' } } });
+    expect(argsOf(queries, 'payAccruals')).toMatchObject({
+      filter: { or: [{ earnedOn: { lt: '2027-01-01' } }, { earnedOn: { is: 'NULL' } }] },
+    });
+    expect(argsOf(queries, 'masterPayments')).toMatchObject({
+      filter: { or: [{ paidOn: { lt: '2027-01-01' } }, { paidOn: { is: 'NULL' } }] },
+    });
+  });
+
+  it('counts a payment and a line saved without a date as left out', async () => {
+    const { client } = fakeClient({
+      accruals: [{ ...LINE, earnedOn: null }],
+      payments: [{ ...PAYMENT, paidOn: null }, PAYMENT],
+    });
+    const data = await loadPayrollData(client, '2026-10');
+
+    expect(data.payments.map((payment) => payment.id)).toEqual(['pay-1']);
+    expect(data.skipped).toEqual({ payments: 1, accruals: 1 });
   });
 
   it('asks for every worker, the ones who left included', async () => {

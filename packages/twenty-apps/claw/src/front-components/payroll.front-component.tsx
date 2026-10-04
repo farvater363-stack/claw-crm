@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type MutableRefObject, useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { defineFrontComponent } from 'twenty-sdk/define';
 
@@ -29,10 +29,12 @@ import { currentMonthInTashkent, formatMonthLabel, shiftMonth } from 'src/payrol
 import {
   buildPayRule,
   buildWorker,
+  canPayInMonth,
   carrySentence,
   CATEGORY_REQUIRED,
   earnedHeading,
   listMonthOrders,
+  openAttempts,
   parsePenaltyPercent,
   payRuleLabel,
   payRuleSuffix,
@@ -103,6 +105,18 @@ const readState = async (month: string): Promise<LoadState> => {
   }
 };
 
+const endStoredAttempts = (attemptIds: MutableRefObject<Record<string, string>>, next: LoadState) => {
+  if (next.status !== 'ready') return;
+
+  const { payments, rules, workers } = next.data;
+
+  // Ids are unique across the three kinds, so one pool tells a stored record of any of them.
+  attemptIds.current = openAttempts(
+    attemptIds.current,
+    [...payments, ...rules, ...workers].map((record) => record.id),
+  );
+};
+
 const Payroll = () => {
   const [month, setMonth] = useState(currentMonthInTashkent);
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
@@ -131,6 +145,7 @@ const Payroll = () => {
     const firstMonth = shownMonth.current;
 
     void readState(firstMonth).then((next) => {
+      endStoredAttempts(attemptIds, next);
       if (shownMonth.current === firstMonth) setLoad(next);
     });
 
@@ -141,6 +156,7 @@ const Payroll = () => {
   const read = async (shown: string) => {
     const next = await readState(shown);
 
+    endStoredAttempts(attemptIds, next);
     if (shownMonth.current === shown) setLoad(next);
   };
 
@@ -167,7 +183,8 @@ const Payroll = () => {
   };
 
   // A request whose answer was lost may already be stored. One attempt at a
-  // create keeps one id until it goes through, so its retry overwrites that record.
+  // create keeps one id until it goes through, is cancelled or is read back, so
+  // its retry overwrites that record and nothing later does.
   const attemptId = (key: string) => {
     attemptIds.current[key] ??= randomUuid();
 
@@ -268,9 +285,11 @@ const Payroll = () => {
   });
   const skipped = skippedNote(data.skipped);
 
-  // Closing a form drops what it held and what was said about it. The id of
-  // its attempt stays: a create that failed may still have been stored.
+  // Closing a form drops what it held and what was said about it, and ends its
+  // attempt: a create that failed may still have been stored, and the next
+  // thing saved from this form is another record.
   const closePanel = (key: string) => {
+    endAttempt(key);
     setPanel(null);
     clearError(key);
     setFailures((current) => dropKey(current, key));
@@ -436,11 +455,14 @@ const Payroll = () => {
       return;
     }
 
+    // Taken here, not in the write: «Повторить» must send the same id even after the attempt was ended.
+    const paymentId = attemptId(key);
+
     clearError(key);
     void run(
       key,
       async () => {
-        await createPayment(new CoreApiClient(), attemptId(key), result.data);
+        await createPayment(new CoreApiClient(), paymentId, result.data);
         endAttempt(key);
       },
       () => {
@@ -747,7 +769,11 @@ const Payroll = () => {
         key={row.workerId}
         title={rowTitle(row)}
         value={formatMoney(row.owed)}
-        action={<Button onClick={() => openPay(row)}>Выплатить</Button>}
+        action={
+          canPayInMonth(month, currentMonthInTashkent()) ? (
+            <Button onClick={() => openPay(row)}>Выплатить</Button>
+          ) : undefined
+        }
         isOpen={isOpen}
         onToggle={() => showRow(isOpen ? null : row.workerId)}
       >

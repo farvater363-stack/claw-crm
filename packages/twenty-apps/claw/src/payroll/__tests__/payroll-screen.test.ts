@@ -5,9 +5,11 @@ import { type PayRule, type PayWork } from 'src/payroll/pay-rules';
 import {
   buildPayRule,
   buildWorker,
+  canPayInMonth,
   carrySentence,
   earnedHeading,
   listMonthOrders,
+  openAttempts,
   parsePenaltyPercent,
   payRuleLabel,
   payRuleSuffix,
@@ -228,5 +230,31 @@ describe('skippedNote', () => {
     expect(skippedNote({ payments: 1, accruals: 3 })).toBe(
       'Не учтено выплат без даты, суммы или работника: 1 — исправьте в списке «Выплаты». Не учтено начислений без даты, суммы или работника: 3',
     );
+  });
+});
+
+describe('canPayInMonth', () => {
+  it.each([
+    ['2026-09', '2026-10', false],
+    ['2026-10', '2026-10', true],
+    ['2026-11', '2026-10', true],
+    ['2025-12', '2026-01', false],
+    ['2027-01', '2026-12', true],
+  ])('shown %s while it is %s: %s', (shownMonth, currentMonth, expected) => {
+    expect(canPayInMonth(shownMonth, currentMonth)).toBe(expected);
+  });
+});
+
+describe('openAttempts', () => {
+  it('keeps the attempts whose record is not stored', () => {
+    const attempts = { 'farhod:pay': 'id-1', add: 'id-2' };
+
+    expect(openAttempts(attempts, ['other'])).toEqual(attempts);
+  });
+
+  it('ends the attempts whose record was read back', () => {
+    expect(openAttempts({ 'farhod:pay': 'id-1', 'farhod:rule': 'id-2', add: 'id-3' }, ['id-1', 'id-3'])).toEqual({
+      'farhod:rule': 'id-2',
+    });
   });
 });

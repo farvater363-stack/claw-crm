@@ -41,11 +41,17 @@ const PAGE_SIZE = 200;
 // ponytail: reads every line and payment up to the month's end on each open; store a closing balance per month when the history passes a few thousand lines.
 export const loadPayrollData = async (client: CoreApiClient, month: string): Promise<PayrollData> => {
   const firstDayAfter = `${shiftMonth(month, 1)}-01`;
+  // "Before a day" does not match an empty date, and a record never read could not be reported as left out.
+  const isUndated = { is: 'NULL' as const };
   const [paymentNodes, accrualNodes, workerNodes, ruleNodes, memberNodes] = await Promise.all([
     fetchAllPages(async (after) => {
       const { masterPayments } = await client.query({
         masterPayments: {
-          __args: { filter: { paidOn: { lt: firstDayAfter } }, first: PAGE_SIZE, after },
+          __args: {
+            filter: { or: [{ paidOn: { lt: firstDayAfter } }, { paidOn: isUndated }] },
+            first: PAGE_SIZE,
+            after,
+          },
           edges: {
             node: { id: true, masterId: true, paidOn: true, amount: { amountMicros: true }, kind: true, comment: true },
           },
@@ -58,7 +64,11 @@ export const loadPayrollData = async (client: CoreApiClient, month: string): Pro
     fetchAllPages(async (after) => {
       const { payAccruals } = await client.query({
         payAccruals: {
-          __args: { filter: { earnedOn: { lt: firstDayAfter } }, first: PAGE_SIZE, after },
+          __args: {
+            filter: { or: [{ earnedOn: { lt: firstDayAfter } }, { earnedOn: isUndated }] },
+            first: PAGE_SIZE,
+            after,
+          },
           edges: { node: { ...ACCRUAL_SELECTION, order: { id: true } } },
           pageInfo: PAGE_INFO,
         },
