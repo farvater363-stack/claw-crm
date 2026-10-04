@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   keptMasterRates,
+  toAccrualLine,
   toPayRule,
   toPayRules,
 } from 'src/payroll/pay-records';
@@ -100,5 +101,48 @@ describe('keptMasterRates', () => {
       { method: 'PER_SQUARE_METER', rate: 25_000 },
       { method: 'PER_ORDER', rate: 100_000 },
     ]);
+  });
+});
+
+describe('toAccrualLine', () => {
+  const line = {
+    id: 'line-1',
+    workerId: 'farhod',
+    orderId: 'order-1',
+    earnedOn: '2026-10-12',
+    method: 'PER_SQUARE_METER',
+    work: 'INSTALLER',
+    basis: 3.84,
+    rate: 15_000,
+    amount: { amountMicros: 57_600_000_000 },
+    name: '№1042',
+  };
+
+  it('reads a stored line', () => {
+    expect(toAccrualLine(line)).toEqual({ ...line, amount: 57_600 });
+  });
+
+  it('reads a fixed monthly line, which has no order and no work', () => {
+    expect(
+      toAccrualLine({ ...line, orderId: null, method: 'FIXED', work: null }),
+    ).toMatchObject({ orderId: null, work: null });
+  });
+
+  it.each([{ workerId: null }, { earnedOn: null }, { method: 'PER_HOUR' }])(
+    'drops a line with %o',
+    (broken) => {
+      expect(toAccrualLine({ ...line, ...broken })).toBeNull();
+    },
+  );
+
+  it('reads a number that is not finite as zero', () => {
+    expect(
+      toAccrualLine({
+        ...line,
+        basis: Number.NaN,
+        rate: Number.POSITIVE_INFINITY,
+        amount: { amountMicros: 'много' },
+      }),
+    ).toMatchObject({ basis: 0, rate: 0, amount: 0 });
   });
 });

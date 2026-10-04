@@ -8,6 +8,7 @@ import { IDS } from 'src/constants/universal-identifiers';
 import { measuredAtOnStatusChange } from 'src/pricing/dates';
 import { assignOrderNumber } from 'src/recalc/assign-order-number';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
+import { findWorkerIdByLogin } from 'src/recalc/find-worker-by-login';
 import { linkClientByPhone } from 'src/recalc/link-client-by-phone';
 import { recalcOrder } from 'src/recalc/recalc-order';
 import { isEnteringWrittenOff } from 'src/warehouse/plan-order-materials';
@@ -17,6 +18,7 @@ type CreatedOrder = {
   number: number | null;
   clientId: string | null;
   measurerId: string | null;
+  soldById: string | null;
   clientName: string | null;
   clientPhone: string | null;
   status: string | null;
@@ -37,6 +39,18 @@ const handler = async (
 
   if ((order.measurerId ?? null) === null && payload.workspaceMemberId) {
     data.measurerId = payload.workspaceMemberId;
+  }
+
+  // Whoever created the order sold it; an order made by somebody without a worker (a website lead) pays no percent.
+  if ((order.soldById ?? null) === null && payload.workspaceMemberId) {
+    const soldById = await findWorkerIdByLogin(
+      client,
+      payload.workspaceMemberId,
+    );
+
+    if (soldById !== null) {
+      data.soldById = soldById;
+    }
   }
 
   // The measurement form creates an order that is already measured.
@@ -79,7 +93,7 @@ export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderCreated,
   name: 'on-order-created',
   description:
-    'Numbers a new order, links the client by phone and calculates totals',
+    'Numbers a new order, links the client by phone, records who sold it and calculates totals',
   timeoutSeconds: 30,
   databaseEventTriggerSettings: { eventName: 'order.created' },
   handler,

@@ -357,6 +357,7 @@ export const IDS = {
     onOrderExtraServiceRestored: 'ffa6b17e-ca1e-4b2e-9b0a-8c9da283ac0a',
     onOrderExtraServiceDestroyed: 'c7b4ad82-a426-41d7-a4a4-5658340d8290',
     refreshDeadlineStates: '9e890c57-2c80-4630-85c4-775845b94f93',
+    accrueFixedPay: '55c33f80-8ef2-48f7-bdfc-c46cb2a63b9c',
     onMaterialCreated: 'f7394960-a54d-4601-9420-661c6c202a38',
     onMaterialUpdated: '08b7ef3d-ca5f-4d9e-acdc-c5c82170b520',
     onMaterialNormCreated: 'cd6b919c-9563-4d59-8012-ba4dd0dafc41',

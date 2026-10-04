@@ -1,13 +1,14 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
+import { isInstalled } from 'src/constants/order-status-sets';
 import {
   type DeadlineState,
   type DiscountKind,
   type ExtraServiceUnit,
 } from 'src/constants/select-options';
 import {
+  ALL_PAY_RULES_QUERY,
   keptMasterRates,
-  PAY_RULE_SELECTION,
   toPayRules,
 } from 'src/payroll/pay-records';
 import { withLegacyMasterRate } from 'src/payroll/pay-rules';
@@ -133,11 +134,7 @@ export const loadRecalcInput = async (
         node: { id: true, name: true, unit: true, price: money, cost: money },
       },
     },
-    // ponytail: every rule in one page of 200, like the two catalogues above; filter by the master and page when workers times rules passes it.
-    payRules: {
-      __args: { first: PAGE_SIZE },
-      edges: { node: PAY_RULE_SELECTION },
-    },
+    payRules: ALL_PAY_RULES_QUERY,
     payAccruals: {
       __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
       edges: { node: { workerId: true, method: true, work: true, rate: true } },
@@ -197,10 +194,14 @@ export const loadRecalcInput = async (
                   fromCurrency(order.master.ratePerSquareMeter) ?? 0,
               },
             ),
-            keptRates: keptMasterRates(
-              (payAccruals?.edges ?? []).map(({ node }) => node),
-              masterId,
-            ),
+            // The lines of an order that is not installed are about to be removed;
+            // their rates must not stay in the pay stored on the order.
+            keptRates: isInstalled(order.status ?? null)
+              ? keptMasterRates(
+                  (payAccruals?.edges ?? []).map(({ node }) => node),
+                  masterId,
+                )
+              : [],
           }
         : null,
     paymentsTotal: (orderPayments?.edges ?? []).reduce(
