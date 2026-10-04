@@ -45,7 +45,7 @@ export default defineView({
     },
   ]),
   groups: ORDER_STATUS_OPTIONS.map((option, position) => ({
-    universalIdentifier: VIEW_PART_IDS.ordersKanbanGroups[position],
+    universalIdentifier: VIEW_PART_IDS.ordersKanbanGroups[option.value],
     fieldValue: option.value,
     position,
     isVisible: true,

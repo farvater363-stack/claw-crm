@@ -94,6 +94,7 @@ export const IDS = {
     missingNorms: 'bda1c379-315c-44cb-a323-5c1a90bd6fe3',
     materials: '15792a1c-a96e-4f21-8bf9-b3b5c0403bfa',
     stockMovements: 'ef4268c9-fd50-46ce-bb09-a9a910fcc52e',
+    measuredAt: '29060f27-2896-47b4-aad9-5fe8e9657aba',
     // Twenty's deterministic id for the built-in createdAt of this app's order object.
     createdAt: '187b9cd2-2f7c-55cc-ba12-5a1cbeec7bbf',
   },

@@ -135,6 +135,14 @@ export default defineObject({
     date(IDS.order.readyAt, 'readyAt', 'Готов'),
     date(IDS.order.installedAt, 'installedAt', 'Установка'),
     {
+      universalIdentifier: IDS.order.measuredAt,
+      type: FieldType.DATE_TIME,
+      name: 'measuredAt',
+      label: 'Замер сделан',
+      icon: 'IconCalendarCheck',
+      isNullable: true,
+    },
+    {
       universalIdentifier: IDS.order.deadlineState,
       type: FieldType.SELECT,
       name: 'deadlineState',

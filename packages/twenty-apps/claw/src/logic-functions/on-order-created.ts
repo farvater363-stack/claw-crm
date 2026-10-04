@@ -5,6 +5,7 @@ import {
 } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import { measuredAtOnStatusChange } from 'src/pricing/dates';
 import { assignOrderNumber } from 'src/recalc/assign-order-number';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { linkClientByPhone } from 'src/recalc/link-client-by-phone';
@@ -19,6 +20,7 @@ type CreatedOrder = {
   clientName: string | null;
   clientPhone: string | null;
   status: string | null;
+  measuredAt: string | null;
 };
 
 const handler = async (
@@ -35,6 +37,17 @@ const handler = async (
 
   if ((order.measurerId ?? null) === null && payload.workspaceMemberId) {
     data.measurerId = payload.workspaceMemberId;
+  }
+
+  // The measurement form creates an order that is already measured.
+  const measuredAt = measuredAtOnStatusChange({
+    status: order.status ?? null,
+    measuredAt: order.measuredAt ?? null,
+    now: new Date(),
+  });
+
+  if (measuredAt !== null) {
+    data.measuredAt = measuredAt;
   }
 
   if ((order.clientId ?? null) === null) {

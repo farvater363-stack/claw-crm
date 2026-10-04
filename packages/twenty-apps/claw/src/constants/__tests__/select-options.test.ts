@@ -5,9 +5,15 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  ACCRUAL_METHOD_OPTIONS,
+  DISCOUNT_KIND_OPTIONS,
   materialUnitLabel,
   ORDER_MATERIAL_STATE_OPTIONS,
+  ORDER_STATUS_OPTIONS,
+  PAY_METHOD_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
   STOCK_MOVEMENT_KIND_OPTIONS,
+  WORKER_CATEGORY_OPTIONS,
 } from 'src/constants/select-options';
 
 const idByValue = (
@@ -32,6 +38,78 @@ describe('relabelled options keep the id of their first label', () => {
       SHORTAGE: undefined,
       NO_NORM: '7c5c1feb-5c5f-5d83-bfff-7985de022885',
     });
+  });
+
+  it('pins the status that became «Отправлено на установку», and only it', () => {
+    expect(idByValue(ORDER_STATUS_OPTIONS)).toEqual({
+      NEW: undefined,
+      MEASUREMENT_SCHEDULED: undefined,
+      MEASURED: undefined,
+      PRICE_APPROVAL: undefined,
+      PRODUCTION: undefined,
+      QUALITY_CHECK: '96aee4e3-71ce-5947-8df6-0cc4e80c8b2a',
+      READY: undefined,
+      INSTALLED: undefined,
+      CLOSED: undefined,
+      CANCELLED: undefined,
+    });
+    expect(
+      ORDER_STATUS_OPTIONS.find((option) => option.value === 'QUALITY_CHECK')
+        ?.label,
+    ).toBe('Отправлено на установку');
+  });
+});
+
+const labelByValue = (
+  options: ReadonlyArray<{ value: string; label: string }>,
+): Record<string, string> =>
+  Object.fromEntries(options.map((option) => [option.value, option.label]));
+
+describe('option lists of the money and pay model', () => {
+  it.each([
+    [
+      'payment methods',
+      PAYMENT_METHOD_OPTIONS,
+      { CASH: 'Наличные', CARD: 'Карта', TRANSFER: 'Перевод' },
+    ],
+    ['discount kinds', DISCOUNT_KIND_OPTIONS, { PERCENT: '%', AMOUNT: 'сум' }],
+    [
+      'worker categories',
+      WORKER_CATEGORY_OPTIONS,
+      {
+        MASTER: 'Мастер',
+        INSTALLER: 'Установщик',
+        MEASURER: 'Замерщик',
+        SALES: 'Продажник',
+      },
+    ],
+    [
+      'pay methods',
+      PAY_METHOD_OPTIONS,
+      {
+        FIXED: 'Фикса',
+        PER_SQUARE_METER: 'За м²',
+        PER_ORDER: 'За заказ',
+        PERCENT_OF_SALES: '% от продаж',
+        PER_MEASUREMENT: 'За замер',
+      },
+    ],
+    [
+      'accrual methods',
+      ACCRUAL_METHOD_OPTIONS,
+      {
+        FIXED: 'Фикса',
+        PER_SQUARE_METER: 'За м²',
+        PER_ORDER: 'За заказ',
+        PERCENT_OF_SALES: '% от продаж',
+        PER_MEASUREMENT: 'За замер',
+        BONUS: 'Премия',
+        PENALTY: 'Штраф',
+      },
+    ],
+  ])('%s are gray and worded as in the spec', (_, options, expected) => {
+    expect(labelByValue(options)).toEqual(expected);
+    expect(options.every((option) => option.color === 'gray')).toBe(true);
   });
 });
 

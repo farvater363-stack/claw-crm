@@ -185,7 +185,7 @@ describe('planOrderMaterials', () => {
   it('writes off once and never plans another movement kind', () => {
     const result = planOrderMaterials(
       input({
-        status: 'READY',
+        status: 'INSTALLED',
         lines: [line({ writtenOffQuantity: 10 })],
         systemMovements: [],
       }),
@@ -225,7 +225,7 @@ describe('isEnteringWrittenOff', () => {
   it.each([
     ['MEASURED', 'PRODUCTION', true],
     ['PRICE_APPROVAL', 'PRODUCTION', true],
-    ['QUALITY_CHECK', 'READY', false],
+    ['QUALITY_CHECK', 'INSTALLED', false],
     ['PRODUCTION', 'PRICE_APPROVAL', false],
     [null, 'PRODUCTION', true],
     [null, 'NEW', false],

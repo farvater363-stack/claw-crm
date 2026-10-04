@@ -163,11 +163,11 @@ test.beforeAll(async () => {
     },
   );
 
-  // The ready status stamps readyAt (today), which puts the order in this
-  // month's payroll; the recalc then fills the master pay fields.
+  // Sending the order to installation stamps readyAt (today), which puts it in
+  // this month's payroll; the recalc then fills the master pay fields.
   await graphql(
     'mutation($id: UUID!, $data: OrderUpdateInput!) { updateOrder(id: $id, data: $data) { id } }',
-    { id: seededOrderId, data: { status: 'READY' } },
+    { id: seededOrderId, data: { status: 'QUALITY_CHECK' } },
   );
 
   await expect

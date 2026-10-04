@@ -1,3 +1,9 @@
+import {
+  isMeasured,
+  isStatusIn,
+  READY_AT_STATUSES,
+} from 'src/constants/order-status-sets';
+
 const MILLISECONDS_PER_DAY = 86_400_000;
 
 export const addDays = (date: string, days: number): string =>
@@ -26,10 +32,8 @@ export const computeDaysLate = ({
 export const todayInTashkent = (now: Date = new Date()): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent' }).format(now);
 
-// Stamped only when an order enters a ready status from a non-ready one, so
-// moves between READY/INSTALLED/CLOSED never pull old orders into payroll.
-const READY_STATUSES = new Set(['READY', 'INSTALLED', 'CLOSED']);
-
+// Stamped only when an order enters a ready status from a non-ready one, so the
+// move from «Отправлено на установку» to «Установлен» does not stamp it again.
 export const readyAtOnStatusChange = ({
   status,
   previousStatus,
@@ -42,8 +46,20 @@ export const readyAtOnStatusChange = ({
   today: string;
 }): string | null =>
   readyAt === null &&
-  status !== null &&
-  READY_STATUSES.has(status) &&
-  !(previousStatus !== null && READY_STATUSES.has(previousStatus))
+  isStatusIn(READY_AT_STATUSES, status) &&
+  !isStatusIn(READY_AT_STATUSES, previousStatus)
     ? today
     : null;
+
+// Stamped once. The measurer's pay is dated by it, so a later correction of the
+// status must not move it.
+export const measuredAtOnStatusChange = ({
+  status,
+  measuredAt,
+  now,
+}: {
+  status: string | null;
+  measuredAt: string | null;
+  now: Date;
+}): string | null =>
+  measuredAt === null && isMeasured(status) ? now.toISOString() : null;

@@ -153,7 +153,7 @@ describe('syncOrderMaterials', () => {
         },
       ],
       {
-        status: 'READY',
+        status: 'INSTALLED',
         movements: [{ id: writeOffMovementId(LINE_ID), quantity: -4 }],
       },
     );

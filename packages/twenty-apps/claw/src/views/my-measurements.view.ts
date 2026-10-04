@@ -6,17 +6,13 @@ import {
 } from 'twenty-sdk/define';
 
 import {
-  ORDER_STATUS_OPTIONS,
-  type OrderStatus,
-} from 'src/constants/select-options';
+  isStatusIn,
+  MEASURER_BOARD_STATUSES,
+} from 'src/constants/order-status-sets';
+import { ORDER_STATUS_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { VIEW_PART_IDS } from 'src/constants/view-part-identifiers';
 import { toViewFields } from 'src/utils/to-view-fields';
-
-const MY_MEASUREMENT_STATUSES: OrderStatus[] = [
-  'MEASUREMENT_SCHEDULED',
-  'MEASURED',
-];
 
 export default defineView({
   universalIdentifier: IDS.view.myMeasurements,
@@ -28,10 +24,10 @@ export default defineView({
   // Two columns in option order: «Замер назначен», then «Замер выполнен».
   mainGroupByFieldMetadataUniversalIdentifier: IDS.order.status,
   groups: ORDER_STATUS_OPTIONS.map((option, position) => ({
-    universalIdentifier: VIEW_PART_IDS.myMeasurementsGroups[position],
+    universalIdentifier: VIEW_PART_IDS.myMeasurementsGroups[option.value],
     fieldValue: option.value,
     position,
-    isVisible: MY_MEASUREMENT_STATUSES.includes(option.value),
+    isVisible: isStatusIn(MEASURER_BOARD_STATUSES, option.value),
   })),
   fields: [
     ...toViewFields(
@@ -67,7 +63,7 @@ export default defineView({
       universalIdentifier: VIEW_PART_IDS.myMeasurementsFilterStatus,
       fieldMetadataUniversalIdentifier: IDS.order.status,
       operand: ViewFilterOperand.IS,
-      value: JSON.stringify(MY_MEASUREMENT_STATUSES),
+      value: JSON.stringify(MEASURER_BOARD_STATUSES),
     },
   ],
   sorts: [
