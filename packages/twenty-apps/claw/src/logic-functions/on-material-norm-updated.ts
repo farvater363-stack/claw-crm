@@ -6,7 +6,7 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
-import { isNameOnlyChange } from 'src/warehouse/is-name-only-change';
+import { changesNoCompositionField } from 'src/warehouse/changes-no-composition-field';
 import { RESERVING_STATUSES } from 'src/warehouse/plan-order-materials';
 import { recalcWarehouse } from 'src/warehouse/recalc-warehouse';
 import { resyncOrdersHoldingMaterial } from 'src/warehouse/resync-orders-holding-material';
@@ -17,7 +17,7 @@ const handler = async (
   const client = createRecalcClient();
 
   // The recalc renames the row after every edit; resyncing the orders again for that rename would only spend the request budget.
-  if (isNameOnlyChange(batch.events)) {
+  if (changesNoCompositionField(batch.events)) {
     await recalcWarehouse(client);
 
     return;

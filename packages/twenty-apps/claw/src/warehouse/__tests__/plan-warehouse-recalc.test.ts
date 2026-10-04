@@ -419,7 +419,8 @@ describe('planWarehouseRecalc with orders', () => {
         id: 'order-1',
         update: {
           materialState: 'SHORTAGE',
-          materialNote: 'Не хватает: Профиль 20×20 — 10 м. Не указано, из чего делается: Волна',
+          materialNote:
+            'Не хватает: Профиль 20×20 — 10 м. Не указано, из чего делается: Волна',
         },
       },
     ]);
