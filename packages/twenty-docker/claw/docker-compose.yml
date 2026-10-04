@@ -14,6 +14,9 @@ x-twenty-environment: &twenty-environment
   STORAGE_S3_ENDPOINT: ${STORAGE_S3_ENDPOINT:-}
   STORAGE_S3_ACCESS_KEY_ID: ${STORAGE_S3_ACCESS_KEY_ID:-}
   STORAGE_S3_SECRET_ACCESS_KEY: ${STORAGE_S3_SECRET_ACCESS_KEY:-}
+  # Outside development the server's default is DISABLED, and then nothing the
+  # Claw app computes (order numbers, totals, stock) is computed.
+  LOGIC_FUNCTION_TYPE: ${LOGIC_FUNCTION_TYPE:-LOCAL}
 
 services:
   caddy:
