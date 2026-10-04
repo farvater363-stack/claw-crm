@@ -67,7 +67,8 @@ export const VIEW_PART_IDS = {
     notesTab: '380321ca-b431-49bf-af72-fe7358868abc',
     notesWidget: '3d155d46-a564-4bbc-8f42-70be037b93e1',
     filesTab: '528f1689-57f2-4173-ac15-89be8d272f2d', // Retired: files moved to «Фото и заметки»; ids are never reused.
-    filesWidget: 'da9ecc50-b8f3-4756-8b58-d232172e2689',
+    filesWidget: 'da9ecc50-b8f3-4756-8b58-d232172e2689', // Retired: sat on the removed tab «Файлы», and the server deletes a widget with its tab; ids are never reused.
+    notesFilesWidget: 'f47172b1-7b46-47b5-a866-724ba0f3503d',
     fields: {
       name: 'cd944afe-fb6b-4e38-871e-040261845e7a',
       status: '7d28695b-ea00-4ce5-8d3c-6c15811843e7',

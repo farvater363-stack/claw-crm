@@ -41,6 +41,64 @@ describe('order page', () => {
     );
   });
 
+  // The server tells a kept widget from a new one by its identifier alone.
+  it('keeps every widget under its own identifier, tab by tab', () => {
+    expect(
+      tabs.map((tab) => [
+        tab.universalIdentifier,
+        (tab.widgets ?? []).map((widget) => widget.universalIdentifier),
+      ]),
+    ).toEqual([
+      [ids.homeTab, [ids.fieldsWidget]],
+      [
+        ids.itemsTab,
+        [
+          IDS.orderHeader.orderPageWidget,
+          ids.itemsWidget,
+          ids.extraServicesWidget,
+          ids.paymentsWidget,
+          ids.materialsWidget,
+        ],
+      ],
+      [
+        ids.notesTab,
+        [
+          IDS.measurementNotes.orderPageWidget,
+          ids.notesFilesWidget,
+          ids.notesWidget,
+        ],
+      ],
+      [ids.timelineTab, [ids.timelineWidget]],
+    ]);
+  });
+
+  it('shows the payments table in «Оплаты»', () => {
+    const payments = widgetsOf(ids.itemsTab).find(
+      (widget) => widget.universalIdentifier === ids.paymentsWidget,
+    );
+
+    expect(payments?.configuration).toMatchObject({
+      fieldMetadataId: IDS.order.payments,
+      viewId: IDS.view.orderPaymentsTable,
+    });
+  });
+
+  // The server deletes a widget together with its tab, so the files widget
+  // of the removed tab «Файлы» cannot be carried over to another tab.
+  it('gives the files widget on «Фото и заметки» an identifier of its own', () => {
+    const files = widgetsOf(ids.notesTab).find(
+      (widget) => widget.type === 'FILES',
+    );
+
+    expect(files?.universalIdentifier).toBe(
+      'f47172b1-7b46-47b5-a866-724ba0f3503d',
+    );
+    expect(JSON.stringify(orderPage.config)).not.toContain(
+      'da9ecc50-b8f3-4756-8b58-d232172e2689',
+    );
+    expect(JSON.stringify(orderPage.config)).not.toContain(ids.filesTab);
+  });
+
   it('keeps the one widget that fills the tab last', () => {
     expect(
       widgetsOf(ids.notesTab).map((widget) => [
@@ -90,10 +148,47 @@ describe('order fields', () => {
     ]);
   });
 
+  it('shows the client from the name to the comment', () => {
+    expect(visibleIn(ids.groups.client)).toEqual([
+      IDS.order.clientName,
+      IDS.order.clientPhone,
+      IDS.order.district,
+      IDS.order.address,
+      IDS.order.floor,
+      IDS.order.source,
+      IDS.order.client,
+      IDS.order.measurementDate,
+      IDS.order.measurer,
+      IDS.order.comment,
+    ]);
+  });
+
   it('ends «Срок и люди» with the status and the cancel reason, for corrections', () => {
-    expect(visibleIn(ids.groups.production).slice(-2)).toEqual([
+    expect(visibleIn(ids.groups.production)).toEqual([
+      IDS.order.master,
+      IDS.order.installer,
+      IDS.order.soldBy,
+      IDS.order.manager,
+      IDS.order.productionStartDate,
+      IDS.order.installationDeadline,
+      IDS.order.readyAt,
+      IDS.order.installedAt,
+      IDS.order.finishedPhotos,
       IDS.order.status,
       IDS.order.cancelReason,
+    ]);
+  });
+
+  it('shows the economics from the cost to the days late', () => {
+    expect(visibleIn(ids.groups.economics)).toEqual([
+      IDS.order.costTotal,
+      IDS.order.margin,
+      IDS.order.marginPercent,
+      IDS.order.masterPayCalculated,
+      IDS.order.masterPenalty,
+      IDS.order.masterBonus,
+      IDS.order.masterPayTotal,
+      IDS.order.daysLate,
     ]);
   });
 
@@ -102,16 +197,14 @@ describe('order fields', () => {
       .filter((field) => !field.isVisible)
       .map((field) => field.fieldMetadataUniversalIdentifier);
 
-    expect(hidden).toEqual(
-      expect.arrayContaining([
-        IDS.order.name,
-        IDS.order.number,
-        IDS.order.items,
-        IDS.order.extraServices,
-        IDS.order.areaSquareMeters,
-        IDS.order.prepayment,
-        IDS.order.deadlineState,
-      ]),
-    );
+    expect(hidden).toEqual([
+      IDS.order.name,
+      IDS.order.number,
+      IDS.order.items,
+      IDS.order.extraServices,
+      IDS.order.areaSquareMeters,
+      IDS.order.prepayment,
+      IDS.order.deadlineState,
+    ]);
   });
 });

@@ -111,7 +111,7 @@ export default definePageLayout({
           },
         },
         {
-          universalIdentifier: ids.filesWidget,
+          universalIdentifier: ids.notesFilesWidget,
           title: 'Файлы',
           type: 'FILES',
           // Files fill a tab by default, and a tab may hold one such widget.
