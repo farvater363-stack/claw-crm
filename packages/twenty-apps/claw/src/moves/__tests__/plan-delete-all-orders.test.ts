@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ALL_PAYOUTS_NOTE,
   checkDeleteConfirmation,
   DELETE_BATCH_SIZE,
   type DeleteObject,
+  describeDeletedBatch,
+  describeRun,
   planDeleteAllOrders,
 } from 'src/moves/plan-delete-all-orders';
 
@@ -162,22 +165,31 @@ describe('planDeleteAllOrders', () => {
     ['a plain yes', 'yes'],
     ['the name of another server', 'app.example.test'],
     ['the whole address', 'http://localhost:3000'],
-    ['the name in other letters', 'LOCALHOST'],
+    ['the host without its port', 'localhost'],
+    ['the host with another port', 'localhost:3001'],
+    ['the host in other letters', 'LOCALHOST:3000'],
   ])('refuses to apply when the confirmation is %s', (_, confirmation) => {
     expect(plan({ apply: true, confirmation }).refusal).toBe(
-      'Refusing to delete on localhost: CONFIRM_DELETE_ALL_ORDERS must equal "localhost".',
+      'Refusing to delete on localhost:3000: CONFIRM_DELETE_ALL_ORDERS must be exactly "localhost:3000", the host of TWENTY_API_URL with its port.',
     );
   });
 
   it.each([
-    ['http://localhost:3000', 'localhost'],
+    ['http://localhost:3000', 'localhost:3000'],
     ['https://app.example.test', 'app.example.test'],
-    ['https://app.example.test:8443/graphql', 'app.example.test'],
-  ])('applies on %s only with the confirmation %s', (apiUrl, hostName) => {
-    const result = plan({ apply: true, apiUrl, confirmation: hostName });
+    ['https://app.example.test:8443/graphql', 'app.example.test:8443'],
+  ])('applies on %s only with the confirmation %s', (apiUrl, host) => {
+    const result = plan({ apply: true, apiUrl, confirmation: host });
 
-    expect(result.hostName).toBe(hostName);
+    expect(result.host).toBe(host);
     expect(result.refusal).toBeNull();
+  });
+
+  it.each([
+    ['https://app.example.test:8443', 'app.example.test'],
+    ['https://app.example.test', 'app.example.test:8443'],
+  ])('refuses %s when the confirmation is %s', (apiUrl, confirmation) => {
+    expect(plan({ apply: true, apiUrl, confirmation }).refusal).not.toBeNull();
   });
 });
 
@@ -185,14 +197,73 @@ describe('checkDeleteConfirmation', () => {
   it('names the server and refuses before anything is read', () => {
     expect(
       checkDeleteConfirmation({
-        apiUrl: 'https://app.example.test',
+        apiUrl: 'https://app.example.test:8443',
         confirmation: 'localhost',
         apply: true,
       }),
     ).toEqual({
-      hostName: 'app.example.test',
+      host: 'app.example.test:8443',
       refusal:
-        'Refusing to delete on app.example.test: CONFIRM_DELETE_ALL_ORDERS must equal "app.example.test".',
+        'Refusing to delete on app.example.test:8443: CONFIRM_DELETE_ALL_ORDERS must be exactly "app.example.test:8443", the host of TWENTY_API_URL with its port.',
     });
+  });
+
+  it.each([
+    ['has no scheme', 'app.example.test'],
+    ['has a port and no scheme', 'localhost:3000'],
+    ['is empty', ''],
+    ['is not a web address', 'ftp://app.example.test'],
+  ])('refuses, dry run included, when the address %s', (_, apiUrl) => {
+    for (const apply of [true, false]) {
+      expect(
+        checkDeleteConfirmation({ apiUrl, confirmation: '', apply }),
+      ).toEqual({
+        host: '',
+        refusal: `TWENTY_API_URL is "${apiUrl}": it needs http:// or https:// in front to name a server.`,
+      });
+    }
+  });
+});
+
+describe('describeRun', () => {
+  const run = {
+    host: 'localhost:3000',
+    graphqlUrl: 'http://localhost:3000/graphql',
+    apply: false,
+    deletePayouts: false,
+  };
+
+  it('names the server and the mode', () => {
+    expect(describeRun(run)).toBe(
+      'delete-all-orders on localhost:3000 (http://localhost:3000/graphql): dry run, nothing will be deleted',
+    );
+    expect(describeRun({ ...run, apply: true })).toBe(
+      'delete-all-orders on localhost:3000 (http://localhost:3000/graphql): APPLY, records will be deleted',
+    );
+  });
+
+  it('says that all payouts go when they are asked for', () => {
+    expect(describeRun({ ...run, apply: true, deletePayouts: true })).toBe(
+      `delete-all-orders on localhost:3000 (http://localhost:3000/graphql): APPLY, records will be deleted. MOVE_PAYOUTS=delete: ${ALL_PAYOUTS_NOTE}`,
+    );
+    expect(ALL_PAYOUTS_NOTE).toBe(
+      'ALL payouts to workers are deleted, because a payout is not tied to an order',
+    );
+  });
+});
+
+describe('describeDeletedBatch', () => {
+  it('reports the rows the server returned', () => {
+    expect(
+      describeDeletedBatch({ label: 'orders', sent: 20, returned: 20 }),
+    ).toBe('deleted 20 orders');
+  });
+
+  it('says so plainly when the server returned fewer rows than were sent', () => {
+    expect(
+      describeDeletedBatch({ label: 'orders', sent: 20, returned: 18 }),
+    ).toBe(
+      'deleted 18 orders, FEWER than the 20 sent: the server did not delete 2 of them',
+    );
   });
 });

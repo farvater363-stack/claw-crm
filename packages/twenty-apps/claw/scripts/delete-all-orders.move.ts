@@ -2,8 +2,12 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { it } from 'vitest';
 
 import {
+  ALL_PAYOUTS_NOTE,
   checkDeleteConfirmation,
   type DeleteObject,
+  describeDeletedBatch,
+  describeRun,
+  PAYOUTS_KEPT_NOTE,
   planDeleteAllOrders,
   READ_STEPS,
 } from '../src/moves/plan-delete-all-orders';
@@ -171,11 +175,13 @@ const run = async () => {
     confirmation: process.env.CONFIRM_DELETE_ALL_ORDERS,
     apply,
   };
-  const { hostName, refusal } = checkDeleteConfirmation(confirmationInput);
+  const { host, refusal } = checkDeleteConfirmation(confirmationInput);
 
-  console.log(
-    `delete-all-orders on ${hostName} (${GRAPHQL_URL}): ${apply ? 'APPLY, records will be deleted' : 'dry run, nothing will be deleted'}`,
-  );
+  if (host !== '') {
+    console.log(
+      describeRun({ host, graphqlUrl: GRAPHQL_URL, apply, deletePayouts }),
+    );
+  }
 
   if (refusal !== null) throw new Error(refusal);
 
@@ -202,15 +208,18 @@ const run = async () => {
       plan.counts.find((count) => count.label === label)?.count ??
       plan.payoutsKept ??
       0;
-    const fate =
-      plural === 'masterPayments' && plan.payoutsKept !== null
+    const payoutsFate =
+      plan.payoutsKept !== null
         ? 'kept (pass MOVE_PAYOUTS=delete to remove them)'
-        : 'to delete';
+        : `to delete (${ALL_PAYOUTS_NOTE})`;
+    const fate = plural === 'masterPayments' ? payoutsFate : 'to delete';
 
     console.log(
       `  ${label}: ${live} ${fate}; ${deletedEarlier[plural]} deleted earlier, left as they are`,
     );
   }
+
+  if (plan.payoutsKept !== null) console.log(PAYOUTS_KEPT_NOTE);
 
   console.log(
     `${apply ? 'deletes' : 'would delete'}, in this order: ${totalOf(plan.counts)} records in ${plan.batches.length} requests`,
@@ -222,7 +231,7 @@ const run = async () => {
 
   if (!apply) {
     console.log(
-      `Dry run: nothing was deleted. To delete: MOVE=apply CONFIRM_DELETE_ALL_ORDERS=${hostName}`,
+      `Dry run: nothing was deleted. To delete: MOVE=apply CONFIRM_DELETE_ALL_ORDERS=${host}`,
     );
 
     return;
@@ -237,12 +246,16 @@ const run = async () => {
 
     await pause(DELETE_PAUSE_MILLISECONDS);
 
+    let returned = 0;
+
     try {
-      await graphql(
+      const data = await graphql<Record<string, { id: string }[] | null>>(
         `delete ${batch.label}`,
         `mutation($ids: [UUID!]) { ${batch.mutation}(filter: { id: { in: $ids } }) { id } }`,
         { ids: batch.ids },
       );
+
+      returned = data[batch.mutation]?.length ?? 0;
     } catch (error) {
       throw new Error(
         `${messageOf(error)}. Stopped at ${batch.label}: ${done} of ${wanted} deleted; the objects listed after it were not touched. Run the same command again: it deletes what is left.`,
@@ -252,7 +265,7 @@ const run = async () => {
     deletedByLabel.set(batch.label, done + batch.ids.length);
     // The ids are the way back: restore<Objects>(filter: { id: { in: [...] } }).
     console.log(
-      `deleted ${batch.ids.length} ${batch.label} (${done + batch.ids.length} of ${wanted}): ${batch.ids.join(' ')}`,
+      `${describeDeletedBatch({ label: batch.label, sent: batch.ids.length, returned })} (sent ${done + batch.ids.length} of ${wanted}): ${batch.ids.join(' ')}`,
     );
   }
 

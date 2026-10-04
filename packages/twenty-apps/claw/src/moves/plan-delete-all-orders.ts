@@ -79,7 +79,7 @@ export type DeleteAllOrdersInput = DeleteConfirmationInput & {
 export type DeleteBatch = { mutation: string; label: string; ids: string[] };
 
 export type DeleteAllOrdersPlan = {
-  hostName: string;
+  host: string;
   counts: { label: string; count: number }[];
   payoutsKept: number | null;
   batches: DeleteBatch[];
@@ -91,23 +91,72 @@ const inBatches = (ids: string[]): string[][] =>
     ids.slice(index * DELETE_BATCH_SIZE, (index + 1) * DELETE_BATCH_SIZE),
   );
 
-export const checkDeleteConfirmation = ({
+// Without a scheme the address parses to an empty host, and an empty
+// confirmation would then match it.
+const hostOf = (apiUrl: string): string => {
+  if (!URL.canParse(apiUrl)) return '';
+
+  const { protocol, host } = new URL(apiUrl);
+
+  return protocol === 'http:' || protocol === 'https:' ? host : '';
+};
+
+const refusalOf = ({
   apiUrl,
   confirmation,
   apply,
-}: DeleteConfirmationInput): { hostName: string; refusal: string | null } => {
-  const hostName = new URL(apiUrl).hostname;
+  host,
+}: DeleteConfirmationInput & { host: string }): string | null => {
+  if (host === '') {
+    return `TWENTY_API_URL is "${apiUrl}": it needs http:// or https:// in front to name a server.`;
+  }
 
-  return {
-    hostName,
-    // The value names the server, so a command copied from the local run
-    // cannot delete anywhere else.
-    refusal:
-      apply && confirmation !== hostName
-        ? `Refusing to delete on ${hostName}: CONFIRM_DELETE_ALL_ORDERS must equal "${hostName}".`
-        : null,
-  };
+  // The value names the server and its port, so a command copied from the
+  // local run cannot delete anywhere else, nor on another server of one machine.
+  return apply && confirmation !== host
+    ? `Refusing to delete on ${host}: CONFIRM_DELETE_ALL_ORDERS must be exactly "${host}", the host of TWENTY_API_URL with its port.`
+    : null;
 };
+
+export const checkDeleteConfirmation = (
+  input: DeleteConfirmationInput,
+): { host: string; refusal: string | null } => {
+  const host = hostOf(input.apiUrl);
+
+  return { host, refusal: refusalOf({ ...input, host }) };
+};
+
+export const ALL_PAYOUTS_NOTE =
+  'ALL payouts to workers are deleted, because a payout is not tied to an order';
+
+export const PAYOUTS_KEPT_NOTE =
+  'payouts to workers are kept: workers who were paid will show as overpaid once the accrual lines of the orders are gone';
+
+export const describeRun = ({
+  host,
+  graphqlUrl,
+  apply,
+  deletePayouts,
+}: {
+  host: string;
+  graphqlUrl: string;
+  apply: boolean;
+  deletePayouts: boolean;
+}): string =>
+  `delete-all-orders on ${host} (${graphqlUrl}): ${apply ? 'APPLY, records will be deleted' : 'dry run, nothing will be deleted'}${deletePayouts ? `. MOVE_PAYOUTS=delete: ${ALL_PAYOUTS_NOTE}` : ''}`;
+
+export const describeDeletedBatch = ({
+  label,
+  sent,
+  returned,
+}: {
+  label: string;
+  sent: number;
+  returned: number;
+}): string =>
+  returned < sent
+    ? `deleted ${returned} ${label}, FEWER than the ${sent} sent: the server did not delete ${sent - returned} of them`
+    : `deleted ${returned} ${label}`;
 
 export const planDeleteAllOrders = ({
   deletePayouts,
