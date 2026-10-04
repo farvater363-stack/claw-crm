@@ -2,6 +2,7 @@ import { type CoreApiClient } from 'twenty-client-sdk/core';
 
 import {
   type DeadlineState,
+  type DiscountKind,
   type ExtraServiceUnit,
 } from 'src/constants/select-options';
 import { todayInTashkent } from 'src/pricing/dates';
@@ -45,6 +46,10 @@ export const loadRecalcInput = async (
         node: {
           id: true,
           areaSquareMeters: true,
+          subtotal: money,
+          discountKind: true,
+          discountValue: true,
+          discount: money,
           total: money,
           prepayment: money,
           balance: money,
@@ -129,6 +134,10 @@ export const loadRecalcInput = async (
   return {
     order: {
       areaSquareMeters: toNumber(order.areaSquareMeters),
+      subtotal: fromCurrency(order.subtotal),
+      discountKind: (order.discountKind ?? null) as DiscountKind | null,
+      discountValue: toNumber(order.discountValue),
+      discount: fromCurrency(order.discount),
       total: fromCurrency(order.total),
       prepayment: fromCurrency(order.prepayment),
       balance: fromCurrency(order.balance),

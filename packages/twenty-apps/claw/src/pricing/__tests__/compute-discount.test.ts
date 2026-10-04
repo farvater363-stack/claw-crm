@@ -38,6 +38,15 @@ describe('computeDiscount', () => {
     expect(computeDiscount({ subtotal: 0, kind: 'AMOUNT', value: 500 })).toBe(0);
   });
 
+  it.each([
+    ['a value that is not a number', 1_410_000, Number.NaN],
+    ['an endless value', 1_410_000, Number.POSITIVE_INFINITY],
+    ['a sum that is not a number', Number.NaN, 5],
+  ])('is zero for %s', (_, subtotal, value) => {
+    expect(computeDiscount({ subtotal, kind: 'PERCENT', value })).toBe(0);
+    expect(computeDiscount({ subtotal, kind: 'AMOUNT', value })).toBe(0);
+  });
+
   it('rounds to whole sums', () => {
     // 333 333 × 2.5 % = 8 333.325
     expect(

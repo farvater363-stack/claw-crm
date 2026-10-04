@@ -1,8 +1,10 @@
 import {
   type DeadlineState,
+  type DiscountKind,
   type ExtraServiceUnit,
 } from 'src/constants/select-options';
 import { computeDeadlineState } from 'src/pricing/compute-deadline-state';
+import { computeDiscount } from 'src/pricing/compute-discount';
 import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
 import {
   computeMasterBasePay,
@@ -53,6 +55,10 @@ export type ExtraServiceCatalogEntry = {
 
 export type OrderSnapshot = {
   areaSquareMeters: number | null;
+  subtotal: number | null;
+  discountKind: DiscountKind | null;
+  discountValue: number | null;
+  discount: number | null;
   total: number | null;
   prepayment: number | null;
   balance: number | null;
@@ -245,11 +251,23 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
   const areaSquareMeters = hasLines
     ? itemsAreaSquareMeters
     : order.areaSquareMeters;
-  const total = hasLines
+  // An order without lines keeps its stored sums. One saved before the discount
+  // existed has only a total, which is then its sum before the discount.
+  const subtotal = hasLines
     ? sumTreatingNullAsZero(
         [...plannedItems, ...plannedLines].map((line) => line.lineTotal),
       )
-    : order.total;
+    : (order.subtotal ?? order.total);
+  const discount =
+    subtotal !== null
+      ? computeDiscount({
+          subtotal,
+          kind: order.discountKind,
+          value: order.discountValue,
+        })
+      : null;
+  const total =
+    subtotal !== null && discount !== null ? subtotal - discount : null;
   const costTotal = hasLines
     ? sumTreatingNullAsZero(
         [...plannedItems, ...plannedLines].map((line) => line.lineCost),
@@ -289,6 +307,8 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
   const nextOrder: OrderSnapshot = {
     ...order,
     areaSquareMeters,
+    subtotal,
+    discount,
     total,
     costTotal,
     balance: total !== null ? total - (order.prepayment ?? 0) : null,

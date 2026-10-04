@@ -13,6 +13,11 @@ export const computeDiscount = ({
     return 0;
   }
 
+  // A value the server could not turn into a number must not become a NaN total.
+  if (!Number.isFinite(value) || !Number.isFinite(subtotal)) {
+    return 0;
+  }
+
   const discount =
     kind === 'PERCENT'
       ? Math.round((subtotal * value) / 100)

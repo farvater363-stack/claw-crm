@@ -10,6 +10,10 @@ import {
 
 const emptyOrder: OrderSnapshot = {
   areaSquareMeters: null,
+  subtotal: null,
+  discountKind: null,
+  discountValue: null,
+  discount: null,
   total: null,
   prepayment: null,
   balance: null,
@@ -124,6 +128,8 @@ describe('planOrderRecalc', () => {
     ]);
     expect(plan.orderUpdate).toMatchObject({
       areaSquareMeters: 7.68,
+      subtotal: 768_000,
+      discount: 0,
       total: 768_000,
       costTotal: 460_800,
       balance: 768_000,
@@ -366,6 +372,8 @@ describe('planOrderRecalc', () => {
     );
 
     expect(plan.orderUpdate).toEqual({
+      subtotal: 4_000_000,
+      discount: 0,
       balance: 3_500_000,
       margin: 1_500_000,
       marginPercent: 37.5,
@@ -373,6 +381,89 @@ describe('planOrderRecalc', () => {
       masterPenalty: 0,
       masterPayTotal: 125_000,
     });
+  });
+
+  it('takes a percent discount off the sum and counts the margin from what is left', () => {
+    const plan = planOrderRecalc(
+      input({
+        order: { ...emptyOrder, discountKind: 'PERCENT', discountValue: 5 },
+      }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({
+      subtotal: 768_000,
+      discount: 38_400,
+      total: 729_600,
+      balance: 729_600,
+      margin: 268_800,
+      marginPercent: 36.84,
+    });
+  });
+
+  it('takes a discount in сум', () => {
+    const plan = planOrderRecalc(
+      input({
+        order: { ...emptyOrder, discountKind: 'AMOUNT', discountValue: 68_000 },
+      }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({
+      subtotal: 768_000,
+      discount: 68_000,
+      total: 700_000,
+    });
+  });
+
+  it('never discounts more than the sum', () => {
+    const plan = planOrderRecalc(
+      input({
+        order: { ...emptyOrder, discountKind: 'AMOUNT', discountValue: 900_000 },
+      }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({
+      discount: 768_000,
+      total: 0,
+      margin: -460_800,
+    });
+  });
+
+  it('discounts the stored sum of an order without lines', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [],
+        order: {
+          ...emptyOrder,
+          areaSquareMeters: 12.5,
+          total: 4_000_000,
+          costTotal: 2_500_000,
+          discountKind: 'PERCENT',
+          discountValue: 10,
+        },
+      }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({
+      subtotal: 4_000_000,
+      discount: 400_000,
+      total: 3_600_000,
+      margin: 1_100_000,
+    });
+  });
+
+  it('keeps the sum once it is stored, so a second run does not discount twice', () => {
+    const order = {
+      ...emptyOrder,
+      subtotal: 4_000_000,
+      discountKind: 'PERCENT' as const,
+      discountValue: 10,
+      discount: 400_000,
+      total: 3_600_000,
+    };
+
+    expect(
+      planOrderRecalc(input({ items: [], order, master: null })).orderUpdate,
+    ).toEqual({ balance: 3_600_000 });
   });
 
   it('plans nothing when everything is already up to date', () => {

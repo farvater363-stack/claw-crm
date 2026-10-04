@@ -4,6 +4,8 @@ import { type RecalcPlan } from 'src/pricing/plan-order-recalc';
 import { toCurrency } from 'src/recalc/money';
 
 const CURRENCY_FIELDS = new Set([
+  'subtotal',
+  'discount',
   'total',
   'prepayment',
   'balance',
