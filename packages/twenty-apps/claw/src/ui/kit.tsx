@@ -259,6 +259,7 @@ export const Button = ({
   isBusy = false,
   busyText = 'Сохраняем…',
   label,
+  isWideOnPhone = false,
   onClick,
   children,
 }: {
@@ -267,13 +268,20 @@ export const Button = ({
   busyText?: string;
   // The accessible name of a button whose text is a symbol, like «×»
   label?: string;
+  // The primary button of a form is as wide as its block on a phone, where a
+  // thumb has to find it
+  isWideOnPhone?: boolean;
   onClick: () => void;
   children: ReactNode;
 }) => {
   const colors = usePalette();
   const base: CSSProperties = {
     minHeight: CONTROL_HEIGHT,
-    minWidth: CONTROL_HEIGHT,
+    // The same switch as in Columns: the whole width while the block is
+    // narrower than the threshold, the control's own minimum above it.
+    minWidth: isWideOnPhone
+      ? `min(100%, max(${CONTROL_HEIGHT}px, (${COLUMNS_MIN_WIDTH}px - 100%) * 999))`
+      : CONTROL_HEIGHT,
     padding: `0 ${SPACE.lg}px`,
     borderRadius: RADIUS.control,
     font: 'inherit',
@@ -808,7 +816,34 @@ export const Link = ({
   );
 };
 
-// A row that does not open: its control is in the row itself
+// On top, not at the bottom like UndoBar: the save button of a long list has
+// to be in reach from any row, and Twenty's own floating navigation covers
+// the bottom of a phone screen.
+export const StickyBar = ({ children }: { children: ReactNode }) => {
+  const colors = usePalette();
+
+  return (
+    <div
+      style={{
+        ...SHRINKABLE_GRID,
+        position: 'sticky',
+        top: 0,
+        // Above the inputs of the rows that scroll under it
+        zIndex: 1,
+        gap: SPACE.sm,
+        marginBottom: SPACE.lg,
+        padding: `${SPACE.md}px ${SPACE.lg}px`,
+        // Opaque, or the rows would show through
+        background: colors.panel,
+        border: `1px solid ${colors.border}`,
+        borderRadius: RADIUS.card,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
 export const StaticRow = ({ children }: { children: ReactNode }) => {
   const colors = usePalette();
 

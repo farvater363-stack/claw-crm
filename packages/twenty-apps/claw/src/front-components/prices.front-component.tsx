@@ -6,7 +6,7 @@ import { uploadFile } from 'twenty-sdk/front-component';
 
 import {
   EXTRA_SERVICE_UNIT_OPTIONS,
-  MATERIAL_UNIT_OPTIONS,
+  materialUnitLabel,
   METAL_OPTIONS,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -43,7 +43,9 @@ import {
   UndoBar,
   Wrap,
 } from 'src/ui/kit';
+import { dropKey } from 'src/utils/drop-key';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
+import { isAccessError } from 'src/utils/is-access-error';
 
 type Costs = {
   material: number | null;
@@ -121,15 +123,6 @@ const UNIT_OPTIONS = EXTRA_SERVICE_UNIT_OPTIONS.map(({ value }) => ({
 const moneyText = (value: number | null) =>
   value === null ? '' : value.toLocaleString('ru-RU');
 
-const dropKey = <TValue,>(
-  current: Record<string, TValue>,
-  key: string,
-): Record<string, TValue> => {
-  const { [key]: _dropped, ...rest } = current;
-
-  return rest;
-};
-
 const toPhotos = (
   photos: (Partial<Photo> | undefined)[] | undefined,
 ): Photo[] =>
@@ -143,13 +136,6 @@ const toPhotos = (
           },
         ]
       : [],
-  );
-
-// A role that may not read a field gets a permission error (or an unknown
-// field) for the whole query.
-const isAccessError = (error: unknown) =>
-  /permission|Cannot query field/i.test(
-    error instanceof Error ? error.message : String(error),
   );
 
 const loadCosts = async (client: CoreApiClient) => {
@@ -276,9 +262,7 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
     .map((node) => ({
       id: node.id,
       name: node.name ?? '',
-      unitLabel:
-        MATERIAL_UNIT_OPTIONS.find((option) => option.value === node.unit)
-          ?.label ?? '',
+      unitLabel: materialUnitLabel(node.unit),
     }))
     .sort((left, right) =>
       left.name.localeCompare(right.name, 'ru', { numeric: true }),

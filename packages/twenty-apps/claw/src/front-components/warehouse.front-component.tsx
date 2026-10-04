@@ -4,6 +4,7 @@ import { defineFrontComponent } from 'twenty-sdk/define';
 
 import {
   MATERIAL_UNIT_OPTIONS,
+  materialUnitLabel,
   type MaterialUnit,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -42,9 +43,11 @@ import {
   SkeletonRows,
   StatePill,
   StaticRow,
+  StickyBar,
   TextInput,
   Wrap,
 } from 'src/ui/kit';
+import { dropKey } from 'src/utils/drop-key';
 
 type LoadState =
   | { status: 'loading' }
@@ -70,30 +73,22 @@ const NO_BREAK_SPACE = String.fromCharCode(160);
 const UNNAMED = 'Без названия';
 const SAVE_FAILED =
   'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
+const LOAD_FAILED =
+  'Не удалось загрузить склад. Проверьте интернет и нажмите "Повторить"';
 const EMPTY_TEXT =
   'Добавьте то, что покупаете для работы: профиль, прут, краску. Приложение будет считать, сколько нужно на заказы.';
 const NEW_MATERIAL: NewMaterial = { name: '', unit: 'METER', minimumStock: '' };
 
-const dropKey = <TValue,>(
-  current: Record<string, TValue>,
-  key: string,
-): Record<string, TValue> => {
-  const { [key]: _dropped, ...rest } = current;
-
-  return rest;
-};
-
-const loadState = async (): Promise<LoadState> => {
+const loadState = async (knownCanSeePrice?: boolean): Promise<LoadState> => {
   try {
-    return { status: 'ready', data: await loadStockData(new CoreApiClient()) };
+    return {
+      status: 'ready',
+      data: await loadStockData(new CoreApiClient(), knownCanSeePrice),
+    };
   } catch (error) {
     console.error(error);
 
-    return {
-      status: 'error',
-      message:
-        'Не удалось загрузить склад. Проверьте интернет и нажмите "Повторить"',
-    };
+    return { status: 'error', message: LOAD_FAILED };
   }
 };
 
@@ -115,19 +110,36 @@ const Stock = () => {
   const [settling, setSettling] = useState<
     Record<string, { onHand: number | null; token: number }>
   >({});
+  // The latest save whose last read of the list failed: its amounts stay as
+  // shown until a read succeeds.
+  const [unsettledToken, setUnsettledToken] = useState<number | null>(null);
   const inFlight = useRef(new Set<string>());
   const settleCount = useRef(0);
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
 
   useEffect(() => {
+    const pending = timers.current;
+
     void loadState().then(setLoad);
+
+    return () => pending.forEach(clearTimeout);
   }, []);
+
+  const later = (action: () => void, delay: number) => {
+    const timer = setTimeout(() => {
+      timers.current.delete(timer);
+      action();
+    }, delay);
+
+    timers.current.add(timer);
+  };
 
   const setDraft = (key: string, value: string) =>
     setDrafts((current) => ({ ...current, [key]: value }));
 
   const showSaved = (key: string) => {
     setSavedKey(key);
-    setTimeout(
+    later(
       () => setSavedKey((current) => (current === key ? null : current)),
       SAVED_TICK_MS,
     );
@@ -176,10 +188,43 @@ const Stock = () => {
     }
   };
 
-  const failureNote = (key: string) =>
-    failures[key] ? (
-      <ErrorNote text={SAVE_FAILED} onRetry={failures[key]} />
-    ) : null;
+  const failureNote = (key: string, retry = failures[key]) =>
+    failures[key] ? <ErrorNote text={SAVE_FAILED} onRetry={retry} /> : null;
+
+  // The role does not change while the screen is open, so the price check of
+  // the first load is not repeated.
+  const knownCanSeePrice =
+    load.status === 'ready' ? load.data.canSeePrice : undefined;
+
+  // The amounts shown in advance give way to the server's only when the last
+  // read after a save succeeds. If it fails they stay, with the mark: a row
+  // falling back to its old amount would get the purchase recorded twice.
+  const readAgain = async (token: number, isLast: boolean) => {
+    const next = await loadState(knownCanSeePrice);
+
+    if (next.status !== 'ready') {
+      if (isLast) {
+        setUnsettledToken((current) => Math.max(current ?? 0, token));
+      }
+
+      return;
+    }
+
+    setLoad(next);
+
+    if (!isLast) return;
+
+    // Earlier saves are settled by this read too; a later one keeps its mark
+    // until its own last read.
+    setSettling((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([, entry]) => entry.token > token),
+      ),
+    );
+    setUnsettledToken((current) =>
+      current !== null && current <= token ? null : current,
+    );
+  };
 
   const settle = (amounts: Record<string, number | null>) => {
     settleCount.current += 1;
@@ -196,24 +241,10 @@ const Stock = () => {
       ),
     }));
     SETTLE_REFETCH_MS.forEach((delay, index) =>
-      setTimeout(async () => {
-        const next = await loadState();
-
-        // A refetch that fails leaves the list as it is.
-        if (next.status === 'ready') setLoad(next);
-
-        // A later save of the same material carries its own token and keeps
-        // the mark until its own last refetch.
-        if (index === SETTLE_REFETCH_MS.length - 1) {
-          setSettling((current) =>
-            Object.fromEntries(
-              Object.entries(current).filter(
-                ([, entry]) => entry.token !== token,
-              ),
-            ),
-          );
-        }
-      }, delay),
+      later(
+        () => void readAgain(token, index === SETTLE_REFETCH_MS.length - 1),
+        delay,
+      ),
     );
   };
 
@@ -329,6 +360,9 @@ const Stock = () => {
   };
 
   const leaveRecount = () => {
+    // A save on its way cannot be called back, so it is not left half seen.
+    if (inFlight.current.has('recount')) return;
+
     setMode({ kind: 'list' });
     setFailures((current) => dropKey(current, 'recount'));
   };
@@ -349,20 +383,16 @@ const Stock = () => {
       return;
     }
 
-    // Outside the action, so a retry goes on from where it failed: a second
-    // recount of the same material would wipe its overuse figure.
-    const pending = [...recount.data];
-
     void run('recount', async () => {
       const counted: Record<string, number> = {};
 
       try {
-        while (pending.length > 0) {
-          const [entry] = pending;
-
+        for (const entry of recount.data) {
           await createStockMovement(new CoreApiClient(), entry);
-          pending.shift();
           counted[entry.materialId] = entry.countedQuantity;
+          // A saved amount leaves the form, so whatever is sent next (the
+          // retry after a failure) cannot count the material again: a second
+          // recount of it would wipe its overuse figure.
           setMode((current) =>
             current.kind === 'recount'
               ? { ...current, typed: dropKey(current.typed, entry.materialId) }
@@ -408,7 +438,7 @@ const Stock = () => {
         minimumStock: minimumStock.value,
       });
 
-      setLoad(await loadState());
+      setLoad(await loadState(data.canSeePrice));
       // Opened so the first purchase can be typed straight away.
       showRow(materialId);
       settle({ [materialId]: null });
@@ -611,10 +641,7 @@ const Stock = () => {
             label="Запас не меньше"
             inputMode="decimal"
             value={form.minimumStock}
-            suffix={
-              MATERIAL_UNIT_OPTIONS.find((option) => option.value === form.unit)
-                ?.label
-            }
+            suffix={materialUnitLabel(form.unit)}
             onChange={(minimumStock) =>
               setNewMaterial({ ...form, minimumStock })
             }
@@ -638,29 +665,43 @@ const Stock = () => {
     );
   }
 
+  const unsettledNote =
+    unsettledToken === null ? null : (
+      <ErrorNote
+        text={LOAD_FAILED}
+        onRetry={() => void readAgain(unsettledToken, true)}
+      />
+    );
+
   if (mode.kind === 'recount') {
+    const isSaving = busyKeys.includes('recount');
+
     return (
-      <Screen
-        title="Склад"
-        action={
+      <Screen title="Склад">
+        <StickyBar>
+          {/* The line keeps its place while empty, so the list does not jump
+              under the finger at the first digit. */}
+          <Hint text={recountSummary(mode.typed) ?? NO_BREAK_SPACE} />
           <Wrap>
             <Button
               variant="primary"
-              isBusy={busyKeys.includes('recount')}
+              isWideOnPhone
+              isBusy={isSaving}
               onClick={() => saveRecount(mode.typed)}
             >
               Сохранить пересчёт
             </Button>
-            <Button variant="link" onClick={leaveRecount}>
-              Отмена
-            </Button>
+            {isSaving ? null : (
+              <Button variant="link" onClick={leaveRecount}>
+                Отмена
+              </Button>
+            )}
           </Wrap>
-        }
-      >
-        {/* The line keeps its place while empty, so the list does not jump
-            under the finger at the first digit. */}
-        <Hint text={recountSummary(mode.typed) ?? NO_BREAK_SPACE} />
-        {failureNote('recount')}
+          {/* The retry sends what the fields hold now, not what they held
+              when the save failed. */}
+          {failureNote('recount', () => saveRecount(mode.typed))}
+        </StickyBar>
+        {unsettledNote}
         <Section title="Материалы">
           {rows.map((row) => renderRecountRow(row, mode))}
         </Section>
@@ -684,6 +725,7 @@ const Stock = () => {
         ) : undefined
       }
     >
+      {unsettledNote}
       <Section
         title="Материалы"
         footer={

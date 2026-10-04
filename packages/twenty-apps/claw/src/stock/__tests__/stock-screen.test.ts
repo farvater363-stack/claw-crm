@@ -6,6 +6,7 @@ import {
   buildStockRows,
   movementText,
   parseMinimumStock,
+  parseStockAmount,
   recountSummary,
   type StockMaterial,
 } from 'src/stock/stock-screen';
@@ -283,6 +284,24 @@ describe('recountSummary', () => {
 
     expect(recountSummary({ ...typed, empty: ' ' })).toBe(text);
   });
+});
+
+describe('parseStockAmount', () => {
+  it('takes zero or more, with a comma or a dot, to two decimals', () => {
+    expect(parseStockAmount('0')).toEqual({ ok: true, value: 0 });
+    expect(parseStockAmount(' 12,345 ')).toEqual({ ok: true, value: 12.35 });
+    expect(parseStockAmount('0.5')).toEqual({ ok: true, value: 0.5 });
+  });
+
+  it.each(['', '-1', '+5', 'x', '1e3', '0x10', '1 200'])(
+    'refuses %j and names the fix',
+    (raw) => {
+      expect(parseStockAmount(raw)).toEqual({
+        ok: false,
+        error: 'Введите число, ноль или больше',
+      });
+    },
+  );
 });
 
 describe('parseMinimumStock', () => {

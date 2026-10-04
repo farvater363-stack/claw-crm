@@ -28,6 +28,7 @@ import { fromCurrency } from 'src/recalc/money';
 import { formatMoney } from 'src/ui/format';
 import { PALETTE } from 'src/ui/tokens';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
+import { isAccessError } from 'src/utils/is-access-error';
 
 type LoadState =
   | { status: 'loading' }
@@ -71,11 +72,6 @@ const kindLabel = (kind: string | null) =>
 const describeError = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-// Roles without read on payments get a permission error (or an unknown field)
-// from this query; nothing else is loaded for them.
-const isAccessError = (error: unknown) =>
-  /permission|Cannot query field/i.test(describeError(error));
-
 // Throws on any failure except an access error on payments, which is the owner check.
 const loadPayrollData = async (): Promise<
   Extract<LoadState, { status: 'ready' | 'forbidden' }>
@@ -105,6 +101,8 @@ const loadPayrollData = async (): Promise<
       return masterPayments;
     });
   } catch (error) {
+    // Roles without read on payments are refused this query; nothing else is
+    // loaded for them.
     if (isAccessError(error)) return { status: 'forbidden' };
 
     throw error;

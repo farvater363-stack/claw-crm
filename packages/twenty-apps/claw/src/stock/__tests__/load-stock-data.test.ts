@@ -136,6 +136,15 @@ describe('loadStockData', () => {
     ).rejects.toThrow('Failed to fetch');
   });
 
+  it('does not ask about prices again when the answer is already known', async () => {
+    const { client, queries } = fakeClient({
+      priceError: new Error('Forbidden: no permission'),
+    });
+
+    expect((await loadStockData(client, true)).canSeePrice).toBe(true);
+    expect(JSON.stringify(queries)).not.toContain('lastPurchasePrice');
+  });
+
   it('leaves alone the fields the next task removes', async () => {
     const { client, queries } = fakeClient();
 

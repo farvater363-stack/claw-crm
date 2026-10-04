@@ -106,6 +106,9 @@ export const MATERIAL_UNIT_OPTIONS = toOptions([
 
 export type MaterialUnit = (typeof MATERIAL_UNIT_OPTIONS)[number]['value'];
 
+export const materialUnitLabel = (unit: string | null | undefined): string =>
+  MATERIAL_UNIT_OPTIONS.find((option) => option.value === unit)?.label ?? '';
+
 // Views sort SELECT by value text, so BUY < LOW < OK alphabetically is also the urgency order; keep that when renaming.
 export const STOCK_STATE_OPTIONS = toOptions([
   ['BUY', 'Нужно купить', 'red'],

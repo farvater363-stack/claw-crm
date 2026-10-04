@@ -150,6 +150,19 @@ export const buildReceipt = ({
   };
 };
 
+// An amount that may be zero: a counted stock, a minimum to keep.
+export const parseStockAmount = (
+  raw: string,
+): { ok: true; value: number } | { ok: false; error: string } => {
+  const trimmed = raw.trim();
+  // Number() alone would also take «1e3», «0x10» and a signed value.
+  const value = PLAIN_DECIMAL.test(trimmed) ? parseDecimalInput(trimmed) : null;
+
+  return value === null
+    ? { ok: false, error: 'Введите число, ноль или больше' }
+    : { ok: true, value: roundTo(value, QUANTITY_DECIMALS) };
+};
+
 export const buildRecount = (
   typed: Record<string, string>,
   today: string,
@@ -160,23 +173,19 @@ export const buildRecount = (
   const data: StockRecountEntry[] = [];
 
   for (const [materialId, raw] of Object.entries(typed)) {
-    const trimmed = raw.trim();
+    if (raw.trim() === '') continue;
 
-    if (trimmed === '') continue;
+    const counted = parseStockAmount(raw);
 
-    const countedQuantity = PLAIN_DECIMAL.test(trimmed)
-      ? parseDecimalInput(trimmed)
-      : null;
-
-    if (countedQuantity === null) {
-      errors[materialId] = 'Введите число, ноль или больше';
-    } else {
+    if (counted.ok) {
       data.push({
         kind: 'STOCKTAKE',
         materialId,
-        countedQuantity: roundTo(countedQuantity, QUANTITY_DECIMALS),
+        countedQuantity: counted.value,
         date: today,
       });
+    } else {
+      errors[materialId] = counted.error;
     }
   }
 
@@ -202,17 +211,8 @@ export const recountSummary = (
 
 export const parseMinimumStock = (
   raw: string,
-): { ok: true; value: number } | { ok: false; error: string } => {
-  const trimmed = raw.trim();
-
-  if (trimmed === '') return { ok: true, value: 0 };
-
-  const value = PLAIN_DECIMAL.test(trimmed) ? parseDecimalInput(trimmed) : null;
-
-  return value === null
-    ? { ok: false, error: 'Введите число, ноль или больше' }
-    : { ok: true, value: roundTo(value, QUANTITY_DECIMALS) };
-};
+): { ok: true; value: number } | { ok: false; error: string } =>
+  raw.trim() === '' ? { ok: true, value: 0 } : parseStockAmount(raw);
 
 export const movementText = (
   movement: StockMovementLine,

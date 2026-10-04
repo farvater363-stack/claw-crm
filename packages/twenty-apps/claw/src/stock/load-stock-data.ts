@@ -1,7 +1,7 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
 import {
-  MATERIAL_UNIT_OPTIONS,
+  materialUnitLabel,
   type MaterialUnit,
 } from 'src/constants/select-options';
 import { todayInTashkent } from 'src/pricing/dates';
@@ -14,6 +14,7 @@ import {
   type StockRecountEntry,
 } from 'src/stock/stock-screen';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
+import { isAccessError } from 'src/utils/is-access-error';
 
 export type StockData = {
   materials: StockMaterial[];
@@ -26,13 +27,6 @@ export type StockData = {
 const PAGE_SIZE = 200;
 const LATEST_MOVEMENTS = 5;
 const LISTED_KINDS = ['RECEIPT', 'STOCKTAKE', 'WRITE_OFF'] as const;
-
-// A role that may not read a field gets a permission error (or an unknown
-// field) for the whole query.
-const isAccessError = (error: unknown) =>
-  /permission|Cannot query field/i.test(
-    error instanceof Error ? error.message : String(error),
-  );
 
 const canReadPurchasePrice = async (client: CoreApiClient) => {
   try {
@@ -55,6 +49,9 @@ const canReadPurchasePrice = async (client: CoreApiClient) => {
 
 export const loadStockData = async (
   client: CoreApiClient,
+  // What an earlier load of this screen found: the role does not change
+  // between two reads, so only the first one asks
+  knownCanSeePrice?: boolean,
 ): Promise<StockData> => {
   const [materialNodes, lineNodes, canSeePrice] = await Promise.all([
     fetchAllPages(async (after) => {
@@ -103,16 +100,14 @@ export const loadStockData = async (
 
       return orderMaterials;
     }),
-    canReadPurchasePrice(client),
+    knownCanSeePrice ?? canReadPurchasePrice(client),
   ]);
 
   return {
     materials: materialNodes.map((node) => ({
       id: node.id,
       name: node.name ?? null,
-      unitLabel:
-        MATERIAL_UNIT_OPTIONS.find((option) => option.value === node.unit)
-          ?.label ?? '',
+      unitLabel: materialUnitLabel(node.unit),
       minimumStock: node.minimumStock ?? null,
       onHand: node.onHand ?? null,
       reserved: node.reserved ?? null,
