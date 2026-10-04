@@ -148,6 +148,8 @@ def graphql(query, variables):
 
 
 def create_many(mutation_name, input_type, records):
+    if not records:
+        return {}
     data = graphql(
         f'mutation($data: [{input_type}!]!) {{ {mutation_name}(data: $data) {{ id name }} }}',
         {'data': records},
