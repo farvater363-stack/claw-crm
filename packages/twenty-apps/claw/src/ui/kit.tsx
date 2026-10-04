@@ -1001,3 +1001,65 @@ export const FilePicker = ({
     </label>
   );
 };
+
+type StepTrackerProps = {
+  steps: readonly { key: string; label: string }[];
+  currentKey: string | null;
+};
+
+// The steps of an order in a row. A done step carries a check mark and the
+// current one is filled and bold, so the state never rests on colour alone.
+export const StepTracker = ({ steps, currentKey }: StepTrackerProps) => {
+  const colors = usePalette();
+  const currentIndex = steps.findIndex((step) => step.key === currentKey);
+
+  return (
+    <ol
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: SPACE.sm,
+        margin: 0,
+        padding: 0,
+        listStyle: 'none',
+      }}
+    >
+      {steps.map((step, index) => {
+        const isDone = index < currentIndex;
+        const isCurrent = index === currentIndex;
+
+        return (
+          <li
+            key={step.key}
+            aria-current={isCurrent ? 'step' : undefined}
+            style={{
+              ...TYPE.body,
+              fontWeight: isCurrent ? 600 : 400,
+              padding: `${SPACE.xs}px ${SPACE.md}px`,
+              borderRadius: RADIUS.control,
+              border: `1px solid ${
+                isCurrent
+                  ? colors.accent
+                  : isDone
+                    ? colors.successTint
+                    : colors.border
+              }`,
+              background: isCurrent
+                ? colors.accent
+                : isDone
+                  ? colors.successTint
+                  : 'transparent',
+              color: isCurrent
+                ? colors.onAccent
+                : isDone
+                  ? colors.success
+                  : colors.muted,
+            }}
+          >
+            {isDone ? `✓ ${step.label}` : step.label}
+          </li>
+        );
+      })}
+    </ol>
+  );
+};
