@@ -651,6 +651,9 @@ export const PhotoTile = ({
       onClick={onSelect}
       style={{
         display: 'grid',
+        // A tile stretched to its row's height must not stretch its own rows:
+        // the square would take its size from the height and leave the tile.
+        alignContent: 'start',
         gap: SPACE.xs,
         padding: SPACE.sm,
         background: colors.surface,
@@ -675,6 +678,7 @@ export const PhotoTile = ({
       ) : (
         <span
           style={{
+            width: '100%',
             aspectRatio: '1',
             background: colors.panel,
             borderRadius: RADIUS.control,

@@ -114,6 +114,19 @@ const findTestPersonIds = async (): Promise<string[]> => {
   return people.edges.map(({ node }: { node: { id: string } }) => node.id);
 };
 
+const destroyTestGrilles = async () => {
+  const { designs } = await graphql(
+    'query($name: String!) { designs(filter: { name: { eq: $name } }) { edges { node { id } } } }',
+    { name: TEST_GRILLE_NAME },
+  );
+
+  for (const { node } of designs.edges) {
+    await graphql('mutation($id: UUID!) { destroyDesign(id: $id) { id } }', {
+      id: node.id,
+    });
+  }
+};
+
 let isTestPhoneUnused = false;
 let testGrilleId: string | null = null;
 // Signed URLs of the photos the test attached; afterAll checks they stop
@@ -131,6 +144,10 @@ test.beforeAll(async () => {
   }
 
   isTestPhoneUnused = true;
+
+  // A run killed before afterAll leaves its grille behind, and two tiles with
+  // one name make the tile locator ambiguous.
+  await destroyTestGrilles();
 
   const { createDesign } = await graphql(
     'mutation($data: DesignCreateInput!) { createDesign(data: $data) { id } }',
@@ -194,13 +211,7 @@ test.afterAll(async () => {
     );
   }
 
-  if (testGrilleId !== null) {
-    await attempt('grille', () =>
-      graphql('mutation($id: UUID!) { destroyDesign(id: $id) { id } }', {
-        id: testGrilleId,
-      }),
-    );
-  }
+  await attempt('grilles', destroyTestGrilles);
 
   // Destroying an item queues deletion of its photo files on the worker.
   await attempt('photo files', () =>
@@ -286,8 +297,9 @@ test('measurer records a measurement from the tablet form', async ({
     await opening.getByLabel('Вылет, см').fill('30', FORCE);
     await opening.getByLabel('Количество').fill('2', FORCE);
 
-    // «Другая» is chosen until a grille is tapped: the area alone, no price.
-    await expect(opening.getByText('3,84 м²', { exact: true })).toBeVisible();
+    // «Другая» is chosen until a grille is tapped: the area of both pieces
+    // alone, no price.
+    await expect(opening.getByText('7,68 м²', { exact: true })).toBeVisible();
     await expect(page.getByText('Итого площадь: 7,68 м²')).toBeVisible();
     await expect(page.getByText('Цену назовёт менеджер')).toBeVisible();
 
@@ -298,7 +310,7 @@ test('measurer records a measurement from the tablet form', async ({
     // \D: the thousands separator is a non-breaking space.
     await expect(grilleTile).toContainText(/250\D000 сум за м²/);
     await expect(
-      opening.getByText(/^3,84 м² · 1\D920\D000 сум$/),
+      opening.getByText(/^7,68 м² · 1\D920\D000 сум$/),
     ).toBeVisible();
     await expect(page.getByText(/^Итого: 1\D920\D000 сум$/)).toBeVisible();
     await expect(page.getByText('Цену назовёт менеджер')).toBeHidden();

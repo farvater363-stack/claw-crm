@@ -79,9 +79,6 @@ const createEmptyDraft = (): MeasurementDraft => ({
   visorLengthMeters: '',
 });
 
-const formatSquareMeters = (value: number) =>
-  `${value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} м²`;
-
 const describeError = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
@@ -848,7 +845,12 @@ const NewMeasurement = () => {
 
       <h3 style={styles.heading}>Проёмы</h3>
       {draft.openings.map((opening, index) => {
-        const areaSquareMeters = computeOpeningAreaSquareMeters(opening);
+        const hasSize = computeOpeningAreaSquareMeters(opening) !== null;
+        // All pieces, so the area and the sum beside it describe the same thing.
+        const areaText = formatQuantity(
+          computeOpeningsTotalAreaSquareMeters([opening]),
+          'м²',
+        );
         const quote = computeOpeningQuote(opening, grilles);
 
         return (
@@ -934,11 +936,11 @@ const NewMeasurement = () => {
                 />,
               ),
             )}
-            {areaSquareMeters !== null && (
+            {hasSize && (
               <div style={styles.area}>
                 {quote === null
-                  ? formatQuantity(areaSquareMeters, 'м²')
-                  : `${formatQuantity(areaSquareMeters, 'м²')} · ${formatMoney(quote.lineTotal)}`}
+                  ? areaText
+                  : `${areaText} · ${formatMoney(quote.lineTotal)}`}
               </div>
             )}
             {field(
@@ -1070,7 +1072,7 @@ const NewMeasurement = () => {
       </section>
 
       <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
-        Итого площадь: {formatSquareMeters(totalAreaSquareMeters)}
+        Итого площадь: {formatQuantity(totalAreaSquareMeters, 'м²')}
       </p>
 
       {(draftTotal !== null || hasOpeningWithoutPrice) && (
