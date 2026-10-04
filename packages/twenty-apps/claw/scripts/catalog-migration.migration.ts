@@ -2,9 +2,12 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { it } from 'vitest';
 
 import {
+  delayBeforeRecalcWrite,
   diffSnapshots,
   filledFromGrille,
   grilleData,
+  loadsMatch,
+  positionsBlockingApply,
   positionsFilledAtRecalc,
   priceRowsNotCarriedOver,
   priceWriteBacks,
@@ -20,8 +23,12 @@ const client = new CoreApiClient();
 const PAGE_SIZE = 200;
 // The API key allows 100 requests a minute, reads included.
 const REQUEST_PAUSE_MILLISECONDS = 700;
-const RECALC_WAIT_MILLISECONDS = 90_000;
-const RUN_TIMEOUT_MILLISECONDS = 30 * 60_000;
+const SETTLE_FIRST_WAIT_MILLISECONDS = 30_000;
+const SETTLE_POLL_MILLISECONDS = 15_000;
+const SETTLE_LIMIT_MILLISECONDS = 10 * 60_000;
+// Positions that all sit in one order are written 15 seconds apart, twice, and
+// a run cut off by the timeout leaves prices that nothing writes back.
+const RUN_TIMEOUT_MILLISECONDS = 60 * 60_000;
 
 const ITEM_FIELDS = [
   'pricePerSquareMeter',
@@ -43,8 +50,9 @@ const pause = (milliseconds: number) =>
 const request = async <TResult>(
   label: string,
   send: () => Promise<TResult>,
+  pauseMilliseconds = REQUEST_PAUSE_MILLISECONDS,
 ): Promise<TResult> => {
-  await pause(REQUEST_PAUSE_MILLISECONDS);
+  await pause(pauseMilliseconds);
 
   try {
     return await send();
@@ -297,25 +305,51 @@ const printList = (heading: string, lines: string[]) => {
 const formatDifference = ({ id, field, before, after }: SnapshotDifference) =>
   `${id}, ${field}, ${before}, ${after}`;
 
+let sentWriteCount = 0;
+let lastRecalcWriteAt: number | null = null;
+const lastRecalcWriteAtByOrderId = new Map<string, number>();
+
 const writeEach = async <TEntry>(
   group: string,
   entries: TEntry[],
   describeEntry: (entry: TEntry) => string,
   send: (entry: TEntry) => Promise<unknown>,
+  // Given only for a write that starts a recalc: the order of the written position.
+  recalculatedOrderIdOf?: (entry: TEntry) => string | null,
 ) => {
   for (const [index, entry] of entries.entries()) {
     const label = `${group} ${index + 1} of ${entries.length}: ${describeEntry(entry)}`;
+    const orderId = recalculatedOrderIdOf?.(entry) ?? null;
+    const pauseMilliseconds =
+      recalculatedOrderIdOf === undefined
+        ? REQUEST_PAUSE_MILLISECONDS
+        : Math.max(
+            REQUEST_PAUSE_MILLISECONDS,
+            delayBeforeRecalcWrite(
+              Date.now(),
+              lastRecalcWriteAt,
+              orderId === null
+                ? null
+                : (lastRecalcWriteAtByOrderId.get(orderId) ?? null),
+            ),
+          );
 
     console.log(label);
-    await request(label, () => send(entry));
-  }
-};
+    sentWriteCount++;
 
-const waitForRecalc = async () => {
-  console.log(
-    `Waiting ${RECALC_WAIT_MILLISECONDS / 1000} seconds for the recalculations`,
-  );
-  await pause(RECALC_WAIT_MILLISECONDS);
+    try {
+      await request(label, () => send(entry), pauseMilliseconds);
+    } finally {
+      // Also after a failure: the server may have taken the write before the error.
+      if (recalculatedOrderIdOf !== undefined) {
+        lastRecalcWriteAt = Date.now();
+
+        if (orderId !== null) {
+          lastRecalcWriteAtByOrderId.set(orderId, lastRecalcWriteAt);
+        }
+      }
+    }
+  }
 };
 
 it(
@@ -325,7 +359,9 @@ it(
     const acceptsFilledPrices = process.env.MIGRATE_EMPTY_PRICES === 'fill';
 
     console.log(
-      `Mode: ${shouldApply ? 'APPLY' : 'dry run'}; positions with an empty price: ${
+      `Server: ${process.env.TWENTY_API_URL}; mode: ${
+        shouldApply ? 'APPLY' : 'dry run'
+      }; positions with an empty price: ${
         acceptsFilledPrices ? 'may be filled from the grille' : 'strict'
       }`,
     );
@@ -392,6 +428,16 @@ it(
       [...designs, ...plan.designCreates].map(({ id, name }) => [id, name]),
     );
     const orderById = new Map(orders.map((order) => [order.id, order]));
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const orderIdOfItem = (itemId: string) =>
+      itemById.get(itemId)?.orderId ?? null;
+    const snapshotLine = (itemId: string) => {
+      const item = itemById.get(itemId);
+
+      return `${itemId}, ${item?.pricePerSquareMeter ?? null}, ${
+        item?.costPerSquareMeter ?? null
+      }, ${item?.lineTotal ?? null}`;
+    };
     const repointedItemIds = new Set(
       pending.itemRepoints.map(({ itemId }) => itemId),
     );
@@ -461,13 +507,35 @@ it(
       console.log(`  ${line}`);
     }
 
-    // Not covered by MIGRATE_EMPTY_PRICES: an empty cost cannot be written back
-    // either, so each of these fails the comparison once its order recalculates.
     console.log(
       `\nPositions with a price but an empty cost that have a grille after the plan: ${withEmptyCostOnly.length}`,
     );
     for (const line of positionLinesByOrder(withEmptyCostOnly)) {
       console.log(`  ${line}`);
+    }
+
+    const blockingPositions = positionsBlockingApply(
+      { withEmptyPrice, withEmptyCostOnly },
+      {
+        returnedOrderIds: new Set(orderById.keys()),
+        touchedOrderIds,
+        acceptsFilledPrices,
+      },
+    );
+
+    if (blockingPositions.length > 0) {
+      const refusal = `${blockingPositions.length} positions would be filled from their grille and nothing can undo it. Either run with MIGRATE_EMPTY_PRICES=fill, which accepts a filled price but never a filled cost, or give these positions a price or cost first`;
+
+      console.log(
+        `\nPositions that block an apply (in an order this migration recalculates): ${blockingPositions.length}`,
+      );
+      for (const line of positionLinesByOrder(blockingPositions)) {
+        console.log(`  ${line}`);
+      }
+
+      if (shouldApply) throw new Error(`Refusing to apply: ${refusal}`);
+
+      console.log(`WARNING: an apply would refuse to start: ${refusal}`);
     }
 
     const manualMovements = await loadManualMovements();
@@ -496,116 +564,189 @@ it(
       return;
     }
 
+    // The only copy of the original prices once a repoint has refreshed them.
+    printList(
+      'Snapshot of the positions to repoint (id, price, cost, line total)',
+      pending.itemRepoints.map(({ itemId }) => snapshotLine(itemId)),
+    );
+    console.log(
+      'If this run stops before it prints "<n> differences", some of these prices may not be restored: compare them by hand.',
+    );
+
+    const loadSettled = async (whenUnsettled: string) => {
+      const startedAt = Date.now();
+
+      console.log(
+        `\nWaiting ${SETTLE_FIRST_WAIT_MILLISECONDS / 1000} seconds, then loading every ${
+          SETTLE_POLL_MILLISECONDS / 1000
+        } seconds until two loads in a row are the same`,
+      );
+      await pause(SETTLE_FIRST_WAIT_MILLISECONDS);
+
+      let previous = { items: await loadItems(), orders: await loadOrders() };
+
+      for (let poll = 1; ; poll++) {
+        if (Date.now() - startedAt > SETTLE_LIMIT_MILLISECONDS) {
+          throw new Error(
+            `Positions or orders were still changing after ${
+              SETTLE_LIMIT_MILLISECONDS / 60_000
+            } minutes, so nothing was compared. ${whenUnsettled}`,
+          );
+        }
+
+        await pause(SETTLE_POLL_MILLISECONDS);
+
+        const current = {
+          items: await loadItems(),
+          orders: await loadOrders(),
+        };
+        const isSettled =
+          loadsMatch(previous.items, current.items, ITEM_FIELDS) &&
+          loadsMatch(previous.orders, current.orders, ORDER_FIELDS);
+
+        console.log(
+          `poll ${poll}, ${Math.round((Date.now() - startedAt) / 1000)} seconds in: ${
+            isSettled ? 'settled' : 'still changing'
+          }`,
+        );
+
+        if (isSettled) return current;
+
+        previous = current;
+      }
+    };
+
     console.log('\nApply');
 
-    await writeEach(
-      'create grille',
-      pending.designCreates,
-      ({ id, name }) => `${name} (${id})`,
-      ({ id, name, numbers }) =>
-        client.mutation({
-          createDesign: {
-            __args: {
-              data: { id, name, ...grilleData(numbers) },
-              upsert: true,
+    let failedWrite: Error | null = null;
+
+    try {
+      await writeEach(
+        'create grille',
+        pending.designCreates,
+        ({ id, name }) => `${name} (${id})`,
+        ({ id, name, numbers }) =>
+          client.mutation({
+            createDesign: {
+              __args: {
+                data: { id, name, ...grilleData(numbers) },
+                upsert: true,
+              },
+              id: true,
             },
-            id: true,
-          },
-        }),
-    );
-    await writeEach(
-      'update grille',
-      pending.designUpdates,
-      ({ id }) => `${grilleNameById.get(id)} (${id})`,
-      ({ id, numbers }) =>
-        client.mutation({
-          updateDesign: {
-            __args: { id, data: grilleData(numbers) },
-            id: true,
-          },
-        }),
-    );
-    await writeEach(
-      'repoint position',
-      pending.itemRepoints,
-      ({ itemId, designId }) =>
-        `${itemId} to ${grilleNameById.get(designId)} (${designId})`,
-      ({ itemId, designId }) =>
-        client.mutation({
-          updateOrderItem: {
-            __args: { id: itemId, data: { designId } },
-            id: true,
-          },
-        }),
-    );
-    await writeEach(
-      'repoint norm',
-      pending.normRepoints,
-      ({ normId, designId }) =>
-        `${normId} to ${grilleNameById.get(designId)} (${designId})`,
-      ({ normId, designId }) =>
-        client.mutation({
-          updateMaterialNorm: {
-            __args: { id: normId, data: { designId } },
-            id: true,
-          },
-        }),
-    );
-    await writeEach(
-      'mark visor service',
-      pending.visorServiceIds,
-      (id) => id,
-      (id) =>
-        client.mutation({
-          updateExtraService: {
-            __args: { id, data: { kind: 'VISOR' } },
-            id: true,
-          },
-        }),
-    );
-
-    const writeCount =
-      pending.designCreates.length +
-      pending.designUpdates.length +
-      pending.itemRepoints.length +
-      pending.normRepoints.length +
-      pending.visorServiceIds.length;
-
-    if (writeCount > 0) await waitForRecalc();
-
-    let itemsAfter = await loadItems();
-    const writeBacks = priceWriteBacks(
-      items,
-      diffSnapshots(items, itemsAfter, ITEM_FIELDS),
-    );
-
-    await writeEach(
-      'write the snapshot price back',
-      writeBacks,
-      ({ id }) => id,
-      ({ id, values }) =>
-        client.mutation({
-          updateOrderItem: {
-            __args: {
-              id,
-              data: Object.fromEntries(
-                Object.entries(values).map(([field, value]) => [
-                  field,
-                  toCurrency(value),
-                ]),
-              ),
+          }),
+      );
+      await writeEach(
+        'update grille',
+        pending.designUpdates,
+        ({ id }) => `${grilleNameById.get(id)} (${id})`,
+        ({ id, numbers }) =>
+          client.mutation({
+            updateDesign: {
+              __args: { id, data: grilleData(numbers) },
+              id: true,
             },
-            id: true,
-          },
-        }),
-    );
-
-    if (writeBacks.length > 0) {
-      await waitForRecalc();
-      itemsAfter = await loadItems();
+          }),
+      );
+      await writeEach(
+        'repoint position',
+        pending.itemRepoints,
+        ({ itemId, designId }) =>
+          `${itemId} to ${grilleNameById.get(designId)} (${designId})`,
+        ({ itemId, designId }) =>
+          client.mutation({
+            updateOrderItem: {
+              __args: { id: itemId, data: { designId } },
+              id: true,
+            },
+          }),
+        ({ itemId }) => orderIdOfItem(itemId),
+      );
+      await writeEach(
+        'repoint norm',
+        pending.normRepoints,
+        ({ normId, designId }) =>
+          `${normId} to ${grilleNameById.get(designId)} (${designId})`,
+        ({ normId, designId }) =>
+          client.mutation({
+            updateMaterialNorm: {
+              __args: { id: normId, data: { designId } },
+              id: true,
+            },
+          }),
+      );
+      await writeEach(
+        'mark visor service',
+        pending.visorServiceIds,
+        (id) => id,
+        (id) =>
+          client.mutation({
+            updateExtraService: {
+              __args: { id, data: { kind: 'VISOR' } },
+              id: true,
+            },
+          }),
+      );
+    } catch (error) {
+      failedWrite = error instanceof Error ? error : new Error(String(error));
+      console.log(
+        `\nINCOMPLETE: ${failedWrite.message}. No further planned write is sent; the prices of what was written are restored and compared next.`,
+      );
     }
 
-    const ordersAfter = await loadOrders();
+    let after =
+      sentWriteCount > 0
+        ? await loadSettled(
+            'The snapshot prices were NOT written back: the originals are listed above under "Snapshot of the positions to repoint".',
+          )
+        : { items: await loadItems(), orders: await loadOrders() };
+
+    const writeBacks = priceWriteBacks(
+      items,
+      diffSnapshots(items, after.items, ITEM_FIELDS),
+    );
+    let restoredCount = 0;
+
+    try {
+      await writeEach(
+        'write the snapshot price back',
+        writeBacks,
+        ({ id }) => id,
+        async ({ id, values }) => {
+          await client.mutation({
+            updateOrderItem: {
+              __args: {
+                id,
+                data: Object.fromEntries(
+                  Object.entries(values).map(([field, value]) => [
+                    field,
+                    toCurrency(value),
+                  ]),
+                ),
+              },
+              id: true,
+            },
+          });
+          restoredCount++;
+        },
+        ({ id }) => orderIdOfItem(id),
+      );
+    } catch (error) {
+      printList(
+        'The write-back failed. NOT restored, the failed position first (id, snapshot price, cost, line total)',
+        writeBacks.slice(restoredCount).map(({ id }) => snapshotLine(id)),
+      );
+
+      throw error;
+    }
+
+    if (writeBacks.length > 0) {
+      after = await loadSettled(
+        'The snapshot prices were written back, but the result was not checked.',
+      );
+    }
+
+    const { items: itemsAfter, orders: ordersAfter } = after;
     const itemDifferences = diffSnapshots(items, itemsAfter, ITEM_FIELDS);
     const orderDifferences = diffSnapshots(orders, ordersAfter, ORDER_FIELDS);
     const filled = filledFromGrille(
@@ -648,6 +789,14 @@ it(
       console.log(formatDifference(difference));
     }
     console.log(`${differences.length} differences`);
+
+    if (failedWrite !== null) {
+      console.log(
+        `INCOMPLETE: ${failedWrite.message}. The migration is not finished: run it again once the cause is fixed.`,
+      );
+
+      throw failedWrite;
+    }
 
     if (differences.length > 0) {
       throw new Error(

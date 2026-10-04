@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  delayBeforeRecalcWrite,
   diffSnapshots,
   filledFromGrille,
   grilleData,
+  loadsMatch,
+  positionsBlockingApply,
   positionsFilledAtRecalc,
   priceRowsNotCarriedOver,
   priceWriteBacks,
@@ -305,5 +308,109 @@ describe('grilleData', () => {
       },
       installationCostPerSquareMeter: { amountMicros: 0, currencyCode: 'UZS' },
     });
+  });
+});
+
+describe('positionsBlockingApply', () => {
+  const position = (id: string, orderId: string | null) => ({ id, orderId });
+  const positions = {
+    withEmptyPrice: [
+      position('price-recalculated', 'touched'),
+      position('price-untouched', 'untouched'),
+      position('price-deleted-order', 'deleted'),
+      position('price-no-order', null),
+    ],
+    withEmptyCostOnly: [
+      position('cost-recalculated', 'touched'),
+      position('cost-untouched', 'untouched'),
+    ],
+  };
+  const orderIds = {
+    returnedOrderIds: new Set(['touched', 'untouched']),
+    touchedOrderIds: new Set(['touched', 'deleted']),
+  };
+
+  it('blocks on positions in an order that is returned and touched', () => {
+    expect(
+      positionsBlockingApply(positions, {
+        ...orderIds,
+        acceptsFilledPrices: false,
+      }),
+    ).toEqual([
+      position('price-recalculated', 'touched'),
+      position('cost-recalculated', 'touched'),
+    ]);
+  });
+
+  it('still blocks on an empty cost when filled prices are accepted', () => {
+    expect(
+      positionsBlockingApply(positions, {
+        ...orderIds,
+        acceptsFilledPrices: true,
+      }),
+    ).toEqual([position('cost-recalculated', 'touched')]);
+  });
+
+  it('blocks on nothing when no such order recalculates', () => {
+    expect(
+      positionsBlockingApply(positions, {
+        returnedOrderIds: new Set(['untouched']),
+        touchedOrderIds: new Set(['deleted']),
+        acceptsFilledPrices: false,
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('delayBeforeRecalcWrite', () => {
+  it('does not wait before the first write', () => {
+    expect(delayBeforeRecalcWrite(50_000, null, null)).toBe(0);
+  });
+
+  it('keeps 3 seconds between writes to different orders', () => {
+    expect(delayBeforeRecalcWrite(50_000, 49_000, null)).toBe(2_000);
+    expect(delayBeforeRecalcWrite(50_000, 47_000, null)).toBe(0);
+    expect(delayBeforeRecalcWrite(50_000, 40_000, null)).toBe(0);
+  });
+
+  it('keeps 15 seconds between writes to the same order', () => {
+    expect(delayBeforeRecalcWrite(50_000, 49_000, 49_000)).toBe(14_000);
+    expect(delayBeforeRecalcWrite(50_000, 49_000, 40_000)).toBe(5_000);
+    expect(delayBeforeRecalcWrite(50_000, 49_000, 30_000)).toBe(2_000);
+    expect(delayBeforeRecalcWrite(50_000, 30_000, 30_000)).toBe(0);
+  });
+});
+
+describe('loadsMatch', () => {
+  const load = [
+    { id: 'a', price: 100, cost: null },
+    { id: 'b', price: 0, cost: 40 },
+  ];
+
+  it('holds for two loads with the same values, whatever their order', () => {
+    expect(loadsMatch(load, [load[1], load[0]], ['price', 'cost'])).toBe(true);
+  });
+
+  it('fails when a value changed, also between empty and zero', () => {
+    expect(
+      loadsMatch(load, [load[0], { ...load[1], price: 1 }], ['price', 'cost']),
+    ).toBe(false);
+    expect(
+      loadsMatch(load, [{ ...load[0], cost: 0 }, load[1]], ['price', 'cost']),
+    ).toBe(false);
+  });
+
+  it('ignores a field that is not compared', () => {
+    expect(
+      loadsMatch(load, [load[0], { ...load[1], cost: 1 }], ['price']),
+    ).toBe(true);
+  });
+
+  it('fails when a record appeared or is gone', () => {
+    const third = { id: 'c', price: 5, cost: 5 };
+
+    expect(loadsMatch(load, [...load, third], ['price', 'cost'])).toBe(false);
+    expect(loadsMatch([...load, third], load, ['price', 'cost'])).toBe(false);
+    expect(loadsMatch(load, [load[0], third], ['price', 'cost'])).toBe(false);
   });
 });

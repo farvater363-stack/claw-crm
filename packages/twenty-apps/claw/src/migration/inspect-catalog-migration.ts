@@ -79,6 +79,61 @@ export const positionsFilledAtRecalc = <
   };
 };
 
+// A filled value cannot be written back, so an apply that would fill one must
+// not start. Only an order the API returns and the migration writes to recalculates.
+export const positionsBlockingApply = <
+  TItem extends { orderId: string | null },
+>(
+  {
+    withEmptyPrice,
+    withEmptyCostOnly,
+  }: { withEmptyPrice: TItem[]; withEmptyCostOnly: TItem[] },
+  {
+    returnedOrderIds,
+    touchedOrderIds,
+    acceptsFilledPrices,
+  }: {
+    returnedOrderIds: Set<string>;
+    touchedOrderIds: Set<string>;
+    acceptsFilledPrices: boolean;
+  },
+): TItem[] =>
+  [...(acceptsFilledPrices ? [] : withEmptyPrice), ...withEmptyCostOnly].filter(
+    ({ orderId }) =>
+      orderId !== null &&
+      returnedOrderIds.has(orderId) &&
+      touchedOrderIds.has(orderId),
+  );
+
+const RECALC_WRITE_GAP_MILLISECONDS = 3_000;
+const SAME_ORDER_WRITE_GAP_MILLISECONDS = 15_000;
+
+// Each write to a position starts a recalc of its order; two recalcs of one
+// order that overlap can finish out of order and leave the older totals.
+export const delayBeforeRecalcWrite = (
+  now: number,
+  lastWriteAt: number | null,
+  lastWriteToSameOrderAt: number | null,
+): number =>
+  Math.max(
+    0,
+    lastWriteAt === null
+      ? 0
+      : lastWriteAt + RECALC_WRITE_GAP_MILLISECONDS - now,
+    lastWriteToSameOrderAt === null
+      ? 0
+      : lastWriteToSameOrderAt + SAME_ORDER_WRITE_GAP_MILLISECONDS - now,
+  );
+
+export const loadsMatch = <TField extends string>(
+  first: ({ id: string } & Record<TField, number | null>)[],
+  second: ({ id: string } & Record<TField, number | null>)[],
+  fields: readonly TField[],
+): boolean =>
+  first.length === second.length &&
+  diffSnapshots(first, second, fields).length === 0 &&
+  diffSnapshots(second, first, fields).length === 0;
+
 export const diffSnapshots = <TField extends string>(
   before: ({ id: string } & Record<TField, number | null>)[],
   after: ({ id: string } & Record<TField, number | null>)[],
