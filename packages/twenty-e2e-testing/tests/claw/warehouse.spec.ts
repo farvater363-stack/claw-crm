@@ -377,7 +377,8 @@ const workspaceMenuEntries = (page: Page): Promise<string[]> =>
 // A view's entry reads «Заказы · Заказы»: the view, then its object.
 const entryName = (entry: string) => entry.split(' · ')[0];
 
-// In the order of the phase 2 spec §6, which is the order on screen.
+// Top to bottom, as on screen. A role sees only the items whose object it
+// can read: the owner all of them, the others the screens they work in.
 const MENUS: { role: Role; title: string; entries: string[] }[] = [
   {
     role: 'ADMIN',

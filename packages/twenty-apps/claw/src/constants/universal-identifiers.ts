@@ -276,7 +276,7 @@ export const IDS = {
     orderPaymentsTable: '9795c1d9-9fdb-4e6e-91a2-6da5e13c5ec6',
   },
   navigation: {
-    orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: the sidebar uses allOrders; ids are never reused.
+    orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: «Все заказы» is the second view of «Заказы» and has no menu item; ids are never reused.
     ordersKanban: '5b4925cf-bf24-422b-bc5b-f6a6b125ddf7',
     myMeasurements: '5b65e2e1-2c9f-4b87-8f16-95e20851bf8b',
     production: '379a3f5b-57ec-48c2-bf5f-e9a8d970ce65', // Retired: replaced by the «В работе» screen; ids are never reused.

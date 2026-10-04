@@ -15,9 +15,12 @@ import managerRole from 'src/roles/manager.role';
 import measurerRole from 'src/roles/measurer.role';
 import workshopRole from 'src/roles/workshop.role';
 
-// Spec §6, top to bottom. «Сегодня» is not among them: it is a record item
-// that scripts/setup-owner-dashboard.py creates at this position.
+// «Сегодня» is not in the menu below: it is a record item that
+// scripts/setup-owner-dashboard.py creates at this position.
 const DASHBOARD_ITEM_POSITION = -2;
+
+// Top to bottom. A role sees an item only when it can read the object the
+// item cannot work without, so each role gets the screens it works in.
 
 const MENU = [
   { label: 'Заказы', item: orders, requires: IDS.stockMovement.object },

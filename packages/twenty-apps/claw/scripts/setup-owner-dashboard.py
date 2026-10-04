@@ -13,9 +13,9 @@ import urllib.request
 REQUEST_TIMEOUT_SECONDS = 30
 PAGE_LAYOUT_UNIVERSAL_IDENTIFIER = '260281fc-4390-42d0-90f7-91afdeacd969'
 DASHBOARD_TITLE = 'Сегодня'
-# Before phase 2 the record was created as «Аналитика»; it is found by either title and renamed.
+# A record still titled «Аналитика» is the same dashboard; it is found by either title and renamed.
 PREVIOUS_DASHBOARD_TITLES = ('Аналитика',)
-# Above «Новый замер» (-1): Twenty lands each user on their first readable
+# Above «Заказы» (-1): Twenty lands each user on their first readable
 # item, and only admins can read dashboards.
 MENU_POSITION = -2
 # --dry-run is the default; it stays accepted so an old command still writes nothing.
@@ -28,7 +28,7 @@ def request(path, query, variables=None):
         f"{os.environ['TWENTY_API_URL']}/{path}",
         data=json.dumps({'query': query, 'variables': variables or {}}).encode(),
         headers={'Content-Type': 'application/json',
-                 'Authorization': f"Bearer {os.environ['TWENTY_API_KEY']}"},
+                 'Authorization': f"Bearer {os.environ['TWENTY_API_KEY'].strip()}"},
     )
     with urllib.request.urlopen(http_request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
         body = json.loads(response.read())

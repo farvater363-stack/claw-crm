@@ -35,13 +35,13 @@ export const relative = (period: string) => `${period};;${TIME_ZONE};;`;
 const NOT_CANCELLED: ChartRecordFilter = {
   fieldMetadataUniversalIdentifier: IDS.order.status,
   operand: 'IS_NOT',
-  value: JSON.stringify(['CANCELLED']),
+  value: JSON.stringify([STEP_STATUS.cancelled]),
 };
 
 const CANCELLED: ChartRecordFilter = {
   fieldMetadataUniversalIdentifier: IDS.order.status,
   operand: 'IS',
-  value: JSON.stringify(['CANCELLED']),
+  value: JSON.stringify([STEP_STATUS.cancelled]),
 };
 
 export const READY_THIS_MONTH: ChartFilter = {
@@ -98,7 +98,7 @@ export const CANCELLED_IN_LAST_TWELVE_MONTHS = inLastTwelveMonths(
 );
 
 // Conversion counts decided orders only: ready or cancelled. Open orders and
-// the imported ones (closed, never stamped ready) fall outside both.
+// imported ones that were never stamped ready fall outside both.
 export const DECIDED_ORDERS: ChartFilter = {
   recordFilterGroups: [{ id: ANY_OF_GROUP_ID, logicalOperator: 'OR' }],
   recordFilters: [

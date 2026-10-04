@@ -7,6 +7,7 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { VIEW_PART_IDS } from 'src/constants/view-part-identifiers';
+import { STEP_STATUS } from 'src/order-header/order-steps';
 import { relative } from 'src/page-layouts/owner-dashboard-filters';
 import { toKeyedViewFields } from 'src/utils/to-view-fields';
 
@@ -55,7 +56,7 @@ export default defineView({
       universalIdentifier: ids.lateFilterNotCancelled,
       fieldMetadataUniversalIdentifier: IDS.order.status,
       operand: ViewFilterOperand.IS_NOT,
-      value: JSON.stringify(['CANCELLED']),
+      value: JSON.stringify([STEP_STATUS.cancelled]),
     },
   ],
   sorts: [

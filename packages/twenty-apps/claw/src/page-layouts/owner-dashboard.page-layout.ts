@@ -112,7 +112,8 @@ export default definePageLayout({
           aggregateOperation: AggregateOperations.COUNT,
           filter: ORDERS_IN_PRODUCTION,
         }),
-        // The id of the old «Нужно купить» count: it now counts BUY and LOW together.
+        // Keeps its identifier whatever it counts: the server then updates the
+        // widget in place instead of destroying it and creating another.
         tile({
           universalIdentifier: IDS.ownerDashboard.materialsBuyWidget,
           title: 'Купить',
