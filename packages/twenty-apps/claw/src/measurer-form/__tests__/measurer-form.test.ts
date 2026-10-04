@@ -833,10 +833,48 @@ describe('toOrderUpdateData', () => {
       clientName: 'Азиз',
       clientPhone: '+998901234567',
       discountKind: 'PERCENT',
+      discountValue: null,
     });
     expect(Object.keys(data)).not.toContain('measurerId');
     expect(Object.keys(data)).not.toContain('source');
     expect(Object.keys(data)).not.toContain('comment');
-    expect(Object.keys(data)).not.toContain('discountValue');
+  });
+
+  it('writes the typed discount kind and value together', () => {
+    const result = buildMeasurementPayload(
+      draft({}),
+      'member-1',
+      context({
+        orderId: 'order-1',
+        subtotal: 1_410_000,
+        payment: payment({ discountKind: 'AMOUNT', discountValue: '70 500' }),
+      }),
+    );
+
+    if (!result.isValid) throw new Error('expected a valid payload');
+
+    expect(toOrderUpdateData(result.order)).toMatchObject({
+      discountKind: 'AMOUNT',
+      discountValue: 70_500,
+    });
+  });
+
+  it('clears an earlier discount while the price is unknown («Другая»)', () => {
+    const result = buildMeasurementPayload(
+      draft({}),
+      'member-1',
+      context({
+        orderId: 'order-1',
+        subtotal: null,
+        payment: payment({ discountKind: 'AMOUNT', discountValue: '5' }),
+      }),
+    );
+
+    if (!result.isValid) throw new Error('expected a valid payload');
+
+    expect(toOrderUpdateData(result.order)).toMatchObject({
+      discountKind: 'AMOUNT',
+      discountValue: null,
+    });
   });
 });

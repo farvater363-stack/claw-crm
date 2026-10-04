@@ -485,11 +485,14 @@ export const resolveTargetOrderId = (
 
 // Saving into a scheduled order must not wipe what the manager entered, nor
 // hand the order to whoever opened the form: the measurer's pay follows the
-// order's measurer.
+// order's measurer. The discount is the exception: the form never shows an
+// earlier one, so an empty value clears it and the saved total matches the
+// preview; a new kind over an old value would change the total.
 export const toOrderUpdateData = (order: OrderPayload): Partial<OrderPayload> =>
   Object.fromEntries(
     Object.entries(order).filter(
-      ([key, value]) => key !== 'measurerId' && value !== null,
+      ([key, value]) =>
+        key !== 'measurerId' && (value !== null || key === 'discountValue'),
     ),
   ) as Partial<OrderPayload>;
 
