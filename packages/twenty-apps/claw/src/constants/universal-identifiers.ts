@@ -264,6 +264,7 @@ export const IDS = {
     orderMaterialsTable: '4822592d-5f07-4c2a-9125-c5540d540af0',
     orderMaterialStatus: 'db3a3e8e-a3b3-4933-b4d0-8682679cdacf', // Retired: the order header shows the material sentence; ids are never reused.
     dashboardPurchasePlan: 'c8875f81-bfed-4cf3-a37d-a8c66a6b4221',
+    dashboardNearestDeadlines: '1cff4610-fa0f-4f00-a5ca-9df851b03407',
     dashboardOverrun: '25cbe306-0c48-4d04-a0ed-ef8cee407fd0',
     orderPaymentsTable: '9795c1d9-9fdb-4e6e-91a2-6da5e13c5ec6',
   },
@@ -311,6 +312,11 @@ export const IDS = {
   ownerDashboard: {
     pageLayout: '260281fc-4390-42d0-90f7-91afdeacd969',
     pageLayoutTab: 'a6c9f937-a218-47db-8286-ee395627fcb8',
+    todayTab: '2b9046b4-3d83-4ac7-87fe-f4ec446b79ed',
+    overdueCountWidget: '7872722e-099e-4700-8a77-ef6f1e320784',
+    owesUsSumWidget: '10c733c9-de1a-406a-83a6-eca54676510c',
+    inProductionCountWidget: '96f32a4d-58d4-4fed-9153-27f1674e9ace',
+    nearestDeadlinesTableWidget: '3fb53217-1e0d-431f-b9b2-f84c78449532',
     revenueThisMonthWidget: 'fcba88b3-7a38-4230-b248-89a3dcedc3d4',
     marginThisMonthWidget: 'e6c04afb-f3cd-46a7-9ed5-a44cada06a9d',
     areaThisMonthWidget: '94aac39d-1aab-4df4-bd43-4ac2e728453e',
@@ -327,9 +333,9 @@ export const IDS = {
     overdueTableWidget: '284f3def-3ffe-44a9-a448-f6dda376928d',
     owesUsTableWidget: '6192770d-28fe-4660-93f4-03b9ae9fe5c7',
     lateThisMonthTableWidget: 'a312ac6a-2983-4b55-922f-cb29ea7c024c',
-    materialsTotalWidget: '534919a9-f829-4b23-bf23-51df2818c1be',
-    materialsOkWidget: '68eb843d-a637-45b5-8a6b-0d9c9d55a9a2',
-    materialsLowWidget: 'fa70bf1f-9dc8-4202-9822-a828e14dd396',
+    materialsTotalWidget: '534919a9-f829-4b23-bf23-51df2818c1be', // Retired: «Сегодня» has one «Купить» tile; ids are never reused.
+    materialsOkWidget: '68eb843d-a637-45b5-8a6b-0d9c9d55a9a2', // Retired: «Сегодня» has one «Купить» tile; ids are never reused.
+    materialsLowWidget: 'fa70bf1f-9dc8-4202-9822-a828e14dd396', // Retired: «Сегодня» has one «Купить» tile; ids are never reused.
     materialsBuyWidget: 'a5215eac-7c29-4eca-8ef5-b75525deda11',
     purchasePlanTableWidget: '3e5f6037-4815-468d-a38e-456926656f15',
     overrunTableWidget: 'dabc602c-9188-4ff9-a220-48f0ecba5dc7',

@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { LoginPage } from '../../lib/pom/loginPage';
+import { FORCE } from './claw-helpers';
 
 const API_URL = process.env.CLAW_API_URL ?? 'http://localhost:3000';
 
@@ -98,13 +99,21 @@ test('the owner lands on the dashboard and sees this month in numbers', async ({
 
   await expect(page).toHaveURL(/\/object\/dashboard\//);
   await expect(
-    page.getByRole('link', { name: 'Аналитика' }).first(),
+    page.getByRole('link', { name: 'Сегодня', exact: true }).first(),
   ).toBeVisible();
+  await expect(
+    page.getByText('Должны нам', { exact: true }).first(),
+  ).toBeVisible();
+  // Every monthly number but revenue and margin lives on the second tab.
+  await page
+    .getByRole('tab', { name: 'Аналитика' })
+    .or(page.getByRole('link', { name: 'Аналитика' }))
+    .first()
+    .click(FORCE);
   // Whole number only: a count of 1 must not match 12.
   await expect(
     page.locator('[data-widget-id]').filter({ hasText: 'Готово заказов' }),
   ).toContainText(new RegExp(`(^|\\D)${expectedReadyCount}(\\D|$)`));
-  await expect(page.getByText('Должны нам', { exact: true })).toBeVisible();
 });
 
 test('a manager never sees the dashboard', async ({ page }) => {
@@ -116,7 +125,9 @@ test('a manager never sees the dashboard', async ({ page }) => {
   await expect(
     page.getByRole('link', { name: 'Новый замер' }).first(),
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Аналитика' })).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Сегодня', exact: true }),
+  ).toHaveCount(0);
 });
 
 test('a measurer still lands on the measurement form', async ({ page }) => {
@@ -126,5 +137,7 @@ test('a measurer still lands on the measurement form', async ({ page }) => {
   await expect(
     page.getByRole('link', { name: 'Новый замер' }).first(),
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Аналитика' })).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Сегодня', exact: true }),
+  ).toHaveCount(0);
 });

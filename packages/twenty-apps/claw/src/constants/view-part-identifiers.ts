@@ -240,6 +240,14 @@ export const VIEW_PART_IDS = {
       overrunPercent: '60864117-1a04-4c38-9f22-68c61386afd7',
     },
     overrunFilter: '0d277846-f550-4191-80d2-9edf21eb237b',
+    nearestDeadlinesFields: {
+      name: 'a472bc4b-6359-404c-8ba6-73468982f083',
+      clientName: '2e47ecfa-9b1e-4918-bde2-1ffef9231bda',
+      installationDeadline: '13bf8cbc-05dd-4b17-91a1-f8f5baa1e9eb',
+      master: '6b2a0c59-811d-42e6-8b02-d3c0aae27193',
+    },
+    nearestDeadlinesFilterStatus: 'fc0f9569-8450-4882-a116-f6c45dd29ff8',
+    nearestDeadlinesSortDeadline: '87be6048-730a-419d-a839-3660e90e7675',
   },
   orderPayments: {
     tableFields: {

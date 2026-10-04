@@ -524,7 +524,7 @@ test('an order in «Замер выполнен» is a need on the material and 
   );
 });
 
-test('the owner dashboard names the overuse table «Уходит больше нормы»', async ({
+test('the owner dashboard opens on «Сегодня» and keeps the overuse table on «Аналитика»', async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -532,15 +532,26 @@ test('the owner dashboard names the overuse table «Уходит больше н
   await signIn(page, 'ADMIN');
 
   for (const title of [
-    'Всего материалов',
-    'Достаточно',
-    'Скоро закончится',
-    'Нужно купить',
-    'План закупок',
-    'Уходит больше нормы',
+    'Просрочены',
+    'Должны нам',
+    'В работе',
+    'Купить',
+    'Ближайшие сроки',
   ]) {
     await expect(
       page.locator('[data-widget-id]').filter({ hasText: title }).first(),
     ).toBeVisible({ timeout: 30_000 });
   }
+
+  await page
+    .getByRole('tab', { name: 'Аналитика' })
+    .or(page.getByRole('link', { name: 'Аналитика' }))
+    .first()
+    .click(FORCE);
+  await expect(
+    page
+      .locator('[data-widget-id]')
+      .filter({ hasText: 'Уходит больше нормы' })
+      .first(),
+  ).toBeVisible({ timeout: 30_000 });
 });

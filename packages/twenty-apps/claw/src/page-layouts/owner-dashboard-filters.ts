@@ -1,11 +1,12 @@
-import { type StockState } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
+import { STEP_STATUS } from 'src/order-header/order-steps';
 
 type ChartRecordFilter = {
   fieldMetadataUniversalIdentifier: string;
   operand: string;
   value: string;
   recordFilterGroupId?: string;
+  subFieldName?: string;
 };
 
 type ChartRecordFilterGroup = {
@@ -111,12 +112,46 @@ export const DECIDED_ORDERS: ChartFilter = {
   ],
 };
 
-export const materialsInStockState = (state: StockState): ChartFilter => ({
+const statusIs = (status: string): ChartRecordFilter => ({
+  fieldMetadataUniversalIdentifier: IDS.order.status,
+  operand: 'IS',
+  value: JSON.stringify([status]),
+});
+
+export const OVERDUE_ORDERS: ChartFilter = {
+  recordFilters: [
+    {
+      fieldMetadataUniversalIdentifier: IDS.order.deadlineState,
+      operand: 'IS',
+      value: JSON.stringify(['OVERDUE']),
+    },
+  ],
+};
+
+export const ORDERS_IN_PRODUCTION: ChartFilter = {
+  recordFilters: [statusIs(STEP_STATUS.production)],
+};
+
+// The same two conditions as the «Должны нам» list: whole sums, so «at least 1» is «more than 0».
+export const INSTALLED_WITH_BALANCE: ChartFilter = {
+  recordFilters: [
+    statusIs(STEP_STATUS.installed),
+    {
+      fieldMetadataUniversalIdentifier: IDS.order.balance,
+      operand: 'GREATER_THAN_OR_EQUAL',
+      subFieldName: 'amountMicros',
+      value: '1',
+    },
+  ],
+};
+
+// BUY and LOW are exactly the materials with something to buy.
+export const MATERIALS_TO_BUY: ChartFilter = {
   recordFilters: [
     {
       fieldMetadataUniversalIdentifier: IDS.material.stockState,
       operand: 'IS',
-      value: JSON.stringify([state]),
+      value: JSON.stringify(['BUY', 'LOW']),
     },
   ],
-});
+};
