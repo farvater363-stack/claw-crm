@@ -30,22 +30,6 @@ export default defineView({
       field: IDS.order.deadlineState,
       viewField: ordersKanbanExtraFields.deadlineState,
     },
-    // Off the card: kept in the view, hidden, so their ids stay live
-    {
-      field: IDS.order.clientPhone,
-      viewField: ordersKanbanExtraFields.clientPhone,
-      isVisible: false,
-    },
-    {
-      field: IDS.order.district,
-      viewField: ordersKanbanFields[2],
-      isVisible: false,
-    },
-    {
-      field: IDS.order.measurementDate,
-      viewField: ordersKanbanExtraFields.measurementDate,
-      isVisible: false,
-    },
   ]),
   groups: ORDER_STATUS_OPTIONS.map((option, optionIndex) => {
     const column = BOARD_STATUSES.indexOf(option.value);

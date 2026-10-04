@@ -11,7 +11,6 @@ import {
   keptMasterRates,
   toPayRules,
 } from 'src/payroll/pay-records';
-import { withLegacyMasterRate } from 'src/payroll/pay-rules';
 import { todayInTashkent } from 'src/pricing/dates';
 import { type RecalcInput } from 'src/pricing/plan-order-recalc';
 import { fromCurrency } from 'src/recalc/money';
@@ -78,7 +77,7 @@ export const loadRecalcInput = async (
           status: true,
           deadlineState: true,
           masterId: true,
-          master: { ratePerSquareMeter: money, penaltyPercentPerDay: true },
+          master: { penaltyPercentPerDay: true },
         },
       },
     },
@@ -184,16 +183,9 @@ export const loadRecalcInput = async (
         ? {
             penaltyPercentPerDay:
               toNumber(order.master.penaltyPercentPerDay) ?? 0,
-            rules: withLegacyMasterRate(
-              toPayRules(
-                (payRules?.edges ?? []).map(({ node }) => node),
-              ).filter((rule) => rule.workerId === masterId),
-              {
-                workerId: masterId,
-                ratePerSquareMeter:
-                  fromCurrency(order.master.ratePerSquareMeter) ?? 0,
-              },
-            ),
+            rules: toPayRules(
+              (payRules?.edges ?? []).map(({ node }) => node),
+            ).filter((rule) => rule.workerId === masterId),
             // The lines of an order that is not installed are about to be removed;
             // their rates must not stay in the pay stored on the order.
             keptRates: isInstalled(order.status ?? null)

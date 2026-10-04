@@ -45,7 +45,7 @@ export const IDS = {
     name: '0d398032-9bb5-4d5c-9e4f-84a953008bae',
     phone: '3ecd1fec-b8d4-4020-a2e3-f8dba117fa2c',
     isActive: '74f3f8ec-6425-4884-baf9-dbf797f7372c',
-    ratePerSquareMeter: '5977ce99-14c6-4a4b-b83b-17eae59305ec',
+    ratePerSquareMeter: '5977ce99-14c6-4a4b-b83b-17eae59305ec', // Retired: a worker's rate is a pay rule; ids are never reused.
     penaltyPercentPerDay: '81a8a168-a60e-45bf-87c6-144f10e019d2',
     orders: '94d21b66-42f7-4902-a25c-0db5fe109736',
     payments: 'ccd6a0a5-f553-4a48-b221-306827316aac',
@@ -73,7 +73,7 @@ export const IDS = {
     installedAt: '695ae5c3-3a6f-4ab0-864f-c8367668fcae',
     areaSquareMeters: '95c8b263-39f6-47da-b2a5-03cba3fa1ed5',
     total: '4c18bcc0-7ae0-417a-9c25-6a3ea27aeae9',
-    prepayment: '3cbf4f28-c9b3-44b0-866e-aa077ca79674',
+    prepayment: '3cbf4f28-c9b3-44b0-866e-aa077ca79674', // Retired: replaced by the payments list and «Оплачено»; ids are never reused.
     balance: '814009d8-89c7-44f1-bb2f-15e0bd3d753a',
     costTotal: '1d6a65ee-6096-4e30-b2be-331426f5a6ae',
     margin: '42eeb518-296f-44fe-b7cf-45bbf3aea6c5',

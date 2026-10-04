@@ -7,7 +7,6 @@ import {
   toAccrualLine,
   toPayRules,
 } from 'src/payroll/pay-records';
-import { withLegacyMasterRate } from 'src/payroll/pay-rules';
 import {
   type AccrualLine,
   planOrderAccruals,
@@ -67,7 +66,7 @@ export const syncOrderAccruals = async (
     payRules: ALL_PAY_RULES_QUERY,
     masters: {
       __args: { first: PAGE_SIZE },
-      edges: { node: { id: true, loginId: true, ratePerSquareMeter: money } },
+      edges: { node: { id: true, loginId: true } },
     },
   });
   const order = orders?.edges[0]?.node;
@@ -78,7 +77,6 @@ export const syncOrderAccruals = async (
   const rules = toPayRules((payRules?.edges ?? []).map(({ node }) => node));
   const status = order.status ?? null;
   const masterId = order.masterId ?? null;
-  const master = workers.find((worker) => worker.id === masterId);
   const existing = (payAccruals?.edges ?? []).flatMap(
     ({ node }) => toAccrualLine(node) ?? [],
   );
@@ -122,14 +120,7 @@ export const syncOrderAccruals = async (
         ? todayInTashkent(new Date(order.measuredAt))
         : null,
     },
-    // The same rules the recalc pays the master by, so his lines add up to the pay on the order.
-    rules:
-      master && masterId !== null
-        ? withLegacyMasterRate(rules, {
-            workerId: masterId,
-            ratePerSquareMeter: fromCurrency(master.ratePerSquareMeter) ?? 0,
-          })
-        : rules,
+    rules,
     existing,
   });
 

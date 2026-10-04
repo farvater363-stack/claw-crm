@@ -192,12 +192,14 @@ describe('order fields', () => {
     ]);
   });
 
-  it('hides what the header and the tables show, and the old prepayment', () => {
-    const hidden = fields
-      .filter((field) => !field.isVisible)
-      .map((field) => field.fieldMetadataUniversalIdentifier);
+  it('lists only what the four groups show', () => {
+    expect(fields.every((field) => field.isVisible)).toBe(true);
 
-    expect(hidden).toEqual([
+    const listed = fields.map(
+      (field) => field.fieldMetadataUniversalIdentifier,
+    );
+
+    for (const gone of [
       IDS.order.name,
       IDS.order.number,
       IDS.order.items,
@@ -205,6 +207,8 @@ describe('order fields', () => {
       IDS.order.areaSquareMeters,
       IDS.order.prepayment,
       IDS.order.deadlineState,
-    ]);
+    ]) {
+      expect(listed).not.toContain(gone);
+    }
   });
 });

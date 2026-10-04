@@ -26,18 +26,6 @@ export default defineView({
       viewField: ids.purchasePlanFields.toBuy,
       size: 110,
     },
-    {
-      field: material.onHand,
-      viewField: ids.purchasePlanFields.onHand,
-      size: 120,
-      isVisible: false,
-    },
-    {
-      field: material.reserved,
-      viewField: ids.purchasePlanFields.reserved,
-      size: 170,
-      isVisible: false,
-    },
   ]),
   filters: [
     {

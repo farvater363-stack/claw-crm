@@ -31,8 +31,12 @@ const WORKSHOP_WRITABLE_ORDER_FIELDS: string[] = [
   IDS.order.updatedBy,
 ];
 
-// The object's own identifier, and a retired field that is no longer defined.
-const ORDER_KEYS_WITHOUT_FIELD: string[] = ['object', 'masterPayPaid'];
+// The object's own identifier, and the retired fields that are no longer defined.
+const ORDER_KEYS_WITHOUT_FIELD: string[] = [
+  'object',
+  'masterPayPaid',
+  'prepayment',
+];
 
 const SHARED_FIELD_PERMISSIONS = [
   ...ADMIN_ONLY_FIELD_PERMISSIONS,
