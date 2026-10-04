@@ -45,6 +45,7 @@ export const VIEW_PART_IDS = {
     CANCELLED: '7fd48330-79f9-4032-8378-84cb747803c1',
   },
   myMeasurementsStatusField: 'ad9bd666-b4f0-4c79-b9cf-338446e74300',
+  // Retired: replaced by the «В работе» screen; ids are never reused.
   productionFields: [
     '32eccbfe-e790-4a9c-bb0f-e50ebbfc20ac',
     '70bf79cf-ad5e-4395-b390-5f76aab31820',
@@ -54,8 +55,8 @@ export const VIEW_PART_IDS = {
     'a03ee396-2468-4ab8-bf78-cc428931640e',
     '2ea5277e-fce5-4d96-99cc-72cd5ad580b9',
   ],
-  productionFilterStatus: '5bae668c-4dc2-4a2d-958f-bb030642f05d',
-  productionSortDeadline: '6e8a8743-0774-462c-96f2-ea03e7aee41f',
+  productionFilterStatus: '5bae668c-4dc2-4a2d-958f-bb030642f05d', // Retired: replaced by the «В работе» screen; ids are never reused.
+  productionSortDeadline: '6e8a8743-0774-462c-96f2-ea03e7aee41f', // Retired: replaced by the «В работе» screen; ids are never reused.
   orderRecordPage: {
     view: '37c11df0-6a5e-44a4-8ee9-f98666c50d5c',
     layout: 'f9a2abc4-0bd4-4ef1-a321-1bc12298e2c3',
@@ -179,7 +180,7 @@ export const VIEW_PART_IDS = {
     measurementDate: '4bc106dc-2f08-40b4-914d-23261e2b98c2',
     deadlineState: 'aa916d9b-9ad4-4b8f-a8a3-dc863d66e7f2',
   },
-  productionDeadlineStateField: '754039b5-5524-48e2-9eb3-8d7fc013c1c6',
+  productionDeadlineStateField: '754039b5-5524-48e2-9eb3-8d7fc013c1c6', // Retired: replaced by the «В работе» screen; ids are never reused.
   allOrdersFields: {
     name: '22746edd-7dfe-431b-b2a0-c1702ea00b28',
     status: 'c86ada91-d4bc-44ed-b99b-03a6e00c1417',

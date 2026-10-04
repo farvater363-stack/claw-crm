@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { BOARD_STATUSES } from 'src/constants/order-status-sets';
+import { IDS } from 'src/constants/universal-identifiers';
+import allOrders from 'src/views/all-orders.view';
 import myMeasurements from 'src/views/my-measurements.view';
 import ordersKanban from 'src/views/orders-kanban.view';
 
@@ -49,5 +52,60 @@ describe('kanban groups keep their status', () => {
         .filter((group) => group.isVisible)
         .map((group) => group.fieldValue),
     ).toEqual(['MEASUREMENT_SCHEDULED', 'MEASURED']);
+  });
+});
+
+describe('«Заказы»', () => {
+  const groups = ordersKanban.config.groups ?? [];
+  const fields = ordersKanban.config.fields ?? [];
+  const fieldIds = (isVisible: boolean) =>
+    fields
+      .filter((field) => field.isVisible === isVisible)
+      .map((field) => field.fieldMetadataUniversalIdentifier);
+
+  it('carries the name of its menu item and comes before the table', () => {
+    expect(ordersKanban.config.name).toBe('Заказы');
+    expect([
+      ordersKanban.config.position,
+      allOrders.config.position,
+      myMeasurements.config.position,
+    ]).toEqual([0, 1, 2]);
+  });
+
+  it('shows the six steps as columns, in their order', () => {
+    expect(
+      groups
+        .filter((group) => group.isVisible)
+        .sort((left, right) => left.position - right.position)
+        .map((group) => group.fieldValue),
+    ).toEqual([...BOARD_STATUSES]);
+  });
+
+  it('keeps every other status as a hidden group at a place of its own', () => {
+    const hidden = groups.filter((group) => !group.isVisible);
+
+    expect(hidden.map((group) => group.fieldValue)).toContain('CANCELLED');
+    expect(new Set(groups.map((group) => group.position)).size).toBe(
+      groups.length,
+    );
+    expect(
+      Math.min(...hidden.map((group) => group.position)),
+    ).toBeGreaterThanOrEqual(BOARD_STATUSES.length);
+  });
+
+  it('shows six fields on a card and hides the three that left it', () => {
+    expect(fieldIds(true)).toEqual([
+      IDS.order.name,
+      IDS.order.clientName,
+      IDS.order.total,
+      IDS.order.master,
+      IDS.order.installationDeadline,
+      IDS.order.deadlineState,
+    ]);
+    expect(fieldIds(false)).toEqual([
+      IDS.order.clientPhone,
+      IDS.order.district,
+      IDS.order.measurementDate,
+    ]);
   });
 });

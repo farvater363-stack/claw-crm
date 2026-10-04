@@ -248,7 +248,7 @@ export const IDS = {
   view: {
     ordersKanban: 'dfcc304e-6ee3-49be-820a-abc525d06583',
     myMeasurements: '73cb55eb-1511-4fc2-bbb2-f14457334c48',
-    production: '2c99e8c5-38ee-4475-86bf-01b011ab8559',
+    production: '2c99e8c5-38ee-4475-86bf-01b011ab8559', // Retired: replaced by the «В работе» screen; ids are never reused.
     masterPay: 'b4cc6845-8918-4861-af82-179ea79985ea', // Retired: replaced by masterPayment; ids are never reused.
     orderItemsTable: '4d5ec168-0807-4260-95c2-5180fdc79159',
     orderExtraServicesTable: '90c9a437-18e4-4d2f-ae50-482889c7dc8b',
@@ -271,7 +271,7 @@ export const IDS = {
     orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: the sidebar uses allOrders; ids are never reused.
     ordersKanban: '5b4925cf-bf24-422b-bc5b-f6a6b125ddf7',
     myMeasurements: '5b65e2e1-2c9f-4b87-8f16-95e20851bf8b',
-    production: '379a3f5b-57ec-48c2-bf5f-e9a8d970ce65',
+    production: '379a3f5b-57ec-48c2-bf5f-e9a8d970ce65', // Retired: replaced by the «В работе» screen; ids are never reused.
     masterPay: 'abbbca23-eb51-45af-b6ab-4840461639ac', // Retired: pay is no longer a sidebar item; ids are never reused.
     designs: '8e87114d-b386-4ce8-9654-f092ffb1b23f', // Retired: replaced by the prices screen; ids are never reused.
     priceList: '19714acd-d450-4a1f-a73e-a74266399b6c', // Retired: replaced by the prices screen; ids are never reused.

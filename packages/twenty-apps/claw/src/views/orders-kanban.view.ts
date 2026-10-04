@@ -1,13 +1,18 @@
 import { AggregateOperations, defineView, ViewType } from 'twenty-sdk/define';
 
+import { BOARD_STATUSES } from 'src/constants/order-status-sets';
 import { ORDER_STATUS_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { VIEW_PART_IDS } from 'src/constants/view-part-identifiers';
 import { toKeyedViewFields } from 'src/utils/to-view-fields';
 
+const { ordersKanbanFields, ordersKanbanExtraFields, ordersKanbanGroups } =
+  VIEW_PART_IDS;
+
 export default defineView({
   universalIdentifier: IDS.view.ordersKanban,
-  name: 'Доска заказов',
+  // The menu item takes its label from here
+  name: 'Заказы',
   objectUniversalIdentifier: IDS.order.object,
   type: ViewType.KANBAN,
   icon: 'IconLayoutKanban',
@@ -16,38 +21,41 @@ export default defineView({
   kanbanAggregateOperation: AggregateOperations.SUM,
   kanbanAggregateOperationFieldMetadataUniversalIdentifier: IDS.order.total,
   fields: toKeyedViewFields([
-    { field: IDS.order.name, viewField: VIEW_PART_IDS.ordersKanbanFields[0] },
+    { field: IDS.order.name, viewField: ordersKanbanFields[0] },
+    { field: IDS.order.clientName, viewField: ordersKanbanFields[1] },
+    { field: IDS.order.total, viewField: ordersKanbanFields[3] },
+    { field: IDS.order.master, viewField: ordersKanbanFields[5] },
+    { field: IDS.order.installationDeadline, viewField: ordersKanbanFields[4] },
     {
-      field: IDS.order.clientName,
-      viewField: VIEW_PART_IDS.ordersKanbanFields[1],
+      field: IDS.order.deadlineState,
+      viewField: ordersKanbanExtraFields.deadlineState,
     },
+    // Off the card: kept in the view, hidden, so their ids stay live
     {
       field: IDS.order.clientPhone,
-      viewField: VIEW_PART_IDS.ordersKanbanExtraFields.clientPhone,
+      viewField: ordersKanbanExtraFields.clientPhone,
+      isVisible: false,
     },
     {
       field: IDS.order.district,
-      viewField: VIEW_PART_IDS.ordersKanbanFields[2],
+      viewField: ordersKanbanFields[2],
+      isVisible: false,
     },
     {
       field: IDS.order.measurementDate,
-      viewField: VIEW_PART_IDS.ordersKanbanExtraFields.measurementDate,
-    },
-    { field: IDS.order.total, viewField: VIEW_PART_IDS.ordersKanbanFields[3] },
-    { field: IDS.order.master, viewField: VIEW_PART_IDS.ordersKanbanFields[5] },
-    {
-      field: IDS.order.installationDeadline,
-      viewField: VIEW_PART_IDS.ordersKanbanFields[4],
-    },
-    {
-      field: IDS.order.deadlineState,
-      viewField: VIEW_PART_IDS.ordersKanbanExtraFields.deadlineState,
+      viewField: ordersKanbanExtraFields.measurementDate,
+      isVisible: false,
     },
   ]),
-  groups: ORDER_STATUS_OPTIONS.map((option, position) => ({
-    universalIdentifier: VIEW_PART_IDS.ordersKanbanGroups[option.value],
-    fieldValue: option.value,
-    position,
-    isVisible: true,
-  })),
+  groups: ORDER_STATUS_OPTIONS.map((option, optionIndex) => {
+    const column = BOARD_STATUSES.indexOf(option.value);
+
+    return {
+      universalIdentifier: ordersKanbanGroups[option.value],
+      fieldValue: option.value,
+      // A hidden group sits after the six columns, at a place of its own
+      position: column === -1 ? BOARD_STATUSES.length + optionIndex : column,
+      isVisible: column !== -1,
+    };
+  }),
 });
