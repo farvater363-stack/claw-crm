@@ -1,4 +1,10 @@
-import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { MetadataApiClient } from 'twenty-client-sdk/metadata';
 import { defineFrontComponent } from 'twenty-sdk/define';
@@ -210,6 +216,8 @@ const loadScheduledOrders = async (
           addressLine: true,
           floor: true,
           measurementDate: true,
+          comment: true,
+          source: true,
         },
       },
     },
@@ -228,6 +236,8 @@ const loadScheduledOrders = async (
           ? null
           : Number(node.floor),
       measurementDate: node.measurementDate ?? null,
+      comment: node.comment ?? null,
+      source: node.source ?? null,
     })),
   );
 };
@@ -375,6 +385,9 @@ const NewMeasurement = () => {
   // What «Чей замер» holds: '' until the measurer chooses
   const [target, setTarget] = useState('');
   const [saveIds, setSaveIds] = useState(createSaveIds);
+  // State is read from the render's closure, so two taps before the next
+  // render would both pass a check on isSaving.
+  const isSaveInFlight = useRef(false);
 
   useEffect(() => {
     if (userId === null) return;
@@ -383,7 +396,6 @@ const NewMeasurement = () => {
       .then(async (context) => {
         setGrilles(context.grilles);
         setVisorOptions(context.visorOptions);
-        setMeasurerId(context.measurerId);
 
         if (context.measurerId === null) {
           setLoadError('Не удалось определить текущего пользователя.');
@@ -401,6 +413,9 @@ const NewMeasurement = () => {
         );
 
         setScheduledOrders(orders);
+        // Only now can the form save: without the list a scheduled client
+        // would be saved as a new one.
+        setMeasurerId(context.measurerId);
 
         if (preselected !== undefined) {
           setTarget(preselected.id);
@@ -646,8 +661,12 @@ const NewMeasurement = () => {
   const preview = computePaymentPreview(draftTotal, payment);
   const today = todayInTashkent();
 
-  const handleSave = async () => {
-    if (measurerId === null || isSaving) return;
+  const save = async () => {
+    if (measurerId === null) {
+      if (loadError !== null) setErrors([loadError]);
+
+      return;
+    }
 
     const targetOrder = resolveTargetOrderId(target, scheduledOrders);
 
@@ -706,14 +725,12 @@ const NewMeasurement = () => {
       setErrors([
         `Заказ не сохранён. Данные формы на месте, попробуйте ещё раз. (${describeError(error)})`,
       ]);
-      setIsSaving(false);
 
       return;
     }
 
     if (orderId === null) {
       setErrors(['Заказ не сохранён: сервер не вернул номер записи.']);
-      setIsSaving(false);
 
       return;
     }
@@ -833,7 +850,19 @@ const NewMeasurement = () => {
       isVisorFailed,
       isPaymentFailed,
     });
-    setIsSaving(false);
+  };
+
+  const handleSave = async () => {
+    if (isSaveInFlight.current) return;
+
+    isSaveInFlight.current = true;
+
+    try {
+      await save();
+    } finally {
+      isSaveInFlight.current = false;
+      setIsSaving(false);
+    }
   };
 
   const openItemForPhotos = (itemId: string) =>
@@ -1423,7 +1452,7 @@ const NewMeasurement = () => {
       <button
         type="button"
         style={{ ...styles.primaryButton, opacity: isSaving ? 0.6 : 1 }}
-        disabled={isSaving || measurerId === null}
+        aria-busy={isSaving}
         onClick={handleSave}
       >
         {isSaving ? 'Сохранение…' : 'Сохранить'}

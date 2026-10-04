@@ -60,6 +60,8 @@ const scheduled = (
   addressLine: 'ул. Катартал, 5',
   floor: 3,
   measurementDate: '2026-10-05T09:00:00.000Z',
+  comment: 'Домофон не работает, звонить',
+  source: 'INSTAGRAM',
   ...overrides,
 });
 
@@ -670,6 +672,8 @@ describe('scheduled orders', () => {
       measurementDate: toDateTimeLocalInputValue(
         new Date('2026-10-05T09:00:00.000Z'),
       ),
+      comment: 'Домофон не работает, звонить',
+      source: 'INSTAGRAM',
     });
   });
 
@@ -683,6 +687,8 @@ describe('scheduled orders', () => {
           addressLine: null,
           floor: null,
           measurementDate: null,
+          comment: null,
+          source: 'NOT_A_SOURCE',
         }),
       ),
     ).toEqual({
@@ -691,6 +697,8 @@ describe('scheduled orders', () => {
       district: '',
       addressLine: '',
       floor: '',
+      comment: '',
+      source: '',
     });
   });
 });

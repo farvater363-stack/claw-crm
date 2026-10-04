@@ -2,7 +2,7 @@ import {
   type DiscountKind,
   DISTRICT_OPTIONS,
   type PaymentMethod,
-  type SOURCE_OPTIONS,
+  SOURCE_OPTIONS,
 } from 'src/constants/select-options';
 import { PLAIN_DECIMAL, parseOptionalMoney } from 'src/prices/prices-screen';
 import { computeDiscount } from 'src/pricing/compute-discount';
@@ -397,6 +397,8 @@ export type ScheduledOrder = {
   addressLine: string | null;
   floor: number | null;
   measurementDate: string | null;
+  comment: string | null;
+  source: string | null;
 };
 
 // Sorts after every real date
@@ -420,6 +422,9 @@ const TASHKENT_TIME = new Intl.DateTimeFormat('ru-RU', {
 
 const isDistrict = (value: string | null): value is District =>
   DISTRICT_OPTIONS.some((option) => option.value === value);
+
+const isSource = (value: string | null): value is Source =>
+  SOURCE_OPTIONS.some((option) => option.value === value);
 
 const describeMeasurementTime = (
   measurementDate: string | null,
@@ -458,6 +463,10 @@ export const draftFromScheduledOrder = (
   ...(order.measurementDate !== null && {
     measurementDate: toDateTimeLocalInputValue(new Date(order.measurementDate)),
   }),
+  // What the manager wrote stays in front of the measurer: the save writes
+  // these fields back, so an unseen text would be replaced.
+  comment: order.comment ?? '',
+  source: isSource(order.source) ? order.source : '',
 });
 
 // The order header writes this key to sessionStorage before it opens the form.
