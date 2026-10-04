@@ -72,7 +72,7 @@ yarn twenty remote:use claw-local
 
 Switch back to `claw-local` immediately: the default remote is shared by every local session.
 
-Then, with `TWENTY_API_URL=https://<domain>` and `TWENTY_API_KEY=<key>` set, run `scripts/setup-owner-dashboard.py` and `scripts/import-excel.py` (see `packages/twenty-apps/claw/scripts/README.md`). Use `--dry-run` first.
+Then, with `TWENTY_API_URL=https://<domain>` and `TWENTY_API_KEY=<key>` set, run `scripts/setup-owner-dashboard.py` and `scripts/import-excel.py` (see `packages/twenty-apps/claw/scripts/README.md`). Do a dry run first: the dashboard script is dry unless given `--apply`, the import needs `--dry-run`.
 
 ## 7. Staff
 

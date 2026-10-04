@@ -1,6 +1,7 @@
 """Create or rename the owner dashboard record and its sidebar item. Safe to rerun.
 
-TWENTY_API_URL=... TWENTY_API_KEY=... python3 setup-owner-dashboard.py [--dry-run | --check]
+TWENTY_API_URL=... TWENTY_API_KEY=... python3 setup-owner-dashboard.py [--apply | --check]
+Dry by default: prints the server and the plan, and writes only with --apply.
 Run after `yarn twenty apply` has installed the «Сегодня» page layout.
 Apps cannot create records or record menu items, hence this script.
 """
@@ -17,6 +18,9 @@ PREVIOUS_DASHBOARD_TITLES = ('Аналитика',)
 # Above «Новый замер» (-1): Twenty lands each user on their first readable
 # item, and only admins can read dashboards.
 MENU_POSITION = -2
+# --dry-run is the default; it stays accepted so an old command still writes nothing.
+KNOWN_FLAGS = ('--apply', '--dry-run', '--check')
+USAGE = 'usage: TWENTY_API_URL=... TWENTY_API_KEY=... python3 setup-owner-dashboard.py [--apply | --check]'
 
 
 def request(path, query, variables=None):
@@ -33,11 +37,20 @@ def request(path, query, variables=None):
     return body['data']
 
 
+def find_candidates(dashboards, page_layout_id):
+    """Every record that could be the owner dashboard: those on the installed layout, else those with a known title."""
+    titles = (DASHBOARD_TITLE, *PREVIOUS_DASHBOARD_TITLES)
+    return ([item for item in dashboards if item['pageLayoutId'] == page_layout_id]
+            or [item for item in dashboards if item['title'] in titles])
+
+
 def plan_setup(dashboards, menu_items, page_layout_id):
     """Decide what to write, given every dashboard record, the menu items and the installed layout id."""
-    titles = (DASHBOARD_TITLE, *PREVIOUS_DASHBOARD_TITLES)
-    dashboard = (next((item for item in dashboards if item['pageLayoutId'] == page_layout_id), None)
-                 or next((item for item in dashboards if item['title'] in titles), None))
+    candidates = find_candidates(dashboards, page_layout_id)
+    if len(candidates) > 1:
+        # Picking one would rename or repoint a record nobody chose.
+        return {'ambiguous': candidates}
+    dashboard = candidates[0] if candidates else None
     dashboard_id = dashboard['id'] if dashboard else None
     has_menu_item = dashboard_id is not None and any(
         item['type'] == 'RECORD' and item['targetRecordId'] == dashboard_id for item in menu_items)
@@ -48,9 +61,33 @@ def plan_setup(dashboards, menu_items, page_layout_id):
             'create_menu_item': not has_menu_item}
 
 
+def describe_plan(plan, dashboards):
+    """The plan as lines for the person running the script."""
+    if plan['create_dashboard']:
+        lines = [f'found no dashboard record; would create «{DASHBOARD_TITLE}»']
+    else:
+        title = next(item['title'] for item in dashboards if item['id'] == plan['dashboard_id'])
+        lines = [f"found dashboard {plan['dashboard_id']} «{title}»"]
+    if plan['rename_dashboard']:
+        lines.append(f'would rename it to «{DASHBOARD_TITLE}»')
+    if plan['repoint_dashboard']:
+        lines.append('would repoint it to the installed page layout')
+    if plan['create_menu_item']:
+        lines.append('would create its sidebar item')
+    if len(lines) == 1 and not plan['create_dashboard']:
+        lines.append('nothing to change')
+    return lines
+
+
+def unknown_arguments(arguments):
+    unknown = [argument for argument in arguments if argument not in KNOWN_FLAGS]
+    return unknown or (['--apply with --dry-run'] if {'--apply', '--dry-run'} <= set(arguments) else [])
+
+
 def check_plan_setup():
     item = {'type': 'RECORD', 'targetRecordId': 'd1'}
     fresh = {'id': 'd1', 'title': 'Сегодня', 'pageLayoutId': 'l1'}
+    old = {'id': 'd2', 'title': 'Аналитика', 'pageLayoutId': 'old'}
     assert plan_setup([], [], 'l1') == {
         'dashboard_id': None, 'create_dashboard': True, 'repoint_dashboard': False,
         'rename_dashboard': False, 'create_menu_item': True}
@@ -64,6 +101,22 @@ def check_plan_setup():
     assert plan_setup([{'id': 'other', 'title': 'Чужой', 'pageLayoutId': 'x'}], [], 'l1')['create_dashboard']
     assert plan_setup([fresh], [], 'l1')['create_menu_item']
     assert plan_setup([fresh], [{'type': 'RECORD', 'targetRecordId': 'other'}], 'l1')['create_menu_item']
+    # The layout match wins over a title match, so these two are not ambiguous.
+    assert plan_setup([old, fresh], [item], 'l1')['dashboard_id'] == 'd1'
+    assert plan_setup([fresh, {**fresh, 'id': 'd3'}], [item], 'l1') == {'ambiguous': [fresh, {**fresh, 'id': 'd3'}]}
+    assert plan_setup([old, {**fresh, 'pageLayoutId': 'x'}], [], 'l1') == {
+        'ambiguous': [old, {**fresh, 'pageLayoutId': 'x'}]}
+    assert describe_plan(plan_setup([], [], 'l1'), []) == [
+        'found no dashboard record; would create «Сегодня»', 'would create its sidebar item']
+    assert describe_plan(plan_setup([old], [], 'l1'), [old]) == [
+        'found dashboard d2 «Аналитика»', 'would rename it to «Сегодня»',
+        'would repoint it to the installed page layout', 'would create its sidebar item']
+    assert describe_plan(plan_setup([fresh], [item], 'l1'), [fresh]) == [
+        'found dashboard d1 «Сегодня»', 'nothing to change']
+    assert unknown_arguments([]) == [] and unknown_arguments(['--apply']) == []
+    assert unknown_arguments(['--dry-run']) == [] and unknown_arguments(['--check']) == []
+    assert unknown_arguments(['--aply']) == ['--aply'] and unknown_arguments(['--dryrun', '--apply']) == ['--dryrun']
+    assert unknown_arguments(['--apply', '--dry-run'])
 
 
 def find_page_layout_id():
@@ -83,21 +136,30 @@ def find_dashboard_object_id():
 
 
 def main():
+    arguments = sys.argv[1:]
+    unknown = unknown_arguments(arguments)
+    if unknown:
+        sys.exit(f"unknown argument: {' '.join(unknown)}\n{USAGE}")
     check_plan_setup()
-    if '--check' in sys.argv:
+    if '--check' in arguments:
         print('ok')
         return
-    dry_run = '--dry-run' in sys.argv
     print('server:', os.environ['TWENTY_API_URL'])
     page_layout_id = find_page_layout_id()
-    dashboards = request('graphql', '''query { dashboards(first: 200) {
-        edges { node { id title pageLayoutId } } } }''')['dashboards']['edges']
+    dashboards = [edge['node'] for edge in request('graphql', '''query { dashboards(first: 200) {
+        edges { node { id title pageLayoutId } } } }''')['dashboards']['edges']]
     menu_items = request('metadata', 'query { navigationMenuItems { id type targetRecordId } }')['navigationMenuItems']
-    plan = plan_setup([edge['node'] for edge in dashboards], menu_items, page_layout_id)
-    print(plan)
+    plan = plan_setup(dashboards, menu_items, page_layout_id)
+    if 'ambiguous' in plan:
+        sys.exit('\n'.join([
+            'More than one dashboard record could be the owner dashboard; nothing was written.',
+            *(f"  {item['id']} «{item['title']}»" for item in plan['ambiguous']),
+            'Delete or retitle the extra ones, then rerun.']))
+    print('\n'.join(describe_plan(plan, dashboards)))
     # Resolved before any write so a failure cannot leave a half-done setup.
     dashboard_object_id = find_dashboard_object_id() if plan['create_menu_item'] else None
-    if dry_run:
+    if '--apply' not in arguments:
+        print('dry run: nothing was written; rerun with --apply to write.')
         return
     dashboard_id = plan['dashboard_id']
     if plan['create_dashboard']:
