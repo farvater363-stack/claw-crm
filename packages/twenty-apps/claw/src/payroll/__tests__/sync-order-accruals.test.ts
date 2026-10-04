@@ -263,6 +263,85 @@ describe('syncOrderAccruals', () => {
     ]);
   });
 
+  it('keeps the day already on the lines of an installed order that has no installation date', async () => {
+    const first = fakeClient();
+
+    await syncOrderAccruals(first.client, 'order-1');
+
+    const second = fakeClient({
+      order: { ...ORDER, installedAt: null },
+      accruals: writtenLines(first.mutations),
+    });
+
+    await syncOrderAccruals(second.client, 'order-1');
+
+    expect(second.mutations).toEqual([]);
+  });
+
+  it("keeps the measurer's lines when his login no longer leads to a worker", async () => {
+    const rules = [
+      ...RULES,
+      {
+        id: 'r3',
+        workerId: 'sardor',
+        method: 'PER_ORDER',
+        work: 'MEASURER',
+        amount: micros(20_000),
+        percent: null,
+      },
+    ];
+    const first = fakeClient({ rules });
+
+    await syncOrderAccruals(first.client, 'order-1');
+
+    expect(writtenLines(first.mutations)).toHaveLength(3);
+
+    const second = fakeClient({
+      rules,
+      workers: WORKERS.map((worker) => ({ ...worker, loginId: null })),
+      accruals: writtenLines(first.mutations),
+    });
+
+    await syncOrderAccruals(second.client, 'order-1');
+
+    expect(second.mutations).toEqual([]);
+  });
+
+  it("replaces the measurement line when the order's measurer becomes another worker", async () => {
+    const first = fakeClient();
+
+    await syncOrderAccruals(first.client, 'order-1');
+
+    const second = fakeClient({
+      order: { ...ORDER, measurerId: 'member-aziz' },
+      rules: [
+        ...RULES,
+        {
+          id: 'r3',
+          workerId: 'aziz',
+          method: 'PER_MEASUREMENT',
+          work: 'MEASURER',
+          amount: micros(40_000),
+          percent: null,
+        },
+      ],
+      workers: [
+        ...WORKERS,
+        { id: 'aziz', loginId: 'member-aziz', ratePerSquareMeter: micros(0) },
+      ],
+      accruals: writtenLines(first.mutations),
+    });
+
+    await syncOrderAccruals(second.client, 'order-1');
+
+    expect(writtenLines(second.mutations)).toMatchObject([
+      { workerId: 'aziz', method: 'PER_MEASUREMENT', rate: 40_000 },
+    ]);
+    expect(second.mutations.slice(1)).toEqual([
+      { deletePayAccrual: { __args: { id: MEASUREMENT_LINE_ID }, id: true } },
+    ]);
+  });
+
   it('writes nothing for an order nobody is paid for', async () => {
     const { client, mutations } = fakeClient({
       order: { ...ORDER, status: 'NEW', installedAt: null, measuredAt: null },

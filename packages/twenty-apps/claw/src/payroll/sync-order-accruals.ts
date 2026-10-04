@@ -79,14 +79,29 @@ export const syncOrderAccruals = async (
   const status = order.status ?? null;
   const masterId = order.masterId ?? null;
   const master = workers.find((worker) => worker.id === masterId);
+  const existing = (payAccruals?.edges ?? []).flatMap(
+    ({ node }) => toAccrualLine(node) ?? [],
+  );
   const measurer = order.measurerId
     ? workers.find((worker) => worker.loginId === order.measurerId)
     : undefined;
-  // The update trigger stamps installedAt before this runs; an order created as installed has none yet.
+  // A login unlinked from its worker must not take away what the measurer already earned on this order.
+  const measurerWorkerId =
+    measurer?.id ??
+    (order.measurerId
+      ? existing.find(
+          (line) =>
+            line.work === 'MEASURER' || line.method === 'PER_MEASUREMENT',
+        )?.workerId
+      : undefined) ??
+    null;
+  // Only a status change stamps installedAt, so an order created or imported as installed never gets one.
+  // The day already on its lines is kept, or every run would move the pay to the day of that run.
   const installedOn = order.installedAt
     ? String(order.installedAt).slice(0, 10)
     : isInstalled(status)
-      ? todayInTashkent()
+      ? (existing.find((line) => line.method !== 'PER_MEASUREMENT')?.earnedOn ??
+        todayInTashkent())
       : null;
 
   const plan = planOrderAccruals({
@@ -98,7 +113,7 @@ export const syncOrderAccruals = async (
       total: fromCurrency(order.total),
       masterId,
       installerId: order.installerId ?? null,
-      measurerWorkerId: measurer?.id ?? null,
+      measurerWorkerId,
       soldById: order.soldById ?? null,
       masterBonus: fromCurrency(order.masterBonus),
       masterPenalty: fromCurrency(order.masterPenalty),
@@ -115,9 +130,7 @@ export const syncOrderAccruals = async (
             ratePerSquareMeter: fromCurrency(master.ratePerSquareMeter) ?? 0,
           })
         : rules,
-    existing: (payAccruals?.edges ?? []).flatMap(
-      ({ node }) => toAccrualLine(node) ?? [],
-    ),
+    existing,
   });
 
   for (const line of plan.upserts) {
