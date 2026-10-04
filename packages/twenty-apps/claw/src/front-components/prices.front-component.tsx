@@ -530,6 +530,8 @@ const Prices = () => {
 
     if (parsed.value === saved) {
       setDrafts((current) => dropKey(current, key));
+      // Typing the saved value back withdraws a change that failed to save.
+      setFailures((current) => dropKey(current, key));
 
       return;
     }
@@ -760,6 +762,7 @@ const Prices = () => {
     const closeNewLine = () => {
       setNewLine(null);
       setErrors((current) => dropKey(current, newKey));
+      setFailures((current) => dropKey(current, newKey));
     };
 
     const quantityField = (line: CompositionLine) => {
@@ -1144,9 +1147,17 @@ const Prices = () => {
                   }
                   title={row.name}
                   value={row.priceText ?? undefined}
-                  pill={row.warnings.map((warning) => (
-                    <StatePill key={warning} tone="warning" text={warning} />
-                  ))}
+                  pill={
+                    row.warnings.length > 0
+                      ? row.warnings.map((warning) => (
+                          <StatePill
+                            key={warning}
+                            tone="warning"
+                            text={warning}
+                          />
+                        ))
+                      : undefined
+                  }
                   isOpen={openId === row.id}
                   onToggle={() => showRow(openId === row.id ? null : row.id)}
                 >

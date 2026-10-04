@@ -17,6 +17,16 @@ import {
 
 export const usePalette = (): Palette => PALETTE[useColorScheme()];
 
+// A plain grid's one column is never narrower than its content, so an input
+// (about 200 px wide by itself) would overflow a narrower parent. This
+// column takes the parent's width and the content shrinks to it.
+const SHRINKABLE_GRID = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
+} as const;
+
+const CHEVRON_WIDTH = SPACE.md;
+
 const toneColors = (colors: Palette, tone: Tone) =>
   tone === 'danger'
     ? { color: colors.danger, background: colors.dangerTint }
@@ -152,6 +162,17 @@ export const Row = ({
   children?: ReactNode;
 }) => {
   const colors = usePalette();
+  // A leading thumbnail is as tall as a control; without one the first line
+  // fills the row's minimum height.
+  const firstLineHeight = leading
+    ? CONTROL_HEIGHT
+    : ROW_MIN_HEIGHT - 2 * SPACE.sm;
+  const wrapping: CSSProperties = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: `${SPACE.xs}px ${SPACE.md}px`,
+  };
 
   return (
     <div style={{ borderTop: `1px solid ${colors.border}` }}>
@@ -160,13 +181,14 @@ export const Row = ({
         aria-expanded={isOpen}
         onClick={onToggle}
         style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: SPACE.md,
+          ...wrapping,
+          position: 'relative',
           width: '100%',
           minHeight: ROW_MIN_HEIGHT,
-          padding: `${SPACE.sm}px ${SPACE.lg}px`,
+          // The right padding is the chevron's room: it is placed there, not
+          // laid out with the rest, so it stays at the end of the first line
+          // however the name, the value and the pill wrap.
+          padding: `${SPACE.sm}px ${SPACE.lg + CHEVRON_WIDTH + SPACE.md}px ${SPACE.sm}px ${SPACE.lg}px`,
           background: 'transparent',
           border: 'none',
           color: colors.text,
@@ -175,11 +197,45 @@ export const Row = ({
           cursor: 'pointer',
         }}
       >
-        {leading}
-        <span style={{ flex: '1 1 160px', ...TYPE.rowTitle }}>{title}</span>
-        {value ? <span style={TABULAR_NUMBERS}>{value}</span> : null}
-        {pill}
-        <span aria-hidden style={{ color: colors.muted }}>
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: SPACE.md,
+            flex: '1 1 auto',
+            minWidth: 0,
+            minHeight: firstLineHeight,
+          }}
+        >
+          {leading}
+          <span
+            style={{ minWidth: 0, overflowWrap: 'anywhere', ...TYPE.rowTitle }}
+          >
+            {title}
+          </span>
+        </span>
+        {/* One group: beside the name when both fit on the line, under it as
+            a whole when they do not. */}
+        {value || pill ? (
+          <span style={{ ...wrapping, minWidth: 0 }}>
+            {value ? <span style={TABULAR_NUMBERS}>{value}</span> : null}
+            {pill}
+          </span>
+        ) : null}
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: SPACE.sm,
+            right: SPACE.lg,
+            width: CHEVRON_WIDTH,
+            height: firstLineHeight,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            color: colors.muted,
+          }}
+        >
           {isOpen ? '⌄' : '›'}
         </span>
       </button>
@@ -300,14 +356,16 @@ export const Field = ({
           {label}
           {saved}
         </span>
-        <span style={{ flex: '0 1 160px', display: 'grid' }}>{children}</span>
+        <span style={{ flex: '0 1 160px', minWidth: 0, ...SHRINKABLE_GRID }}>
+          {children}
+        </span>
         {errorLine}
       </label>
     );
   }
 
   return (
-    <label style={{ display: 'grid', gap: SPACE.xs, ...TYPE.label }}>
+    <label style={{ ...SHRINKABLE_GRID, gap: SPACE.xs, ...TYPE.label }}>
       <span style={{ color: colors.muted }}>
         {label}
         {saved}
@@ -389,7 +447,13 @@ export const TextInput = ({
           ...(inputMode === 'text' ? {} : TABULAR_NUMBERS),
         }}
       />
-      {suffix ? <span style={{ color: colors.muted }}>{suffix}</span> : null}
+      {suffix ? (
+        <span
+          style={{ flex: 'none', whiteSpace: 'nowrap', color: colors.muted }}
+        >
+          {suffix}
+        </span>
+      ) : null}
     </span>
   );
 };
@@ -640,8 +704,7 @@ export const Group = ({
 
 // Fields in one row when the block is wider than a phone, one under another
 // when it is not. The basis is nothing above the threshold and huge below it,
-// so the fields never split two and one; without minWidth an input's own
-// width would still push the last field to a second row.
+// so the fields never split two and one.
 export const Columns = ({ children }: { children: ReactNode[] }) => (
   <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.md }}>
     {children.map((child, index) => (
@@ -650,7 +713,7 @@ export const Columns = ({ children }: { children: ReactNode[] }) => (
         style={{
           flex: `1 1 calc((${COLUMNS_MIN_WIDTH}px - 100%) * 999)`,
           minWidth: 0,
-          display: 'grid',
+          ...SHRINKABLE_GRID,
         }}
       >
         {child}
@@ -668,7 +731,7 @@ export const Line = ({
   children: ReactNode;
 }) => (
   <div style={{ display: 'flex', alignItems: 'flex-start', gap: SPACE.sm }}>
-    <div style={{ flex: 1, minWidth: 0, display: 'grid' }}>{children}</div>
+    <div style={{ flex: 1, minWidth: 0, ...SHRINKABLE_GRID }}>{children}</div>
     {action}
   </div>
 );
