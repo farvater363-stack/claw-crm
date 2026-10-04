@@ -25,7 +25,14 @@ const readUpdate = (objectUniversalIdentifier: string) => ({
 const WORKSHOP_WRITABLE_ORDER_FIELDS: string[] = [
   IDS.order.status,
   IDS.order.finishedPhotos,
+  // Twenty writes the author itself on every update, through the same check
+  // as the caller's fields, and overwrites whatever the caller sent: locked,
+  // «Готово» would be refused; open, it still cannot be falsified.
+  IDS.order.updatedBy,
 ];
+
+// The object's own identifier, and a retired field that is no longer defined.
+const ORDER_KEYS_WITHOUT_FIELD: string[] = ['object', 'masterPayPaid'];
 
 const SHARED_FIELD_PERMISSIONS = [
   ...ADMIN_ONLY_FIELD_PERMISSIONS,
@@ -46,28 +53,34 @@ const relationTypeOf = (field: object): unknown =>
     ? field.universalSettings.relationType
     : undefined;
 
-// Every field that holds a value on the order, read from the definition so a
-// field added later is locked without anyone remembering this file. A
-// one-to-many relation holds nothing on the order, so there is nothing to lock.
-const LOCKED_ORDER_FIELDS = [
-  ...orderObject.config.fields
+// The other side of a one-to-many relation holds the value, so the order has
+// nothing to lock.
+const oneToManyOrderFields = new Set(
+  orderObject.config.fields
     .filter(
       (field) =>
-        field.type !== FieldType.RELATION ||
-        relationTypeOf(field) === RelationType.MANY_TO_ONE,
+        field.type === FieldType.RELATION &&
+        relationTypeOf(field) === RelationType.ONE_TO_MANY,
     )
     .map((field) => field.universalIdentifier),
-  // Relations to standard objects are defined in src/fields
-  IDS.order.client,
-  IDS.order.manager,
-  IDS.order.measurer,
-]
+);
+
+// Every identifier of the order, so a field added later, in the object or in
+// src/fields, is locked without anyone remembering this file. That includes
+// the fields Twenty keeps itself: it has no create right apart from update,
+// but every create carries a position, so a login that may not write the
+// position cannot create an order; and without the lock a plain update could
+// soft-delete an order (deletedAt), move it between periods (createdAt) or
+// change its author (createdBy).
+const LOCKED_ORDER_FIELDS = Object.entries(IDS.order)
   .filter(
-    (fieldUniversalIdentifier) =>
+    ([key, fieldUniversalIdentifier]) =>
+      !ORDER_KEYS_WITHOUT_FIELD.includes(key) &&
+      !oneToManyOrderFields.has(fieldUniversalIdentifier) &&
       !WORKSHOP_WRITABLE_ORDER_FIELDS.includes(fieldUniversalIdentifier) &&
       !alreadyLimitedOrderFields.has(fieldUniversalIdentifier),
   )
-  .map((fieldUniversalIdentifier) => ({
+  .map(([, fieldUniversalIdentifier]) => ({
     objectUniversalIdentifier: IDS.order.object,
     fieldUniversalIdentifier,
     canReadFieldValue: true,

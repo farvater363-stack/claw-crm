@@ -126,26 +126,74 @@ describe('workshop', () => {
     expect(updatableObjectIds(workshopRole)).toEqual([IDS.order.object]);
   });
 
+  // Walks every identifier of the order, so a field added later is read-only
+  // for the workshop until somebody classifies it here.
   it('may change only the status and the finished photos of an order', () => {
     const limited = new Set([
       ...hiddenFieldIds(workshopRole),
       ...readOnlyFieldIds(workshopRole),
     ]);
-    // A one-to-many relation holds no value on the order itself.
-    const valueFieldIds = [
-      ...orderObject.config.fields
-        .filter((field) => field.type !== 'RELATION')
-        .map((field) => field.universalIdentifier),
-      IDS.order.master,
-      IDS.order.installer,
-      IDS.order.soldBy,
-      IDS.order.client,
-      IDS.order.manager,
-      IDS.order.measurer,
+    const definedFields = new Map(
+      orderObject.config.fields.map((field) => [
+        field.universalIdentifier,
+        field,
+      ]),
+    );
+    // The other side holds the value; the order has no column to lock.
+    const oneToManyKeys = [
+      'items',
+      'extraServices',
+      'materials',
+      'stockMovements',
+      'payments',
+      'accruals',
+    ] as const;
+    // The object's own identifier, and a retired field that is no longer defined.
+    const keysWithoutField: string[] = ['object', 'masterPayPaid'];
+    const writableIds = [
+      IDS.order.status,
+      IDS.order.finishedPhotos,
+      // Twenty writes the author itself on every update, through the same
+      // check as the caller's fields, and overwrites whatever the caller sent:
+      // locked, «Готово» would be refused; open, it still cannot be falsified.
+      IDS.order.updatedBy,
     ];
 
-    expect(valueFieldIds.filter((id) => !limited.has(id)).sort()).toEqual(
-      [IDS.order.finishedPhotos, IDS.order.status].sort(),
+    for (const key of oneToManyKeys) {
+      expect(definedFields.get(IDS.order[key])).toMatchObject({
+        type: 'RELATION',
+        universalSettings: { relationType: 'ONE_TO_MANY' },
+      });
+    }
+
+    expect(definedFields.has(IDS.order.masterPayPaid)).toBe(false);
+
+    const columnIds = Object.entries(IDS.order)
+      .filter(
+        ([key]) =>
+          !keysWithoutField.includes(key) &&
+          !oneToManyKeys.some((oneToManyKey) => oneToManyKey === key),
+      )
+      .map(([, id]) => id);
+
+    expect(columnIds.filter((id) => !limited.has(id)).sort()).toEqual(
+      [...writableIds].sort(),
+    );
+  });
+
+  // Twenty has no create right apart from update. Every create carries a
+  // position, so a login that may not write it cannot create an order; the
+  // rest closes a soft delete, a move between periods and a false author
+  // through a plain update.
+  it('cannot write the fields Twenty keeps on an order', () => {
+    expect(readOnlyFieldIds(workshopRole)).toEqual(
+      expect.arrayContaining([
+        IDS.order.position,
+        IDS.order.deletedAt,
+        IDS.order.createdAt,
+        IDS.order.createdBy,
+        IDS.order.updatedAt,
+      ]),
     );
   });
 

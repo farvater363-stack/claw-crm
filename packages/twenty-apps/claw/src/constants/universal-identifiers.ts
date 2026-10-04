@@ -110,8 +110,15 @@ export const IDS = {
     installer: 'c77f3172-535a-43ea-af81-bb3b93e3643c',
     soldBy: '56e42582-5bd8-4386-825a-e44681555132',
     accruals: 'e61401f7-fb11-4b47-bf4b-4990e9f48fc1',
-    // Twenty's deterministic id for the built-in createdAt of this app's order object.
+    // Twenty's deterministic ids for the built-in fields of this app's order
+    // object: uuid v5 of "fieldMetadata:<object id>:<field name>" in the
+    // namespace of the application id. Never made up, never generated here.
     createdAt: '187b9cd2-2f7c-55cc-ba12-5a1cbeec7bbf',
+    updatedAt: '7f1c57de-311c-5fa0-86d2-03d49cc97fe4',
+    deletedAt: 'e374b0af-7a96-5cc7-86c3-6b8bdb2d5a9c',
+    createdBy: '7f83d639-f609-580e-98c2-ed0612164118',
+    updatedBy: '284e5262-be11-5752-8941-bad728697e1a',
+    position: '316052eb-83a7-58b4-9e4b-3dffb6a83263',
   },
   orderItem: {
     object: 'c54a858f-68e0-4901-b5ca-78baedeceb83',
