@@ -61,6 +61,8 @@ export const Screen = ({
       <div
         style={{
           display: 'flex',
+          // An action too wide for the title's line goes under the title
+          flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: SPACE.md,
@@ -408,10 +410,13 @@ export const TextInput = ({
   onEnter,
   onCancel,
   inputMode = 'text',
+  type = 'text',
   suffix,
   placeholder,
   label,
 }: {
+  // `datetime-local` gives local wall time without a zone: «2026-10-12T14:00»
+  type?: 'text' | 'datetime-local';
   value: string;
   onChange: (value: string) => void;
   // The accessible name. Without it the name is all the text of the field
@@ -447,6 +452,7 @@ export const TextInput = ({
       }}
     >
       <input
+        type={type}
         aria-label={label}
         inputMode={inputMode}
         value={value}
@@ -563,12 +569,14 @@ export const InlineConfirm = ({
   question,
   confirmText,
   cancelText,
+  isBusy = false,
   onConfirm,
   onCancel,
 }: {
   question: string;
   confirmText: string;
   cancelText: string;
+  isBusy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) => (
@@ -581,7 +589,9 @@ export const InlineConfirm = ({
     }}
   >
     <span style={{ flex: '1 1 200px' }}>{question}</span>
-    <Button onClick={onConfirm}>{confirmText}</Button>
+    <Button isBusy={isBusy} onClick={onConfirm}>
+      {confirmText}
+    </Button>
     <Button variant="link" onClick={onCancel}>
       {cancelText}
     </Button>

@@ -252,7 +252,7 @@ export const IDS = {
     masterPay: 'b4cc6845-8918-4861-af82-179ea79985ea', // Retired: replaced by masterPayment; ids are never reused.
     orderItemsTable: '4d5ec168-0807-4260-95c2-5180fdc79159',
     orderExtraServicesTable: '90c9a437-18e4-4d2f-ae50-482889c7dc8b',
-    orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d',
+    orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d', // Retired: the order header shows the money; ids are never reused.
     allOrders: '8e7883c5-d382-4a79-9acb-2ef4974ceb48',
     dashboardOverdue: '174f3195-48cc-45cb-9fb3-3a0c9d8ee9a1',
     dashboardOwesUs: '9d20587f-8238-40fa-a04d-7fa4e28e5858',
@@ -262,7 +262,7 @@ export const IDS = {
     warehouseMovements: '85cc0f6a-5cf6-434f-b371-22da4a87fb46',
     warehouseNorms: '11ae3607-1db4-4b43-98a7-90a29d8768a2', // Retired: composition is edited on the prices screen; ids are never reused.
     orderMaterialsTable: '4822592d-5f07-4c2a-9125-c5540d540af0',
-    orderMaterialStatus: 'db3a3e8e-a3b3-4933-b4d0-8682679cdacf',
+    orderMaterialStatus: 'db3a3e8e-a3b3-4933-b4d0-8682679cdacf', // Retired: the order header shows the material sentence; ids are never reused.
     dashboardPurchasePlan: 'c8875f81-bfed-4cf3-a37d-a8c66a6b4221',
     dashboardOverrun: '25cbe306-0c48-4d04-a0ed-ef8cee407fd0',
     orderPaymentsTable: '9795c1d9-9fdb-4e6e-91a2-6da5e13c5ec6',
@@ -342,6 +342,10 @@ export const IDS = {
   measurementNotes: {
     frontComponent: '74aa9d07-1296-4578-a9e4-a623002c5b4b',
     orderPageWidget: '4102beab-e8d1-4e1a-a324-982bf1a35ed3',
+  },
+  orderHeader: {
+    frontComponent: 'f085c652-a22d-4954-94b6-0c381d443efb',
+    orderPageWidget: 'a075d6e9-7538-4a50-81b5-db059ce66ee1',
   },
   logicFunction: {
     onOrderCreated: '9f84f9bb-0b71-4991-8531-fc479be51150',
