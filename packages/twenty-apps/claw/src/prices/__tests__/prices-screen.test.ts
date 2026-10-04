@@ -164,28 +164,49 @@ describe('buildPriceSections', () => {
 });
 
 describe('input checks', () => {
-  it('accepts a comma and rejects zero, negatives and text', () => {
-    expect(parsePositiveNumber('5,5')).toEqual({ ok: true, value: 5.5 });
-    expect(parsePositiveNumber('0')).toEqual({
-      ok: false,
-      error: 'Введите число больше нуля',
-    });
-    expect(parsePositiveNumber('-2')).toEqual({
-      ok: false,
-      error: 'Введите число больше нуля',
-    });
-    expect(parsePositiveNumber('abc')).toEqual({
-      ok: false,
-      error: 'Введите число больше нуля',
-    });
+  it.each([
+    ['5,5', 5.5],
+    ['5.5', 5.5],
+    [' 12 ', 12],
+  ])('reads the quantity %j with a comma or a dot', (raw, value) => {
+    expect(parsePositiveNumber(raw)).toEqual({ ok: true, value });
   });
+
+  it.each(['0', '-2', '-0', '+2', 'abc', '1e3', '0x10', '1,2,3', ''])(
+    'rejects the quantity %j',
+    (raw) => {
+      expect(parsePositiveNumber(raw)).toEqual({
+        ok: false,
+        error: 'Введите число больше нуля',
+      });
+    },
+  );
 
   it('treats an empty price as no price', () => {
     expect(parseOptionalMoney('')).toEqual({ ok: true, value: null });
-    expect(parseOptionalMoney('250 000')).toEqual({ ok: true, value: 250_000 });
-    expect(parseOptionalMoney('-1')).toEqual({
-      ok: false,
-      error: 'Введите цену числом, без минуса',
-    });
+    expect(parseOptionalMoney('  ')).toEqual({ ok: true, value: null });
   });
+
+  it.each([
+    ['250000', 250_000],
+    ['250 000', 250_000],
+    ['250.000', 250_000],
+    ['250,000', 250_000],
+    ['1.250.000', 1_250_000],
+    ['1 250 000', 1_250_000],
+    ['1 250 000', 1_250_000],
+    ['0', 0],
+  ])('reads the price %j as a whole sum', (raw, value) => {
+    expect(parseOptionalMoney(raw)).toEqual({ ok: true, value });
+  });
+
+  it.each(['0,4', '1,5', '250,5', '250.00', '-5', '-1', 'abc', '1e3', '0x10'])(
+    'rejects the price %j instead of rounding or guessing',
+    (raw) => {
+      expect(parseOptionalMoney(raw)).toEqual({
+        ok: false,
+        error: 'Введите цену целым числом, без минуса',
+      });
+    },
+  );
 });

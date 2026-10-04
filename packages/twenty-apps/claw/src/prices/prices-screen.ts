@@ -162,10 +162,15 @@ export const buildPriceSections = ({
   };
 };
 
+const PLAIN_DECIMAL = /^\d+([.,]\d+)?$/;
+const WHOLE_SUM = /^(\d+|\d{1,3}([.,]\d{3})+)$/;
+
 export const parsePositiveNumber = (
   raw: string,
 ): { ok: true; value: number } | { ok: false; error: string } => {
-  const value = parseDecimalInput(raw);
+  const trimmed = raw.trim();
+  // Number() alone would also take «1e3», «0x10» and a signed value.
+  const value = PLAIN_DECIMAL.test(trimmed) ? parseDecimalInput(trimmed) : null;
 
   return value !== null && value > 0
     ? { ok: true, value }
@@ -179,9 +184,9 @@ export const parseOptionalMoney = (
 
   if (compact === '') return { ok: true, value: null };
 
-  const value = parseDecimalInput(compact);
-
-  return value !== null && value >= 0
-    ? { ok: true, value: Math.round(value) }
-    : { ok: false, error: 'Введите цену числом, без минуса' };
+  // A price in сум has no fraction, so a dot or a comma can only group
+  // thousands; anything else is refused rather than rounded.
+  return WHOLE_SUM.test(compact)
+    ? { ok: true, value: Number(compact.replace(/[.,]/g, '')) }
+    : { ok: false, error: 'Введите цену целым числом, без минуса' };
 };
