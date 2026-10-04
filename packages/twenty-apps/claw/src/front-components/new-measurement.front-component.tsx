@@ -34,8 +34,9 @@ import {
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
 import { fromCurrency } from 'src/recalc/money';
-import { formatMoney } from 'src/ui/format';
-import { PALETTE } from 'src/ui/tokens';
+import { formatMoney, formatQuantity } from 'src/ui/format';
+import { PhotoTile } from 'src/ui/kit';
+import { PALETTE, SPACE } from 'src/ui/tokens';
 
 type SavedItem = {
   id: string;
@@ -103,12 +104,12 @@ const loadFormContext = async (userId: string) => {
             id: true,
             name: true,
             pricePerSquareMeter: { amountMicros: true, currencyCode: true },
+            photos: { url: true },
           },
         },
       },
-      // Visors live in the extra services catalog, one row per type and depth.
       extraServices: {
-        __args: { filter: { name: { ilike: '%козыр%' } }, first: 200 },
+        __args: { filter: { kind: { eq: 'VISOR' } }, first: 200 },
         edges: {
           node: {
             id: true,
@@ -124,7 +125,7 @@ const loadFormContext = async (userId: string) => {
     grilles: (designs?.edges ?? []).map(({ node }): GrilleOption => ({
       id: node.id,
       name: node.name ?? '',
-      photoUrl: null,
+      photoUrl: node.photos?.[0]?.url ?? null,
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
     })),
     visorOptions: (extraServices?.edges ?? [])
@@ -711,6 +712,11 @@ const NewMeasurement = () => {
     (draft.visorServiceId !== '' && visorTotal === null)
       ? null
       : openingsTotal + (visorTotal ?? 0);
+  const hasOpeningWithoutPrice = draft.openings.some(
+    (opening) =>
+      (grilles.find((grille) => grille.id === opening.designId)
+        ?.pricePerSquareMeter ?? null) === null,
+  );
 
   return (
     <div style={styles.page}>
@@ -871,23 +877,42 @@ const NewMeasurement = () => {
                 </button>
               )}
             </div>
-            {field(
-              'Дизайн',
-              <select
-                style={styles.input}
-                value={opening.designId}
-                onChange={(event) =>
-                  updateOpening(opening.key, { designId: event.target.value })
-                }
+            <div style={styles.wide}>
+              <div style={{ ...styles.label, marginBottom: '6px' }}>
+                Решётка
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                  gap: SPACE.sm,
+                }}
               >
-                <option value="">—</option>
                 {grilles.map((grille) => (
-                  <option key={grille.id} value={grille.id}>
-                    {grille.name}
-                  </option>
+                  <PhotoTile
+                    key={grille.id}
+                    name={grille.name}
+                    photoUrl={grille.photoUrl}
+                    isSelected={opening.designId === grille.id}
+                    onSelect={() =>
+                      updateOpening(opening.key, { designId: grille.id })
+                    }
+                    caption={
+                      opening.designId === grille.id &&
+                      grille.pricePerSquareMeter !== null
+                        ? `${formatMoney(grille.pricePerSquareMeter)} за м²`
+                        : undefined
+                    }
+                  />
                 ))}
-              </select>,
-            )}
+                <PhotoTile
+                  name="Другая"
+                  photoUrl={null}
+                  isSelected={opening.designId === ''}
+                  onSelect={() => updateOpening(opening.key, { designId: '' })}
+                />
+              </div>
+            </div>
             {(
               [
                 ['widthCm', 'Ширина, см', 'decimal'],
@@ -909,27 +934,13 @@ const NewMeasurement = () => {
                 />,
               ),
             )}
-            <div style={styles.area}>
-              Площадь:{' '}
-              {areaSquareMeters === null
-                ? '—'
-                : formatSquareMeters(areaSquareMeters)}
-              {quote !== null && (
-                <>
-                  <br />
-                  {formatMoney(quote.pricePerSquareMeter)} за м² ·{' '}
-                  {formatMoney(quote.lineTotal)}
-                </>
-              )}
-              {quote === null &&
-                areaSquareMeters !== null &&
-                opening.designId !== '' && (
-                  <>
-                    <br />
-                    Цены нет в прайсе
-                  </>
-                )}
-            </div>
+            {areaSquareMeters !== null && (
+              <div style={styles.area}>
+                {quote === null
+                  ? formatQuantity(areaSquareMeters, 'м²')
+                  : `${formatQuantity(areaSquareMeters, 'м²')} · ${formatMoney(quote.lineTotal)}`}
+              </div>
+            )}
             {field(
               'Заметки',
               <textarea
@@ -1062,9 +1073,11 @@ const NewMeasurement = () => {
         Итого площадь: {formatSquareMeters(totalAreaSquareMeters)}
       </p>
 
-      {draftTotal !== null && (
+      {(draftTotal !== null || hasOpeningWithoutPrice) && (
         <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
-          Итого: {formatMoney(draftTotal)}
+          {draftTotal === null
+            ? 'Цену назовёт менеджер'
+            : `Итого: ${formatMoney(draftTotal)}`}
         </p>
       )}
 
