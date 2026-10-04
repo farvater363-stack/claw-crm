@@ -9,7 +9,7 @@ import {
 
 const node = {
   id: 'rule-1',
-  workerId: 'rustam',
+  workerId: 'worker-3',
   method: 'PER_SQUARE_METER',
   work: 'MASTER',
   amount: { amountMicros: 25_000_000_000 },
@@ -20,7 +20,7 @@ describe('toPayRule', () => {
   it('reads the amount as whole sums', () => {
     expect(toPayRule(node)).toEqual({
       id: 'rule-1',
-      workerId: 'rustam',
+      workerId: 'worker-3',
       method: 'PER_SQUARE_METER',
       work: 'MASTER',
       amount: 25_000,
@@ -71,33 +71,33 @@ describe('keptMasterRates', () => {
   it("keeps the per-m² and per-order rates on the master's own lines", () => {
     const lines = [
       {
-        workerId: 'rustam',
+        workerId: 'worker-3',
         work: 'MASTER',
         method: 'PER_SQUARE_METER',
         rate: 25_000,
       },
       {
-        workerId: 'rustam',
+        workerId: 'worker-3',
         work: 'MASTER',
         method: 'PER_ORDER',
         rate: 100_000,
       },
-      { workerId: 'rustam', work: 'MASTER', method: 'BONUS', rate: 10_000 },
+      { workerId: 'worker-3', work: 'MASTER', method: 'BONUS', rate: 10_000 },
       {
-        workerId: 'rustam',
+        workerId: 'worker-3',
         work: 'INSTALLER',
         method: 'PER_SQUARE_METER',
         rate: 15_000,
       },
       {
-        workerId: 'farhod',
+        workerId: 'worker-2',
         work: 'MASTER',
         method: 'PER_SQUARE_METER',
         rate: 30_000,
       },
     ];
 
-    expect(keptMasterRates(lines, 'rustam')).toEqual([
+    expect(keptMasterRates(lines, 'worker-3')).toEqual([
       { method: 'PER_SQUARE_METER', rate: 25_000 },
       { method: 'PER_ORDER', rate: 100_000 },
     ]);
@@ -107,7 +107,7 @@ describe('keptMasterRates', () => {
 describe('toAccrualLine', () => {
   const line = {
     id: 'line-1',
-    workerId: 'farhod',
+    workerId: 'worker-2',
     orderId: 'order-1',
     earnedOn: '2026-10-12',
     method: 'PER_SQUARE_METER',

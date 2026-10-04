@@ -88,12 +88,12 @@ describe('loadRecalcInput', () => {
         order: {
           id: 'order-1',
           status,
-          masterId: 'rustam',
+          masterId: 'worker-3',
           master: { ratePerSquareMeter: null, penaltyPercentPerDay: 0 },
         },
         accruals: [
           {
-            workerId: 'rustam',
+            workerId: 'worker-3',
             work: 'MASTER',
             method: 'PER_SQUARE_METER',
             rate: 25_000,

@@ -8,7 +8,7 @@ import {
 
 const rule = (overrides: Partial<PayRule> = {}): PayRule => ({
   id: 'fixed-1',
-  workerId: 'farhod',
+  workerId: 'worker-2',
   method: 'FIXED',
   work: null,
   amount: 2_000_000,
@@ -17,10 +17,10 @@ const rule = (overrides: Partial<PayRule> = {}): PayRule => ({
 });
 
 const workers = [
-  { id: 'farhod', isActive: true },
-  { id: 'aziz', isActive: false },
+  { id: 'worker-2', isActive: true },
+  { id: 'worker-1', isActive: false },
 ];
-const OCTOBER_ID = fixedAccrualId({ workerId: 'farhod', month: '2026-10' });
+const OCTOBER_ID = fixedAccrualId({ workerId: 'worker-2', month: '2026-10' });
 
 describe('planFixedAccruals', () => {
   it('writes one line per active worker with a fixed rule, dated the first day of the month', () => {
@@ -34,7 +34,7 @@ describe('planFixedAccruals', () => {
     ).toEqual([
       {
         id: OCTOBER_ID,
-        workerId: 'farhod',
+        workerId: 'worker-2',
         orderId: null,
         earnedOn: '2026-10-01',
         method: 'FIXED',
@@ -58,7 +58,7 @@ describe('planFixedAccruals', () => {
   it('skips a worker whose line exists, even under a new rule, an inactive worker and a rule that is not fixed', () => {
     const rules = [
       rule({ id: 'fixed-replaced', amount: 3_000_000 }),
-      rule({ id: 'fixed-2', workerId: 'aziz' }),
+      rule({ id: 'fixed-2', workerId: 'worker-1' }),
       rule({ id: 'per-order', method: 'PER_ORDER', work: 'INSTALLER' }),
     ];
 

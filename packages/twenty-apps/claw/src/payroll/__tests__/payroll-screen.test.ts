@@ -29,7 +29,7 @@ const plain = (value: string) => value.replace(/\s/g, ' ');
 
 const line = (overrides: Partial<AccrualLine> = {}): AccrualLine => ({
   id: 'line',
-  workerId: 'rustam',
+  workerId: 'worker-3',
   orderId: 'order-1031',
   earnedOn: '2026-10-10',
   method: 'PER_SQUARE_METER',
@@ -43,7 +43,7 @@ const line = (overrides: Partial<AccrualLine> = {}): AccrualLine => ({
 
 const rule = (overrides: Partial<PayRule> = {}): PayRule => ({
   id: 'rule',
-  workerId: 'rustam',
+  workerId: 'worker-3',
   method: 'PER_SQUARE_METER',
   work: 'MASTER',
   amount: 25_000,
@@ -76,9 +76,9 @@ describe('pay rule words', () => {
 
 describe('row texts', () => {
   it.each<[string, WorkerCategory[], string]>([
-    ['Рустам', ['MASTER'], 'Рустам · Мастер'],
-    ['Фарход', ['INSTALLER', 'SALES'], 'Фарход · Установщик, Продажник'],
-    ['Рустам', [], 'Рустам'],
+    ['Работник 3', ['MASTER'], 'Работник 3 · Мастер'],
+    ['Работник 2', ['INSTALLER', 'SALES'], 'Работник 2 · Установщик, Продажник'],
+    ['Работник 3', [], 'Работник 3'],
     ['', ['MASTER'], 'Без имени · Мастер'],
   ])('titles «%s» with %o', (workerName, categories, title) => {
     expect(rowTitle({ workerName, categories })).toBe(title);
@@ -95,7 +95,7 @@ describe('row texts', () => {
       'С прошлого месяца 235 000 · выплачено 300 000',
     );
     expect(
-      plain(paymentText({ id: 'p', masterId: 'rustam', paidOn: '2026-10-05', amount: 300_000, kind: 'ADVANCE', comment: null })),
+      plain(paymentText({ id: 'p', masterId: 'worker-3', paidOn: '2026-10-05', amount: 300_000, kind: 'ADVANCE', comment: null })),
     ).toBe('5 октября аванс 300 000');
   });
 });
@@ -155,7 +155,7 @@ describe('listMonthOrders', () => {
 });
 
 describe('buildPayRule', () => {
-  const base = { id: 'new', workerId: 'rustam', existing: [] as PayRule[] };
+  const base = { id: 'new', workerId: 'worker-3', existing: [] as PayRule[] };
 
   it.each<[PayMethod, PayWork | null, string, Pick<PayRule, 'amount' | 'percent'>]>([
     ['PER_SQUARE_METER', 'MASTER', '25 000', { amount: 25_000, percent: null }],
@@ -164,7 +164,7 @@ describe('buildPayRule', () => {
   ])('builds %s for %s from «%s»', (method, work, value, numbers) => {
     expect(buildPayRule({ ...base, method, work, value })).toEqual({
       ok: true,
-      rule: { id: 'new', workerId: 'rustam', method, work, ...numbers },
+      rule: { id: 'new', workerId: 'worker-3', method, work, ...numbers },
     });
   });
 
@@ -190,19 +190,19 @@ describe('buildPayRule', () => {
 
   it('lets another worker have a rule of the same method and work', () => {
     expect(
-      buildPayRule({ ...base, method: 'PER_SQUARE_METER', work: 'MASTER', value: '30000', existing: [rule({ workerId: 'farhod' })] }),
+      buildPayRule({ ...base, method: 'PER_SQUARE_METER', work: 'MASTER', value: '30000', existing: [rule({ workerId: 'worker-2' })] }),
     ).toMatchObject({ ok: true });
   });
 });
 
 describe('buildWorker and parsePenaltyPercent', () => {
   it('takes a name and at least one category', () => {
-    expect(buildWorker({ name: ' Фарход ', categories: ['INSTALLER'] })).toEqual({
+    expect(buildWorker({ name: ' Работник 2 ', categories: ['INSTALLER'] })).toEqual({
       ok: true,
-      data: { name: 'Фарход', categories: ['INSTALLER'] },
+      data: { name: 'Работник 2', categories: ['INSTALLER'] },
     });
     expect(buildWorker({ name: ' ', categories: ['INSTALLER'] })).toEqual({ ok: false, error: 'Введите имя' });
-    expect(buildWorker({ name: 'Фарход', categories: [] })).toEqual({ ok: false, error: 'Отметьте, кем работает' });
+    expect(buildWorker({ name: 'Работник 2', categories: [] })).toEqual({ ok: false, error: 'Отметьте, кем работает' });
   });
 
   it.each([
@@ -247,18 +247,18 @@ describe('canPayInMonth', () => {
 
 describe('storedAttempts', () => {
   it('names no attempt whose record is not stored', () => {
-    expect(storedAttempts({ 'farhod:pay': 'id-1', add: 'id-2' }, ['other'])).toEqual([]);
+    expect(storedAttempts({ 'worker-2:pay': 'id-1', add: 'id-2' }, ['other'])).toEqual([]);
     expect(storedAttempts({}, ['id-1'])).toEqual([]);
   });
 
   it('names the attempts whose record was read back', () => {
-    expect(storedAttempts({ 'farhod:pay': 'id-1', 'farhod:rule': 'id-2', add: 'id-3' }, ['id-1', 'id-3'])).toEqual([
-      'farhod:pay',
+    expect(storedAttempts({ 'worker-2:pay': 'id-1', 'worker-2:rule': 'id-2', add: 'id-3' }, ['id-1', 'id-3'])).toEqual([
+      'worker-2:pay',
       'add',
     ]);
   });
 
   it('names one row attempt and leaves the same form of another row open', () => {
-    expect(storedAttempts({ 'farhod:pay': 'id-1', 'aziz:pay': 'id-2' }, ['id-2'])).toEqual(['aziz:pay']);
+    expect(storedAttempts({ 'worker-2:pay': 'id-1', 'worker-1:pay': 'id-2' }, ['id-2'])).toEqual(['worker-1:pay']);
   });
 });

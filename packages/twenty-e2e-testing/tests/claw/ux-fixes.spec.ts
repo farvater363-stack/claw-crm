@@ -440,7 +440,7 @@ test.describe('measurer', () => {
     await expect(page.getByText(/^Итого: /)).toHaveText(EXPECTED_LINE_TOTAL);
   });
 
-  test('the sidebar has no «Работники», «ЗП мастеров» and «Выплаты»', async ({
+  test('the sidebar has no «Работники», «ЗП» and «Выплаты»', async ({
     browser,
   }) => {
     test.setTimeout(120_000);
@@ -454,9 +454,9 @@ test.describe('measurer', () => {
       page.getByRole('link', { name: 'Новый замер' }).first(),
     ).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole('link', { name: 'Работники' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'ЗП мастеров' })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole('link', { name: 'ЗП', exact: true }),
+    ).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Выплаты' })).toHaveCount(0);
   });
 

@@ -21,7 +21,7 @@ const page = (nodes: Node[]) => ({
 
 const LINE: Node = {
   id: 'line-1',
-  workerId: 'farhod',
+  workerId: 'worker-2',
   orderId: 'order-1',
   order: { id: 'order-1' },
   earnedOn: '2026-10-12',
@@ -34,17 +34,26 @@ const LINE: Node = {
 };
 const PAYMENT: Node = {
   id: 'pay-1',
-  masterId: 'farhod',
+  masterId: 'worker-2',
   paidOn: '2026-10-05',
   amount: micros(300_000),
   kind: 'ADVANCE',
   comment: null,
 };
 
+const WORKER: Node = {
+  id: 'worker-2',
+  name: 'Работник 2',
+  isActive: true,
+  categories: ['INSTALLER'],
+  loginId: null,
+  penaltyPercentPerDay: 0,
+};
+
 const fakeClient = ({
   accruals = [] as Node[],
   payments = [] as Node[],
-  workers = [] as Node[],
+  workers = [WORKER],
   rules = [] as Node[],
   members = [] as Node[],
 } = {}) => {
@@ -113,20 +122,20 @@ describe('loadPayrollData', () => {
       payments: [PAYMENT],
       workers: [
         {
-          id: 'farhod',
-          name: 'Фарход',
+          id: 'worker-2',
+          name: 'Работник 2',
           isActive: true,
           categories: ['SALES', 'INSTALLER'],
           loginId: 'member-1',
           penaltyPercentPerDay: 0,
         },
-        { id: 'aziz', name: 'Азиз', isActive: false, categories: null, loginId: null, penaltyPercentPerDay: null },
+        { id: 'worker-1', name: 'Работник 1', isActive: false, categories: null, loginId: null, penaltyPercentPerDay: null },
       ],
       rules: [
-        { id: 'r1', workerId: 'farhod', method: 'PER_SQUARE_METER', work: 'INSTALLER', amount: micros(15_000), percent: null },
+        { id: 'r1', workerId: 'worker-2', method: 'PER_SQUARE_METER', work: 'INSTALLER', amount: micros(15_000), percent: null },
       ],
       members: [
-        { id: 'member-1', name: { firstName: 'Фарход', lastName: 'Каримов' } },
+        { id: 'member-1', name: { firstName: 'Логин', lastName: '1' } },
         { id: 'member-2', name: { firstName: '', lastName: '' } },
       ],
     });
@@ -134,20 +143,20 @@ describe('loadPayrollData', () => {
     expect(await loadPayrollData(client, '2026-10')).toEqual({
       workers: [
         {
-          id: 'farhod',
-          name: 'Фарход',
+          id: 'worker-2',
+          name: 'Работник 2',
           isActive: true,
           categories: ['INSTALLER', 'SALES'],
           loginId: 'member-1',
           penaltyPercentPerDay: 0,
         },
-        { id: 'aziz', name: 'Азиз', isActive: false, categories: [], loginId: null, penaltyPercentPerDay: 0 },
+        { id: 'worker-1', name: 'Работник 1', isActive: false, categories: [], loginId: null, penaltyPercentPerDay: 0 },
       ],
-      rules: [{ id: 'r1', workerId: 'farhod', method: 'PER_SQUARE_METER', work: 'INSTALLER', amount: 15_000, percent: null }],
+      rules: [{ id: 'r1', workerId: 'worker-2', method: 'PER_SQUARE_METER', work: 'INSTALLER', amount: 15_000, percent: null }],
       accruals: [
         {
           id: 'line-1',
-          workerId: 'farhod',
+          workerId: 'worker-2',
           orderId: 'order-1',
           earnedOn: '2026-10-12',
           method: 'PER_SQUARE_METER',
@@ -158,9 +167,9 @@ describe('loadPayrollData', () => {
           name: '№1042',
         },
       ],
-      payments: [{ id: 'pay-1', masterId: 'farhod', paidOn: '2026-10-05', amount: 300_000, kind: 'ADVANCE', comment: null }],
+      payments: [{ id: 'pay-1', masterId: 'worker-2', paidOn: '2026-10-05', amount: 300_000, kind: 'ADVANCE', comment: null }],
       logins: [
-        { id: 'member-1', name: 'Фарход Каримов' },
+        { id: 'member-1', name: 'Логин 1' },
         { id: 'member-2', name: 'Без имени' },
       ],
       skipped: { payments: 0, accruals: 0 },
@@ -213,13 +222,25 @@ describe('loadPayrollData', () => {
     expect(data.payments.map((payment) => payment.id)).toEqual(['pay-1']);
     expect(data.skipped).toEqual({ payments: 3, accruals: 4 });
   });
+
+  it('counts the lines and payments of a worker who is not in the list as left out', async () => {
+    const { client } = fakeClient({
+      accruals: [{ ...LINE, id: 'of-removed', workerId: 'removed' }, LINE],
+      payments: [{ ...PAYMENT, id: 'to-removed', masterId: 'removed' }, PAYMENT],
+    });
+    const data = await loadPayrollData(client, '2026-10');
+
+    expect(data.accruals.map((line) => line.id)).toEqual(['line-1']);
+    expect(data.payments.map((payment) => payment.id)).toEqual(['pay-1']);
+    expect(data.skipped).toEqual({ payments: 1, accruals: 1 });
+  });
 });
 
 describe('writes', () => {
   it('creates a worker and a rule with upsert under the id of the attempt', async () => {
     const { client, mutations } = fakeClient();
 
-    await saveWorker(client, 'worker-1', { name: 'Фарход', categories: ['INSTALLER'] });
+    await saveWorker(client, 'worker-1', { name: 'Работник 2', categories: ['INSTALLER'] });
     await savePayRule(client, {
       id: 'rule-1',
       workerId: 'worker-1',
@@ -232,7 +253,7 @@ describe('writes', () => {
     expect(mutations).toEqual([
       {
         createMaster: {
-          __args: { data: { id: 'worker-1', name: 'Фарход', categories: ['INSTALLER'], isActive: true }, upsert: true },
+          __args: { data: { id: 'worker-1', name: 'Работник 2', categories: ['INSTALLER'], isActive: true }, upsert: true },
           id: true,
         },
       },
@@ -260,7 +281,7 @@ describe('writes', () => {
   it('updates a worker, removes a rule and records a payment under the id of the attempt', async () => {
     const { client, mutations } = fakeClient();
     const payment = {
-      name: 'Аванс · Фарход',
+      name: 'Аванс · Работник 2',
       masterId: 'worker-1',
       paidOn: '2026-10-05',
       amount: { amountMicros: 300_000_000_000, currencyCode: 'UZS' as const },

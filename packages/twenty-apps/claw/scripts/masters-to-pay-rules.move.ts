@@ -1,7 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { it } from 'vitest';
 
-// Relative paths: scripts/ is outside the tsconfig, so the src/* alias is not resolved for this file itself.
 import { savePayRule, updateWorker } from '../src/payroll/load-payroll-data';
 import { PAY_RULE_SELECTION, toPayRules } from '../src/payroll/pay-records';
 import { describePayRule } from '../src/payroll/pay-rules';

@@ -112,13 +112,15 @@ export const loadPayrollData = async (client: CoreApiClient, month: string): Pro
   // A soft-deleted order is not returned, so a line that names an order and gets none belongs to a deleted order.
   const liveAccrualNodes = accrualNodes.filter((node) => !node.orderId || node.order);
   // The mapper reads a missing amount as zero; here such a line is reported instead of shown as nothing earned.
-  const accruals = liveAccrualNodes.flatMap((node) =>
-    fromCurrency(node.amount) === null ? [] : (toAccrualLine(node) ?? []),
-  );
+  // A removed worker is not returned and has no row: what is his is reported as left out instead of vanishing.
+  const workerIds = new Set(workerNodes.map((node) => node.id));
+  const accruals = liveAccrualNodes
+    .flatMap((node) => (fromCurrency(node.amount) === null ? [] : (toAccrualLine(node) ?? [])))
+    .filter((line) => workerIds.has(line.workerId));
   const payments = paymentNodes.flatMap((node): PayrollPayment[] => {
     const amount = fromCurrency(node.amount);
 
-    return node.masterId && node.paidOn && amount !== null
+    return node.masterId && workerIds.has(node.masterId) && node.paidOn && amount !== null
       ? [
           {
             id: node.id,

@@ -4,15 +4,15 @@ import { type PayRule, withLegacyMasterRate } from 'src/payroll/pay-rules';
 import { masterRateRuleId, type MoveWorker, planMastersToRules } from 'src/payroll/plan-masters-to-rules';
 
 const worker = (overrides: Partial<MoveWorker> = {}): MoveWorker => ({
-  id: 'rustam',
+  id: 'worker-3',
   categories: [],
   ratePerSquareMeter: 25_000,
   ...overrides,
 });
 
 const MASTER_RULE: PayRule = {
-  id: masterRateRuleId('rustam'),
-  workerId: 'rustam',
+  id: masterRateRuleId('worker-3'),
+  workerId: 'worker-3',
   method: 'PER_SQUARE_METER',
   work: 'MASTER',
   amount: 25_000,
@@ -23,9 +23,9 @@ const NOTHING = { categoryUpdates: [], ruleCreates: [], removedRuleWorkerIds: []
 
 describe('masterRateRuleId', () => {
   it('gives one worker one id and two workers two', () => {
-    expect(masterRateRuleId('rustam')).toBe(masterRateRuleId('rustam'));
-    expect(masterRateRuleId('rustam')).not.toBe(masterRateRuleId('farhod'));
-    expect(masterRateRuleId('rustam')).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(masterRateRuleId('worker-3')).toBe(masterRateRuleId('worker-3'));
+    expect(masterRateRuleId('worker-3')).not.toBe(masterRateRuleId('worker-2'));
+    expect(masterRateRuleId('worker-3')).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 });
 
@@ -33,7 +33,7 @@ describe('planMastersToRules', () => {
   it('makes a worker with a rate a master with one per-m² rule', () => {
     expect(planMastersToRules({ workers: [worker()], rules: [] })).toEqual({
       ...NOTHING,
-      categoryUpdates: [{ workerId: 'rustam', categories: ['MASTER'] }],
+      categoryUpdates: [{ workerId: 'worker-3', categories: ['MASTER'] }],
       ruleCreates: [MASTER_RULE],
     });
   });
@@ -42,7 +42,7 @@ describe('planMastersToRules', () => {
     for (const ratePerSquareMeter of [0, null]) {
       expect(planMastersToRules({ workers: [worker({ ratePerSquareMeter })], rules: [] })).toEqual({
         ...NOTHING,
-        categoryUpdates: [{ workerId: 'rustam', categories: ['MASTER'] }],
+        categoryUpdates: [{ workerId: 'worker-3', categories: ['MASTER'] }],
       });
     }
   });
@@ -51,13 +51,13 @@ describe('planMastersToRules', () => {
     const plan = planMastersToRules({
       workers: [
         worker({ categories: ['SALES'] }),
-        worker({ id: 'farhod', categories: ['INSTALLER'], ratePerSquareMeter: null }),
+        worker({ id: 'worker-2', categories: ['INSTALLER'], ratePerSquareMeter: null }),
       ],
       rules: [],
     });
 
-    expect(plan.categoryUpdates).toEqual([{ workerId: 'rustam', categories: ['MASTER', 'SALES'] }]);
-    expect(plan.ruleCreates.map((rule) => rule.workerId)).toEqual(['rustam']);
+    expect(plan.categoryUpdates).toEqual([{ workerId: 'worker-3', categories: ['MASTER', 'SALES'] }]);
+    expect(plan.ruleCreates.map((rule) => rule.workerId)).toEqual(['worker-3']);
   });
 
   it('gives a master who has a rate and no rule only the rule', () => {
@@ -77,7 +77,7 @@ describe('planMastersToRules', () => {
     const others: PayRule[] = [
       { ...MASTER_RULE, id: 'per-order', method: 'PER_ORDER' },
       { ...MASTER_RULE, id: 'installer', work: 'INSTALLER' },
-      { ...MASTER_RULE, id: 'of-another', workerId: 'farhod' },
+      { ...MASTER_RULE, id: 'of-another', workerId: 'worker-2' },
     ];
 
     expect(planMastersToRules({ workers: [worker()], rules: others }).ruleCreates).toEqual([MASTER_RULE]);
@@ -92,7 +92,7 @@ describe('planMastersToRules', () => {
   it('finishes a run that stopped between the category and the rule, either way round', () => {
     expect(planMastersToRules({ workers: [worker()], rules: [MASTER_RULE] })).toEqual({
       ...NOTHING,
-      categoryUpdates: [{ workerId: 'rustam', categories: ['MASTER'] }],
+      categoryUpdates: [{ workerId: 'worker-3', categories: ['MASTER'] }],
     });
   });
 
@@ -101,18 +101,18 @@ describe('planMastersToRules', () => {
       planMastersToRules({
         workers: [worker({ categories: ['MASTER'] })],
         rules: [],
-        removedRuleIds: [masterRateRuleId('rustam')],
+        removedRuleIds: [masterRateRuleId('worker-3')],
       }),
-    ).toEqual({ ...NOTHING, removedRuleWorkerIds: ['rustam'] });
+    ).toEqual({ ...NOTHING, removedRuleWorkerIds: ['worker-3'] });
   });
 
   it('adds the rule exactly where the order recalc would still pay by the old rate', () => {
     const workers = [
       worker(),
-      worker({ id: 'farhod', ratePerSquareMeter: 0 }),
-      worker({ id: 'aziz', ratePerSquareMeter: 18_000 }),
+      worker({ id: 'worker-2', ratePerSquareMeter: 0 }),
+      worker({ id: 'worker-1', ratePerSquareMeter: 18_000 }),
     ];
-    const rules: PayRule[] = [{ ...MASTER_RULE, id: 'own', workerId: 'aziz' }];
+    const rules: PayRule[] = [{ ...MASTER_RULE, id: 'own', workerId: 'worker-1' }];
     const paidByOldRate = workers
       .filter(
         ({ id, ratePerSquareMeter }) =>

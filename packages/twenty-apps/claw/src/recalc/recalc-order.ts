@@ -28,6 +28,11 @@ export const recalcOrder = async (
 
   await applyRecalcPlan(client, orderId, planOrderRecalc(input));
 
+  // Straight after the totals and the master's pay are stored, which is all the lines are built from:
+  // nothing runs this again for an installed order, so a failure in the stock steps below must not leave it without pay lines.
+  // ponytail: one more query per recalc; skip orders with no measurement and no lines if the nightly run nears the app's 500 requests a minute.
+  await syncOrderAccruals(client, orderId);
+
   if (
     await syncOrderMaterials(client, orderId, {
       entersWrittenOff: options.entersWrittenOff,
@@ -35,8 +40,4 @@ export const recalcOrder = async (
   ) {
     await recalcWarehouse(client);
   }
-
-  // After the totals and the master's pay are stored: the lines are built from them.
-  // ponytail: one more query per recalc; skip orders with no measurement and no lines if the nightly run nears the app's 500 requests a minute.
-  await syncOrderAccruals(client, orderId);
 };

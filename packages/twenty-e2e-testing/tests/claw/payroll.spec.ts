@@ -258,8 +258,8 @@ test.afterAll(async () => {
       }
     });
 
-  // The rule goes before the order: a recalc started by the order's removal
-  // then finds no rule and cannot write the worker's line again.
+  // The worker's lines go last, after the orders: destroying an order's items
+  // starts a recalc, which writes the lines again from the rates they keep.
   await destroyOfWorker('payRules', 'PayRule');
 
   let orderIds: string[] = [];

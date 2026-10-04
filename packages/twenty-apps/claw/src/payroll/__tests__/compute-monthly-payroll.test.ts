@@ -8,8 +8,8 @@ import {
 import { type AccrualLine } from 'src/payroll/plan-order-accruals';
 
 const worker = (overrides: Partial<PayrollWorker> = {}): PayrollWorker => ({
-  id: 'anvar',
-  name: 'Анвар',
+  id: 'worker-1',
+  name: 'Работник 1',
   isActive: true,
   categories: ['MASTER'],
   ...overrides,
@@ -17,7 +17,7 @@ const worker = (overrides: Partial<PayrollWorker> = {}): PayrollWorker => ({
 
 const line = (overrides: Partial<AccrualLine> = {}): AccrualLine => ({
   id: 'line',
-  workerId: 'anvar',
+  workerId: 'worker-1',
   orderId: 'order-1',
   earnedOn: '2026-10-10',
   method: 'PER_SQUARE_METER',
@@ -31,7 +31,7 @@ const line = (overrides: Partial<AccrualLine> = {}): AccrualLine => ({
 
 const payment = (overrides: Partial<PayrollPayment> = {}): PayrollPayment => ({
   id: 'payment',
-  masterId: 'anvar',
+  masterId: 'worker-1',
   paidOn: '2026-10-05',
   amount: 40_000,
   kind: 'ADVANCE',
@@ -54,8 +54,8 @@ describe('computeMonthlyPayroll', () => {
     });
 
     expect(row).toMatchObject({
-      workerId: 'anvar',
-      workerName: 'Анвар',
+      workerId: 'worker-1',
+      workerName: 'Работник 1',
       categories: ['MASTER'],
       isActive: true,
       earned: 98_000,
@@ -100,23 +100,23 @@ describe('computeMonthlyPayroll', () => {
     const rows = october({
       workers: [
         worker(),
-        worker({ id: 'gone', name: 'Вали', isActive: false }),
-        worker({ id: 'owed', name: 'Гайрат', isActive: false }),
-        worker({ id: 'paid', name: 'Давлат', isActive: false }),
+        worker({ id: 'gone', name: 'Работник 5', isActive: false }),
+        worker({ id: 'owed', name: 'Работник 3', isActive: false }),
+        worker({ id: 'paid', name: 'Работник 4', isActive: false }),
       ],
       accruals: [line({ workerId: 'owed', earnedOn: '2026-09-20' }), line({ workerId: 'paid' })],
       payments: [payment({ masterId: 'paid', amount: 100_000 })],
     });
 
-    expect(rows.map((row) => row.workerId)).toEqual(['anvar', 'owed', 'paid']);
+    expect(rows.map((row) => row.workerId)).toEqual(['worker-1', 'owed', 'paid']);
   });
 
   it('sorts by name and shows a worker without a name as an empty one', () => {
     const rows = october({
-      workers: [worker({ id: 'b', name: 'Ботир' }), worker({ id: 'a', name: 'Анвар' }), worker({ id: 'n', name: null })],
+      workers: [worker({ id: 'b', name: 'Работник 2' }), worker({ id: 'a', name: 'Работник 1' }), worker({ id: 'n', name: null })],
     });
 
-    expect(rows.map((row) => row.workerName)).toEqual(['', 'Анвар', 'Ботир']);
+    expect(rows.map((row) => row.workerName)).toEqual(['', 'Работник 1', 'Работник 2']);
   });
 
   it('keeps an amount that is not a number out of every sum', () => {

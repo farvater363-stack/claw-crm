@@ -16,7 +16,7 @@ const plain = (value: string) => value.replace(/\s/g, ' ');
 
 const rule = (overrides: Partial<PayRule>): PayRule => ({
   id: 'rule',
-  workerId: 'rustam',
+  workerId: 'worker-3',
   method: 'PER_SQUARE_METER',
   work: 'MASTER',
   amount: 25_000,
@@ -221,10 +221,10 @@ describe('applyLatePenalty', () => {
 });
 
 describe('withLegacyMasterRate', () => {
-  const master = { workerId: 'rustam', ratePerSquareMeter: 25_000 };
+  const master = { workerId: 'worker-3', ratePerSquareMeter: 25_000 };
   const legacy = {
-    id: 'legacy-rate:rustam',
-    workerId: 'rustam',
+    id: 'legacy-rate:worker-3',
+    workerId: 'worker-3',
     method: 'PER_SQUARE_METER',
     work: 'MASTER',
     amount: 25_000,
@@ -259,12 +259,12 @@ describe('withLegacyMasterRate', () => {
   it('adds nothing once the master has a per-m² rule, or when the old rate is zero', () => {
     expect(withLegacyMasterRate([rule({})], master)).toEqual([rule({})]);
     expect(
-      withLegacyMasterRate([], { workerId: 'rustam', ratePerSquareMeter: 0 }),
+      withLegacyMasterRate([], { workerId: 'worker-3', ratePerSquareMeter: 0 }),
     ).toEqual([]);
   });
 
   it("does not take another worker's rule for the master's", () => {
-    const other = rule({ workerId: 'farhod' });
+    const other = rule({ workerId: 'worker-2' });
 
     expect(withLegacyMasterRate([other], master)).toHaveLength(2);
   });
