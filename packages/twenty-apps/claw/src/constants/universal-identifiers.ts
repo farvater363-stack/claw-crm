@@ -237,6 +237,13 @@ export const IDS = {
     warehousePurchasePlan: 'db6da1ac-23e0-4b55-b1a3-318fd75281e1',
     warehouseMovements: '6c5f9ec5-8389-4cbd-8237-eb6c757a0f03',
     warehouseNorms: '335e4eeb-d9e1-4369-abb5-b2049d93b425',
+    prices: '5270c73e-d422-4d41-b0d4-1489b25265f5',
+  },
+  prices: {
+    frontComponent: '2896e143-b42d-49d0-9e0a-be492ad9aa8b',
+    pageLayout: '197d5139-ebed-4518-bfc2-abb73038a303',
+    pageLayoutTab: '15da6026-7b60-4b4a-8acb-39cb6787ad5e',
+    pageLayoutWidget: '8a58f5d6-c26a-424a-8c17-26397eba40ce',
   },
   payroll: {
     frontComponent: '66997114-3e6d-4d6c-9405-64be5ad17a66',

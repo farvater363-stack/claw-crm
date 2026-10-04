@@ -9,6 +9,7 @@ import {
   RADIUS,
   ROW_MIN_HEIGHT,
   SPACE,
+  TABULAR_NUMBERS,
   type Tone,
   TYPE,
 } from 'src/ui/tokens';
@@ -65,9 +66,12 @@ export const Screen = ({
 
 export const Section = ({
   title,
+  footer,
   children,
 }: {
   title: string;
+  // The section's own action, such as its add button, under the rows
+  footer?: ReactNode;
   children: ReactNode;
 }) => {
   const colors = usePalette();
@@ -87,7 +91,24 @@ export const Section = ({
           overflow: 'hidden',
         }}
       >
-        {children}
+        {/* Every row draws its top border; pulled up by one pixel, the first
+            one is clipped instead of doubling the card's own border. */}
+        <div style={{ marginTop: -1 }}>
+          {children}
+          {footer ? (
+            <div
+              style={{
+                padding: SPACE.lg,
+                borderTop: `1px solid ${colors.border}`,
+                display: 'grid',
+                gap: SPACE.md,
+                justifyItems: 'start',
+              }}
+            >
+              {footer}
+            </div>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -113,6 +134,7 @@ export const StatePill = ({ tone, text }: { tone: Tone; text: string }) => {
 };
 
 export const Row = ({
+  leading,
   title,
   value,
   pill,
@@ -120,6 +142,7 @@ export const Row = ({
   onToggle,
   children,
 }: {
+  leading?: ReactNode;
   title: ReactNode;
   value?: ReactNode;
   pill?: ReactNode;
@@ -151,8 +174,9 @@ export const Row = ({
           cursor: 'pointer',
         }}
       >
+        {leading}
         <span style={{ flex: '1 1 160px', ...TYPE.rowTitle }}>{title}</span>
-        {value}
+        {value ? <span style={TABULAR_NUMBERS}>{value}</span> : null}
         {pill}
         <span aria-hidden style={{ color: colors.muted }}>
           {isOpen ? '⌄' : '›'}
@@ -177,18 +201,22 @@ export const Button = ({
   variant = 'quiet',
   isBusy = false,
   busyText = 'Сохраняем…',
+  label,
   onClick,
   children,
 }: {
   variant?: 'primary' | 'quiet' | 'link';
   isBusy?: boolean;
   busyText?: string;
+  // The accessible name of a button whose text is a symbol, like «×»
+  label?: string;
   onClick: () => void;
   children: ReactNode;
 }) => {
   const colors = usePalette();
   const base: CSSProperties = {
     minHeight: CONTROL_HEIGHT,
+    minWidth: CONTROL_HEIGHT,
     padding: `0 ${SPACE.lg}px`,
     borderRadius: RADIUS.control,
     font: 'inherit',
@@ -217,6 +245,7 @@ export const Button = ({
       type="button"
       style={{ ...base, ...look }}
       aria-busy={isBusy}
+      aria-label={label}
       onClick={() => {
         if (!isBusy) onClick();
       }}
@@ -230,29 +259,60 @@ export const Field = ({
   label,
   error,
   isSaved = false,
+  isInline = false,
   children,
 }: {
   label: string;
   error?: string | null;
   isSaved?: boolean;
+  // The label is the thing being measured (a material) and sits beside the
+  // control at reading size; it wraps above the control on a phone
+  isInline?: boolean;
   children: ReactNode;
 }) => {
   const colors = usePalette();
+  const saved = isSaved && (
+    <span
+      style={{ ...TYPE.label, color: colors.success, marginLeft: SPACE.sm }}
+    >
+      ✓ Сохранено
+    </span>
+  );
+  const errorLine = error ? (
+    <span style={{ ...TYPE.body, color: colors.danger, flexBasis: '100%' }}>
+      {error}
+    </span>
+  ) : null;
+
+  if (isInline) {
+    return (
+      <label
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: `${SPACE.xs}px ${SPACE.md}px`,
+          ...TYPE.body,
+        }}
+      >
+        <span style={{ flex: '1 1 160px' }}>
+          {label}
+          {saved}
+        </span>
+        <span style={{ flex: '0 1 160px', display: 'grid' }}>{children}</span>
+        {errorLine}
+      </label>
+    );
+  }
 
   return (
     <label style={{ display: 'grid', gap: SPACE.xs, ...TYPE.label }}>
       <span style={{ color: colors.muted }}>
         {label}
-        {isSaved && (
-          <span style={{ color: colors.success, marginLeft: SPACE.sm }}>
-            ✓ Сохранено
-          </span>
-        )}
+        {saved}
       </span>
       {children}
-      {error ? (
-        <span style={{ ...TYPE.body, color: colors.danger }}>{error}</span>
-      ) : null}
+      {errorLine}
     </label>
   );
 };
@@ -314,6 +374,7 @@ export const TextInput = ({
           color: colors.text,
           font: 'inherit',
           ...TYPE.body,
+          ...(inputMode === 'text' ? {} : TABULAR_NUMBERS),
         }}
       />
       {suffix ? <span style={{ color: colors.muted }}>{suffix}</span> : null}
@@ -549,5 +610,151 @@ export const PhotoTile = ({
         <span style={{ ...TYPE.label, color: colors.muted }}>{caption}</span>
       ) : null}
     </button>
+  );
+};
+
+export const Group = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) => (
+  <div style={{ display: 'grid', gap: SPACE.md }}>
+    <div style={{ ...TYPE.body, fontWeight: 600 }}>{title}</div>
+    {children}
+  </div>
+);
+
+// Fields side by side on a tablet, one under another on a phone
+export const Columns = ({ children }: { children: ReactNode[] }) => (
+  <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.md }}>
+    {children.map((child, index) => (
+      <div key={index} style={{ flex: '1 1 160px', display: 'grid' }}>
+        {child}
+      </div>
+    ))}
+  </div>
+);
+
+// A field with its own action beside it, such as «×» on a composition line
+export const Line = ({
+  action,
+  children,
+}: {
+  action: ReactNode;
+  children: ReactNode;
+}) => (
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: SPACE.sm }}>
+    <div style={{ flex: 1, minWidth: 0, display: 'grid' }}>{children}</div>
+    {action}
+  </div>
+);
+
+export const Wrap = ({ children }: { children: ReactNode }) => (
+  <div
+    style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: SPACE.md,
+    }}
+  >
+    {children}
+  </div>
+);
+
+export const Hint = ({ text }: { text: string }) => {
+  const colors = usePalette();
+
+  return <div style={{ color: colors.muted }}>{text}</div>;
+};
+
+export const Thumbnail = ({
+  photoUrl,
+  alt = '',
+  size = CONTROL_HEIGHT,
+}: {
+  photoUrl: string | null;
+  alt?: string;
+  size?: number;
+}) => {
+  const colors = usePalette();
+  const box: CSSProperties = {
+    flex: 'none',
+    width: size,
+    height: size,
+    borderRadius: RADIUS.control,
+    background: colors.panel,
+  };
+
+  return photoUrl ? (
+    <img src={photoUrl} alt={alt} style={{ ...box, objectFit: 'cover' }} />
+  ) : (
+    <span aria-hidden style={{ ...box, display: 'inline-block' }} />
+  );
+};
+
+export const FilePicker = ({
+  text,
+  accept,
+  isBusy = false,
+  busyText = 'Сохраняем…',
+  onPick,
+}: {
+  text: string;
+  accept: string;
+  isBusy?: boolean;
+  busyText?: string;
+  onPick: (files: File[]) => void;
+}) => {
+  const colors = usePalette();
+  const [pickCount, setPickCount] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
+
+  return (
+    <label
+      aria-busy={isBusy}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        minHeight: CONTROL_HEIGHT,
+        padding: `0 ${SPACE.lg}px`,
+        border: `1px solid ${colors.border}`,
+        borderRadius: RADIUS.control,
+        color: colors.text,
+        ...TYPE.body,
+        fontWeight: 600,
+        cursor: 'pointer',
+        // The input itself is hidden, so the ring is drawn on its label
+        outline: isFocused ? `2px solid ${colors.accent}` : 'none',
+      }}
+    >
+      {isBusy ? busyText : text}
+      {/* Re-keyed per pick so choosing the same file again still fires
+          onChange. */}
+      <input
+        key={pickCount}
+        type="file"
+        accept={accept}
+        multiple
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          opacity: 0,
+          overflow: 'hidden',
+        }}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+
+          setPickCount((count) => count + 1);
+
+          if (!isBusy) onPick(files);
+        }}
+      />
+    </label>
   );
 };
