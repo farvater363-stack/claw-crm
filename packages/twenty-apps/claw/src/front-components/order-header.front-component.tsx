@@ -26,6 +26,7 @@ import {
   findMeasurementFormPageId,
   isPaymentStored,
   loadOrderHeader,
+  openWithHandOff,
   type OrderHeaderData,
   writeStep,
 } from 'src/order-header/load-order-header';
@@ -91,6 +92,8 @@ const LOAD_ERROR =
 const SAVE_ERROR =
   'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
 const NO_RIGHTS = 'Нет прав на этот шаг';
+const PICK_IN_MENU_HINT =
+  'Откройте «Новый замер» в меню и выберите этот заказ.';
 // The order's totals follow a write a moment later, when its trigger has run.
 const SETTLE_MILLISECONDS = 3_000;
 const STEPS = ORDER_STEPS.map(({ status, label }) => ({ key: status, label }));
@@ -105,9 +108,9 @@ const labelOf = (
   value: string | null,
 ) => options.find((option) => option.value === value)?.label ?? null;
 
-const OrderHeader = () => {
-  const selectedRecordIds = useSelectedRecordIds();
-  const orderId = selectedRecordIds.length === 1 ? selectedRecordIds[0] : null;
+type OneOrderHeaderProps = { orderId: string };
+
+const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
   const [data, setData] = useState<OrderHeaderData | null>(null);
   const [formPageId, setFormPageId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -133,6 +136,9 @@ const OrderHeader = () => {
   // so its retry overwrites that record and nothing later does.
   const paymentAttemptId = useRef<string | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A write that ends after the header is gone must not start a timer nobody
+  // clears.
+  const isGone = useRef(false);
 
   // What a write that went through leaves behind: its form closed, its fields
   // empty, its failure note gone.
@@ -148,8 +154,6 @@ const OrderHeader = () => {
   // A quiet read that fails changes nothing: the header stays as it is.
   const load = useCallback(
     async (isQuiet = false) => {
-      if (orderId === null) return;
-
       try {
         const client = new CoreApiClient();
         const loaded = await loadOrderHeader(client, orderId);
@@ -173,6 +177,7 @@ const OrderHeader = () => {
   );
 
   useEffect(() => {
+    isGone.current = false;
     void load();
 
     findMeasurementFormPageId(new MetadataApiClient())
@@ -180,11 +185,13 @@ const OrderHeader = () => {
       .catch(() => setFormPageId(null));
 
     return () => {
+      isGone.current = true;
       if (settleTimer.current !== null) clearTimeout(settleTimer.current);
     };
   }, [load]);
 
   const loadAgainSoon = () => {
+    if (isGone.current) return;
     if (settleTimer.current !== null) clearTimeout(settleTimer.current);
 
     settleTimer.current = setTimeout(
@@ -216,12 +223,11 @@ const OrderHeader = () => {
         } else {
           // One look before the note: the read ends an attempt it finds stored.
           await load(true);
+          // Found or not, one more read a moment later: the totals follow a
+          // stored payment, and a payment stored after the look is found then.
+          loadAgainSoon();
 
-          if (paymentAttemptId.current === null) {
-            loadAgainSoon();
-
-            return;
-          }
+          if (paymentAttemptId.current === null) return;
         }
       }
 
@@ -236,8 +242,6 @@ const OrderHeader = () => {
       setBusy(null);
     }
   };
-
-  if (orderId === null) return null;
 
   if (loadError !== null) {
     return (
@@ -302,35 +306,44 @@ const OrderHeader = () => {
     // Its own write is on the way and may be stored: the form waits for it.
     if (panel === 'none' || inFlight.current === panel) return;
 
-    // The next opening is another payment, under another id.
-    if (panel === 'payment') paymentAttemptId.current = null;
-
     setPanel('none');
     setFieldError(null);
     setFailure((current) => (current?.kind === panel ? null : current));
+
+    const attemptId = paymentAttemptId.current;
+
+    if (panel !== 'payment' || attemptId === null) return;
+
+    // A payment that failed may be stored all the same: one look before its id
+    // is let go. Found, the read ends the attempt as saved. Not found, the
+    // next opening is another payment, under another id; a payment sent again
+    // meanwhile keeps the id until its own answer.
+    void load(true).then(() => {
+      if (
+        paymentAttemptId.current === attemptId &&
+        inFlight.current !== 'payment'
+      ) {
+        paymentAttemptId.current = null;
+      }
+    });
   };
 
-  const openMeasurementForm = () => {
-    if (formPageId === null) {
-      setFieldError({
-        kind: 'step',
-        text: 'Откройте «Новый замер» в меню и выберите этот заказ.',
-      });
+  const openMeasurementForm = async () => {
+    const isOpened =
+      formPageId !== null &&
+      (await openWithHandOff({
+        remember: () =>
+          globalThis.sessionStorage.setItem(
+            MEASUREMENT_ORDER_STORAGE_KEY,
+            order.id,
+          ),
+        forget: () =>
+          globalThis.sessionStorage.removeItem(MEASUREMENT_ORDER_STORAGE_KEY),
+        open: () =>
+          navigate(AppPath.PageLayoutPage, { pageLayoutId: formPageId }),
+      }));
 
-      return;
-    }
-
-    try {
-      // The form reads the key once, picks this order and removes the key.
-      globalThis.sessionStorage.setItem(
-        MEASUREMENT_ORDER_STORAGE_KEY,
-        order.id,
-      );
-    } catch {
-      // Without the storage the form opens with nothing picked.
-    }
-
-    void navigate(AppPath.PageLayoutPage, { pageLayoutId: formPageId });
+    if (!isOpened) setFieldError({ kind: 'step', text: PICK_IN_MENU_HINT });
   };
 
   const submitStep = () => {
@@ -430,7 +443,9 @@ const OrderHeader = () => {
             isWideOnPhone
             isBusy={busy === 'step'}
             onClick={
-              action.opensMeasurementForm ? openMeasurementForm : submitStep
+              action.opensMeasurementForm
+                ? () => void openMeasurementForm()
+                : submitStep
             }
           >
             {action.label}
@@ -596,6 +611,19 @@ const OrderHeader = () => {
       </div>
     </Screen>
   );
+};
+
+const OrderHeader = () => {
+  const selectedRecordIds = useSelectedRecordIds();
+
+  if (selectedRecordIds.length !== 1) return null;
+
+  const orderId = selectedRecordIds[0];
+
+  // The key ties everything the header holds to one order: another order
+  // opened in the same panel starts afresh, with no form, note or payment
+  // attempt of the one before.
+  return <OneOrderHeader key={orderId} orderId={orderId} />;
 };
 
 export default defineFrontComponent({

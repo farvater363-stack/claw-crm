@@ -9,6 +9,7 @@ import {
   findMeasurementFormPageId,
   isPaymentStored,
   loadOrderHeader,
+  openWithHandOff,
   writeStep,
 } from 'src/order-header/load-order-header';
 
@@ -255,5 +256,84 @@ describe('findMeasurementFormPageId', () => {
 
   it('returns null when the page is not installed', async () => {
     expect(await findMeasurementFormPageId(metadataClient([]))).toBeNull();
+  });
+});
+
+describe('openWithHandOff', () => {
+  const handOff = ({
+    remember = () => undefined,
+    open = async () => undefined,
+  }: { remember?: () => void; open?: () => Promise<void> } = {}) => {
+    const calls: string[] = [];
+    const result = openWithHandOff({
+      remember: () => {
+        calls.push('remember');
+        remember();
+      },
+      forget: () => {
+        calls.push('forget');
+      },
+      open: () => {
+        calls.push('open');
+
+        return open();
+      },
+    });
+
+    return { calls, result };
+  };
+
+  it('remembers the order, then opens the form', async () => {
+    const { calls, result } = handOff();
+
+    expect(await result).toBe(true);
+    expect(calls).toEqual(['remember', 'open']);
+  });
+
+  it('forgets the order when opening throws at once', async () => {
+    const { calls, result } = handOff({
+      open: () => {
+        throw new Error('navigate is not available');
+      },
+    });
+
+    expect(await result).toBe(false);
+    expect(calls).toEqual(['remember', 'open', 'forget']);
+  });
+
+  it('forgets the order when opening is refused later', async () => {
+    const { calls, result } = handOff({
+      open: async () => {
+        throw new Error('refused');
+      },
+    });
+
+    expect(await result).toBe(false);
+    expect(calls).toEqual(['remember', 'open', 'forget']);
+  });
+
+  it('does not open the form when the order cannot be remembered', async () => {
+    const { calls, result } = handOff({
+      remember: () => {
+        throw new Error('storage is not available');
+      },
+    });
+
+    expect(await result).toBe(false);
+    expect(calls).toEqual(['remember']);
+  });
+
+  it('says no even when forgetting fails too', async () => {
+    expect(
+      await openWithHandOff({
+        remember: () => undefined,
+        forget: () => {
+          throw new Error('storage is not available');
+        },
+        open: async () => {
+          throw new Error('refused');
+        },
+      }),
+    ).toBe(false);
   });
 });

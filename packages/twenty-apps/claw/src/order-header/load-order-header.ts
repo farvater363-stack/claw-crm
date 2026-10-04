@@ -238,3 +238,38 @@ export const findMeasurementFormPageId = async (
     )?.id ?? null
   );
 };
+
+// The form reads the handed-over order once and forgets it. An order that was
+// remembered for a page that never opened would be picked on the next visit
+// from the menu, so it is forgotten here. False means the person has to pick
+// the order in the form themselves.
+export const openWithHandOff = async ({
+  remember,
+  forget,
+  open,
+}: {
+  remember: () => void;
+  forget: () => void;
+  open: () => Promise<void>;
+}): Promise<boolean> => {
+  try {
+    remember();
+  } catch {
+    return false;
+  }
+
+  try {
+    // Awaited inside the try: opening can throw at once or reject later.
+    await open();
+
+    return true;
+  } catch {
+    try {
+      forget();
+    } catch {
+      // Storage that cannot forget cannot be read by the form either.
+    }
+
+    return false;
+  }
+};
