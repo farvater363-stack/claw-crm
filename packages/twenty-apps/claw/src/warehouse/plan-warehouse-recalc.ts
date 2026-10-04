@@ -119,8 +119,7 @@ export const computeMaterialStock = ({
     reserved: round(reserved),
     toBuy,
     // Rounded, so a float remainder of summed quantities is not a shortage.
-    stockState:
-      round(reserved - onHand) > 0 ? 'BUY' : toBuy > 0 ? 'LOW' : 'OK',
+    stockState: round(reserved - onHand) > 0 ? 'BUY' : toBuy > 0 ? 'LOW' : 'OK',
   };
 };
 

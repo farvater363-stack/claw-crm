@@ -500,6 +500,19 @@ describe('overuse from recounts', () => {
     expect(result.materialUpdates[0]?.update.overrunPercent ?? null).toBeNull();
   });
 
+  it('is empty after the first recount even when orders took stock before it', () => {
+    const result = plan(
+      [material({ id: 'profile', overrunPercent: null })],
+      [
+        at('2026-09-29', 'RECEIPT', { quantity: 200 }),
+        at('2026-09-30', 'WRITE_OFF', { quantity: -70 }),
+        at('2026-10-01', 'STOCKTAKE', { countedQuantity: 100 }),
+      ],
+    );
+
+    expect(result.materialUpdates[0]?.update.overrunPercent ?? null).toBeNull();
+  });
+
   it('compares the shortage at the latest recount with what orders took since the previous one', () => {
     const result = plan(
       [profile],
