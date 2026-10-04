@@ -16,6 +16,7 @@ import {
   paymentText,
   payWorksOf,
   rowTitle,
+  skippedNote,
   summarizeEarned,
   withCategory,
 } from 'src/payroll/payroll-screen';
@@ -212,5 +213,20 @@ describe('buildWorker and parsePenaltyPercent', () => {
 
   it.each(['', '-1', '101', 'пять'])('refuses the penalty «%s»', (raw) => {
     expect(parsePenaltyPercent(raw)).toEqual({ ok: false, error: 'Введите число от 0 до 100' });
+  });
+});
+
+describe('skippedNote', () => {
+  it('says nothing while every record is counted', () => {
+    expect(skippedNote({ payments: 0, accruals: 0 })).toBeNull();
+  });
+
+  it('counts the payments and the lines left out of the sums', () => {
+    expect(skippedNote({ payments: 2, accruals: 0 })).toBe(
+      'Не учтено выплат без даты, суммы или работника: 2 — исправьте в списке «Выплаты»',
+    );
+    expect(skippedNote({ payments: 1, accruals: 3 })).toBe(
+      'Не учтено выплат без даты, суммы или работника: 1 — исправьте в списке «Выплаты». Не учтено начислений без даты, суммы или работника: 3',
+    );
   });
 });

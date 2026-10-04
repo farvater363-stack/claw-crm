@@ -125,7 +125,7 @@ describe('workshop', () => {
     ['«Склад»', IDS.stockMovement.object],
     ['«Цены»', IDS.materialNorm.object],
     ['«Новый замер» and «Мои замеры»', IDS.extraService.object],
-    ['«ЗП за месяц» and «Выплаты»', IDS.masterPayment.object],
+    ['«ЗП» and «Выплаты»', IDS.masterPayment.object],
   ])('has no %s in its menu', (_, objectId) => {
     expect(readableObjectIds(workshopRole)).not.toContain(objectId);
   });

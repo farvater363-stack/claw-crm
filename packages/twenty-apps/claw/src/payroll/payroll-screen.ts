@@ -188,3 +188,15 @@ export const parsePenaltyPercent = (raw: string): Result<{ value: number }> => {
 
   return value !== null && value <= 100 ? { ok: true, value } : { ok: false, error: 'Введите число от 0 до 100' };
 };
+
+// A record without its worker, date or amount is in no sum, so the screen says how many there are.
+export const skippedNote = ({ payments, accruals }: { payments: number; accruals: number }): string | null => {
+  const parts = [
+    payments > 0
+      ? `Не учтено выплат без даты, суммы или работника: ${payments} — исправьте в списке «Выплаты»`
+      : null,
+    accruals > 0 ? `Не учтено начислений без даты, суммы или работника: ${accruals}` : null,
+  ].filter((part) => part !== null);
+
+  return parts.length > 0 ? parts.join('. ') : null;
+};

@@ -149,6 +149,7 @@ export const Row = ({
   title,
   value,
   pill,
+  action,
   isOpen,
   onToggle,
   children,
@@ -157,6 +158,8 @@ export const Row = ({
   title: ReactNode;
   value?: ReactNode;
   pill?: ReactNode;
+  // The row's own button. Beside the header, not inside it: the header is a button itself
+  action?: ReactNode;
   isOpen: boolean;
   onToggle: () => void;
   children?: ReactNode;
@@ -175,7 +178,14 @@ export const Row = ({
   };
 
   return (
-    <div style={{ borderTop: `1px solid ${colors.border}` }}>
+    <div
+      style={{
+        borderTop: `1px solid ${colors.border}`,
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+      }}
+    >
       <button
         type="button"
         aria-expanded={isOpen}
@@ -183,7 +193,9 @@ export const Row = ({
         style={{
           ...wrapping,
           position: 'relative',
-          width: '100%',
+          // Alone on its line it takes the whole width; an action wraps under it on a phone
+          flex: '1 1 240px',
+          minWidth: 0,
           minHeight: ROW_MIN_HEIGHT,
           // The right padding is the chevron's room: it is placed there, not
           // laid out with the rest, so it stays at the end of the first line
@@ -239,9 +251,14 @@ export const Row = ({
           {isOpen ? '⌄' : '›'}
         </span>
       </button>
+      {action ? (
+        <div style={{ padding: `${SPACE.sm}px ${SPACE.lg}px` }}>{action}</div>
+      ) : null}
       {isOpen && (
         <div
           style={{
+            flex: '1 1 100%',
+            minWidth: 0,
             padding: `0 ${SPACE.lg}px ${SPACE.lg}px`,
             display: 'grid',
             gap: SPACE.md,
@@ -506,6 +523,39 @@ export const SelectInput = ({
         </option>
       ))}
     </select>
+  );
+};
+
+export const Checkbox = ({
+  label,
+  isChecked,
+  onChange,
+}: {
+  label: string;
+  isChecked: boolean;
+  onChange: (isChecked: boolean) => void;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <label
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: SPACE.sm,
+        minHeight: CONTROL_HEIGHT,
+        cursor: 'pointer',
+        ...TYPE.body,
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={isChecked}
+        onChange={(event) => onChange(event.target.checked)}
+        style={{ width: 20, height: 20, margin: 0, accentColor: colors.accent }}
+      />
+      {label}
+    </label>
   );
 };
 
