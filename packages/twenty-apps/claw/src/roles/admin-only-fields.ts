@@ -52,6 +52,7 @@ export const CALCULATED_FIELD_PERMISSIONS: FieldPermission[] = [
     IDS.order.materialState,
     IDS.order.materialNote,
     IDS.order.missingNorms,
+    IDS.order.measuredAt,
   ]),
   ...readOnly(IDS.orderItem.object, [
     IDS.orderItem.areaSquareMeters,

@@ -18,8 +18,9 @@ type ObjectDefinition = {
 
 const OBJECTS_DIRECTORY = join(__dirname, '..');
 
-const moneyFieldsWithoutUzsDefault = async (): Promise<string[]> => {
-  const names: string[] = [];
+const scanMoneyFields = async () => {
+  const withoutUzsDefault: string[] = [];
+  let moneyFieldCount = 0;
   const files = readdirSync(OBJECTS_DIRECTORY)
     .filter((file) => file.endsWith('.object.ts'))
     .sort();
@@ -31,25 +32,34 @@ const moneyFieldsWithoutUzsDefault = async (): Promise<string[]> => {
     const { nameSingular, fields } = definition.default.config;
 
     for (const field of fields) {
+      if (field.type !== 'CURRENCY') continue;
+
+      moneyFieldCount += 1;
+
       const defaultValue = field.defaultValue as
         | { currencyCode?: unknown }
         | null
         | undefined;
 
-      if (field.type === 'CURRENCY' && defaultValue?.currencyCode !== "'UZS'") {
-        names.push(`${nameSingular}.${field.name}`);
+      if (defaultValue?.currencyCode !== "'UZS'") {
+        withoutUzsDefault.push(`${nameSingular}.${field.name}`);
       }
     }
   }
 
-  return names;
+  return { fileCount: files.length, moneyFieldCount, withoutUzsDefault };
 };
 
-// Twenty's money input opens on the field's default currency and, with core
-// change C7, offers nothing else. A money field without the default would
-// open on USD.
+// Twenty's money input offers only the field's default currency. A money field
+// without the default would open on USD.
 describe('every money field of the app is in сум', () => {
   it('has the UZS default on every CURRENCY field of every object', async () => {
-    expect(await moneyFieldsWithoutUzsDefault()).toEqual([]);
+    const { fileCount, moneyFieldCount, withoutUzsDefault } =
+      await scanMoneyFields();
+
+    // A moved directory or a renamed field type would leave nothing to check.
+    expect(fileCount).toBeGreaterThan(0);
+    expect(moneyFieldCount).toBeGreaterThan(0);
+    expect(withoutUzsDefault).toEqual([]);
   });
 });

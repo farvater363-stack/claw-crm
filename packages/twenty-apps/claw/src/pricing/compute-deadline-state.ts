@@ -2,14 +2,7 @@ import {
   isStatusIn,
   STATUSES_WITHOUT_DEADLINE,
 } from 'src/constants/order-status-sets';
-import {
-  type DeadlineState,
-  ORDER_STATUS_OPTIONS,
-} from 'src/constants/select-options';
-
-export const OPEN_STATUSES = ORDER_STATUS_OPTIONS.map(
-  ({ value }) => value,
-).filter((value) => !isStatusIn(STATUSES_WITHOUT_DEADLINE, value));
+import { type DeadlineState } from 'src/constants/select-options';
 
 export const computeDeadlineState = ({
   status,

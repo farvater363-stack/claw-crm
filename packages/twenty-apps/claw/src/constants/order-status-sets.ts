@@ -1,4 +1,7 @@
-import { type OrderStatus } from 'src/constants/select-options';
+import {
+  ORDER_STATUS_OPTIONS,
+  type OrderStatus,
+} from 'src/constants/select-options';
 
 // The only file that names a status in logic. Everything else imports from here,
 // so a change of the order's path is made in one place.
@@ -53,6 +56,10 @@ export const isStatusIn = (
   statuses: readonly OrderStatus[],
   status: string | null,
 ): boolean => statuses.some((candidate) => candidate === status);
+
+export const OPEN_STATUSES = ORDER_STATUS_OPTIONS.map(
+  ({ value }) => value,
+).filter((value) => !isStatusIn(STATUSES_WITHOUT_DEADLINE, value));
 
 export const isReserving = (status: string | null): boolean =>
   isStatusIn(RESERVING_STATUSES, status);

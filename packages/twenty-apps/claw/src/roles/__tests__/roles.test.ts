@@ -66,6 +66,7 @@ describe('calculated fields and object access', () => {
           IDS.order.number,
         ]),
       );
+      expect(readOnlyFieldIds(role)).toContain(IDS.order.measuredAt);
       expect(readOnlyFieldIds(role)).not.toContain(IDS.order.prepayment);
       expect(readOnlyFieldIds(role)).not.toContain(IDS.order.discountKind);
       expect(readOnlyFieldIds(role)).not.toContain(IDS.order.discountValue);
@@ -248,6 +249,8 @@ describe('functions role', () => {
         (permission) => permission.canDestroyObjectRecords !== false,
       ),
     ).toEqual([]);
+    // The triggers stamp calculated fields and measuredAt, so nothing is locked.
+    expect(functionsRole.config.fieldPermissions ?? []).toEqual([]);
     for (const permission of permissions) {
       expect(permission).toMatchObject({
         canReadObjectRecords: true,
