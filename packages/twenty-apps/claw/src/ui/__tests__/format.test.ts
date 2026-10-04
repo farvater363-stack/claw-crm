@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDayMonth, formatMoney, formatQuantity } from 'src/ui/format';
+import {
+  formatDayMonth,
+  formatMoney,
+  formatQuantity,
+  formatWhole,
+} from 'src/ui/format';
 
 // ru-RU groups thousands with a no-break space; compare with plain spaces.
 const plain = (value: string) => value.replace(/\s/g, ' ');
@@ -19,5 +24,12 @@ describe('format', () => {
 
   it('shows a date as day and month in Russian', () => {
     expect(formatDayMonth('2026-10-03')).toBe('3 октября');
+  });
+});
+
+describe('formatWhole', () => {
+  it('groups thousands and drops the fraction, without a unit', () => {
+    expect(plain(formatWhole(1_410_000))).toBe('1 410 000');
+    expect(plain(formatWhole(57_600.4))).toBe('57 600');
   });
 });

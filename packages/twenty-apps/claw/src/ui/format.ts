@@ -11,3 +11,6 @@ export const formatDayMonth = (isoDate: string): string =>
     month: 'long',
     timeZone: 'UTC',
   });
+
+export const formatWhole = (value: number): string =>
+  value.toLocaleString('ru-RU', { maximumFractionDigits: 0 });
