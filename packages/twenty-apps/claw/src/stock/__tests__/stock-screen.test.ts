@@ -156,6 +156,44 @@ describe('buildReceipt', () => {
     });
   });
 
+  // «0,001» is a plain number, but nothing is left of it at two decimals.
+  it.each(['-2', '+5', '1e3', '0x10', '0,001'])(
+    'rejects the quantity %j',
+    (quantity) => {
+      expect(
+        buildReceipt({
+          materialId: 'a',
+          quantity,
+          unitPrice: '',
+          today: '2026-10-04',
+        }),
+      ).toEqual({
+        ok: false,
+        error: 'Введите, сколько купили: число больше нуля',
+      });
+    },
+  );
+
+  it('keeps the entered price and two decimals of the amount', () => {
+    expect(
+      buildReceipt({
+        materialId: 'a',
+        quantity: '2,756',
+        unitPrice: '12 000',
+        today: '2026-10-04',
+      }),
+    ).toEqual({
+      ok: true,
+      data: {
+        kind: 'RECEIPT',
+        materialId: 'a',
+        quantity: 2.76,
+        unitPrice: 12_000,
+        date: '2026-10-04',
+      },
+    });
+  });
+
   it('passes on the reason a price is refused', () => {
     expect(
       buildReceipt({
@@ -199,6 +237,27 @@ describe('buildRecount', () => {
         a: 'Введите число, ноль или больше',
         b: 'Введите число, ноль или больше',
       },
+    });
+  });
+
+  it.each(['+5', '1e3', '0x10'])('rejects the count %j', (raw) => {
+    expect(buildRecount({ a: raw }, '2026-10-04')).toEqual({
+      ok: false,
+      errors: { a: 'Введите число, ноль или больше' },
+    });
+  });
+
+  it('skips a row with only spaces and keeps two decimals of a count', () => {
+    expect(buildRecount({ a: '   ', b: ' 12,345 ' }, '2026-10-04')).toEqual({
+      ok: true,
+      data: [
+        {
+          kind: 'STOCKTAKE',
+          materialId: 'b',
+          countedQuantity: 12.35,
+          date: '2026-10-04',
+        },
+      ],
     });
   });
 });

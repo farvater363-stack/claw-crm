@@ -1,5 +1,10 @@
 import { parseDecimalInput } from 'src/measurer-form/measurer-form';
-import { parseOptionalMoney } from 'src/prices/prices-screen';
+import {
+  PLAIN_DECIMAL,
+  parseOptionalMoney,
+  parsePositiveNumber,
+} from 'src/prices/prices-screen';
+import { roundTo } from 'src/pricing/round';
 import { formatQuantity } from 'src/ui/format';
 
 export type StockMaterial = {
@@ -33,6 +38,22 @@ export type StockRow = {
   overuseNote: string | null;
 };
 
+export type StockReceipt = {
+  kind: 'RECEIPT';
+  materialId: string;
+  quantity: number;
+  unitPrice: number | null;
+  date: string;
+};
+
+export type StockRecountEntry = {
+  kind: 'STOCKTAKE';
+  materialId: string;
+  countedQuantity: number;
+  date: string;
+};
+
+const QUANTITY_DECIMALS = 2;
 const OVERUSE_NOTE_FROM_PERCENT = 5;
 const STATE_ORDER = { BUY: 0, LOW: 1, OK: 2 } as const;
 
@@ -93,22 +114,15 @@ export const buildReceipt = ({
   quantity: string;
   unitPrice: string;
   today: string;
-}):
-  | {
-      ok: true;
-      data: {
-        kind: 'RECEIPT';
-        materialId: string;
-        quantity: number;
-        unitPrice: number | null;
-        date: string;
-      };
-    }
-  | { ok: false; error: string } => {
-  const parsedQuantity = parseDecimalInput(quantity);
+}): { ok: true; data: StockReceipt } | { ok: false; error: string } => {
+  const parsedQuantity = parsePositiveNumber(quantity);
+  // Checked after rounding: «0,001» is above zero as typed and nothing as stored.
+  const roundedQuantity = parsedQuantity.ok
+    ? roundTo(parsedQuantity.value, QUANTITY_DECIMALS)
+    : 0;
   const parsedPrice = parseOptionalMoney(unitPrice);
 
-  if (parsedQuantity === null || parsedQuantity <= 0) {
+  if (roundedQuantity <= 0) {
     return { ok: false, error: 'Введите, сколько купили: число больше нуля' };
   }
 
@@ -119,7 +133,7 @@ export const buildReceipt = ({
     data: {
       kind: 'RECEIPT',
       materialId,
-      quantity: parsedQuantity,
+      quantity: roundedQuantity,
       unitPrice: parsedPrice.value,
       date: today,
     },
@@ -130,36 +144,27 @@ export const buildRecount = (
   typed: Record<string, string>,
   today: string,
 ):
-  | {
-      ok: true;
-      data: {
-        kind: 'STOCKTAKE';
-        materialId: string;
-        countedQuantity: number;
-        date: string;
-      }[];
-    }
+  | { ok: true; data: StockRecountEntry[] }
   | { ok: false; errors: Record<string, string> } => {
   const errors: Record<string, string> = {};
-  const data: {
-    kind: 'STOCKTAKE';
-    materialId: string;
-    countedQuantity: number;
-    date: string;
-  }[] = [];
+  const data: StockRecountEntry[] = [];
 
   for (const [materialId, raw] of Object.entries(typed)) {
-    if (raw.trim() === '') continue;
+    const trimmed = raw.trim();
 
-    const countedQuantity = parseDecimalInput(raw);
+    if (trimmed === '') continue;
 
-    if (countedQuantity === null || countedQuantity < 0) {
+    const countedQuantity = PLAIN_DECIMAL.test(trimmed)
+      ? parseDecimalInput(trimmed)
+      : null;
+
+    if (countedQuantity === null) {
       errors[materialId] = 'Введите число, ноль или больше';
     } else {
       data.push({
         kind: 'STOCKTAKE',
         materialId,
-        countedQuantity,
+        countedQuantity: roundTo(countedQuantity, QUANTITY_DECIMALS),
         date: today,
       });
     }
