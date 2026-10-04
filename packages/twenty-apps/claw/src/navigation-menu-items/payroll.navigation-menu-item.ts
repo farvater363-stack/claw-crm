@@ -9,7 +9,7 @@ export default defineNavigationMenuItem({
   universalIdentifier: IDS.navigation.payroll,
   name: 'ЗП',
   icon: 'IconCash',
-  position: 4,
+  position: 6,
   type: NavigationMenuItemType.PAGE_LAYOUT,
   pageLayoutUniversalIdentifier: IDS.payroll.pageLayout,
   // Payroll is built from payments, so only roles that read them get the item.

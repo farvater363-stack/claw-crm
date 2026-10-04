@@ -341,8 +341,8 @@ test('the measurer has no «Склад» in the sidebar', async ({ page }) => {
   await expect(stockLink(page)).toHaveCount(0);
 });
 
-// Two entries every role has.
-const MENU_ANCHORS = ['Новый замер', 'Производство'] as const;
+// Both are in every role's menu that this spec signs in as.
+const MENU_ANCHORS = ['Новый замер', 'Мои замеры'] as const;
 
 // The workspace section has no role, test id or fixed heading (its title
 // follows the user's language), so it is the smallest block that holds both
@@ -374,38 +374,33 @@ const workspaceMenuEntries = (page: Page): Promise<string[]> =>
     ).map(textOf);
   }, MENU_ANCHORS);
 
-// A view's entry reads «Все заказы · Заказы»: the view, then its object.
+// A view's entry reads «Заказы · Заказы»: the view, then its object.
 const entryName = (entry: string) => entry.split(' · ')[0];
 
-// In the order of the phase 1 spec §7.5, which is the order on screen.
+// In the order of the phase 2 spec §6, which is the order on screen.
 const MENUS: { role: Role; title: string; entries: string[] }[] = [
   {
     role: 'ADMIN',
     title: 'the owner',
     entries: [
-      'Аналитика',
+      'Сегодня',
+      'Заказы',
+      'В работе',
       'Новый замер',
-      'Все заказы',
-      'Доска заказов',
       'Мои замеры',
-      'Производство',
-      'ЗП',
-      'Работники',
-      'Выплаты',
       'Склад',
       'Цены',
+      'ЗП',
     ],
   },
   {
     role: 'MANAGER',
     title: 'a manager',
     entries: [
+      'Заказы',
+      'В работе',
       'Новый замер',
-      'Все заказы',
-      'Доска заказов',
       'Мои замеры',
-      'Производство',
-      'Работники',
       'Склад',
       'Цены',
     ],
@@ -413,18 +408,12 @@ const MENUS: { role: Role; title: string; entries: string[] }[] = [
   {
     role: 'MEASURER',
     title: 'the measurer',
-    entries: [
-      'Новый замер',
-      'Все заказы',
-      'Доска заказов',
-      'Мои замеры',
-      'Производство',
-    ],
+    entries: ['Новый замер', 'Мои замеры'],
   },
 ];
 
 for (const { role, title, entries } of MENUS) {
-  test(`the sidebar of ${title} has the phase 1 menu and only Russian entries`, async ({
+  test(`the sidebar of ${title} has the menu of its role and only Russian entries`, async ({
     page,
   }) => {
     test.setTimeout(180_000);

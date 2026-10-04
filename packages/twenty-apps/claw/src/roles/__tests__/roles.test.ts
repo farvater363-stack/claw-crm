@@ -192,12 +192,16 @@ describe('workshop', () => {
   // A menu entry shows only to a role that reads its object; there is no
   // workshop login to check the menu in a browser.
   it.each([
-    ['«Склад»', IDS.stockMovement.object],
+    ['«Заказы» and «Склад»', IDS.stockMovement.object],
     ['«Цены»', IDS.materialNorm.object],
     ['«Новый замер» and «Мои замеры»', IDS.extraService.object],
-    ['«ЗП» and «Выплаты»', IDS.masterPayment.object],
+    ['«ЗП»', IDS.masterPayment.object],
   ])('has no %s in its menu', (_, objectId) => {
     expect(readableObjectIds(workshopRole)).not.toContain(objectId);
+  });
+
+  it('has «В работе» in its menu', () => {
+    expect(readableObjectIds(workshopRole)).toContain(IDS.master.object);
   });
 });
 

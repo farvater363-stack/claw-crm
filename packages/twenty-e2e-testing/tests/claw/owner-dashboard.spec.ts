@@ -119,8 +119,8 @@ test('the owner lands on the dashboard and sees this month in numbers', async ({
 test('a manager never sees the dashboard', async ({ page }) => {
   await signIn(page, 'MANAGER');
 
-  // «Новый замер» is a page item, shown to every role, so it stays first.
-  await expect(page).toHaveURL(/\/page\//);
+  // The manager's first item is the board.
+  await expect(page).toHaveURL(/\/objects\/orders/);
   // Without a rendered sidebar the absence check below would pass vacuously.
   await expect(
     page.getByRole('link', { name: 'Новый замер' }).first(),

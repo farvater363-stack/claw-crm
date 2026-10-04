@@ -7,7 +7,7 @@ import { IDS } from 'src/constants/universal-identifiers';
 
 export default defineNavigationMenuItem({
   universalIdentifier: IDS.navigation.myMeasurements,
-  position: 2,
+  position: 3,
   type: NavigationMenuItemType.VIEW,
   viewUniversalIdentifier: IDS.view.myMeasurements,
   // Measurement orders are of no use to a role that cannot read extra services.

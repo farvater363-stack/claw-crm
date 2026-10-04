@@ -277,11 +277,11 @@ export const IDS = {
     designs: '8e87114d-b386-4ce8-9654-f092ffb1b23f', // Retired: replaced by the prices screen; ids are never reused.
     priceList: '19714acd-d450-4a1f-a73e-a74266399b6c', // Retired: replaced by the prices screen; ids are never reused.
     extraServices: '7084db31-ff82-4fae-831a-180eafb45cee', // Retired: replaced by the prices screen; ids are never reused.
-    masters: 'f1ae7b6b-2645-48bd-b2cd-8118e871672e',
-    masterPayments: '7ccac197-4231-4128-9385-7e00cc414e86',
+    masters: 'f1ae7b6b-2645-48bd-b2cd-8118e871672e', // Retired: workers are edited in «ЗП»; ids are never reused.
+    masterPayments: '7ccac197-4231-4128-9385-7e00cc414e86', // Retired: payments are listed in «ЗП»; ids are never reused.
     payroll: '2e98d495-7d32-4a64-abaf-7866fa2206b5',
     newMeasurement: 'd9580fb9-a409-4e83-92a5-42f87706486e',
-    allOrders: 'ae5debb5-3b25-4a50-bb34-99a2c561ef57',
+    allOrders: 'ae5debb5-3b25-4a50-bb34-99a2c561ef57', // Retired: «Все заказы» is the second view of «Заказы»; ids are never reused.
     warehouse: 'd6702970-1943-4462-8355-a7ac13d372bc', // Retired: replaced by the stock screen; ids are never reused.
     warehouseMaterials: 'abdeddd8-d102-4991-956b-8206771de190', // Retired: replaced by the stock screen; ids are never reused.
     warehousePurchasePlan: 'db6da1ac-23e0-4b55-b1a3-318fd75281e1', // Retired: replaced by the stock screen; ids are never reused.
