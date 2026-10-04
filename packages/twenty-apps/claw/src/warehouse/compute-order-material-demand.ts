@@ -1,11 +1,7 @@
-import { resolvePriceListEntry } from 'src/pricing/resolve-price-list-entry';
 import { roundTo } from 'src/pricing/round';
 
 export type DemandItem = {
-  name: string | null;
   designId: string | null;
-  metal: string | null;
-  metalSize: string | null;
   areaSquareMeters: number | null;
   quantity: number | null;
 };
@@ -15,16 +11,8 @@ export type DemandExtraServiceLine = {
   quantity: number | null;
 };
 
-export type DemandPriceListRow = {
-  id: string;
-  name: string | null;
-  designId: string | null;
-  metal: string | null;
-  metalSize: string | null;
-};
-
 export type DemandNorm = {
-  priceListItemId: string | null;
+  designId: string | null;
   extraServiceId: string | null;
   materialId: string | null;
   quantityPerUnit: number | null;
@@ -41,13 +29,12 @@ type ValidNorm = {
   quantityPerUnit: number;
 };
 
-// A norm belongs to exactly one price list row or one extra service; anything else is ignored.
+// A norm belongs to exactly one grille or one extra service; anything else is ignored.
 const groupValidNorms = (
   norms: DemandNorm[],
-  owner: 'priceListItemId' | 'extraServiceId',
+  owner: 'designId' | 'extraServiceId',
 ) => {
-  const other =
-    owner === 'priceListItemId' ? 'extraServiceId' : 'priceListItemId';
+  const other = owner === 'designId' ? 'extraServiceId' : 'designId';
   const byOwner = new Map<string, ValidNorm[]>();
 
   for (const norm of norms) {
@@ -78,21 +65,21 @@ const groupValidNorms = (
 export const computeOrderMaterialDemand = ({
   items,
   extraServiceLines,
-  priceList,
+  grilles,
   norms,
 }: {
   items: DemandItem[];
   extraServiceLines: DemandExtraServiceLine[];
-  priceList: DemandPriceListRow[];
+  grilles: { id: string; name: string | null }[];
   norms: DemandNorm[];
 }): OrderMaterialDemand => {
-  const normsByRow = groupValidNorms(norms, 'priceListItemId');
+  const normsByGrille = groupValidNorms(norms, 'designId');
   const normsByService = groupValidNorms(norms, 'extraServiceId');
   const totals = new Map<string, number>();
   const missing = new Set<string>();
 
-  const add = (rowNorms: ValidNorm[], units: number) => {
-    for (const { materialId, quantityPerUnit } of rowNorms) {
+  const add = (ownerNorms: ValidNorm[], units: number) => {
+    for (const { materialId, quantityPerUnit } of ownerNorms) {
       totals.set(
         materialId,
         (totals.get(materialId) ?? 0) + units * quantityPerUnit,
@@ -100,24 +87,21 @@ export const computeOrderMaterialDemand = ({
     }
   };
 
+  const grilleNameById = new Map(
+    grilles.map((grille) => [grille.id, grille.name]),
+  );
+
   for (const item of items) {
-    if (item.areaSquareMeters === null) continue;
+    if (item.areaSquareMeters === null || item.designId === null) continue;
 
-    const row = resolvePriceListEntry(priceList, item);
+    const grilleNorms = normsByGrille.get(item.designId) ?? [];
 
-    if (row === null) {
-      missing.add(`Нет строки прайса: ${item.name ?? 'позиция'}`);
+    if (grilleNorms.length === 0) {
+      missing.add(grilleNameById.get(item.designId) ?? 'решётка');
       continue;
     }
 
-    const rowNorms = normsByRow.get(row.id) ?? [];
-
-    if (rowNorms.length === 0) {
-      missing.add(`Нет нормы: ${row.name ?? 'строка прайса'}`);
-      continue;
-    }
-
-    add(rowNorms, item.areaSquareMeters * (item.quantity ?? 1));
+    add(grilleNorms, item.areaSquareMeters * (item.quantity ?? 1));
   }
 
   // Services without norms (delivery, installation) consume nothing and are not flagged.
@@ -136,6 +120,9 @@ export const computeOrderMaterialDemand = ({
         ])
         .filter(([, total]) => total > 0),
     ),
-    missingNorms: missing.size > 0 ? [...missing].join('; ') : null,
+    missingNorms:
+      missing.size > 0
+        ? `Не указано, из чего делается: ${[...missing].join(', ')}`
+        : null,
   };
 };

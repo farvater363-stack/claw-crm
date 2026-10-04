@@ -24,10 +24,7 @@ const fakeClient = (
         orders: page([{ id: 'order-1', status, missingNorms }]),
         orderItems: page([
           {
-            name: '100×100',
             designId: 'design-1',
-            metal: 'ROD',
-            metalSize: null,
             areaSquareMeters: 1,
             quantity: 2,
           },
@@ -35,18 +32,10 @@ const fakeClient = (
         orderExtraServices: page([]),
         orderMaterials: page(lines),
         stockMovements: page([]),
-        priceListItems: page([
-          {
-            id: 'row-1',
-            name: 'Тест',
-            designId: 'design-1',
-            metal: 'ROD',
-            metalSize: null,
-          },
-        ]),
+        designs: page([{ id: 'design-1', name: 'Тест' }]),
         materialNorms: page([
           {
-            priceListItemId: 'row-1',
+            designId: 'design-1',
             extraServiceId: null,
             materialId: 'material-1',
             quantityPerUnit: 2,
@@ -115,7 +104,7 @@ describe('syncOrderMaterials', () => {
   it('clears stale missing norms on a NEW order', async () => {
     const { client, mutations } = fakeClient([], {
       status: 'NEW',
-      missingNorms: 'Нет нормы: x',
+      missingNorms: 'Не указано, из чего делается: x',
     });
 
     expect(await syncOrderMaterials(client, 'order-1')).toBe(true);

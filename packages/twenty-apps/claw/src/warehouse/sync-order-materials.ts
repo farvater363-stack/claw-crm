@@ -25,25 +25,17 @@ const loadDemand = async (
   items: DemandItem[],
   extraServiceLines: DemandExtraServiceLine[],
 ): Promise<OrderMaterialDemand> => {
-  const [priceList, norms] = await Promise.all([
+  const [designs, norms] = await Promise.all([
     fetchAllPages(async (after) => {
-      const { priceListItems } = await client.query({
-        priceListItems: {
+      const { designs } = await client.query({
+        designs: {
           __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              name: true,
-              designId: true,
-              metal: true,
-              metalSize: true,
-            },
-          },
+          edges: { node: { id: true, name: true } },
           pageInfo: PAGE_INFO,
         },
       });
 
-      return priceListItems;
+      return designs;
     }),
     fetchAllPages(async (after) => {
       const { materialNorms } = await client.query({
@@ -51,7 +43,7 @@ const loadDemand = async (
           __args: { first: PAGE_SIZE, after },
           edges: {
             node: {
-              priceListItemId: true,
+              designId: true,
               extraServiceId: true,
               materialId: true,
               quantityPerUnit: true,
@@ -68,15 +60,9 @@ const loadDemand = async (
   return computeOrderMaterialDemand({
     items,
     extraServiceLines,
-    priceList: priceList.map((node) => ({
-      id: node.id,
-      name: toText(node.name),
-      designId: toText(node.designId),
-      metal: toText(node.metal),
-      metalSize: toText(node.metalSize),
-    })),
+    grilles: designs.map((node) => ({ id: node.id, name: toText(node.name) })),
     norms: norms.map((node) => ({
-      priceListItemId: toText(node.priceListItemId),
+      designId: toText(node.designId),
       extraServiceId: toText(node.extraServiceId),
       materialId: toText(node.materialId),
       quantityPerUnit: toNumber(node.quantityPerUnit),
@@ -105,10 +91,7 @@ export const syncOrderMaterials = async (
       __args: { filter: byOrder, first: PAGE_SIZE },
       edges: {
         node: {
-          name: true,
           designId: true,
-          metal: true,
-          metalSize: true,
           areaSquareMeters: true,
           quantity: true,
         },
@@ -146,16 +129,13 @@ export const syncOrderMaterials = async (
   if (!order) return false;
 
   const status = toText(order.status);
-  // Material state only matters from price approval on; skipping the price list and norms
+  // Material state only matters from price approval on; skipping the grilles and norms
   // before that keeps new orders from paging them and triggering a warehouse recalc.
   const demand = keepsOrderDemand(status)
     ? await loadDemand(
         client,
         (orderItems?.edges ?? []).map(({ node }) => ({
-          name: toText(node.name),
           designId: toText(node.designId),
-          metal: toText(node.metal),
-          metalSize: toText(node.metalSize),
           areaSquareMeters: toNumber(node.areaSquareMeters),
           quantity: toNumber(node.quantity),
         })),

@@ -2,6 +2,7 @@ import { SystemPermissionFlag } from 'twenty-sdk/define';
 import { describe, expect, it } from 'vitest';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import designObject from 'src/objects/design.object';
 import functionsRole from 'src/roles/functions.role';
 import managerRole from 'src/roles/manager.role';
 import measurerRole from 'src/roles/measurer.role';
@@ -24,7 +25,7 @@ describe('roles', () => {
           IDS.order.margin,
           IDS.order.masterPayTotal,
           IDS.orderItem.lineCost,
-          IDS.priceListItem.manufacturingCostPerSquareMeter,
+          IDS.design.manufacturingCostPerSquareMeter,
           IDS.master.ratePerSquareMeter,
           IDS.stockMovement.unitPrice,
           IDS.material.lastPurchasePrice,
@@ -75,7 +76,7 @@ describe('calculated fields and object access', () => {
         IDS.order.object,
         IDS.orderItem.object,
         IDS.design.object,
-        IDS.priceListItem.object,
+        IDS.extraService.object,
       ]),
     );
   });
@@ -112,10 +113,6 @@ describe('warehouse access', () => {
     expect(updatableObjectIds(managerRole)).toContain(IDS.stockMovement.object);
     expect(readableObjectIds(managerRole)).toEqual(
       expect.arrayContaining([IDS.materialNorm.object, IDS.material.object]),
-    );
-    expect(updatableObjectIds(managerRole)).not.toContain(IDS.material.object);
-    expect(updatableObjectIds(managerRole)).not.toContain(
-      IDS.materialNorm.object,
     );
     expect(updatableObjectIds(managerRole)).not.toContain(
       IDS.orderMaterial.object,
@@ -166,8 +163,71 @@ describe('warehouse access', () => {
   });
 });
 
+describe('grille prices and composition', () => {
+  it('hides grille costs from every non-admin role', () => {
+    const costIds = [
+      IDS.design.materialCostPerSquareMeter,
+      IDS.design.manufacturingCostPerSquareMeter,
+      IDS.design.installationCostPerSquareMeter,
+    ];
+
+    for (const role of [managerRole, measurerRole, workshopRole]) {
+      expect(hiddenFieldIds(role)).toEqual(expect.arrayContaining(costIds));
+    }
+  });
+
+  // The timeline is readable by every role, so an audited cost would leak there.
+  it('keeps grille costs out of the audit log', () => {
+    const auditFlagByFieldId = new Map(
+      designObject.config.fields.map((field) => [
+        field.universalIdentifier,
+        field.isAuditLogged,
+      ]),
+    );
+
+    for (const costId of [
+      IDS.design.materialCostPerSquareMeter,
+      IDS.design.manufacturingCostPerSquareMeter,
+      IDS.design.installationCostPerSquareMeter,
+    ]) {
+      expect(auditFlagByFieldId.get(costId)).toBe(false);
+    }
+  });
+
+  it('hides the grille price from the workshop only', () => {
+    expect(hiddenFieldIds(workshopRole)).toContain(
+      IDS.design.pricePerSquareMeter,
+    );
+    for (const role of [managerRole, measurerRole]) {
+      expect(hiddenFieldIds(role)).not.toContain(
+        IDS.design.pricePerSquareMeter,
+      );
+    }
+  });
+
+  it('lets the manager edit composition and materials', () => {
+    expect(updatableObjectIds(managerRole)).toEqual(
+      expect.arrayContaining([IDS.materialNorm.object, IDS.material.object]),
+    );
+  });
+
+  it('keeps the computed material values for the recalc to write', () => {
+    expect(readOnlyFieldIds(managerRole)).toEqual(
+      expect.arrayContaining([
+        IDS.material.onHand,
+        IDS.material.reserved,
+        IDS.material.available,
+        IDS.material.toBuy,
+        IDS.material.stockState,
+        IDS.material.overrunPercent,
+      ]),
+    );
+    expect(readOnlyFieldIds(managerRole)).not.toContain(IDS.materialNorm.name);
+  });
+});
+
 describe('functions role', () => {
-  it('soft-deletes only the lines and movements the order sync removes, and destroys nothing', () => {
+  it('soft-deletes only what the order sync and the price list screen remove, and destroys nothing', () => {
     const permissions = functionsRole.config.objectPermissions ?? [];
 
     expect(functionsRole.config.canSoftDeleteAllObjectRecords).toBe(false);
@@ -177,7 +237,15 @@ describe('functions role', () => {
         .filter((permission) => permission.canSoftDeleteObjectRecords === true)
         .map((permission) => permission.objectUniversalIdentifier)
         .sort(),
-    ).toEqual([IDS.orderMaterial.object, IDS.stockMovement.object].sort());
+    ).toEqual(
+      [
+        IDS.orderMaterial.object,
+        IDS.stockMovement.object,
+        IDS.design.object,
+        IDS.extraService.object,
+        IDS.materialNorm.object,
+      ].sort(),
+    );
     expect(
       permissions.filter(
         (permission) => permission.canDestroyObjectRecords !== false,

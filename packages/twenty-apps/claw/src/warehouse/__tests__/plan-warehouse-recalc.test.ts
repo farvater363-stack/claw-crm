@@ -321,6 +321,31 @@ describe('planWarehouseRecalc', () => {
       { id: 'norm-2', update: { name: '' } },
     ]);
   });
+
+  it('restores a typed-over norm name and leaves a current one alone', () => {
+    const result = plan(
+      [material()],
+      [],
+      [
+        {
+          id: 'norm-1',
+          name: 'Своё название',
+          materialId: 'material-1',
+          quantityPerUnit: 5.5,
+        },
+        {
+          id: 'norm-2',
+          name: 'Профиль 20×20 — 5,5 м',
+          materialId: 'material-1',
+          quantityPerUnit: 5.5,
+        },
+      ],
+    );
+
+    expect(result.normUpdates).toEqual([
+      { id: 'norm-1', update: { name: 'Профиль 20×20 — 5,5 м' } },
+    ]);
+  });
 });
 
 describe('planWarehouseRecalc with orders', () => {
@@ -386,7 +411,7 @@ describe('planWarehouseRecalc with orders', () => {
       [movement({ quantity: 50 })],
       [],
       [orderLine()],
-      [order({ missingNorms: 'Нет нормы: Волна' })],
+      [order({ missingNorms: 'Не указано, из чего делается: Волна' })],
     );
 
     expect(result.orderUpdates).toEqual([
@@ -394,7 +419,8 @@ describe('planWarehouseRecalc with orders', () => {
         id: 'order-1',
         update: {
           materialState: 'SHORTAGE',
-          materialNote: 'Не хватает: Профиль 20×20 — 10 м. Нет нормы: Волна',
+          materialNote:
+            'Не хватает: Профиль 20×20 — 10 м. Не указано, из чего делается: Волна',
         },
       },
     ]);
@@ -413,7 +439,7 @@ describe('planWarehouseRecalc with orders', () => {
       [],
       [],
       [],
-      [order({ missingNorms: 'Нет нормы: Волна' })],
+      [order({ missingNorms: 'Не указано, из чего делается: Волна' })],
     );
 
     expect(covered.orderUpdates[0]?.update).toEqual({
@@ -421,7 +447,7 @@ describe('planWarehouseRecalc with orders', () => {
     });
     expect(noNorm.orderUpdates[0]?.update).toEqual({
       materialState: 'NO_NORM',
-      materialNote: 'Нет нормы: Волна',
+      materialNote: 'Не указано, из чего делается: Волна',
     });
   });
 

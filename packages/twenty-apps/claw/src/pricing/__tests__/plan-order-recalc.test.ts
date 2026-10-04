@@ -32,9 +32,7 @@ const emptyOrder: OrderSnapshot = {
 const item = (overrides: Partial<ItemSnapshot> = {}): ItemSnapshot => ({
   id: 'item-1',
   name: null,
-  designId: 'design-1',
-  metal: 'ROD',
-  metalSize: 'SIZE_10',
+  designId: 'grille-1',
   widthCm: 140,
   heightCm: 150,
   projectionCm: 30,
@@ -88,12 +86,15 @@ const input = (overrides: Partial<RecalcInput> = {}): RecalcInput => ({
       cost: 8_000,
     },
   ],
-  priceList: [
+  grilles: [
     {
-      designId: null,
-      metal: 'ROD',
-      metalSize: null,
-      pricePerSquareMeter: 180_000,
+      id: 'grille-1',
+      pricePerSquareMeter: 100_000,
+      costPerSquareMeter: 60_000,
+    },
+    {
+      id: 'grille-2',
+      pricePerSquareMeter: 150_000,
       costPerSquareMeter: 90_000,
     },
   ],
@@ -105,7 +106,7 @@ const input = (overrides: Partial<RecalcInput> = {}): RecalcInput => ({
 });
 
 describe('planOrderRecalc', () => {
-  it('prices an item from the price list and totals the order', () => {
+  it('prices an item from its grille and totals the order', () => {
     const plan = planOrderRecalc(input());
 
     expect(plan.itemUpdates).toEqual([
@@ -114,26 +115,26 @@ describe('planOrderRecalc', () => {
         update: {
           name: '140×150×30',
           areaSquareMeters: 3.84,
-          pricePerSquareMeter: 180_000,
-          costPerSquareMeter: 90_000,
-          lineTotal: 1_382_400,
-          lineCost: 691_200,
+          pricePerSquareMeter: 100_000,
+          costPerSquareMeter: 60_000,
+          lineTotal: 768_000,
+          lineCost: 460_800,
         },
       },
     ]);
     expect(plan.orderUpdate).toMatchObject({
       areaSquareMeters: 7.68,
-      total: 1_382_400,
-      costTotal: 691_200,
-      balance: 1_382_400,
-      margin: 691_200,
-      marginPercent: 50,
+      total: 768_000,
+      costTotal: 460_800,
+      balance: 768_000,
+      margin: 307_200,
+      marginPercent: 40,
       masterPayCalculated: 76_800,
       masterPayTotal: 76_800,
     });
   });
 
-  it('keeps a manually typed price until design, metal or size changes', () => {
+  it('keeps a manually typed price until the grille changes', () => {
     const manual = item({
       pricePerSquareMeter: 210_000,
       costPerSquareMeter: 90_000,
@@ -147,7 +148,88 @@ describe('planOrderRecalc', () => {
       planOrderRecalc(
         input({ items: [manual], refreshPriceItemIds: ['item-1'] }),
       ).itemUpdates[0].update.pricePerSquareMeter,
-    ).toBe(180_000);
+    ).toBe(100_000);
+  });
+
+  describe('price by grille', () => {
+    it('fills an empty price and cost from the item grille', () => {
+      const plan = planOrderRecalc(
+        input({ items: [item({ designId: 'grille-2' })] }),
+      );
+
+      expect(plan.itemUpdates[0].update).toMatchObject({
+        pricePerSquareMeter: 150_000,
+        costPerSquareMeter: 90_000,
+      });
+    });
+
+    it('keeps a hand-typed price when the grille did not change', () => {
+      const plan = planOrderRecalc(
+        input({
+          items: [
+            item({ pricePerSquareMeter: 120_000, costPerSquareMeter: 60_000 }),
+          ],
+        }),
+      );
+
+      expect(plan.itemUpdates[0]?.update.pricePerSquareMeter).toBeUndefined();
+    });
+
+    it('takes the new grille price when the grille changed', () => {
+      const plan = planOrderRecalc(
+        input({
+          items: [
+            item({
+              id: 'item-1',
+              designId: 'grille-2',
+              pricePerSquareMeter: 100_000,
+            }),
+          ],
+          refreshPriceItemIds: ['item-1'],
+        }),
+      );
+
+      expect(plan.itemUpdates[0].update.pricePerSquareMeter).toBe(150_000);
+    });
+
+    it('keeps a stored cost when the grille did not change', () => {
+      const plan = planOrderRecalc(
+        input({
+          items: [
+            item({ pricePerSquareMeter: 100_000, costPerSquareMeter: 55_000 }),
+          ],
+        }),
+      );
+
+      expect(plan.itemUpdates[0].update.costPerSquareMeter).toBeUndefined();
+      expect(plan.itemUpdates[0].update.lineCost).toBe(422_400);
+    });
+
+    it('takes the new grille cost when the grille changed', () => {
+      const plan = planOrderRecalc(
+        input({
+          items: [
+            item({
+              designId: 'grille-2',
+              pricePerSquareMeter: 100_000,
+              costPerSquareMeter: 55_000,
+            }),
+          ],
+          refreshPriceItemIds: ['item-1'],
+        }),
+      );
+
+      expect(plan.itemUpdates[0].update.costPerSquareMeter).toBe(90_000);
+    });
+
+    it('leaves the price empty for an item without a grille', () => {
+      const plan = planOrderRecalc(
+        input({ items: [item({ designId: null })] }),
+      );
+
+      expect(plan.itemUpdates[0]?.update.pricePerSquareMeter).toBeUndefined();
+      expect(plan.itemUpdates[0]?.update.lineTotal).toBeUndefined();
+    });
   });
 
   it('prices extra services by unit', () => {
@@ -203,7 +285,7 @@ describe('planOrderRecalc', () => {
         },
       },
     ]);
-    expect(plan.orderUpdate.total).toBe(1_382_400 + 240_000 + 40_000 + 115_200);
+    expect(plan.orderUpdate.total).toBe(768_000 + 240_000 + 40_000 + 115_200);
   });
 
   it('computes balance, deadline and late master pay', () => {
@@ -220,7 +302,7 @@ describe('planOrderRecalc', () => {
     );
 
     expect(plan.orderUpdate).toMatchObject({
-      balance: 382_400,
+      balance: -232_000,
       installationDeadline: '2026-06-24',
       daysLate: 3,
       masterPayCalculated: 67_584,

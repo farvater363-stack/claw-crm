@@ -15,7 +15,7 @@ export const STATUSES_HOLDING_MATERIAL: OrderStatus[] = [
   'QUALITY_CHECK',
 ];
 
-// Norms and the price list can change under an order that is waiting for approval,
+// The composition of a grille or service can change under an order that is waiting for approval,
 // and a reserve or write-off left behind by a failed sync heals only on the next sync.
 export const resyncOrdersHoldingMaterial = async (
   client: CoreApiClient,
@@ -38,7 +38,7 @@ export const resyncOrdersHoldingMaterial = async (
     return orders;
   });
 
-  // ponytail: one unpaced sync per order, at least 3 requests each, against the 500 requests/min budget; load the price list and norms once per run if the orders covered grow past a hundred.
+  // ponytail: one unpaced sync per order, at least 3 requests each, against the 500 requests/min budget; load the grilles and composition rows once per run if the orders covered grow past a hundred.
   for (const { id } of orders) {
     if (orderIdsToSkip.has(id)) continue;
 

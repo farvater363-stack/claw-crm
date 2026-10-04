@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode, useState } from 'react';
 import { useColorScheme } from 'twenty-sdk/front-component';
 
 import {
+  COLUMNS_MIN_WIDTH,
   CONTENT_MAX_WIDTH,
   CONTROL_HEIGHT,
   PALETTE,
@@ -9,11 +10,22 @@ import {
   RADIUS,
   ROW_MIN_HEIGHT,
   SPACE,
+  TABULAR_NUMBERS,
   type Tone,
   TYPE,
 } from 'src/ui/tokens';
 
 export const usePalette = (): Palette => PALETTE[useColorScheme()];
+
+// A plain grid's one column is never narrower than its content, so an input
+// (about 200 px wide by itself) would overflow a narrower parent. This
+// column takes the parent's width and the content shrinks to it.
+const SHRINKABLE_GRID = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
+} as const;
+
+const CHEVRON_WIDTH = SPACE.md;
 
 const toneColors = (colors: Palette, tone: Tone) =>
   tone === 'danger'
@@ -65,9 +77,12 @@ export const Screen = ({
 
 export const Section = ({
   title,
+  footer,
   children,
 }: {
   title: string;
+  // The section's own action, such as its add button, under the rows
+  footer?: ReactNode;
   children: ReactNode;
 }) => {
   const colors = usePalette();
@@ -87,7 +102,24 @@ export const Section = ({
           overflow: 'hidden',
         }}
       >
-        {children}
+        {/* Every row draws its top border; pulled up by one pixel, the first
+            one is clipped instead of doubling the card's own border. */}
+        <div style={{ marginTop: -1 }}>
+          {children}
+          {footer ? (
+            <div
+              style={{
+                padding: SPACE.lg,
+                borderTop: `1px solid ${colors.border}`,
+                display: 'grid',
+                gap: SPACE.md,
+                justifyItems: 'start',
+              }}
+            >
+              {footer}
+            </div>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -113,6 +145,7 @@ export const StatePill = ({ tone, text }: { tone: Tone; text: string }) => {
 };
 
 export const Row = ({
+  leading,
   title,
   value,
   pill,
@@ -120,6 +153,7 @@ export const Row = ({
   onToggle,
   children,
 }: {
+  leading?: ReactNode;
   title: ReactNode;
   value?: ReactNode;
   pill?: ReactNode;
@@ -128,6 +162,17 @@ export const Row = ({
   children?: ReactNode;
 }) => {
   const colors = usePalette();
+  // A leading thumbnail is as tall as a control; without one the first line
+  // fills the row's minimum height.
+  const firstLineHeight = leading
+    ? CONTROL_HEIGHT
+    : ROW_MIN_HEIGHT - 2 * SPACE.sm;
+  const wrapping: CSSProperties = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: `${SPACE.xs}px ${SPACE.md}px`,
+  };
 
   return (
     <div style={{ borderTop: `1px solid ${colors.border}` }}>
@@ -136,13 +181,14 @@ export const Row = ({
         aria-expanded={isOpen}
         onClick={onToggle}
         style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: SPACE.md,
+          ...wrapping,
+          position: 'relative',
           width: '100%',
           minHeight: ROW_MIN_HEIGHT,
-          padding: `${SPACE.sm}px ${SPACE.lg}px`,
+          // The right padding is the chevron's room: it is placed there, not
+          // laid out with the rest, so it stays at the end of the first line
+          // however the name, the value and the pill wrap.
+          padding: `${SPACE.sm}px ${SPACE.lg + CHEVRON_WIDTH + SPACE.md}px ${SPACE.sm}px ${SPACE.lg}px`,
           background: 'transparent',
           border: 'none',
           color: colors.text,
@@ -151,10 +197,45 @@ export const Row = ({
           cursor: 'pointer',
         }}
       >
-        <span style={{ flex: '1 1 160px', ...TYPE.rowTitle }}>{title}</span>
-        {value}
-        {pill}
-        <span aria-hidden style={{ color: colors.muted }}>
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: SPACE.md,
+            flex: '1 1 auto',
+            minWidth: 0,
+            minHeight: firstLineHeight,
+          }}
+        >
+          {leading}
+          <span
+            style={{ minWidth: 0, overflowWrap: 'anywhere', ...TYPE.rowTitle }}
+          >
+            {title}
+          </span>
+        </span>
+        {/* One group: beside the name when both fit on the line, under it as
+            a whole when they do not. */}
+        {value || pill ? (
+          <span style={{ ...wrapping, minWidth: 0 }}>
+            {value ? <span style={TABULAR_NUMBERS}>{value}</span> : null}
+            {pill}
+          </span>
+        ) : null}
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: SPACE.sm,
+            right: SPACE.lg,
+            width: CHEVRON_WIDTH,
+            height: firstLineHeight,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            color: colors.muted,
+          }}
+        >
           {isOpen ? '⌄' : '›'}
         </span>
       </button>
@@ -177,18 +258,22 @@ export const Button = ({
   variant = 'quiet',
   isBusy = false,
   busyText = 'Сохраняем…',
+  label,
   onClick,
   children,
 }: {
   variant?: 'primary' | 'quiet' | 'link';
   isBusy?: boolean;
   busyText?: string;
+  // The accessible name of a button whose text is a symbol, like «×»
+  label?: string;
   onClick: () => void;
   children: ReactNode;
 }) => {
   const colors = usePalette();
   const base: CSSProperties = {
     minHeight: CONTROL_HEIGHT,
+    minWidth: CONTROL_HEIGHT,
     padding: `0 ${SPACE.lg}px`,
     borderRadius: RADIUS.control,
     font: 'inherit',
@@ -217,6 +302,7 @@ export const Button = ({
       type="button"
       style={{ ...base, ...look }}
       aria-busy={isBusy}
+      aria-label={label}
       onClick={() => {
         if (!isBusy) onClick();
       }}
@@ -230,29 +316,62 @@ export const Field = ({
   label,
   error,
   isSaved = false,
+  isInline = false,
   children,
 }: {
   label: string;
   error?: string | null;
   isSaved?: boolean;
+  // The label is the thing being measured (a material) and sits beside the
+  // control at reading size; it wraps above the control on a phone
+  isInline?: boolean;
   children: ReactNode;
 }) => {
   const colors = usePalette();
+  const saved = isSaved && (
+    <span
+      style={{ ...TYPE.label, color: colors.success, marginLeft: SPACE.sm }}
+    >
+      ✓ Сохранено
+    </span>
+  );
+  const errorLine = error ? (
+    <span style={{ ...TYPE.body, color: colors.danger, flexBasis: '100%' }}>
+      {error}
+    </span>
+  ) : null;
+
+  if (isInline) {
+    return (
+      <label
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: `${SPACE.xs}px ${SPACE.md}px`,
+          ...TYPE.body,
+        }}
+      >
+        <span style={{ flex: '1 1 160px' }}>
+          {label}
+          {saved}
+        </span>
+        <span style={{ flex: '0 1 160px', minWidth: 0, ...SHRINKABLE_GRID }}>
+          {children}
+        </span>
+        {errorLine}
+      </label>
+    );
+  }
 
   return (
-    <label style={{ display: 'grid', gap: SPACE.xs, ...TYPE.label }}>
+    <label style={{ ...SHRINKABLE_GRID, gap: SPACE.xs, ...TYPE.label }}>
       <span style={{ color: colors.muted }}>
         {label}
-        {isSaved && (
-          <span style={{ color: colors.success, marginLeft: SPACE.sm }}>
-            ✓ Сохранено
-          </span>
-        )}
+        {saved}
       </span>
       {children}
-      {error ? (
-        <span style={{ ...TYPE.body, color: colors.danger }}>{error}</span>
-      ) : null}
+      {errorLine}
     </label>
   );
 };
@@ -261,6 +380,8 @@ export const TextInput = ({
   value,
   onChange,
   onCommit,
+  onEnter,
+  onCancel,
   inputMode = 'text',
   suffix,
   placeholder,
@@ -270,6 +391,10 @@ export const TextInput = ({
   // Fires on Enter and on every blur, changed or not: a consumer must skip a
   // value equal to the saved one, or it saves twice
   onCommit?: () => void;
+  // Enter alone, for a form that must not save when the field loses focus
+  onEnter?: () => void;
+  // Escape, for a field in a form that can be closed
+  onCancel?: () => void;
   inputMode?: 'text' | 'decimal' | 'numeric';
   suffix?: string;
   placeholder?: string;
@@ -303,7 +428,12 @@ export const TextInput = ({
           onCommit?.();
         }}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') onCommit?.();
+          if (event.key === 'Enter') {
+            onCommit?.();
+            onEnter?.();
+          }
+
+          if (event.key === 'Escape') onCancel?.();
         }}
         style={{
           flex: 1,
@@ -314,9 +444,16 @@ export const TextInput = ({
           color: colors.text,
           font: 'inherit',
           ...TYPE.body,
+          ...(inputMode === 'text' ? {} : TABULAR_NUMBERS),
         }}
       />
-      {suffix ? <span style={{ color: colors.muted }}>{suffix}</span> : null}
+      {suffix ? (
+        <span
+          style={{ flex: 'none', whiteSpace: 'nowrap', color: colors.muted }}
+        >
+          {suffix}
+        </span>
+      ) : null}
     </span>
   );
 };
@@ -514,6 +651,9 @@ export const PhotoTile = ({
       onClick={onSelect}
       style={{
         display: 'grid',
+        // A tile stretched to its row's height must not stretch its own rows:
+        // the square would take its size from the height and leave the tile.
+        alignContent: 'start',
         gap: SPACE.xs,
         padding: SPACE.sm,
         background: colors.surface,
@@ -538,6 +678,7 @@ export const PhotoTile = ({
       ) : (
         <span
           style={{
+            width: '100%',
             aspectRatio: '1',
             background: colors.panel,
             borderRadius: RADIUS.control,
@@ -549,5 +690,160 @@ export const PhotoTile = ({
         <span style={{ ...TYPE.label, color: colors.muted }}>{caption}</span>
       ) : null}
     </button>
+  );
+};
+
+export const Group = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) => (
+  <div style={{ display: 'grid', gap: SPACE.md }}>
+    <div style={{ ...TYPE.body, fontWeight: 600 }}>{title}</div>
+    {children}
+  </div>
+);
+
+// Fields in one row when the block is wider than a phone, one under another
+// when it is not. The basis is nothing above the threshold and huge below it,
+// so the fields never split two and one.
+export const Columns = ({ children }: { children: ReactNode[] }) => (
+  <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.md }}>
+    {children.map((child, index) => (
+      <div
+        key={index}
+        style={{
+          flex: `1 1 calc((${COLUMNS_MIN_WIDTH}px - 100%) * 999)`,
+          minWidth: 0,
+          ...SHRINKABLE_GRID,
+        }}
+      >
+        {child}
+      </div>
+    ))}
+  </div>
+);
+
+// A field with its own action beside it, such as «×» on a composition line
+export const Line = ({
+  action,
+  children,
+}: {
+  action: ReactNode;
+  children: ReactNode;
+}) => (
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: SPACE.sm }}>
+    <div style={{ flex: 1, minWidth: 0, ...SHRINKABLE_GRID }}>{children}</div>
+    {action}
+  </div>
+);
+
+export const Wrap = ({ children }: { children: ReactNode }) => (
+  <div
+    style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: SPACE.md,
+    }}
+  >
+    {children}
+  </div>
+);
+
+export const Hint = ({ text }: { text: string }) => {
+  const colors = usePalette();
+
+  return <div style={{ color: colors.muted }}>{text}</div>;
+};
+
+export const Thumbnail = ({
+  photoUrl,
+  alt = '',
+  size = CONTROL_HEIGHT,
+}: {
+  photoUrl: string | null;
+  alt?: string;
+  size?: number;
+}) => {
+  const colors = usePalette();
+  const box: CSSProperties = {
+    flex: 'none',
+    width: size,
+    height: size,
+    borderRadius: RADIUS.control,
+    background: colors.panel,
+  };
+
+  return photoUrl ? (
+    <img src={photoUrl} alt={alt} style={{ ...box, objectFit: 'cover' }} />
+  ) : (
+    <span aria-hidden style={{ ...box, display: 'inline-block' }} />
+  );
+};
+
+export const FilePicker = ({
+  text,
+  accept,
+  isBusy = false,
+  busyText = 'Сохраняем…',
+  onPick,
+}: {
+  text: string;
+  accept: string;
+  isBusy?: boolean;
+  busyText?: string;
+  onPick: (files: File[]) => void;
+}) => {
+  const colors = usePalette();
+  const [pickCount, setPickCount] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
+
+  return (
+    <label
+      aria-busy={isBusy}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        minHeight: CONTROL_HEIGHT,
+        padding: `0 ${SPACE.lg}px`,
+        border: `1px solid ${colors.border}`,
+        borderRadius: RADIUS.control,
+        color: colors.text,
+        ...TYPE.body,
+        fontWeight: 600,
+        cursor: 'pointer',
+        // The input itself is hidden, so the ring is drawn on its label
+        outline: isFocused ? `2px solid ${colors.accent}` : 'none',
+      }}
+    >
+      {isBusy ? busyText : text}
+      {/* Re-keyed per pick so choosing the same file again still fires
+          onChange. */}
+      <input
+        key={pickCount}
+        type="file"
+        accept={accept}
+        multiple
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          opacity: 0,
+          overflow: 'hidden',
+        }}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+
+          setPickCount((count) => count + 1);
+
+          if (!isBusy) onPick(files);
+        }}
+      />
+    </label>
   );
 };

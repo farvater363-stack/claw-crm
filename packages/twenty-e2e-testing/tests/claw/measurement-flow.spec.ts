@@ -6,6 +6,7 @@ import {
   test,
 } from '@playwright/test';
 import { LoginPage } from '../../lib/pom/loginPage';
+import { graphql, requireEnv, type Role } from './claw-helpers';
 
 const API_URL = process.env.CLAW_API_URL ?? 'http://localhost:3000';
 const TABLET_VIEWPORT = { width: 820, height: 1180 };
@@ -29,8 +30,8 @@ const EXPECTED_TOTAL = /^1\D?382\D?400$/;
 const EXPECTED_AREA = /^7[.,]68$/;
 const EXPECTED_MARGIN = /^614\D?400$/;
 
-// A design-specific price row outranks the generic ROD row, so the seeded
-// order never depends on, or disturbs, the real price list.
+// The seeded order is priced by its own grille, so it never depends on, or
+// disturbs, the real price list.
 const SEEDED_PRICE_PER_SQUARE_METER_MICROS = 180_000_000_000;
 const SEEDED_MATERIAL_COST_PER_SQUARE_METER_MICROS = 100_000_000_000;
 
@@ -45,39 +46,10 @@ const RESTRICTED_ORDER_FIELDS = [
   'masterPenalty { amountMicros }',
 ];
 
-const requireEnv = (name: string): string => {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`${name} is required`);
-  }
-
-  return value;
-};
-
-const graphql = async (
-  query: string,
-  variables: Record<string, unknown> = {},
-) => {
-  const response = await fetch(`${API_URL}/graphql`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${requireEnv('CLAW_API_KEY')}`,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const body = await response.json();
-
-  if (body.errors) throw new Error(JSON.stringify(body.errors));
-
-  return body.data;
-};
-
-type Role = 'ADMIN' | 'MANAGER' | 'MEASURER';
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
 type Viewport = { width: number; height: number };
 
+// Not the shared signIn: this one also records the tab title before and after.
 const signIn = async (page: Page, role: Role) => {
   const loginPage = new LoginPage(page);
 
@@ -148,7 +120,6 @@ const readFieldValue = async (page: Page, label: string) => {
 };
 
 const createdOrderIds: string[] = [];
-const createdPriceListItemIds: string[] = [];
 const createdDesignIds: string[] = [];
 const createdPersonIds: string[] = [];
 // Only when the test phone was unused at start can a linked client be ours.
@@ -218,18 +189,9 @@ test.beforeAll(async () => {
 
   const { createDesign } = await graphql(
     'mutation($data: DesignCreateInput!) { createDesign(data: $data) { id } }',
-    { data: { name: 'E2E design (temporary)' } },
-  );
-
-  createdDesignIds.push(createDesign.id);
-
-  const { createPriceListItem } = await graphql(
-    'mutation($data: PriceListItemCreateInput!) { createPriceListItem(data: $data) { id } }',
     {
       data: {
-        name: 'E2E price (temporary)',
-        metal: 'ROD',
-        designId: createDesign.id,
+        name: 'E2E design (temporary)',
         pricePerSquareMeter: {
           amountMicros: SEEDED_PRICE_PER_SQUARE_METER_MICROS,
           currencyCode: 'UZS',
@@ -242,7 +204,7 @@ test.beforeAll(async () => {
     },
   );
 
-  createdPriceListItemIds.push(createPriceListItem.id);
+  createdDesignIds.push(createDesign.id);
 
   seededOrderId = await createOrder({
     clientName: 'E2E',
@@ -256,7 +218,6 @@ test.beforeAll(async () => {
       data: {
         orderId: seededOrderId,
         designId: createDesign.id,
-        metal: 'ROD',
         widthCm: 140,
         heightCm: 150,
         projectionCm: 30,
@@ -334,14 +295,6 @@ test.afterAll(async () => {
     await attempt(`person ${personId}`, () =>
       graphql('mutation($id: UUID!) { destroyPerson(id: $id) { id } }', {
         id: personId,
-      }),
-    );
-  }
-
-  for (const priceListItemId of createdPriceListItemIds) {
-    await attempt(`price list row ${priceListItemId}`, () =>
-      graphql('mutation($id: UUID!) { destroyPriceListItem(id: $id) { id } }', {
-        id: priceListItemId,
       }),
     );
   }

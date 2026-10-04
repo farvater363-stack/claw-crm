@@ -9,18 +9,18 @@ import {
   computeMasterPay,
 } from 'src/pricing/compute-master-pay';
 import { addDays, computeDaysLate } from 'src/pricing/dates';
-import {
-  type PriceListEntry,
-  resolvePriceListEntry,
-} from 'src/pricing/resolve-price-list-entry';
 import { roundTo } from 'src/pricing/round';
+
+export type GrillePrice = {
+  id: string;
+  pricePerSquareMeter: number | null;
+  costPerSquareMeter: number | null;
+};
 
 export type ItemSnapshot = {
   id: string;
   name: string | null;
   designId: string | null;
-  metal: string | null;
-  metalSize: string | null;
   widthCm: number | null;
   heightCm: number | null;
   projectionCm: number | null;
@@ -82,7 +82,7 @@ export type RecalcInput = {
   items: ItemSnapshot[];
   extraServiceLines: ExtraServiceLineSnapshot[];
   extraServiceCatalog: ExtraServiceCatalogEntry[];
-  priceList: PriceListEntry[];
+  grilles: GrillePrice[];
   master: MasterSnapshot | null;
   today: string;
   refreshPriceItemIds: string[];
@@ -122,7 +122,7 @@ const multiplyOrNull = (...values: (number | null)[]): number | null =>
 
 const planItem = (
   item: ItemSnapshot,
-  priceList: PriceListEntry[],
+  grilles: GrillePrice[],
   shouldRefreshPrice: boolean,
 ): ItemSnapshot => {
   const hasDimensions = item.widthCm !== null && item.heightCm !== null;
@@ -142,7 +142,7 @@ const planItem = (
       ].join('×')
     : item.name;
 
-  const entry = resolvePriceListEntry(priceList, item);
+  const entry = grilles.find((grille) => grille.id === item.designId) ?? null;
   const pricePerSquareMeter =
     shouldRefreshPrice || item.pricePerSquareMeter === null
       ? (entry?.pricePerSquareMeter ??
@@ -217,7 +217,7 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
   const plannedItems = input.items.map((item) =>
     planItem(
       item,
-      input.priceList,
+      input.grilles,
       input.refreshPriceItemIds.includes(item.id),
     ),
   );

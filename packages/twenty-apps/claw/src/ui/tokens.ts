@@ -48,3 +48,6 @@ export const RADIUS = { control: 8, card: 12 } as const;
 export const CONTROL_HEIGHT = 48;
 export const ROW_MIN_HEIGHT = 56;
 export const CONTENT_MAX_WIDTH = 720;
+// A block narrower than this is on a phone (360 to 480 px wide)
+export const COLUMNS_MIN_WIDTH = 480;
+export const TABULAR_NUMBERS = { fontVariantNumeric: 'tabular-nums' } as const;

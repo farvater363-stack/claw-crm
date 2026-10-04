@@ -11,6 +11,7 @@ import {
   createEmptyOpening,
   describePhotoUploadFailure,
   formatUzbekNationalPhone,
+  hasOpeningWithoutPrice,
   type MeasurementDraft,
   type OpeningDraft,
   takePhotosWithinLimit,
@@ -98,8 +99,6 @@ describe('buildMeasurementPayload', () => {
         openings: [
           opening({
             designId: 'design-1',
-            metal: 'ROD',
-            metalSize: 'SIZE_10',
             widthCm: '140',
             heightCm: '150,5',
             projectionCm: '30',
@@ -128,8 +127,6 @@ describe('buildMeasurementPayload', () => {
       items: [
         {
           designId: 'design-1',
-          metal: 'ROD',
-          metalSize: 'SIZE_10',
           widthCm: 140,
           heightCm: 150.5,
           projectionCm: 30,
@@ -191,68 +188,81 @@ describe('buildMeasurementPayload', () => {
   });
 });
 
-describe('price quote', () => {
-  const priceList = [
-    {
-      designId: 'design-1',
-      metal: 'ROD',
-      metalSize: 'SIZE_10',
-      pricePerSquareMeter: 260_000,
-    },
-    {
-      designId: null,
-      metal: 'PROFILE',
-      metalSize: null,
-      pricePerSquareMeter: 180_000,
-    },
+describe('quote by grille', () => {
+  const grilles = [
+    { id: 'grille-1', pricePerSquareMeter: 100_000 },
+    { id: 'grille-2', pricePerSquareMeter: null },
   ];
 
-  it('prices an opening from the most specific price list row', () => {
+  it('prices an opening from its grille', () => {
     expect(
       computeOpeningQuote(
         opening({
-          designId: 'design-1',
-          metal: 'ROD',
-          metalSize: 'SIZE_10',
-          widthCm: '140',
-          heightCm: '150',
-          projectionCm: '30',
+          designId: 'grille-1',
+          widthCm: '100',
+          heightCm: '200',
+          projectionCm: '0',
           quantity: '2',
         }),
-        priceList,
+        grilles,
       ),
-    ).toEqual({ pricePerSquareMeter: 260_000, lineTotal: 1_996_800 });
+    ).toEqual({ pricePerSquareMeter: 100_000, lineTotal: 400_000 });
   });
 
-  it('returns null without dimensions or without a matching row', () => {
+  it('gives no quote without a grille or without a price', () => {
     expect(
       computeOpeningQuote(
-        opening({ metal: 'ROD', metalSize: 'SIZE_10' }),
-        priceList,
+        opening({ designId: '', widthCm: '100', heightCm: '200' }),
+        grilles,
       ),
     ).toBeNull();
     expect(
       computeOpeningQuote(
-        opening({ metal: 'REBAR', widthCm: '100', heightCm: '100' }),
-        priceList,
+        opening({ designId: 'grille-2', widthCm: '100', heightCm: '200' }),
+        grilles,
       ),
+    ).toBeNull();
+  });
+
+  it('gives no quote without dimensions', () => {
+    expect(
+      computeOpeningQuote(opening({ designId: 'grille-1' }), grilles),
     ).toBeNull();
   });
 
   it('totals only when every opening has a price', () => {
     const priced = opening({
-      metal: 'PROFILE',
+      designId: 'grille-1',
       widthCm: '100',
       heightCm: '100',
     });
 
-    expect(computeDraftTotal([priced, priced], priceList)).toBe(360_000);
+    expect(computeDraftTotal([priced, priced], grilles)).toBe(200_000);
     expect(
       computeDraftTotal(
-        [priced, opening({ metal: 'REBAR', widthCm: '100', heightCm: '100' })],
-        priceList,
+        [
+          priced,
+          opening({ designId: 'grille-2', widthCm: '100', heightCm: '100' }),
+        ],
+        grilles,
       ),
     ).toBeNull();
+  });
+
+  it('finds an opening whose grille has no price, whatever its dimensions', () => {
+    expect(
+      hasOpeningWithoutPrice(
+        [opening({ designId: 'grille-1' }), opening({ designId: 'grille-2' })],
+        grilles,
+      ),
+    ).toBe(true);
+    expect(hasOpeningWithoutPrice([opening({ designId: '' })], grilles)).toBe(
+      true,
+    );
+    expect(
+      hasOpeningWithoutPrice([opening({ designId: 'grille-1' })], grilles),
+    ).toBe(false);
+    expect(hasOpeningWithoutPrice([], grilles)).toBe(false);
   });
 });
 

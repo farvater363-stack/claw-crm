@@ -1,5 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
-import { LoginPage } from '../../lib/pom/loginPage';
+import { expect, test } from '@playwright/test';
+import { signIn } from './claw-helpers';
 
 test.use({
   actionTimeout: 20_000,
@@ -7,36 +7,6 @@ test.use({
   // Each test signs in as its own role.
   storageState: { cookies: [], origins: [] },
 });
-
-type Role = 'ADMIN' | 'MANAGER';
-
-const requireEnv = (name: string): string => {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`${name} is required`);
-  }
-
-  return value;
-};
-
-const signIn = async (page: Page, role: Role) => {
-  const loginPage = new LoginPage(page);
-
-  await page.goto('/');
-  // The dev server needs ~10 s to render the sign-in page.
-  await page
-    .getByRole('button', { name: 'Continue with Email' })
-    .or(page.getByPlaceholder('Email'))
-    .first()
-    .waitFor({ timeout: 60_000 });
-  await loginPage.clickLoginWithEmailIfVisible();
-  await loginPage.typeEmail(requireEnv(`CLAW_${role}_EMAIL`));
-  await loginPage.clickContinueButton();
-  await loginPage.typePassword(requireEnv(`CLAW_${role}_PASSWORD`));
-  await loginPage.clickSignInButton();
-  await page.waitForURL(/objects|object\/|\/page\//, { timeout: 60_000 });
-};
 
 test('the owner sees the warehouse block on the dashboard', async ({
   page,

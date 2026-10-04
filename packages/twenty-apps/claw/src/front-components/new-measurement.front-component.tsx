@@ -10,12 +10,7 @@ import {
   useUserId,
 } from 'twenty-sdk/front-component';
 
-import {
-  DISTRICT_OPTIONS,
-  METAL_OPTIONS,
-  METAL_SIZE_OPTIONS,
-  SOURCE_OPTIONS,
-} from 'src/constants/select-options';
+import { DISTRICT_OPTIONS, SOURCE_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import {
   buildMeasurementPayload,
@@ -28,10 +23,11 @@ import {
   createEmptyOpening,
   describePhotoUploadFailure,
   formatUzbekNationalPhone,
+  type GrilleOption,
+  hasOpeningWithoutPrice,
   MAX_PHOTOS_PER_OPENING,
   type MeasurementDraft,
   type OpeningDraft,
-  type QuotePriceEntry,
   type OpeningPhoto,
   takePhotosWithinLimit,
   toDateTimeLocalInputValue,
@@ -39,10 +35,9 @@ import {
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
 import { fromCurrency } from 'src/recalc/money';
-import { formatMoney } from 'src/ui/format';
-import { PALETTE } from 'src/ui/tokens';
-
-type Design = { id: string; name: string };
+import { formatMoney, formatQuantity } from 'src/ui/format';
+import { PhotoTile } from 'src/ui/kit';
+import { PALETTE, SPACE } from 'src/ui/tokens';
 
 type SavedItem = {
   id: string;
@@ -85,9 +80,6 @@ const createEmptyDraft = (): MeasurementDraft => ({
   visorLengthMeters: '',
 });
 
-const formatSquareMeters = (value: number) =>
-  `${value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} м²`;
-
 const describeError = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
@@ -95,32 +87,27 @@ const wait = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const loadFormContext = async (userId: string) => {
-  const { workspaceMembers, designs, priceListItems, extraServices } =
+  const { workspaceMembers, designs, extraServices } =
     await new CoreApiClient().query({
       workspaceMembers: {
         __args: { filter: { userId: { eq: userId } }, first: 1 },
         edges: { node: { id: true } },
       },
-      designs: {
-        __args: { first: 200, orderBy: [{ name: 'AscNullsLast' }] },
-        edges: { node: { id: true, name: true } },
-      },
       // Price only: the measurer cannot read cost fields, and asking for them
       // fails the whole query.
-      priceListItems: {
-        __args: { first: 200 },
+      designs: {
+        __args: { first: 200, orderBy: [{ name: 'AscNullsLast' }] },
         edges: {
           node: {
-            designId: true,
-            metal: true,
-            metalSize: true,
+            id: true,
+            name: true,
             pricePerSquareMeter: { amountMicros: true, currencyCode: true },
+            photos: { url: true },
           },
         },
       },
-      // Visors live in the extra services catalog, one row per type and depth.
       extraServices: {
-        __args: { filter: { name: { ilike: '%козыр%' } }, first: 200 },
+        __args: { filter: { kind: { eq: 'VISOR' } }, first: 200 },
         edges: {
           node: {
             id: true,
@@ -133,14 +120,10 @@ const loadFormContext = async (userId: string) => {
 
   return {
     measurerId: workspaceMembers?.edges[0]?.node?.id ?? null,
-    designs: (designs?.edges ?? []).map(({ node }) => ({
+    grilles: (designs?.edges ?? []).map(({ node }): GrilleOption => ({
       id: node.id,
       name: node.name ?? '',
-    })),
-    priceList: (priceListItems?.edges ?? []).map(({ node }) => ({
-      designId: node.designId ?? null,
-      metal: node.metal ?? null,
-      metalSize: node.metalSize ?? null,
+      photoUrl: node.photos?.[0]?.url ?? null,
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
     })),
     visorOptions: (extraServices?.edges ?? [])
@@ -272,8 +255,7 @@ const NewMeasurement = () => {
   const colors = PALETTE[useColorScheme()];
   const userId = useUserId();
   const [draft, setDraft] = useState<MeasurementDraft>(createEmptyDraft);
-  const [designs, setDesigns] = useState<Design[]>([]);
-  const [priceList, setPriceList] = useState<QuotePriceEntry[]>([]);
+  const [grilles, setGrilles] = useState<GrilleOption[]>([]);
   const [visorOptions, setVisorOptions] = useState<VisorOption[]>([]);
   const [measurerId, setMeasurerId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -291,8 +273,7 @@ const NewMeasurement = () => {
 
     loadFormContext(userId)
       .then((context) => {
-        setDesigns(context.designs);
-        setPriceList(context.priceList);
+        setGrilles(context.grilles);
         setVisorOptions(context.visorOptions);
         setMeasurerId(context.measurerId);
 
@@ -722,13 +703,17 @@ const NewMeasurement = () => {
   const totalAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
     draft.openings,
   );
-  const openingsTotal = computeDraftTotal(draft.openings, priceList);
+  const openingsTotal = computeDraftTotal(draft.openings, grilles);
   const visorTotal = computeVisorTotal(draft, visorOptions);
   const draftTotal =
     openingsTotal === null ||
     (draft.visorServiceId !== '' && visorTotal === null)
       ? null
       : openingsTotal + (visorTotal ?? 0);
+  const totalAwaitsManagerPrice = hasOpeningWithoutPrice(
+    draft.openings,
+    grilles,
+  );
 
   return (
     <div style={styles.page}>
@@ -860,8 +845,13 @@ const NewMeasurement = () => {
 
       <h3 style={styles.heading}>Проёмы</h3>
       {draft.openings.map((opening, index) => {
-        const areaSquareMeters = computeOpeningAreaSquareMeters(opening);
-        const quote = computeOpeningQuote(opening, priceList);
+        const hasSize = computeOpeningAreaSquareMeters(opening) !== null;
+        // All pieces, so the area and the sum beside it describe the same thing.
+        const areaText = formatQuantity(
+          computeOpeningsTotalAreaSquareMeters([opening]),
+          'м²',
+        );
+        const quote = computeOpeningQuote(opening, grilles);
 
         return (
           <section
@@ -889,61 +879,42 @@ const NewMeasurement = () => {
                 </button>
               )}
             </div>
-            {field(
-              'Дизайн',
-              <select
-                style={styles.input}
-                value={opening.designId}
-                onChange={(event) =>
-                  updateOpening(opening.key, { designId: event.target.value })
-                }
+            <div style={styles.wide}>
+              <div style={{ ...styles.label, marginBottom: '6px' }}>
+                Решётка
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                  gap: SPACE.sm,
+                }}
               >
-                <option value="">—</option>
-                {designs.map((design) => (
-                  <option key={design.id} value={design.id}>
-                    {design.name}
-                  </option>
+                {grilles.map((grille) => (
+                  <PhotoTile
+                    key={grille.id}
+                    name={grille.name}
+                    photoUrl={grille.photoUrl}
+                    isSelected={opening.designId === grille.id}
+                    onSelect={() =>
+                      updateOpening(opening.key, { designId: grille.id })
+                    }
+                    caption={
+                      opening.designId === grille.id &&
+                      grille.pricePerSquareMeter !== null
+                        ? `${formatMoney(grille.pricePerSquareMeter)} за м²`
+                        : undefined
+                    }
+                  />
                 ))}
-              </select>,
-            )}
-            {field(
-              'Металл',
-              <select
-                style={styles.input}
-                value={opening.metal}
-                onChange={(event) =>
-                  updateOpening(opening.key, {
-                    metal: event.target.value as OpeningDraft['metal'],
-                  })
-                }
-              >
-                <option value="">—</option>
-                {METAL_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>,
-            )}
-            {field(
-              'Размер металла',
-              <select
-                style={styles.input}
-                value={opening.metalSize}
-                onChange={(event) =>
-                  updateOpening(opening.key, {
-                    metalSize: event.target.value as OpeningDraft['metalSize'],
-                  })
-                }
-              >
-                <option value="">—</option>
-                {METAL_SIZE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>,
-            )}
+                <PhotoTile
+                  name="Другая"
+                  photoUrl={null}
+                  isSelected={opening.designId === ''}
+                  onSelect={() => updateOpening(opening.key, { designId: '' })}
+                />
+              </div>
+            </div>
             {(
               [
                 ['widthCm', 'Ширина, см', 'decimal'],
@@ -965,27 +936,13 @@ const NewMeasurement = () => {
                 />,
               ),
             )}
-            <div style={styles.area}>
-              Площадь:{' '}
-              {areaSquareMeters === null
-                ? '—'
-                : formatSquareMeters(areaSquareMeters)}
-              {quote !== null && (
-                <>
-                  <br />
-                  {formatMoney(quote.pricePerSquareMeter)} за м² ·{' '}
-                  {formatMoney(quote.lineTotal)}
-                </>
-              )}
-              {quote === null &&
-                areaSquareMeters !== null &&
-                opening.metal !== '' && (
-                  <>
-                    <br />
-                    Цены нет в прайсе
-                  </>
-                )}
-            </div>
+            {hasSize && (
+              <div style={styles.area}>
+                {quote === null
+                  ? areaText
+                  : `${areaText} · ${formatMoney(quote.lineTotal)}`}
+              </div>
+            )}
             {field(
               'Заметки',
               <textarea
@@ -1115,12 +1072,14 @@ const NewMeasurement = () => {
       </section>
 
       <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
-        Итого площадь: {formatSquareMeters(totalAreaSquareMeters)}
+        Итого площадь: {formatQuantity(totalAreaSquareMeters, 'м²')}
       </p>
 
-      {draftTotal !== null && (
+      {(draftTotal !== null || totalAwaitsManagerPrice) && (
         <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
-          Итого: {formatMoney(draftTotal)}
+          {draftTotal === null
+            ? 'Цену назовёт менеджер'
+            : `Итого: ${formatMoney(draftTotal)}`}
         </p>
       )}
 

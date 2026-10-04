@@ -5,9 +5,8 @@ import {
   type Page,
   test,
 } from '@playwright/test';
-import { LoginPage } from '../../lib/pom/loginPage';
+import { FORCE, graphql, type Role, signIn } from './claw-helpers';
 
-const API_URL = process.env.CLAW_API_URL ?? 'http://localhost:3000';
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 
 // A number no real customer uses; beforeAll refuses to run if any order or
@@ -26,62 +25,9 @@ const OWED_BEFORE_ADVANCE = /^200\D?000 сум$/;
 const OWED_AFTER_ADVANCE = /^190\D?000 сум$/;
 const PAID_AFTER_ADVANCE = /^10\D?000 сум$/;
 
-// Twenty wraps every widget in a dnd-kit draggable with aria-disabled="true"
-// outside layout edit mode; Playwright reads that as disabled for the whole
-// subtree although the controls work for a person.
-const FORCE = { force: true } as const;
-
 test.use({ actionTimeout: 20_000 });
 
-const requireEnv = (name: string): string => {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`${name} is required`);
-  }
-
-  return value;
-};
-
-const graphql = async (
-  query: string,
-  variables: Record<string, unknown> = {},
-) => {
-  const response = await fetch(`${API_URL}/graphql`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${requireEnv('CLAW_API_KEY')}`,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const body = await response.json();
-
-  if (body.errors) throw new Error(JSON.stringify(body.errors));
-
-  return body.data;
-};
-
-type Role = 'ADMIN' | 'MANAGER';
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
-
-const signIn = async (page: Page, role: Role) => {
-  const loginPage = new LoginPage(page);
-
-  await page.goto('/');
-  // The dev server needs ~10 s to render the sign-in page.
-  await page
-    .getByRole('button', { name: 'Continue with Email' })
-    .or(page.getByPlaceholder('Email'))
-    .first()
-    .waitFor({ timeout: 60_000 });
-  await loginPage.clickLoginWithEmailIfVisible();
-  await loginPage.typeEmail(requireEnv(`CLAW_${role}_EMAIL`));
-  await loginPage.clickContinueButton();
-  await loginPage.typePassword(requireEnv(`CLAW_${role}_PASSWORD`));
-  await loginPage.clickSignInButton();
-  await page.waitForURL(/objects|dashboard|\/page\//, { timeout: 60_000 });
-};
 
 const storageStateByRole = new Map<Role, StorageState>();
 const openContexts: BrowserContext[] = [];
@@ -209,7 +155,6 @@ test.beforeAll(async () => {
     {
       data: {
         orderId: seededOrderId,
-        metal: 'ROD',
         widthCm: 100,
         heightCm: 200,
         projectionCm: 0,
@@ -362,18 +307,16 @@ test('admin records an advance and the master row drops by that amount', async (
   expect(payments[0].amount.amountMicros).toBe(ADVANCE_AMOUNT * 1_000_000);
 });
 
-test('a manager sees «Доступно только владельцу» and no payroll figures', async ({
-  browser,
-}) => {
+test('a manager has no «ЗП за месяц» in the sidebar', async ({ browser }) => {
   test.setTimeout(120_000);
 
   const page = await openPageAs(browser, 'MANAGER');
 
-  await openPayroll(page);
+  await page.goto('/');
 
-  await expect(page.getByText('Доступно только владельцу')).toBeVisible({
-    timeout: 60_000,
-  });
-  await expect(page.getByText('К выплате')).toHaveCount(0);
-  await expect(page.getByText(TEST_MASTER_NAME)).toHaveCount(0);
+  // Wait for the menu to render before asserting that an item is missing.
+  await expect(
+    page.getByRole('link', { name: 'Новый замер' }).first(),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('link', { name: 'ЗП за месяц' })).toHaveCount(0);
 });

@@ -1,6 +1,9 @@
 import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
 
-import { EXTRA_SERVICE_UNIT_OPTIONS } from 'src/constants/select-options';
+import {
+  EXTRA_SERVICE_KIND_OPTIONS,
+  EXTRA_SERVICE_UNIT_OPTIONS,
+} from 'src/constants/select-options';
 import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -9,8 +12,8 @@ export default defineObject({
   universalIdentifier: IDS.extraService.object,
   nameSingular: 'extraService',
   namePlural: 'extraServices',
-  labelSingular: 'Доп. услуга',
-  labelPlural: 'Доп. услуги',
+  labelSingular: 'Козырёк или услуга',
+  labelPlural: 'Козырьки и услуги',
   icon: 'IconTool',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.extraService.name,
   fields: withoutAuditOfAdminOnlyFields([
@@ -29,6 +32,15 @@ export default defineObject({
       icon: 'IconRuler2',
       defaultValue: "'FIXED'",
       options: EXTRA_SERVICE_UNIT_OPTIONS,
+    },
+    {
+      universalIdentifier: IDS.extraService.kind,
+      type: FieldType.SELECT,
+      name: 'kind',
+      label: 'Вид',
+      icon: 'IconCategory',
+      defaultValue: "'SERVICE'",
+      options: EXTRA_SERVICE_KIND_OPTIONS,
     },
     {
       universalIdentifier: IDS.extraService.price,
@@ -64,7 +76,7 @@ export default defineObject({
       universalIdentifier: IDS.extraService.norms,
       type: FieldType.RELATION,
       name: 'norms',
-      label: 'Нормы расхода (на ед.)',
+      label: 'Из чего делается',
       icon: 'IconRuler',
       relationTargetObjectMetadataUniversalIdentifier: IDS.materialNorm.object,
       relationTargetFieldMetadataUniversalIdentifier:

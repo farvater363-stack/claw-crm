@@ -11,7 +11,8 @@ const handler = async (): Promise<void> =>
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onMaterialNormCreated,
   name: 'on-material-norm-created',
-  description: 'Names a new consumption norm',
+  description:
+    'Re-plans orders awaiting approval after a composition row is added, and names the row',
   timeoutSeconds: 120,
   databaseEventTriggerSettings: {
     eventName: 'materialNorm.created',

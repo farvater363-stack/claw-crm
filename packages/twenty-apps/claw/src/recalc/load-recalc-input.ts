@@ -36,7 +36,7 @@ export const loadRecalcInput = async (
     orders,
     orderItems,
     orderExtraServices,
-    priceListItems,
+    designs,
     extraServices,
   } = await client.query({
     orders: {
@@ -73,8 +73,6 @@ export const loadRecalcInput = async (
           id: true,
           name: true,
           designId: true,
-          metal: true,
-          metalSize: true,
           widthCm: true,
           heightCm: true,
           projectionCm: true,
@@ -102,13 +100,11 @@ export const loadRecalcInput = async (
         },
       },
     },
-    priceListItems: {
+    designs: {
       __args: { first: PAGE_SIZE },
       edges: {
         node: {
-          designId: true,
-          metal: true,
-          metalSize: true,
+          id: true,
           pricePerSquareMeter: money,
           materialCostPerSquareMeter: money,
           manufacturingCostPerSquareMeter: money,
@@ -163,8 +159,6 @@ export const loadRecalcInput = async (
       id: node.id,
       name: node.name ?? null,
       designId: node.designId ?? null,
-      metal: node.metal ?? null,
-      metalSize: node.metalSize ?? null,
       widthCm: toNumber(node.widthCm),
       heightCm: toNumber(node.heightCm),
       projectionCm: toNumber(node.projectionCm),
@@ -185,10 +179,8 @@ export const loadRecalcInput = async (
       lineTotal: fromCurrency(node.lineTotal),
       lineCost: fromCurrency(node.lineCost),
     })),
-    priceList: (priceListItems?.edges ?? []).map(({ node }) => ({
-      designId: node.designId ?? null,
-      metal: node.metal ?? null,
-      metalSize: node.metalSize ?? null,
+    grilles: (designs?.edges ?? []).map(({ node }) => ({
+      id: node.id,
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
       costPerSquareMeter: sumOfCosts(
         fromCurrency(node.materialCostPerSquareMeter),

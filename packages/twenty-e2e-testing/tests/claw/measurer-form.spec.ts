@@ -9,6 +9,11 @@ const TABLET_VIEWPORT = { width: 820, height: 1180 };
 const TEST_NATIONAL_PHONE = '930000013';
 const TEST_STORED_PHONE = `+998${TEST_NATIONAL_PHONE}`;
 
+// The test's own grille with a synthetic price, so what it expects never
+// depends on the real price list. 7.68 m² at this price is 1 920 000.
+const TEST_GRILLE_NAME = 'E2E grille (temporary)';
+const TEST_GRILLE_PRICE = 250_000;
+
 // 8×8 red PNG.
 const createPhotoFixture = (name: string) => ({
   name,
@@ -109,7 +114,21 @@ const findTestPersonIds = async (): Promise<string[]> => {
   return people.edges.map(({ node }: { node: { id: string } }) => node.id);
 };
 
+const destroyTestGrilles = async () => {
+  const { designs } = await graphql(
+    'query($name: String!) { designs(filter: { name: { eq: $name } }) { edges { node { id } } } }',
+    { name: TEST_GRILLE_NAME },
+  );
+
+  for (const { node } of designs.edges) {
+    await graphql('mutation($id: UUID!) { destroyDesign(id: $id) { id } }', {
+      id: node.id,
+    });
+  }
+};
+
 let isTestPhoneUnused = false;
+let testGrilleId: string | null = null;
 // Signed URLs of the photos the test attached; afterAll checks they stop
 // serving once the items are destroyed.
 const attachedPhotoUrls: string[] = [];
@@ -125,6 +144,25 @@ test.beforeAll(async () => {
   }
 
   isTestPhoneUnused = true;
+
+  // A run killed before afterAll leaves its grille behind, and two tiles with
+  // one name make the tile locator ambiguous.
+  await destroyTestGrilles();
+
+  const { createDesign } = await graphql(
+    'mutation($data: DesignCreateInput!) { createDesign(data: $data) { id } }',
+    {
+      data: {
+        name: TEST_GRILLE_NAME,
+        pricePerSquareMeter: {
+          amountMicros: TEST_GRILLE_PRICE * 1_000_000,
+          currencyCode: 'UZS',
+        },
+      },
+    },
+  );
+
+  testGrilleId = createDesign.id;
 });
 
 // Every step is independent so one failure does not skip the rest.
@@ -172,6 +210,8 @@ test.afterAll(async () => {
       }),
     );
   }
+
+  await attempt('grilles', destroyTestGrilles);
 
   // Destroying an item queues deletion of its photo files on the worker.
   await attempt('photo files', () =>
@@ -252,14 +292,28 @@ test('measurer records a measurement from the tablet form', async ({
     // Step 3: one opening, 140 × 150 × 30 cm, 2 pieces.
     const opening = page.getByRole('region', { name: 'Проём 1' });
 
-    await chooseOption(opening.getByLabel(/^Металл/), 'Прут');
     await opening.getByLabel('Ширина, см').fill('140', FORCE);
     await opening.getByLabel('Высота, см').fill('150', FORCE);
     await opening.getByLabel('Вылет, см').fill('30', FORCE);
     await opening.getByLabel('Количество').fill('2', FORCE);
 
-    await expect(opening.getByText('Площадь: 3,84 м²')).toBeVisible();
+    // «Другая» is chosen until a grille is tapped: the area of both pieces
+    // alone, no price.
+    await expect(opening.getByText('7,68 м²', { exact: true })).toBeVisible();
     await expect(page.getByText('Итого площадь: 7,68 м²')).toBeVisible();
+    await expect(page.getByText('Цену назовёт менеджер')).toBeVisible();
+
+    const grilleTile = opening.getByRole('button', { name: TEST_GRILLE_NAME });
+
+    await grilleTile.click(FORCE);
+    await expect(grilleTile).toHaveAttribute('aria-pressed', 'true');
+    // \D: the thousands separator is a non-breaking space.
+    await expect(grilleTile).toContainText(/250\D000 сум за м²/);
+    await expect(
+      opening.getByText(/^7,68 м² · 1\D920\D000 сум$/),
+    ).toBeVisible();
+    await expect(page.getByText(/^Итого: 1\D920\D000 сум$/)).toBeVisible();
+    await expect(page.getByText('Цену назовёт менеджер')).toBeHidden();
 
     // Two photos picked, the second removed again: one goes up with the item.
     await opening
@@ -304,11 +358,12 @@ test('measurer records a measurement from the tablet form', async ({
       .poll(
         async () => {
           const { order } = await graphql(
-            'query($id: UUID!) { order(filter: { id: { eq: $id } }) { status measurerId clientPhone areaSquareMeters items { edges { node { areaSquareMeters quantity photos { label url } } } } } }',
+            'query($id: UUID!) { order(filter: { id: { eq: $id } }) { status measurerId clientPhone areaSquareMeters items { edges { node { designId areaSquareMeters quantity photos { label url } } } } } }',
             { id: orderIds[0] },
           );
 
           const items: {
+            designId: string | null;
             areaSquareMeters: number;
             quantity: number;
             photos: { label: string; url: string }[] | null;
@@ -342,6 +397,7 @@ test('measurer records a measurement from the tablet form', async ({
         areaSquareMeters: 7.68,
         items: [
           {
+            designId: testGrilleId,
             areaSquareMeters: 3.84,
             quantity: 2,
             photoLabels: ['Проём 1, фото 1.png'],
