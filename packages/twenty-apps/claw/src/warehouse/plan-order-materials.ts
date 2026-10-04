@@ -10,14 +10,12 @@ const WRITTEN_OFF_STATUSES = new Set([
   'INSTALLED',
   'CLOSED',
 ]);
-const FACT_STATUSES = new Set(['READY', 'INSTALLED', 'CLOSED']);
 
 export type OrderMaterialLine = {
   id: string;
   materialId: string | null;
   plannedQuantity: number | null;
   writtenOffQuantity: number | null;
-  actualQuantity: number | null;
 };
 
 export type SystemMovement = { id: string; quantity: number | null };
@@ -44,7 +42,7 @@ export type LineUpsert = {
 
 export type MovementUpsert = {
   id: string;
-  kind: 'WRITE_OFF' | 'FACT_ADJUSTMENT';
+  kind: 'WRITE_OFF';
   materialId: string;
   orderId: string;
   orderMaterialId: string;
@@ -56,7 +54,6 @@ export type OrderMaterialsPlan = {
   lineUpserts: LineUpsert[];
   lineDeletes: string[];
   movementUpserts: MovementUpsert[];
-  movementDeletes: string[];
 };
 
 export const orderMaterialLineId = (orderId: string, materialId: string) =>
@@ -64,9 +61,6 @@ export const orderMaterialLineId = (orderId: string, materialId: string) =>
 
 export const writeOffMovementId = (lineId: string) =>
   deterministicUuid(`writeoff:${lineId}`);
-
-export const factMovementId = (lineId: string) =>
-  deterministicUuid(`fact:${lineId}`);
 
 export const isWrittenOffStatus = (status: string | null) =>
   status !== null && WRITTEN_OFF_STATUSES.has(status);
@@ -102,7 +96,6 @@ export const planOrderMaterials = ({
     lineUpserts: [],
     lineDeletes: [],
     movementUpserts: [],
-    movementDeletes: [],
   };
   const movementQuantityById = new Map(
     systemMovements.map((movement) => [movement.id, movement.quantity]),
@@ -189,26 +182,6 @@ export const planOrderMaterials = ({
 
   for (const line of writtenLines) {
     ensureWriteOff(line.id, line.materialId, line.writtenOffQuantity);
-
-    const factId = factMovementId(line.id);
-    const delta =
-      line.actualQuantity === null
-        ? 0
-        : roundTo(line.actualQuantity - line.writtenOffQuantity, 2);
-
-    if (delta === 0) {
-      if (movementQuantityById.has(factId)) plan.movementDeletes.push(factId);
-    } else if (status !== null && FACT_STATUSES.has(status)) {
-      ensureMovement({
-        id: factId,
-        kind: 'FACT_ADJUSTMENT',
-        materialId: line.materialId,
-        orderId,
-        orderMaterialId: line.id,
-        quantity: -delta,
-        date: today,
-      });
-    }
   }
 
   return plan;

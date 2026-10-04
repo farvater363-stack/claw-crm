@@ -310,7 +310,7 @@ export const IDS = {
     onStockMovementUpdated: 'c8155c6a-38fa-4af0-a712-d4d9f0d690ce',
     onStockMovementDeleted: 'bc73ca06-c481-43e6-9c0b-215292b71c9c',
     onStockMovementRestored: '962363c0-c8b4-4258-9541-13e9eac6021d',
-    onOrderMaterialUpdated: '63431278-566e-4865-88b5-814ecb297ed8',
+    onOrderMaterialUpdated: '63431278-566e-4865-88b5-814ecb297ed8', // Retired: orders no longer record actual consumption; ids are never reused.
     onMaterialNormDeleted: 'd220b223-1581-4478-b54a-0099b19f40a8',
     onMaterialNormRestored: '46abf261-a045-4da5-b22c-d595256f9970',
   },

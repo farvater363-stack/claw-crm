@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { deterministicUuid } from 'src/utils/deterministic-uuid';
 import {
-  factMovementId,
   isEmptyOrderMaterialsPlan,
   isEnteringWrittenOff,
   orderMaterialLineId,
@@ -36,7 +35,6 @@ const line = (
   materialId: 'profile',
   plannedQuantity: 16.5,
   writtenOffQuantity: null,
-  actualQuantity: null,
   ...overrides,
 });
 
@@ -53,7 +51,6 @@ describe('planOrderMaterials', () => {
       ],
       lineDeletes: [],
       movementUpserts: [],
-      movementDeletes: [],
     });
   });
 
@@ -181,64 +178,22 @@ describe('planOrderMaterials', () => {
         lineUpserts: [],
         lineDeletes: [LINE],
         movementUpserts: [],
-        movementDeletes: [],
       });
     }
   });
 
-  it('books the difference between actual and written-off once the order is ready', () => {
-    const written = line({ writtenOffQuantity: 16.5, actualQuantity: 18 });
-    const plan = planOrderMaterials(
+  it('writes off once and never plans another movement kind', () => {
+    const result = planOrderMaterials(
       input({
         status: 'READY',
-        lines: [written],
-        systemMovements: [{ id: writeOffMovementId(LINE), quantity: -16.5 }],
+        lines: [line({ writtenOffQuantity: 10 })],
+        systemMovements: [],
       }),
     );
 
-    expect(plan.movementUpserts).toEqual([
-      {
-        id: factMovementId(LINE),
-        kind: 'FACT_ADJUSTMENT',
-        materialId: 'profile',
-        orderId: ORDER,
-        orderMaterialId: LINE,
-        quantity: -1.5,
-        date: TODAY,
-      },
+    expect(result.movementUpserts.map((movement) => movement.kind)).toEqual([
+      'WRITE_OFF',
     ]);
-  });
-
-  it('removes the adjustment when the actual is cleared or equals the write-off', () => {
-    const movements = [
-      { id: writeOffMovementId(LINE), quantity: -16.5 },
-      { id: factMovementId(LINE), quantity: -1.5 },
-    ];
-
-    for (const actualQuantity of [null, 16.5]) {
-      const plan = planOrderMaterials(
-        input({
-          status: 'READY',
-          lines: [line({ writtenOffQuantity: 16.5, actualQuantity })],
-          systemMovements: movements,
-        }),
-      );
-
-      expect(plan.movementDeletes).toEqual([factMovementId(LINE)]);
-      expect(plan.movementUpserts).toEqual([]);
-    }
-  });
-
-  it('does not book an actual before the order is ready', () => {
-    const plan = planOrderMaterials(
-      input({
-        status: 'PRODUCTION',
-        lines: [line({ writtenOffQuantity: 16.5, actualQuantity: 18 })],
-        systemMovements: [{ id: writeOffMovementId(LINE), quantity: -16.5 }],
-      }),
-    );
-
-    expect(isEmptyOrderMaterialsPlan(plan)).toBe(true);
   });
 
   it('restores a missing write-off even on a cancelled order', () => {
@@ -251,7 +206,6 @@ describe('planOrderMaterials', () => {
 
     expect(plan.lineUpserts).toEqual([]);
     expect(plan.lineDeletes).toEqual([]);
-    expect(plan.movementDeletes).toEqual([]);
     expect(
       plan.movementUpserts.map(({ id, quantity }) => ({ id, quantity })),
     ).toEqual([{ id: writeOffMovementId(LINE), quantity: -16.5 }]);
@@ -261,7 +215,6 @@ describe('planOrderMaterials', () => {
     expect(writeOffMovementId(LINE)).toBe(
       deterministicUuid(`writeoff:${LINE}`),
     );
-    expect(factMovementId(LINE)).toBe(deterministicUuid(`fact:${LINE}`));
     expect(orderMaterialLineId(ORDER, 'profile')).toBe(
       deterministicUuid(`orderMaterial:${ORDER}:profile`),
     );

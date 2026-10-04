@@ -1,14 +1,21 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 import { describe, expect, it } from 'vitest';
 
-import { orderMaterialLineId } from 'src/warehouse/plan-order-materials';
+import {
+  orderMaterialLineId,
+  writeOffMovementId,
+} from 'src/warehouse/plan-order-materials';
 import { syncOrderMaterials } from 'src/warehouse/sync-order-materials';
 
 const LINE_ID = orderMaterialLineId('order-1', 'material-1');
 
 const fakeClient = (
   lines: Record<string, unknown>[],
-  { status = 'PRICE_APPROVAL', missingNorms = null as string | null } = {},
+  {
+    status = 'PRICE_APPROVAL',
+    missingNorms = null as string | null,
+    movements = [] as Record<string, unknown>[],
+  } = {},
 ) => {
   const mutations: Record<string, unknown>[] = [];
   let queryCount = 0;
@@ -31,7 +38,7 @@ const fakeClient = (
         ]),
         orderExtraServices: page([]),
         orderMaterials: page(lines),
-        stockMovements: page([]),
+        stockMovements: page(movements),
         designs: page([{ id: 'design-1', name: 'Тест' }]),
         materialNorms: page([
           {
@@ -83,7 +90,6 @@ describe('syncOrderMaterials', () => {
         materialId: 'material-1',
         plannedQuantity: 4,
         writtenOffQuantity: null,
-        actualQuantity: null,
       },
     ]);
 
@@ -134,5 +140,25 @@ describe('syncOrderMaterials', () => {
       ['createOrderMaterial'],
       ['createStockMovement'],
     ]);
+  });
+
+  it('writes nothing on a re-run for a line that is already written off', async () => {
+    const { client, mutations } = fakeClient(
+      [
+        {
+          id: LINE_ID,
+          materialId: 'material-1',
+          plannedQuantity: 4,
+          writtenOffQuantity: 4,
+        },
+      ],
+      {
+        status: 'READY',
+        movements: [{ id: writeOffMovementId(LINE_ID), quantity: -4 }],
+      },
+    );
+
+    expect(await syncOrderMaterials(client, 'order-1')).toBe(false);
+    expect(mutations).toEqual([]);
   });
 });
