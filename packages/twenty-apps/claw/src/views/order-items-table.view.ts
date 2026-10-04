@@ -10,8 +10,6 @@ const ids = VIEW_PART_IDS.orderRecordPage;
 // Widths in px, wide enough that Russian column headers do not truncate.
 const COLUMN_WIDTHS = {
   design: 150,
-  metal: 100,
-  metalSize: 150,
   widthCm: 125,
   heightCm: 110,
   projectionCm: 100,
@@ -22,10 +20,10 @@ const COLUMN_WIDTHS = {
   notes: 240,
   costPerSquareMeter: 200,
   lineCost: 170,
-} as const satisfies Record<keyof typeof ids.itemsTableFields, number>;
-const fieldNames = Object.keys(
-  ids.itemsTableFields,
-) as (keyof typeof ids.itemsTableFields)[];
+} as const satisfies Partial<Record<keyof typeof ids.itemsTableFields, number>>;
+// The identifiers keep retired columns, so the widths decide which columns
+// the table has.
+const fieldNames = Object.keys(COLUMN_WIDTHS) as (keyof typeof COLUMN_WIDTHS)[];
 
 // Cost columns are listed for admins; field permissions drop them for others.
 export default defineView({

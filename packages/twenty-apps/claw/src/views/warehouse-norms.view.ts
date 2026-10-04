@@ -17,11 +17,6 @@ export default defineView({
   fields: toKeyedViewFields([
     { field: materialNorm.name, viewField: ids.name, size: 240 },
     {
-      field: materialNorm.priceListItem,
-      viewField: ids.priceListItem,
-      size: 220,
-    },
-    {
       field: materialNorm.extraService,
       viewField: ids.extraService,
       size: 180,

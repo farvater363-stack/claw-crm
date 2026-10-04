@@ -6,7 +6,7 @@ const client = new CoreApiClient();
 const TEST_PHONE = '+998 93 000 00 01';
 const TEST_PHONE_NATIONAL = '930000001';
 
-type Destroyable = 'destroyOrderItem' | 'destroyOrder' | 'destroyPriceListItem';
+type Destroyable = 'destroyOrderItem' | 'destroyOrder' | 'destroyDesign';
 
 const created: { mutation: Destroyable; id: string }[] = [];
 
@@ -66,13 +66,12 @@ const waitForTotal = (orderId: string, total: number) =>
     (order) => Number(order?.total?.amountMicros) === total * 1_000_000,
   );
 
-const createPriceListRow = async () => {
-  const { createPriceListItem } = await client.mutation({
-    createPriceListItem: {
+const createGrille = async () => {
+  const { createDesign } = await client.mutation({
+    createDesign: {
       __args: {
         data: {
-          name: 'Прут (тест)',
-          metal: 'ROD',
+          name: 'Решётка (тест)',
           pricePerSquareMeter: {
             amountMicros: 180_000_000_000,
             currencyCode: 'UZS',
@@ -83,10 +82,9 @@ const createPriceListRow = async () => {
     },
   });
 
-  created.push({
-    mutation: 'destroyPriceListItem',
-    id: createPriceListItem?.id as string,
-  });
+  created.push({ mutation: 'destroyDesign', id: createDesign?.id as string });
+
+  return createDesign?.id as string;
 };
 
 const createOrder = async (data: {
@@ -117,11 +115,12 @@ const createOrder = async (data: {
 
 const createItem = async (
   orderId: string,
+  designId: string,
   itemData: Record<string, number>,
 ) => {
   const { createOrderItem } = await client.mutation({
     createOrderItem: {
-      __args: { data: { orderId, metal: 'ROD', ...itemData } },
+      __args: { data: { orderId, designId, ...itemData } },
       id: true,
     },
   });
@@ -156,15 +155,15 @@ describe('order recalculation', () => {
     }
   });
 
-  it('numbers the order, links the client and totals an item from the price list', async () => {
-    await createPriceListRow();
+  it('numbers the order, links the client and totals an item from the grille price', async () => {
+    const designId = await createGrille();
 
     const orderId = await createOrder({
       clientPhone: TEST_PHONE,
       prepayment: 1_000_000,
     });
 
-    await createItem(orderId, {
+    await createItem(orderId, designId, {
       widthCm: 140,
       heightCm: 150,
       projectionCm: 30,
@@ -180,14 +179,14 @@ describe('order recalculation', () => {
   });
 
   it('recalculates when an item is soft-deleted, restored and destroyed', async () => {
-    await createPriceListRow();
+    const designId = await createGrille();
 
     const orderId = await createOrder({});
 
     // 100x100 cm without projection is exactly 1 m², 180 000 per item.
-    await createItem(orderId, { widthCm: 100, heightCm: 100 });
+    await createItem(orderId, designId, { widthCm: 100, heightCm: 100 });
 
-    const secondItemId = await createItem(orderId, {
+    const secondItemId = await createItem(orderId, designId, {
       widthCm: 100,
       heightCm: 100,
     });

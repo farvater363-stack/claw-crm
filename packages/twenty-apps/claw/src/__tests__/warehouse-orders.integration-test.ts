@@ -183,7 +183,6 @@ describe('order material lifecycle', () => {
           data: {
             orderId,
             designId,
-            metal: 'ROD',
             widthCm: 100,
             heightCm: 100,
             quantity: 2,

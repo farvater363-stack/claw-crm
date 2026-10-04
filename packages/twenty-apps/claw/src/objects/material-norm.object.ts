@@ -58,14 +58,6 @@ export default defineObject({
       IDS.material.norms,
     ),
     manyToOne(
-      materialNorm.priceListItem,
-      'priceListItem',
-      'Строка прайса (на 1 м²)',
-      'IconReceipt2',
-      IDS.priceListItem.object,
-      IDS.priceListItem.norms,
-    ),
-    manyToOne(
       materialNorm.design,
       'design',
       'Решётка (на 1 м²)',
@@ -76,7 +68,7 @@ export default defineObject({
     manyToOne(
       materialNorm.extraService,
       'extraService',
-      'Доп. услуга (на ед.)',
+      'Из чего делается',
       'IconTool',
       IDS.extraService.object,
       IDS.extraService.norms,

@@ -11,7 +11,6 @@ import openpyxl
 INSTALLATION_DAYS_AFTER_START = 7
 
 METAL = {'Прут': 'ROD', 'Профиль': 'PROFILE', 'Арматура': 'REBAR'}
-METAL_SIZE = {'8': 'SIZE_8', '10': 'SIZE_10', '15/15': 'SIZE_15_15'}
 SOURCE = {'OLX': 'OLX', 'Instagram': 'INSTAGRAM', 'Facebook': 'FACEBOOK',
           'Telegram': 'TELEGRAM', 'Через знакомых': 'REFERRAL'}
 DISTRICT = {'Алмазарский': 'ALMAZAR', 'Бектемирский': 'BEKTEMIR', 'Мирабадский': 'MIRABAD',
@@ -19,18 +18,18 @@ DISTRICT = {'Алмазарский': 'ALMAZAR', 'Бектемирский': 'BE
             'Чиланзарский': 'CHILANZAR', 'Шайхантахурский': 'SHAYKHANTAKHUR', 'Юнусабадский': 'YUNUSABAD',
             'Яккасарайский': 'YAKKASARAY', 'Яшнабадский': 'YASHNABAD', 'Янгихаётский': 'YANGIHAYOT'}
 
-# (column in «Расходы», price list name, metal, metal size, design name or None)
-PRICE_LIST_COLUMNS = [
-    ('D', 'Прут', 'ROD', None, None),
-    ('G', 'Арматура', 'REBAR', None, None),
-    ('H', 'Профиль', 'PROFILE', None, None),
-    ('E', 'Мараканд 2', 'PROFILE', None, 'Мараканд 2'),
-    ('F', 'Мараканд 3', 'PROFILE', None, 'Мараканд 3'),
-    ('I', 'Хайтек', 'PROFILE', None, 'Хайтек'),
+# (column in «Расходы», grille name, metal)
+GRILLE_COLUMNS = [
+    ('D', 'Прут', 'ROD'),
+    ('G', 'Арматура', 'REBAR'),
+    ('H', 'Профиль', 'PROFILE'),
+    ('E', 'Мараканд 2', 'PROFILE'),
+    ('F', 'Мараканд 3', 'PROFILE'),
+    ('I', 'Хайтек', 'PROFILE'),
 ]
 CANOPY_COLUMNS = list('JKLMNOPQRSTU')
 REQUEST_TIMEOUT_SECONDS = 60
-ENTITY_PLURALS = ['masters', 'designs', 'priceListItems', 'extraServices', 'orders']
+ENTITY_PLURALS = ['masters', 'designs', 'extraServices', 'orders']
 
 
 def money(amount):
@@ -54,25 +53,24 @@ def build_payloads(path):
 
     masters = [{'name': cell.value} for (cell,) in data_sheet.iter_rows(min_col=3, max_col=3) if cell.value]
 
-    design_names = {name for (_, _, _, _, name) in PRICE_LIST_COLUMNS if name}
-    for row in range(3, orders_sheet.max_row + 1):
-        if orders_sheet[f'O{row}'].value:
-            design_names.add(str(orders_sheet[f'O{row}'].value).strip())
-    designs = [{'name': name, 'catalog': 'MAIN'} for name in sorted(design_names)]
-
-    price_list = [
+    designs = [
         {
-            'name': label,
+            'name': name,
             'metal': metal,
-            'metalSize': metal_size,
-            'designName': design_name,
             'pricePerSquareMeter': money(flat_price),
             'materialCostPerSquareMeter': money(number_or_none(costs[f'{column}2'].value)),
             'manufacturingCostPerSquareMeter': money(number_or_none(costs[f'{column}3'].value)),
             'installationCostPerSquareMeter': money(number_or_none(costs[f'{column}4'].value)),
         }
-        for (column, label, metal, metal_size, design_name) in PRICE_LIST_COLUMNS
+        for (column, name, metal) in GRILLE_COLUMNS
     ]
+    # Grilles the orders mention but «Расходы» has no column for come in without a price.
+    priced_names = {design['name'] for design in designs}
+    other_names = set()
+    for row in range(3, orders_sheet.max_row + 1):
+        if orders_sheet[f'O{row}'].value:
+            other_names.add(str(orders_sheet[f'O{row}'].value).strip())
+    designs += [{'name': name} for name in sorted(other_names - priced_names)]
 
     extra_services = []
     for column in CANOPY_COLUMNS:
@@ -83,6 +81,7 @@ def build_payloads(path):
         extra_services.append({
             'name': f'Козырёк {kind} {width}',
             'unit': 'PER_RUNNING_METER',
+            'kind': 'VISOR',
             'cost': money(cost),
         })
 
@@ -127,7 +126,7 @@ def build_payloads(path):
             'status': 'PRODUCTION' if deadline and deadline >= today else 'CLOSED',
         })
 
-    return {'masters': masters, 'designs': designs, 'priceListItems': price_list,
+    return {'masters': masters, 'designs': designs,
             'extraServices': extra_services, 'orders': orders}, skipped, warnings
 
 
@@ -180,13 +179,7 @@ def main():
 
     abort_if_workspace_not_empty()
     master_ids = create_many('createMasters', 'MasterCreateInput', payloads['masters'])
-    design_ids = create_many('createDesigns', 'DesignCreateInput', payloads['designs'])
-
-    price_list = []
-    for item in payloads['priceListItems']:
-        design_name = item.pop('designName')
-        price_list.append({**item, 'designId': design_ids.get(design_name)})
-    create_many('createPriceListItems', 'PriceListItemCreateInput', price_list)
+    create_many('createDesigns', 'DesignCreateInput', payloads['designs'])
     create_many('createExtraServices', 'ExtraServiceCreateInput', payloads['extraServices'])
 
     orders = []

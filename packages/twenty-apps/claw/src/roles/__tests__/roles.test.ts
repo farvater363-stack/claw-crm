@@ -24,7 +24,7 @@ describe('roles', () => {
           IDS.order.margin,
           IDS.order.masterPayTotal,
           IDS.orderItem.lineCost,
-          IDS.priceListItem.manufacturingCostPerSquareMeter,
+          IDS.design.manufacturingCostPerSquareMeter,
           IDS.master.ratePerSquareMeter,
           IDS.stockMovement.unitPrice,
           IDS.material.lastPurchasePrice,
@@ -75,7 +75,7 @@ describe('calculated fields and object access', () => {
         IDS.order.object,
         IDS.orderItem.object,
         IDS.design.object,
-        IDS.priceListItem.object,
+        IDS.extraService.object,
       ]),
     );
   });

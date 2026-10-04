@@ -76,7 +76,7 @@ export default defineObject({
       universalIdentifier: IDS.extraService.norms,
       type: FieldType.RELATION,
       name: 'norms',
-      label: 'Нормы расхода (на ед.)',
+      label: 'Из чего делается',
       icon: 'IconRuler',
       relationTargetObjectMetadataUniversalIdentifier: IDS.materialNorm.object,
       relationTargetFieldMetadataUniversalIdentifier:

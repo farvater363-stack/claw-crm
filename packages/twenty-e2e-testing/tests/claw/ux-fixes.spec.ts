@@ -2,13 +2,11 @@ import {
   type Browser,
   type BrowserContext,
   expect,
-  type Locator,
   type Page,
   test,
 } from '@playwright/test';
-import { LoginPage } from '../../lib/pom/loginPage';
+import { FORCE, graphql, type Role, signIn } from './claw-helpers';
 
-const API_URL = process.env.CLAW_API_URL ?? 'http://localhost:3000';
 const TABLET_VIEWPORT = { width: 820, height: 1180 };
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 
@@ -30,81 +28,10 @@ const PAST_DEADLINE = '2020-01-01';
 
 const RESTRICTED_LABELS = ['Себестоимость', 'Маржа', 'ЗП итого', 'Штраф'];
 
-// Twenty wraps every widget in a dnd-kit draggable with aria-disabled="true"
-// outside layout edit mode; Playwright reads that as disabled for the whole
-// subtree although the controls work for a person.
-const FORCE = { force: true } as const;
-
-// selectOption also refuses options it reads as disabled, so pick the option
-// the way the browser does: native setter plus a change event.
-const chooseOption = (select: Locator, label: string) =>
-  select.evaluate((element, optionLabel) => {
-    const selectElement = element as HTMLSelectElement;
-    const option = Array.from(selectElement.options).find(
-      (candidate) => candidate.label === optionLabel,
-    );
-
-    if (!option) throw new Error(`No option ${optionLabel}`);
-
-    Object.getOwnPropertyDescriptor(
-      HTMLSelectElement.prototype,
-      'value',
-    )?.set?.call(selectElement, option.value);
-    selectElement.dispatchEvent(new Event('change', { bubbles: true }));
-  }, label);
-
 test.use({ actionTimeout: 20_000 });
 
-const requireEnv = (name: string): string => {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`${name} is required`);
-  }
-
-  return value;
-};
-
-const graphql = async (
-  query: string,
-  variables: Record<string, unknown> = {},
-) => {
-  const response = await fetch(`${API_URL}/graphql`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${requireEnv('CLAW_API_KEY')}`,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const body = await response.json();
-
-  if (body.errors) throw new Error(JSON.stringify(body.errors));
-
-  return body.data;
-};
-
-type Role = 'ADMIN' | 'MEASURER';
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
 type Viewport = { width: number; height: number };
-
-const signIn = async (page: Page, role: Role) => {
-  const loginPage = new LoginPage(page);
-
-  await page.goto('/');
-  // The dev server needs ~10 s to render the sign-in page.
-  await page
-    .getByRole('button', { name: 'Continue with Email' })
-    .or(page.getByPlaceholder('Email'))
-    .first()
-    .waitFor({ timeout: 60_000 });
-  await loginPage.clickLoginWithEmailIfVisible();
-  await loginPage.typeEmail(requireEnv(`CLAW_${role}_EMAIL`));
-  await loginPage.clickContinueButton();
-  await loginPage.typePassword(requireEnv(`CLAW_${role}_PASSWORD`));
-  await loginPage.clickSignInButton();
-  await page.waitForURL(/objects|dashboard|\/page\//, { timeout: 60_000 });
-};
 
 const storageStateByRole = new Map<Role, StorageState>();
 const openContexts: BrowserContext[] = [];
@@ -169,8 +96,19 @@ const findTestPersonIds = async (): Promise<string[]> => {
   return people.edges.map(({ node }: { node: { id: string } }) => node.id);
 };
 
-const createdPriceListItemIds: string[] = [];
-const createdDesignIds: string[] = [];
+const destroyTestDesigns = async () => {
+  const { designs } = await graphql(
+    'query($name: String!) { designs(filter: { name: { eq: $name } }) { edges { node { id } } } }',
+    { name: TEST_DESIGN_NAME },
+  );
+
+  for (const { node } of designs.edges) {
+    await graphql('mutation($id: UUID!) { destroyDesign(id: $id) { id } }', {
+      id: node.id,
+    });
+  }
+};
+
 let isTestPhoneUnused = false;
 let seededOrderId: string;
 let seededOrderName: string;
@@ -187,22 +125,17 @@ test.beforeAll(async () => {
 
   isTestPhoneUnused = true;
 
+  // A run killed before afterAll leaves its grille behind, and two tiles with
+  // one name make the tile locator ambiguous.
+  await destroyTestDesigns();
+
+  // The test's own grille with a synthetic price, so what it expects never
+  // depends on, or disturbs, the real price list.
   const { createDesign } = await graphql(
     'mutation($data: DesignCreateInput!) { createDesign(data: $data) { id } }',
-    { data: { name: TEST_DESIGN_NAME } },
-  );
-
-  createdDesignIds.push(createDesign.id);
-
-  // A design-specific row outranks any generic row, so the price below never
-  // depends on, or disturbs, the real price list.
-  const { createPriceListItem } = await graphql(
-    'mutation($data: PriceListItemCreateInput!) { createPriceListItem(data: $data) { id } }',
     {
       data: {
-        name: 'E2E UX price (temporary)',
-        metal: 'ROD',
-        designId: createDesign.id,
+        name: TEST_DESIGN_NAME,
         pricePerSquareMeter: {
           amountMicros: PRICE_PER_SQUARE_METER_MICROS,
           currencyCode: 'UZS',
@@ -214,8 +147,6 @@ test.beforeAll(async () => {
       },
     },
   );
-
-  createdPriceListItemIds.push(createPriceListItem.id);
 
   const { createOrder } = await graphql(
     'mutation($data: OrderCreateInput!) { createOrder(data: $data) { id } }',
@@ -238,7 +169,6 @@ test.beforeAll(async () => {
       data: {
         orderId: seededOrderId,
         designId: createDesign.id,
-        metal: 'ROD',
         widthCm: 140,
         heightCm: 150,
         projectionCm: 30,
@@ -345,21 +275,7 @@ test.afterAll(async () => {
     }
   });
 
-  for (const priceListItemId of createdPriceListItemIds) {
-    await attempt(`price list row ${priceListItemId}`, () =>
-      graphql('mutation($id: UUID!) { destroyPriceListItem(id: $id) { id } }', {
-        id: priceListItemId,
-      }),
-    );
-  }
-
-  for (const designId of createdDesignIds) {
-    await attempt(`design ${designId}`, () =>
-      graphql('mutation($id: UUID!) { destroyDesign(id: $id) { id } }', {
-        id: designId,
-      }),
-    );
-  }
+  await attempt('designs', destroyTestDesigns);
 
   if (failures.length > 0) {
     throw new Error(`Cleanup left data behind:\n${failures.join('\n')}`);
@@ -511,14 +427,16 @@ test.describe('measurer', () => {
 
     await expect(opening).toBeVisible({ timeout: 60_000 });
 
-    await chooseOption(opening.getByLabel('Дизайн'), TEST_DESIGN_NAME);
-    await chooseOption(opening.getByLabel(/^Металл/), 'Прут');
+    const grilleTile = opening.getByRole('button', { name: TEST_DESIGN_NAME });
+
+    await grilleTile.click(FORCE);
+    await expect(grilleTile).toHaveAttribute('aria-pressed', 'true');
     await opening.getByLabel('Ширина, см').fill('140', FORCE);
     await opening.getByLabel('Высота, см').fill('150', FORCE);
     await opening.getByLabel('Вылет, см').fill('30', FORCE);
     await opening.getByLabel('Количество').fill('1', FORCE);
 
-    await expect(opening.getByText(/180\D000 сум за м²/)).toBeVisible();
+    await expect(grilleTile).toContainText(/180\D000 сум за м²/);
     await expect(page.getByText(/^Итого: /)).toHaveText(EXPECTED_LINE_TOTAL);
   });
 
@@ -535,10 +453,6 @@ test.describe('measurer', () => {
     await expect(
       page.getByRole('link', { name: 'Новый замер' }).first(),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(
-      page.getByRole('link', { name: 'Прайс' }).first(),
-    ).toBeVisible();
-
     await expect(page.getByRole('link', { name: 'Мастера' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'ЗП мастеров' })).toHaveCount(
       0,

@@ -53,7 +53,6 @@ export default defineRole({
     readWrite(IDS.orderItem.object),
     readWrite(IDS.orderExtraService.object),
     readWrite(IDS.design.object),
-    readWrite(IDS.priceListItem.object),
     readWrite(IDS.extraService.object),
     readWrite(IDS.master.object),
     readWrite(STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier),

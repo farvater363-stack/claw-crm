@@ -6,9 +6,9 @@ export const IDS = {
   design: {
     object: '8e2db662-ba18-4173-ac0c-0ed57077882c',
     name: 'e4c33956-fc69-43bf-9df7-dcfc2b6a8486',
-    catalog: '8b017471-b64b-4a46-bfbf-ebe6a3cd2155',
+    catalog: '8b017471-b64b-4a46-bfbf-ebe6a3cd2155', // Retired: grilles are no longer split into catalogs; ids are never reused.
     photos: 'a2fb8689-c3bb-49f0-a49b-6d13275aa04d',
-    priceListItems: '7cebff66-e19b-41d6-9f4c-986e101fb14d',
+    priceListItems: '7cebff66-e19b-41d6-9f4c-986e101fb14d', // Retired: the price lives on the grille; ids are never reused.
     orderItems: '34b0d24e-ef9f-409f-a8b1-13f158b6387c',
     metal: '456a19db-edbf-4a8b-8451-3524533f7a8c',
     pricePerSquareMeter: 'b6c9c031-3d5a-49a2-9a1d-a2e733fb13cd',
@@ -17,6 +17,7 @@ export const IDS = {
     installationCostPerSquareMeter: 'a635bad0-c224-492b-ad57-e93dc788affb',
     norms: '9f651b17-f028-4f0c-8473-57493bc3ed45',
   },
+  // Retired: the price list object is gone, price and composition live on the grille; ids are never reused.
   priceListItem: {
     object: '02aeeadc-e68d-469c-877d-5b7d94e1d467',
     name: 'f00a73df-35bf-4a8c-9e78-15e8b5d64482',
@@ -99,8 +100,8 @@ export const IDS = {
   orderItem: {
     object: 'c54a858f-68e0-4901-b5ca-78baedeceb83',
     name: 'c464ea83-1d5e-4fd5-95de-89a925be762c',
-    metal: '48fbbf2b-82c1-4502-9491-6bde0aca54b7',
-    metalSize: '51d034f5-e06b-4926-8ae4-43f7ff259f53',
+    metal: '48fbbf2b-82c1-4502-9491-6bde0aca54b7', // Retired: the metal comes from the grille; ids are never reused.
+    metalSize: '51d034f5-e06b-4926-8ae4-43f7ff259f53', // Retired: the metal size is part of the grille; ids are never reused.
     widthCm: 'abaa7141-7102-4792-b4c8-cb96cb2dc87d',
     heightCm: '8de09a33-6105-4653-8493-e7ae5c8535ff',
     projectionCm: '1c159580-363d-4e63-a42f-266b0a1996fa',
@@ -156,7 +157,7 @@ export const IDS = {
     object: '60af72da-6f4e-4df7-ac13-85f381012543',
     name: '79620208-d5ca-4c7b-850d-87eca4ab35a4',
     material: '41aa607c-14c2-48e7-bd2b-d1270bea03b3',
-    priceListItem: 'c94fc579-4535-43ee-bd37-f9e5ea03fd8f',
+    priceListItem: 'c94fc579-4535-43ee-bd37-f9e5ea03fd8f', // Retired: composition belongs to the grille; ids are never reused.
     extraService: 'bf8a4f05-43dd-4c88-b91d-7c7b250459e7',
     quantityPerUnit: '1126566d-0f16-49c3-b9bc-761541c14ac0',
     design: '99bba579-e976-45ea-8f06-ee59b6ccbcdb',
@@ -224,9 +225,9 @@ export const IDS = {
     myMeasurements: '5b65e2e1-2c9f-4b87-8f16-95e20851bf8b',
     production: '379a3f5b-57ec-48c2-bf5f-e9a8d970ce65',
     masterPay: 'abbbca23-eb51-45af-b6ab-4840461639ac', // Retired: pay is no longer a sidebar item; ids are never reused.
-    designs: '8e87114d-b386-4ce8-9654-f092ffb1b23f',
-    priceList: '19714acd-d450-4a1f-a73e-a74266399b6c',
-    extraServices: '7084db31-ff82-4fae-831a-180eafb45cee',
+    designs: '8e87114d-b386-4ce8-9654-f092ffb1b23f', // Retired: replaced by the prices screen; ids are never reused.
+    priceList: '19714acd-d450-4a1f-a73e-a74266399b6c', // Retired: replaced by the prices screen; ids are never reused.
+    extraServices: '7084db31-ff82-4fae-831a-180eafb45cee', // Retired: replaced by the prices screen; ids are never reused.
     masters: 'f1ae7b6b-2645-48bd-b2cd-8118e871672e',
     masterPayments: '7ccac197-4231-4128-9385-7e00cc414e86',
     payroll: '2e98d495-7d32-4a64-abaf-7866fa2206b5',

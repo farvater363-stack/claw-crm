@@ -106,7 +106,7 @@ export default defineObject({
       universalIdentifier: material.norms,
       type: FieldType.RELATION,
       name: 'norms',
-      label: 'Нормы расхода',
+      label: 'Из чего делается',
       icon: 'IconRuler',
       relationTargetObjectMetadataUniversalIdentifier: IDS.materialNorm.object,
       relationTargetFieldMetadataUniversalIdentifier: IDS.materialNorm.material,

@@ -1,9 +1,6 @@
 import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
 
-import {
-  DESIGN_CATALOG_OPTIONS,
-  METAL_OPTIONS,
-} from 'src/constants/select-options';
+import { METAL_OPTIONS } from 'src/constants/select-options';
 import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -38,15 +35,6 @@ export default defineObject({
       name: 'name',
       label: 'Название',
       icon: 'IconAbc',
-    },
-    {
-      universalIdentifier: IDS.design.catalog,
-      type: FieldType.SELECT,
-      name: 'catalog',
-      label: 'Каталог',
-      icon: 'IconFolder',
-      isNullable: true,
-      options: DESIGN_CATALOG_OPTIONS,
     },
     {
       universalIdentifier: IDS.design.photos,
@@ -94,16 +82,6 @@ export default defineObject({
       icon: 'IconRuler',
       relationTargetObjectMetadataUniversalIdentifier: IDS.materialNorm.object,
       relationTargetFieldMetadataUniversalIdentifier: IDS.materialNorm.design,
-      universalSettings: { relationType: RelationType.ONE_TO_MANY },
-    },
-    {
-      universalIdentifier: IDS.design.priceListItems,
-      type: FieldType.RELATION,
-      name: 'priceListItems',
-      label: 'Прайс',
-      icon: 'IconReceipt2',
-      relationTargetObjectMetadataUniversalIdentifier: IDS.priceListItem.object,
-      relationTargetFieldMetadataUniversalIdentifier: IDS.priceListItem.design,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
     {

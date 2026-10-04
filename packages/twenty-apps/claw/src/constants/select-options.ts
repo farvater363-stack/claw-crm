@@ -14,12 +14,6 @@ export const METAL_OPTIONS = toOptions([
   ['REBAR', 'Арматура', 'orange'],
 ] as const);
 
-export const METAL_SIZE_OPTIONS = toOptions([
-  ['SIZE_8', '8', 'gray'],
-  ['SIZE_10', '10', 'gray'],
-  ['SIZE_15_15', '15/15', 'gray'],
-] as const);
-
 export const DISTRICT_OPTIONS = toOptions([
   ['ALMAZAR', 'Алмазарский', 'gray'],
   ['BEKTEMIR', 'Бектемирский', 'gray'],
@@ -77,10 +71,6 @@ export const EXTRA_SERVICE_KIND_OPTIONS = toOptions([
 
 export type ExtraServiceKind =
   (typeof EXTRA_SERVICE_KIND_OPTIONS)[number]['value'];
-
-export const DESIGN_CATALOG_OPTIONS = toOptions([
-  ['MAIN', 'Основной', 'gray'],
-] as const);
 
 export const DEADLINE_STATE_OPTIONS = toOptions([
   ['ON_TIME', 'В срок', 'green'],

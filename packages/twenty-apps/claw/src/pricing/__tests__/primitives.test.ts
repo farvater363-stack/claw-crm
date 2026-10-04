@@ -15,10 +15,6 @@ import {
   normalizeUzbekPhone,
   toStoredUzbekPhone,
 } from 'src/pricing/normalize-uzbek-phone';
-import {
-  type PriceListEntry,
-  resolvePriceListEntry,
-} from 'src/pricing/resolve-price-list-entry';
 
 describe('computeItemAreaSquareMeters', () => {
   it('adds the four sides of a convex grille', () => {
@@ -115,54 +111,6 @@ describe('normalizeUzbekPhone', () => {
   it('rejects anything that is not an Uzbek number', () => {
     expect(normalizeUzbekPhone('12345')).toBeNull();
     expect(normalizeUzbekPhone('')).toBeNull();
-  });
-});
-
-describe('resolvePriceListEntry', () => {
-  const entry = (overrides: Partial<PriceListEntry>): PriceListEntry => ({
-    designId: null,
-    metal: 'ROD',
-    metalSize: null,
-    pricePerSquareMeter: 180_000,
-    costPerSquareMeter: 90_000,
-    ...overrides,
-  });
-
-  it('prefers the entry for the exact design', () => {
-    const generic = entry({});
-    const specific = entry({
-      designId: 'design-1',
-      pricePerSquareMeter: 260_000,
-    });
-
-    expect(
-      resolvePriceListEntry([generic, specific], {
-        designId: 'design-1',
-        metal: 'ROD',
-        metalSize: 'SIZE_10',
-      }),
-    ).toBe(specific);
-  });
-
-  it('falls back to the metal-only entry', () => {
-    const generic = entry({});
-
-    expect(
-      resolvePriceListEntry([generic], {
-        designId: 'design-2',
-        metal: 'ROD',
-        metalSize: null,
-      }),
-    ).toBe(generic);
-  });
-
-  it('never matches another metal or another design', () => {
-    expect(
-      resolvePriceListEntry(
-        [entry({ metal: 'PROFILE' }), entry({ designId: 'design-1' })],
-        { designId: 'design-2', metal: 'ROD', metalSize: null },
-      ),
-    ).toBeNull();
   });
 });
 

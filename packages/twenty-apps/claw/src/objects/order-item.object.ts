@@ -6,10 +6,6 @@ import {
   RelationType,
 } from 'twenty-sdk/define';
 
-import {
-  METAL_OPTIONS,
-  METAL_SIZE_OPTIONS,
-} from 'src/constants/select-options';
 import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -54,24 +50,6 @@ export default defineObject({
       label: 'Размер',
       icon: 'IconAbc',
       isNullable: true,
-    },
-    {
-      universalIdentifier: IDS.orderItem.metal,
-      type: FieldType.SELECT,
-      name: 'metal',
-      label: 'Металл',
-      icon: 'IconBarbell',
-      isNullable: true,
-      options: METAL_OPTIONS,
-    },
-    {
-      universalIdentifier: IDS.orderItem.metalSize,
-      type: FieldType.SELECT,
-      name: 'metalSize',
-      label: 'Размер металла',
-      icon: 'IconRuler2',
-      isNullable: true,
-      options: METAL_SIZE_OPTIONS,
     },
     centimeters(IDS.orderItem.widthCm, 'widthCm', 'Ширина, см'),
     centimeters(IDS.orderItem.heightCm, 'heightCm', 'Высота, см'),

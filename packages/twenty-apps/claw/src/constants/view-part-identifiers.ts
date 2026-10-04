@@ -120,8 +120,8 @@ export const VIEW_PART_IDS = {
     totalsWidget: '70e74600-882e-4a4e-8a7b-a9f2751bca41',
     itemsTableFields: {
       design: '37b447eb-5e5b-46df-9ef3-e3812ec26532',
-      metal: '4027a655-03f9-4ddd-9699-6831367dc9b6',
-      metalSize: '3622dc6b-70a1-4564-b3e6-96ded77818b8',
+      metal: '4027a655-03f9-4ddd-9699-6831367dc9b6', // Retired: the metal comes from the grille; ids are never reused.
+      metalSize: '3622dc6b-70a1-4564-b3e6-96ded77818b8', // Retired: the metal size is part of the grille; ids are never reused.
       widthCm: 'aec1fe3f-dc7b-4463-8f87-201ac49898fe',
       heightCm: '55a911d8-1f27-49e9-8e72-4f41ebad1c90',
       projectionCm: '848c2014-c1fa-48a8-89fa-bc206599a113',
@@ -269,7 +269,7 @@ export const VIEW_PART_IDS = {
       name: '071fefa5-3c6d-401d-8ff4-df94175a0028',
       material: '761c4177-60cb-4f73-bcae-791081d42620',
       quantityPerUnit: 'ceb7379b-845b-4b4a-8dbc-e7c6cd89cb24',
-      priceListItem: '068145cd-9aaa-4602-b4e9-e2bd0c5a56b0',
+      priceListItem: '068145cd-9aaa-4602-b4e9-e2bd0c5a56b0', // Retired: composition belongs to the grille; ids are never reused.
       extraService: '90288ca2-553e-4c42-b625-ef070da61d8d',
     },
   },
