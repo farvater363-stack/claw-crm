@@ -176,6 +176,7 @@ export default defineObject({
     ),
     money(IDS.order.discount, 'discount', 'Скидка, сум'),
     money(IDS.order.total, 'total', 'Итого'),
+    money(IDS.order.paid, 'paid', 'Оплачено'),
     money(IDS.order.prepayment, 'prepayment', 'Предоплата'),
     money(IDS.order.balance, 'balance', 'Остаток'),
     money(IDS.order.costTotal, 'costTotal', 'Себестоимость'),
@@ -249,6 +250,16 @@ export default defineObject({
         IDS.orderExtraService.object,
       relationTargetFieldMetadataUniversalIdentifier:
         IDS.orderExtraService.order,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+    {
+      universalIdentifier: IDS.order.payments,
+      type: FieldType.RELATION,
+      name: 'payments',
+      label: 'Оплаты',
+      icon: 'IconCash',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.orderPayment.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.orderPayment.order,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
     {

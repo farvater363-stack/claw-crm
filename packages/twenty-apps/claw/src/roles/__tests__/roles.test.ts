@@ -271,6 +271,43 @@ describe('payments', () => {
   );
 });
 
+describe('client payments', () => {
+  const paymentPermission = (role: RoleResult) =>
+    (role.config.objectPermissions ?? []).find(
+      (permission) =>
+        permission.objectUniversalIdentifier === IDS.orderPayment.object,
+    );
+
+  it('lets the manager record, change and remove payments', () => {
+    expect(paymentPermission(managerRole)).toMatchObject({
+      canReadObjectRecords: true,
+      canUpdateObjectRecords: true,
+      canSoftDeleteObjectRecords: true,
+      canDestroyObjectRecords: false,
+    });
+  });
+
+  it('lets the measurer record and read payments, not remove them', () => {
+    expect(paymentPermission(measurerRole)).toMatchObject({
+      canReadObjectRecords: true,
+      canUpdateObjectRecords: true,
+      canSoftDeleteObjectRecords: false,
+      canDestroyObjectRecords: false,
+    });
+  });
+
+  it('gives the workshop no access to payments', () => {
+    expect(paymentPermission(workshopRole)).toBeUndefined();
+  });
+
+  it.each([managerRole, measurerRole])(
+    'keeps «Оплачено» for the recalc to write',
+    (role) => {
+      expect(readOnlyFieldIds(role)).toContain(IDS.order.paid);
+    },
+  );
+});
+
 describe('file uploads', () => {
   it.each([managerRole, measurerRole])(
     'lets roles that attach photos upload files',

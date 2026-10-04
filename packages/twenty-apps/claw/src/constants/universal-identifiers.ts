@@ -99,6 +99,8 @@ export const IDS = {
     discountKind: '1fa07676-4d5b-436e-b6ed-ce1533aa6e29',
     discountValue: 'fa1efcd7-88a6-4634-98ca-f7e42e10340f',
     discount: '2d2cef8c-c32d-45c2-959e-6fc3a1f7feb4',
+    paid: 'c7b7a733-507a-4f2a-a8a4-61a7423b9c5d',
+    payments: 'adb82e4e-7168-425b-b4a6-c97624bf0539',
     // Twenty's deterministic id for the built-in createdAt of this app's order object.
     createdAt: '187b9cd2-2f7c-55cc-ba12-5a1cbeec7bbf',
   },
@@ -140,6 +142,15 @@ export const IDS = {
     amount: '78959f73-5a65-4454-8a1e-f7d1f2fb6ca1',
     kind: 'c85d5ab4-90cd-44e4-81c1-b5576611d568',
     comment: '0402873b-1b1a-4189-8e3d-9e2e668388f5',
+  },
+  orderPayment: {
+    object: '2b534971-112d-42b7-9551-cca9c18e0e20',
+    name: '1e9cba61-fa52-415d-9844-cdd54deaffde',
+    order: 'dfdd2ec9-3009-4bb8-9f70-8ec62f7241ec',
+    amount: '210c4b35-4269-438b-85c3-440dcbaba27d',
+    method: '794454d4-5234-452b-8942-55702be471a9',
+    paidOn: '3922184d-85f9-4e49-b952-267ac6d060b7',
+    comment: 'c6567b46-bf55-4d67-81c4-1ef3cf2f612d',
   },
   material: {
     object: '22ed336d-302e-48aa-ba6b-eabc47b8f016',
@@ -223,6 +234,7 @@ export const IDS = {
     orderMaterialStatus: 'db3a3e8e-a3b3-4933-b4d0-8682679cdacf',
     dashboardPurchasePlan: 'c8875f81-bfed-4cf3-a37d-a8c66a6b4221',
     dashboardOverrun: '25cbe306-0c48-4d04-a0ed-ef8cee407fd0',
+    orderPaymentsTable: '9795c1d9-9fdb-4e6e-91a2-6da5e13c5ec6',
   },
   navigation: {
     orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: the sidebar uses allOrders; ids are never reused.
@@ -325,5 +337,10 @@ export const IDS = {
     onOrderMaterialUpdated: '63431278-566e-4865-88b5-814ecb297ed8', // Retired: orders no longer record actual consumption; ids are never reused.
     onMaterialNormDeleted: 'd220b223-1581-4478-b54a-0099b19f40a8',
     onMaterialNormRestored: '46abf261-a045-4da5-b22c-d595256f9970',
+    onOrderPaymentCreated: '580c9cde-52b6-4c18-b3e9-e96d5c836a00',
+    onOrderPaymentUpdated: '8f043aec-8eb8-4e99-aeca-0268cb5355c2',
+    onOrderPaymentDeleted: '29234af7-da1a-45ea-9962-d0e00f746ca3',
+    onOrderPaymentRestored: '4bcfbe8c-6604-4aa7-abe5-3b68209ed466',
+    onOrderPaymentDestroyed: 'f9f81c1f-cb43-4472-992b-dc1e8c087a0b',
   },
 } as const;
