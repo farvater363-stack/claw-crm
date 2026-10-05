@@ -7,56 +7,82 @@ import {
 } from 'twenty-sdk/front-component';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import { collectOrderNotes, type OrderNote } from 'src/order-notes/order-notes';
 import { PALETTE } from 'src/ui/tokens';
-
-type OpeningNote = {
-  id: string;
-  openingNumber: number;
-  label: string;
-  notes: string;
-};
 
 const PAGE_SIZE = 200;
 
-const loadOpeningNotes = async (orderId: string): Promise<OpeningNote[]> => {
-  const { orderItems } = await new CoreApiClient().query({
-    orderItems: {
-      __args: {
-        filter: { orderId: { eq: orderId } },
-        orderBy: [{ createdAt: 'AscNullsLast' }],
-        first: PAGE_SIZE,
+// A role that cannot read one of the sources still sees the rest.
+const orEmpty = <TRow,>(rows: Promise<TRow[]>): Promise<TRow[]> =>
+  rows.catch(() => []);
+
+const loadOrderNotes = async (orderId: string): Promise<OrderNote[]> => {
+  const client = new CoreApiClient();
+  const ofOrder = { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE };
+  const [{ orders, orderItems }, payments, stockMovements] = await Promise.all([
+    client.query({
+      orders: {
+        __args: { filter: { id: { eq: orderId } }, first: 1 },
+        edges: { node: { comment: true } },
       },
-      edges: {
-        node: {
-          id: true,
-          widthCm: true,
-          heightCm: true,
-          notes: true,
-          design: { name: true },
+      orderItems: {
+        __args: { ...ofOrder, orderBy: [{ createdAt: 'AscNullsLast' }] },
+        edges: {
+          node: {
+            id: true,
+            widthCm: true,
+            heightCm: true,
+            notes: true,
+            design: { name: true },
+          },
         },
       },
-    },
-  });
+    }),
+    orEmpty(
+      client
+        .query({
+          orderPayments: {
+            __args: { ...ofOrder, orderBy: [{ paidOn: 'AscNullsLast' }] },
+            edges: { node: { id: true, paidOn: true, comment: true } },
+          },
+        })
+        .then(({ orderPayments }) =>
+          (orderPayments?.edges ?? []).map(({ node }) => node),
+        ),
+    ),
+    orEmpty(
+      client
+        .query({
+          stockMovements: {
+            __args: ofOrder,
+            edges: { node: { id: true, name: true, comment: true } },
+          },
+        })
+        .then(({ stockMovements: movements }) =>
+          (movements?.edges ?? []).map(({ node }) => node),
+        ),
+    ),
+  ]);
 
-  // Numbered over all openings, so "Проём 3" matches the form and the table.
-  return (orderItems?.edges ?? []).flatMap(({ node }, index) => {
-    const notes = node.notes?.trim() ?? '';
-
-    if (notes === '') return [];
-
-    const size =
-      node.widthCm !== null && node.heightCm !== null
-        ? `${node.widthCm}×${node.heightCm}`
-        : null;
-
-    return [
-      {
-        id: node.id,
-        openingNumber: index + 1,
-        label: [node.design?.name, size].filter(Boolean).join(' · '),
-        notes,
-      },
-    ];
+  return collectOrderNotes({
+    orderComment: orders?.edges[0]?.node?.comment ?? null,
+    items: (orderItems?.edges ?? []).map(({ node }) => ({
+      id: node.id,
+      widthCm: node.widthCm ?? null,
+      heightCm: node.heightCm ?? null,
+      designName: node.design?.name ?? null,
+      notes: node.notes ?? null,
+    })),
+    payments: payments.map((payment) => ({
+      id: payment.id,
+      paidOn: payment.paidOn ?? null,
+      comment: payment.comment ?? null,
+    })),
+    stockMovements: stockMovements.map((movement) => ({
+      id: movement.id,
+      name: movement.name ?? null,
+      comment: movement.comment ?? null,
+    })),
   });
 };
 
@@ -64,14 +90,14 @@ const MeasurementNotes = () => {
   const colors = PALETTE[useColorScheme()];
   const selectedRecordIds = useSelectedRecordIds();
   const orderId = selectedRecordIds.length === 1 ? selectedRecordIds[0] : null;
-  const [openingNotes, setOpeningNotes] = useState<OpeningNote[] | null>(null);
+  const [notes, setNotes] = useState<OrderNote[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (orderId === null) return;
 
-    loadOpeningNotes(orderId)
-      .then(setOpeningNotes)
+    loadOrderNotes(orderId)
+      .then(setNotes)
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : String(error)),
       );
@@ -87,17 +113,17 @@ const MeasurementNotes = () => {
   if (loadError !== null) {
     return (
       <p role="alert" style={{ ...text, color: colors.muted, margin: 0 }}>
-        Не удалось загрузить заметки замерщика: {loadError}
+        Не удалось загрузить комментарии: {loadError}
       </p>
     );
   }
 
-  if (openingNotes === null) return null;
+  if (notes === null) return null;
 
-  if (openingNotes.length === 0) {
+  if (notes.length === 0) {
     return (
       <p style={{ ...text, color: colors.muted, margin: 0 }}>
-        Замерщик не оставил заметок по проёмам
+        Комментариев и заметок по заказу нет
       </p>
     );
   }
@@ -110,9 +136,9 @@ const MeasurementNotes = () => {
         borderRadius: '8px',
       }}
     >
-      {openingNotes.map((openingNote, index) => (
+      {notes.map((note, index) => (
         <div
-          key={openingNote.id}
+          key={note.key}
           style={{
             borderTop: index === 0 ? 'none' : `1px solid ${colors.border}`,
             display: 'flex',
@@ -122,11 +148,10 @@ const MeasurementNotes = () => {
           }}
         >
           <span style={{ color: colors.muted, minWidth: '160px' }}>
-            Проём {openingNote.openingNumber}
-            {openingNote.label !== '' && ` · ${openingNote.label}`}
+            {note.source}
           </span>
           <span style={{ flex: '1 1 200px', whiteSpace: 'pre-line' }}>
-            {openingNote.notes}
+            {note.text}
           </span>
         </div>
       ))}
@@ -137,6 +162,6 @@ const MeasurementNotes = () => {
 export default defineFrontComponent({
   universalIdentifier: IDS.measurementNotes.frontComponent,
   name: 'measurement-notes',
-  description: 'Заметки замерщика по проёмам на карточке заказа',
+  description: 'Комментарии и заметки со всего заказа на его карточке',
   component: MeasurementNotes,
 });
