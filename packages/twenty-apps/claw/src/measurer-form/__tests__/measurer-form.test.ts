@@ -54,7 +54,7 @@ const scheduled = (
 ): ScheduledOrder => ({
   id: 'order-1',
   name: '№1042',
-  clientName: 'Алишер',
+  clientName: 'Клиент 2',
   clientPhone: '+998901234567',
   district: 'CHILANZAR',
   addressLine: 'ул. Катартал, 5',
@@ -66,7 +66,7 @@ const scheduled = (
 });
 
 const draft = (overrides: Partial<MeasurementDraft>): MeasurementDraft => ({
-  clientName: 'Азиз',
+  clientName: 'Клиент 1',
   clientPhone: '90 123 45 67',
   district: 'CHILANZAR',
   addressLine: 'ул. Катартал, 5',
@@ -160,7 +160,7 @@ describe('buildMeasurementPayload', () => {
       order: {
         status: 'MEASURED',
         measurerId: 'member-1',
-        clientName: 'Азиз',
+        clientName: 'Клиент 1',
         clientPhone: '+998901234567',
         district: 'CHILANZAR',
         addressLine: 'ул. Катартал, 5',
@@ -630,18 +630,18 @@ describe('scheduled orders', () => {
 
   it('labels an order by its time in Tashkent, the client and the district', () => {
     expect(scheduledOrderLabel(scheduled(), '2026-10-05')).toBe(
-      'Сегодня 14:00 · Алишер · Чиланзарский',
+      'Сегодня 14:00 · Клиент 2 · Чиланзарский',
     );
     expect(
       scheduledOrderLabel(
         scheduled({
-          clientName: 'Нодира',
+          clientName: 'Клиент 3',
           district: null,
           measurementDate: '2026-10-06T11:30:00.000Z',
         }),
         '2026-10-05',
       ),
-    ).toBe('6 октября 16:30 · Нодира');
+    ).toBe('6 октября 16:30 · Клиент 3');
   });
 
   it('counts the day in Tashkent, not in UTC', () => {
@@ -650,7 +650,7 @@ describe('scheduled orders', () => {
         scheduled({ measurementDate: '2026-10-05T20:30:00.000Z' }),
         '2026-10-06',
       ),
-    ).toBe('Сегодня 01:30 · Алишер · Чиланзарский');
+    ).toBe('Сегодня 01:30 · Клиент 2 · Чиланзарский');
   });
 
   it('falls back to the order number when there is no client name or date', () => {
@@ -664,7 +664,7 @@ describe('scheduled orders', () => {
 
   it('fills the client block from the order', () => {
     expect(draftFromScheduledOrder(scheduled())).toEqual({
-      clientName: 'Алишер',
+      clientName: 'Клиент 2',
       clientPhone: '90 123 45 67',
       district: 'CHILANZAR',
       addressLine: 'ул. Катартал, 5',
@@ -838,7 +838,7 @@ describe('toOrderUpdateData', () => {
 
     expect(data).toMatchObject({
       status: 'MEASURED',
-      clientName: 'Азиз',
+      clientName: 'Клиент 1',
       clientPhone: '+998901234567',
       discountKind: 'PERCENT',
       discountValue: null,

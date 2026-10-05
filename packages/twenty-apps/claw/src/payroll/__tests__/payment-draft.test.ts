@@ -5,8 +5,8 @@ import { buildPaymentInput } from 'src/payroll/payment-draft';
 describe('buildPaymentInput', () => {
   const base = {
     kind: 'ADVANCE' as const,
-    masterId: 'anvar',
-    masterName: 'Анвар',
+    masterId: 'worker-1',
+    masterName: 'Работник 1',
     paidOn: '2026-10-05',
     comment: '',
   };
@@ -15,8 +15,8 @@ describe('buildPaymentInput', () => {
     expect(buildPaymentInput({ ...base, amount: '100 000' })).toEqual({
       isValid: true,
       data: {
-        name: 'Аванс · Анвар',
-        masterId: 'anvar',
+        name: 'Аванс · Работник 1',
+        masterId: 'worker-1',
         paidOn: '2026-10-05',
         amount: { amountMicros: 100_000_000_000, currencyCode: 'UZS' },
         kind: 'ADVANCE',

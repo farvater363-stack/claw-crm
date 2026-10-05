@@ -1,17 +1,13 @@
-import { roundTo } from 'src/pricing/round';
+import { type WorkerCategory } from 'src/constants/select-options';
 import { monthOf } from 'src/payroll/payroll-month';
+// Type only, as a whole statement: that module imports node:crypto, which must not reach a front component's bundle.
+import type { AccrualLine } from 'src/payroll/plan-order-accruals';
 
-export type PayrollOrder = {
+export type PayrollWorker = {
   id: string;
-  name: string;
-  masterId: string;
-  readyAt: string;
-  status: string;
-  areaSquareMeters: number | null;
-  masterPayCalculated: number | null;
-  masterPenalty: number | null;
-  masterBonus: number | null;
-  masterPayTotal: number | null;
+  name: string | null;
+  isActive: boolean;
+  categories: WorkerCategory[];
 };
 
 export type PayrollPayment = {
@@ -23,124 +19,60 @@ export type PayrollPayment = {
   comment: string | null;
 };
 
-type PayrollAmounts = {
-  squareMeters: number;
-  basePay: number;
-  penalty: number;
-  bonus: number;
+export type PayrollRow = {
+  workerId: string;
+  workerName: string;
+  categories: WorkerCategory[];
+  isActive: boolean;
   earned: number;
-  paidThisMonth: number;
   carriedOver: number;
+  paidThisMonth: number;
   owed: number;
-};
-
-export type PayrollRow = PayrollAmounts & {
-  masterId: string;
-  masterName: string;
-  orders: PayrollOrder[];
+  lines: AccrualLine[];
   payments: PayrollPayment[];
 };
 
-const sum = <TItem>(items: TItem[], pick: (item: TItem) => number | null) =>
-  items.reduce((total, item) => total + (pick(item) ?? 0), 0);
+// One amount that is not a number would turn a worker's whole balance into NaN.
+const total = (amounts: { amount: number }[]): number =>
+  amounts.reduce((sum, { amount }) => (Number.isFinite(amount) ? sum + amount : sum), 0);
 
-const EMPTY_AMOUNTS: PayrollAmounts = {
-  squareMeters: 0,
-  basePay: 0,
-  penalty: 0,
-  bonus: 0,
-  earned: 0,
-  paidThisMonth: 0,
-  carriedOver: 0,
-  owed: 0,
-};
-
-// Computed live from orders and payments, so a late correction to an old order
-// shows up in this month's carried balance instead of a stale stored total.
+// Computed live from the lines and the payments, so a correction to an old
+// order shows in this month's carried balance instead of a stale stored total.
 export const computeMonthlyPayroll = ({
   month,
-  masters,
-  orders,
+  workers,
+  accruals,
   payments,
 }: {
   month: string;
-  masters: { id: string; name: string }[];
-  orders: PayrollOrder[];
+  workers: PayrollWorker[];
+  accruals: AccrualLine[];
   payments: PayrollPayment[];
-}): { rows: PayrollRow[]; totals: PayrollAmounts } => {
-  const countedOrders = orders.filter((order) => order.status !== 'CANCELLED');
-
-  const rows = masters
-    .map((master): PayrollRow => {
-      const masterOrders = countedOrders.filter(
-        (order) => order.masterId === master.id,
-      );
-      const masterPayments = payments.filter(
-        (payment) => payment.masterId === master.id,
-      );
-      const ordersThisMonth = masterOrders.filter(
-        (order) => monthOf(order.readyAt) === month,
-      );
-      const paymentsThisMonth = masterPayments.filter(
-        (payment) => monthOf(payment.paidOn) === month,
-      );
+}): PayrollRow[] =>
+  workers
+    .map((worker): PayrollRow => {
+      const lines = accruals.filter((line) => line.workerId === worker.id);
+      const paid = payments.filter((payment) => payment.masterId === worker.id);
+      const monthLines = lines.filter((line) => monthOf(line.earnedOn) === month);
+      const monthPayments = paid.filter((payment) => monthOf(payment.paidOn) === month);
+      const earned = total(monthLines);
+      const paidThisMonth = total(monthPayments);
       const carriedOver =
-        sum(
-          masterOrders.filter((order) => monthOf(order.readyAt) < month),
-          (order) => order.masterPayTotal,
-        ) -
-        sum(
-          masterPayments.filter((payment) => monthOf(payment.paidOn) < month),
-          (payment) => payment.amount,
-        );
-      const earned = sum(ordersThisMonth, (order) => order.masterPayTotal);
-      const paidThisMonth = sum(paymentsThisMonth, (payment) => payment.amount);
+        total(lines.filter((line) => monthOf(line.earnedOn) < month)) -
+        total(paid.filter((payment) => monthOf(payment.paidOn) < month));
 
       return {
-        masterId: master.id,
-        masterName: master.name,
-        squareMeters: roundTo(
-          sum(ordersThisMonth, (order) => order.areaSquareMeters),
-          2,
-        ),
-        basePay: sum(
-          ordersThisMonth,
-          (order) =>
-            (order.masterPayCalculated ?? 0) + (order.masterPenalty ?? 0),
-        ),
-        penalty: sum(ordersThisMonth, (order) => order.masterPenalty),
-        bonus: sum(ordersThisMonth, (order) => order.masterBonus),
+        workerId: worker.id,
+        workerName: worker.name ?? '',
+        categories: worker.categories,
+        isActive: worker.isActive,
         earned,
-        paidThisMonth,
         carriedOver,
+        paidThisMonth,
         owed: carriedOver + earned - paidThisMonth,
-        orders: ordersThisMonth,
-        payments: paymentsThisMonth,
+        lines: monthLines,
+        payments: monthPayments,
       };
     })
-    .filter(
-      (row) =>
-        row.orders.length > 0 ||
-        row.payments.length > 0 ||
-        row.carriedOver !== 0,
-    )
-    .sort((left, right) =>
-      left.masterName.localeCompare(right.masterName, 'ru'),
-    );
-
-  const totals = rows.reduce<PayrollAmounts>(
-    (accumulator, row) => ({
-      squareMeters: roundTo(accumulator.squareMeters + row.squareMeters, 2),
-      basePay: accumulator.basePay + row.basePay,
-      penalty: accumulator.penalty + row.penalty,
-      bonus: accumulator.bonus + row.bonus,
-      earned: accumulator.earned + row.earned,
-      paidThisMonth: accumulator.paidThisMonth + row.paidThisMonth,
-      carriedOver: accumulator.carriedOver + row.carriedOver,
-      owed: accumulator.owed + row.owed,
-    }),
-    EMPTY_AMOUNTS,
-  );
-
-  return { rows, totals };
-};
+    .filter((row) => row.isActive || row.owed !== 0 || row.paidThisMonth !== 0)
+    .sort((left, right) => left.workerName.localeCompare(right.workerName, 'ru'));

@@ -5,7 +5,16 @@ import {
   type Page,
   test,
 } from '@playwright/test';
-import { FORCE, graphql, type Role, signIn } from './claw-helpers';
+import {
+  chooseOption,
+  destroyRecord,
+  equalTo,
+  findIds,
+  FORCE,
+  graphql,
+  type Role,
+  signIn,
+} from './claw-helpers';
 
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
 
@@ -20,10 +29,10 @@ const RATE_PER_SQUARE_METER_MICROS = 100_000_000_000;
 const EXPECTED_PAY_MICROS = 200_000_000_000;
 const ADVANCE_AMOUNT = 10_000;
 
-// Amounts render with the viewer's group separator (space, NBSP or dot).
-const OWED_BEFORE_ADVANCE = /^200\D?000 сум$/;
-const OWED_AFTER_ADVANCE = /^190\D?000 сум$/;
-const PAID_AFTER_ADVANCE = /^10\D?000 сум$/;
+// Amounts render with the viewer's group separator (space, NBSP or dot) and
+// are read inside the row header's text, after the worker's name.
+const OWED_BEFORE_ADVANCE = /200\D?000 сум/;
+const OWED_AFTER_ADVANCE = /190\D?000 сум/;
 
 test.use({ actionTimeout: 20_000 });
 
@@ -61,7 +70,7 @@ const openPageAs = async (browser: Browser, role: Role) => {
 
 const openPayroll = async (page: Page) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'ЗП за месяц' }).first().click();
+  await page.getByRole('link', { name: 'ЗП', exact: true }).first().click();
 };
 
 const findTestOrderIds = async (): Promise<string[]> => {
@@ -122,10 +131,7 @@ test.beforeAll(async () => {
     {
       data: {
         name: TEST_MASTER_NAME,
-        ratePerSquareMeter: {
-          amountMicros: RATE_PER_SQUARE_METER_MICROS,
-          currencyCode: 'UZS',
-        },
+        categories: ['MASTER'],
         penaltyPercentPerDay: 0,
         isActive: true,
       },
@@ -133,6 +139,22 @@ test.beforeAll(async () => {
   );
 
   seededMasterId = createMaster.id;
+
+  await graphql(
+    'mutation($data: PayRuleCreateInput!) { createPayRule(data: $data) { id } }',
+    {
+      data: {
+        name: 'E2E',
+        workerId: seededMasterId,
+        method: 'PER_SQUARE_METER',
+        work: 'MASTER',
+        amount: {
+          amountMicros: RATE_PER_SQUARE_METER_MICROS,
+          currencyCode: 'UZS',
+        },
+      },
+    },
+  );
 
   const { createOrder } = await graphql(
     'mutation($data: OrderCreateInput!) { createOrder(data: $data) { id } }',
@@ -163,26 +185,29 @@ test.beforeAll(async () => {
     },
   );
 
-  // Sending the order to installation stamps readyAt (today), which puts it in
-  // this month's payroll; the recalc then fills the master pay fields.
+  // Pay is earned when the order is installed: the recalc then writes the
+  // master's accrual line, dated today, which puts it in this month's payroll.
   await graphql(
     'mutation($id: UUID!, $data: OrderUpdateInput!) { updateOrder(id: $id, data: $data) { id } }',
-    { id: seededOrderId, data: { status: 'QUALITY_CHECK' } },
+    { id: seededOrderId, data: { status: 'INSTALLED' } },
   );
 
   await expect
     .poll(
       async () => {
-        const { order } = await graphql(
-          'query($id: UUID!) { order(filter: { id: { eq: $id } }) { readyAt masterPayTotal { amountMicros } } }',
-          { id: seededOrderId },
+        const { payAccruals } = await graphql(
+          'query($orderId: UUID!) { payAccruals(filter: { orderId: { eq: $orderId } }) { edges { node { amount { amountMicros } } } } }',
+          { orderId: seededOrderId },
         );
 
-        return [order?.readyAt != null, order?.masterPayTotal?.amountMicros];
+        return payAccruals.edges.map(
+          ({ node }: { node: { amount: { amountMicros: number } } }) =>
+            node.amount.amountMicros,
+        );
       },
       { timeout: 60_000 },
     )
-    .toEqual([true, EXPECTED_PAY_MICROS]);
+    .toEqual([EXPECTED_PAY_MICROS]);
 });
 
 // Every step is independent so one failure does not skip the rest.
@@ -218,6 +243,24 @@ test.afterAll(async () => {
       }
     }
   });
+
+  // Live and soft-deleted alike: a rule removed on the screen and a line the
+  // app withdrew are soft-deleted.
+  const destroyOfWorker = (plural: string, object: string) =>
+    attempt(plural, async () => {
+      if (!seededMasterId) return;
+
+      for (const id of await findIds(
+        plural,
+        equalTo('workerId', seededMasterId),
+      )) {
+        await destroyRecord(object, id, failures);
+      }
+    });
+
+  // The worker's lines go last, after the orders: destroying an order's items
+  // starts a recalc, which writes the lines again from the rates they keep.
+  await destroyOfWorker('payRules', 'PayRule');
 
   let orderIds: string[] = [];
 
@@ -263,6 +306,8 @@ test.afterAll(async () => {
     }
   });
 
+  await destroyOfWorker('payAccruals', 'PayAccrual');
+
   if (seededMasterId) {
     await attempt(`master ${seededMasterId}`, () =>
       graphql('mutation($id: UUID!) { destroyMaster(id: $id) { id } }', {
@@ -276,7 +321,7 @@ test.afterAll(async () => {
   }
 });
 
-test('admin records an advance and the master row drops by that amount', async ({
+test("the owner pays an advance and the worker's row drops by that amount", async ({
   browser,
 }) => {
   test.setTimeout(180_000);
@@ -285,20 +330,33 @@ test('admin records an advance and the master row drops by that amount', async (
 
   await openPayroll(page);
 
-  const row = page.getByRole('row').filter({ hasText: TEST_MASTER_NAME });
-  // Columns: Мастер, м², Начислено, Штраф, Премия, Итого за месяц,
-  // Выплачено, Перенос, К выплате, buttons.
-  const paidCell = row.getByRole('cell').nth(6);
-  const owedCell = row.getByRole('cell').nth(8);
+  const header = page
+    .locator('button[aria-expanded]')
+    .filter({ hasText: TEST_MASTER_NAME });
+  // The header's parent is the whole row: the header, «Выплатить» and, once
+  // open, the row's content.
+  const row = header.locator('xpath=..');
 
-  await expect(owedCell).toHaveText(OWED_BEFORE_ADVANCE, { timeout: 60_000 });
+  await expect(header).toContainText(OWED_BEFORE_ADVANCE, { timeout: 60_000 });
 
-  await row.getByRole('button', { name: 'Выдать аванс' }).click(FORCE);
-  await page.getByPlaceholder('Сумма').fill(String(ADVANCE_AMOUNT), FORCE);
-  await page.getByRole('button', { name: 'Сохранить' }).click(FORCE);
+  await row
+    .getByRole('button', { name: 'Выплатить', exact: true })
+    .click(FORCE);
 
-  await expect(owedCell).toHaveText(OWED_AFTER_ADVANCE, { timeout: 30_000 });
-  await expect(paidCell).toHaveText(PAID_AFTER_ADVANCE);
+  const amount = row.getByRole('textbox', { name: 'Сумма', exact: true });
+
+  // The form opens with what is owed.
+  await expect(amount).toHaveValue(/^200\D?000$/);
+  await amount.fill(String(ADVANCE_AMOUNT), FORCE);
+  await chooseOption(
+    row.getByRole('combobox', { name: 'Тип', exact: true }),
+    'Аванс',
+  );
+  await row
+    .getByRole('button', { name: 'Сохранить', exact: true })
+    .click(FORCE);
+
+  await expect(header).toContainText(OWED_AFTER_ADVANCE, { timeout: 30_000 });
 
   const payments = await findPaymentsOf(seededMasterId);
 
@@ -307,7 +365,7 @@ test('admin records an advance and the master row drops by that amount', async (
   expect(payments[0].amount.amountMicros).toBe(ADVANCE_AMOUNT * 1_000_000);
 });
 
-test('a manager has no «ЗП за месяц» in the sidebar', async ({ browser }) => {
+test('a manager has no «ЗП» in the sidebar', async ({ browser }) => {
   test.setTimeout(120_000);
 
   const page = await openPageAs(browser, 'MANAGER');
@@ -318,5 +376,7 @@ test('a manager has no «ЗП за месяц» in the sidebar', async ({ browse
   await expect(
     page.getByRole('link', { name: 'Новый замер' }).first(),
   ).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole('link', { name: 'ЗП за месяц' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'ЗП', exact: true })).toHaveCount(
+    0,
+  );
 });

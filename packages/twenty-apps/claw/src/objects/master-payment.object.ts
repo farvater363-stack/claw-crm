@@ -64,7 +64,7 @@ export default defineObject({
       universalIdentifier: masterPayment.master,
       type: FieldType.RELATION,
       name: 'master',
-      label: 'Мастер',
+      label: 'Работник',
       icon: 'IconHammer',
       relationTargetObjectMetadataUniversalIdentifier: IDS.master.object,
       relationTargetFieldMetadataUniversalIdentifier: IDS.master.payments,

@@ -7,7 +7,7 @@ import { IDS } from 'src/constants/universal-identifiers';
 
 export default defineNavigationMenuItem({
   universalIdentifier: IDS.navigation.payroll,
-  name: 'ЗП за месяц',
+  name: 'ЗП',
   icon: 'IconCash',
   position: 4,
   type: NavigationMenuItemType.PAGE_LAYOUT,

@@ -4,6 +4,11 @@
     "composite": true,
     "types": ["vitest/globals", "node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "scripts/*.move.ts",
+    "vitest.move.config.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

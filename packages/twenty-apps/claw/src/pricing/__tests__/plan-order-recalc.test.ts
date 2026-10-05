@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type ExtraServiceLineSnapshot,
   type ItemSnapshot,
+  type MasterSnapshot,
   type OrderSnapshot,
   planOrderRecalc,
   type RecalcInput,
@@ -63,6 +64,24 @@ const serviceLine = (
   ...overrides,
 });
 
+const paidPerSquareMeter = (
+  rate: number,
+  penaltyPercentPerDay: number,
+): MasterSnapshot => ({
+  penaltyPercentPerDay,
+  rules: [
+    {
+      id: 'rule',
+      workerId: 'master',
+      method: 'PER_SQUARE_METER',
+      work: 'MASTER',
+      amount: rate,
+      percent: null,
+    },
+  ],
+  keptRates: [],
+});
+
 const input = (overrides: Partial<RecalcInput> = {}): RecalcInput => ({
   order: emptyOrder,
   items: [item()],
@@ -102,7 +121,7 @@ const input = (overrides: Partial<RecalcInput> = {}): RecalcInput => ({
       costPerSquareMeter: 90_000,
     },
   ],
-  master: { ratePerSquareMeter: 10_000, penaltyPercentPerDay: 4 },
+  master: paidPerSquareMeter(10_000, 4),
   paymentsTotal: 0,
   today: '2026-10-01',
   refreshPriceItemIds: [],
@@ -329,13 +348,79 @@ describe('planOrderRecalc', () => {
           installationDeadline: '2026-09-20',
           readyAt: '2026-09-23',
         },
-        master: { ratePerSquareMeter: 10_000, penaltyPercentPerDay: 4 },
+        master: paidPerSquareMeter(10_000, 4),
       }),
     );
 
     expect(plan.orderUpdate.daysLate).toBe(3);
     expect(plan.orderUpdate.masterPayCalculated).toBe(88_000);
     expect(plan.orderUpdate.masterPenalty).toBe(12_000);
+  });
+
+  it('pays the master by all his rules for the master work', () => {
+    const master = paidPerSquareMeter(10_000, 0);
+    const plan = planOrderRecalc(
+      input({
+        items: [],
+        order: { ...emptyOrder, areaSquareMeters: 10 },
+        master: {
+          ...master,
+          rules: [
+            ...master.rules,
+            {
+              id: 'per-order',
+              workerId: 'master',
+              method: 'PER_ORDER',
+              work: 'MASTER',
+              amount: 50_000,
+              percent: null,
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({
+      masterPayCalculated: 150_000,
+      masterPenalty: 0,
+      masterPayTotal: 150_000,
+    });
+  });
+
+  it('keeps the rates written on the accrual lines of an installed order', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [],
+        order: { ...emptyOrder, areaSquareMeters: 10 },
+        master: {
+          ...paidPerSquareMeter(10_000, 0),
+          keptRates: [{ method: 'PER_SQUARE_METER', rate: 8_000 }],
+        },
+      }),
+    );
+
+    expect(plan.orderUpdate.masterPayCalculated).toBe(80_000);
+  });
+
+  it('settles the pay of a master whose rule has no amount', () => {
+    const master: MasterSnapshot = {
+      penaltyPercentPerDay: 4,
+      rules: [{ ...paidPerSquareMeter(0, 4).rules[0], amount: null }],
+      keptRates: [],
+    };
+    const order = { ...emptyOrder, areaSquareMeters: 10 };
+    const first = planOrderRecalc(input({ items: [], order, master }));
+
+    expect(first.orderUpdate).toMatchObject({
+      masterPayCalculated: 0,
+      masterPenalty: 0,
+      masterPayTotal: 0,
+    });
+    expect(
+      planOrderRecalc(
+        input({ items: [], order: { ...order, ...first.orderUpdate }, master }),
+      ).orderUpdate,
+    ).toEqual({});
   });
 
   it('has no penalty without a master', () => {

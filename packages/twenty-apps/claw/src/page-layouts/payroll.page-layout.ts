@@ -4,19 +4,19 @@ import { IDS } from 'src/constants/universal-identifiers';
 
 export default definePageLayout({
   universalIdentifier: IDS.payroll.pageLayout,
-  name: 'ЗП за месяц',
+  name: 'ЗП',
   type: 'STANDALONE_PAGE',
   tabs: [
     {
       universalIdentifier: IDS.payroll.pageLayoutTab,
-      title: 'ЗП за месяц',
+      title: 'ЗП',
       position: 0,
       icon: 'IconCash',
       layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
       widgets: [
         {
           universalIdentifier: IDS.payroll.pageLayoutWidget,
-          title: 'ЗП за месяц',
+          title: 'ЗП',
           type: 'FRONT_COMPONENT',
           position: {
             layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,

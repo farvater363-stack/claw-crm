@@ -2,10 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
 import {
-  computeMasterBasePay,
-  computeMasterPay,
-} from 'src/pricing/compute-master-pay';
-import {
   addDays,
   computeDaysLate,
   measuredAtOnStatusChange,
@@ -64,41 +60,6 @@ describe('dates', () => {
     expect(todayInTashkent(new Date('2026-06-24T20:30:00Z'))).toBe(
       '2026-06-25',
     );
-  });
-});
-
-describe('computeMasterPay', () => {
-  it('pays area times rate when on time', () => {
-    expect(
-      computeMasterPay({
-        areaSquareMeters: 10,
-        ratePerSquareMeter: 10_000,
-        penaltyPercentPerDay: 4,
-        daysLate: 0,
-      }),
-    ).toBe(100_000);
-  });
-
-  it('removes 4% per late day', () => {
-    expect(
-      computeMasterPay({
-        areaSquareMeters: 10,
-        ratePerSquareMeter: 10_000,
-        penaltyPercentPerDay: 4,
-        daysLate: 3,
-      }),
-    ).toBe(88_000);
-  });
-
-  it('never goes below zero', () => {
-    expect(
-      computeMasterPay({
-        areaSquareMeters: 10,
-        ratePerSquareMeter: 10_000,
-        penaltyPercentPerDay: 4,
-        daysLate: 25,
-      }),
-    ).toBe(0);
   });
 });
 
@@ -177,15 +138,4 @@ describe('measuredAtOnStatusChange', () => {
       ).toBeNull();
     },
   );
-});
-
-describe('computeMasterBasePay', () => {
-  it('is area times rate, rounded like the pay', () => {
-    expect(
-      computeMasterBasePay({
-        areaSquareMeters: 3.84,
-        ratePerSquareMeter: 10_000,
-      }),
-    ).toBe(38_400);
-  });
 });
