@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 
 // Move scripts change data on the server named by TWENTY_API_URL. There is no
 // globalSetup on purpose: the integration setup syncs the app to that server,
-// which is an apply. Always name the script to run; the folder holds several.
+// which is an apply. Always name the script to run.
 export default defineConfig({
   plugins: [
     tsconfigPaths({

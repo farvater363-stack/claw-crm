@@ -367,11 +367,9 @@ test('«Назначить замер» asks for the measurer and the time and s
   });
 });
 
-// The header leaves the order's id in sessionStorage and opens the form. If
-// this hand-over does not work on the platform, the header says «Откройте
-// «Новый замер» в меню и выберите этот заказ.» and the form opens with nothing
-// chosen: mark this case test.fixme with that reason; the next case, which
-// chooses the order in the form, still holds.
+// The header leaves the order's id in sessionStorage and opens the form, which
+// reads it once. The next case chooses the order in the form itself, so the
+// form's own path holds even where this hand-over does not.
 test('«Замер сделан» opens «Новый замер» with this order chosen', async ({
   page,
 }) => {

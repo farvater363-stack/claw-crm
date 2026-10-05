@@ -6,6 +6,7 @@ import { appDevOnce } from 'twenty-sdk/cli';
 
 const APP_PATH = process.cwd();
 const CONFIG_DIR = path.join(os.homedir(), '.twenty');
+const LOCAL_API_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 
 function validateEnv(): { apiUrl: string; apiKey: string } {
   const apiUrl = process.env.TWENTY_API_URL;
@@ -16,6 +17,14 @@ function validateEnv(): { apiUrl: string; apiKey: string } {
       'TWENTY_API_URL and TWENTY_API_KEY must be set.\n' +
         'Start a local server: yarn twenty docker:start\n' +
         'Or set them in vitest env config.',
+    );
+  }
+
+  // The setup syncs the working tree to this server, and the tests destroy
+  // what they created: both are writes no other server should ever receive.
+  if (!LOCAL_API_HOSTS.includes(new URL(apiUrl).hostname)) {
+    throw new Error(
+      `Refusing to run integration tests against ${apiUrl}: they apply the app and delete records, so they run only against a local server (localhost, 127.0.0.1 or [::1]).`,
     );
   }
 
