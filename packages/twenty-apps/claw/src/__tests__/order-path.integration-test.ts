@@ -6,7 +6,24 @@ import { planFixedAccruals } from 'src/payroll/plan-fixed-accruals';
 import { todayInTashkent } from 'src/pricing/dates';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
 
-const client = new CoreApiClient();
+// The key allows 100 requests a minute, and the waits below read in a loop:
+// every request of this file goes out one at a time, each after a pause.
+const REQUEST_PAUSE = 700;
+let lastRequest: Promise<unknown> = Promise.resolve();
+
+const pacedFetch = (...request: Parameters<typeof fetch>) => {
+  const result = lastRequest
+    .then(
+      () => new Promise((resolve) => setTimeout(resolve, REQUEST_PAUSE)),
+    )
+    .then(() => fetch(...request));
+
+  lastRequest = result.catch(() => undefined);
+
+  return result;
+};
+
+const client = new CoreApiClient({ fetch: pacedFetch });
 
 // Synthetic. One position of 100 × 100 cm, 2 pieces, is 2 m².
 const PRICE_PER_SQUARE_METER = 100_000;
