@@ -1,4 +1,9 @@
-import { defineRole, FieldType, RelationType } from 'twenty-sdk/define';
+import {
+  defineRole,
+  FieldType,
+  RelationType,
+  SystemPermissionFlag,
+} from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
 import orderObject from 'src/objects/order.object';
@@ -125,4 +130,7 @@ export default defineRole({
       canUpdateFieldValue: false,
     },
   ],
+  // The workshop photographs a finished order before it leaves; without it
+  // every upload is rejected.
+  permissionFlagUniversalIdentifiers: [SystemPermissionFlag.UPLOAD_FILE],
 });

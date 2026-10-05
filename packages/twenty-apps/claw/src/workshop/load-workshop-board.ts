@@ -5,6 +5,7 @@ import {
   DISTRICT_OPTIONS,
   materialUnitLabel,
   METAL_OPTIONS,
+  type OrderStatus,
   PRODUCTION_STAGE_OPTIONS,
   type ProductionStage,
 } from 'src/constants/select-options';
@@ -242,7 +243,10 @@ export const loadWorkshopOrders = async (
 const updateInProduction = async (
   client: CoreApiClient,
   orderId: string,
-  data: { status: string } | { productionStage: ProductionStage | null },
+  data:
+    | { status: OrderStatus }
+    | { productionStage: ProductionStage | null }
+    | { finishedPhotos: FinishedPhoto[] },
 ): Promise<'saved' | 'moved'> => {
   const { updateOrders } = await client.mutation({
     updateOrders: {
@@ -277,3 +281,50 @@ export const setStage = (
   stage: ProductionStage | null,
 ): Promise<'saved' | 'moved'> =>
   updateInProduction(client, orderId, { productionStage: stage });
+
+export type FinishedPhoto = { fileId: string; label: string };
+
+// The field is written as a whole list, so the photos already on the order
+// are read just before the write: one a manager added since the last reload
+// is kept.
+export const addFinishedPhotos = async (
+  client: CoreApiClient,
+  orderId: string,
+  photos: FinishedPhoto[],
+): Promise<'saved' | 'moved'> => {
+  const { orders } = await client.query({
+    orders: {
+      __args: {
+        first: 1,
+        filter: {
+          id: { eq: orderId },
+          status: { eq: STEP_STATUS.production },
+        },
+      },
+      edges: { node: { finishedPhotos: { fileId: true, label: true } } },
+    },
+  });
+  const order = orders?.edges[0]?.node;
+
+  if (order === undefined) return 'moved';
+
+  const kept = (order.finishedPhotos ?? []).flatMap((photo) =>
+    typeof photo?.fileId === 'string'
+      ? [{ fileId: photo.fileId, label: photo.label ?? '' }]
+      : [],
+  );
+
+  return updateInProduction(client, orderId, {
+    finishedPhotos: [...kept, ...photos],
+  });
+};
+
+export const buildFinishedPhotoLabel = (
+  orderName: string,
+  photoNumber: number,
+  fileName: string,
+): string => {
+  const extension = /\.[a-z0-9]+$/i.exec(fileName)?.[0].toLowerCase() ?? '';
+
+  return `Готово ${orderName}, фото ${photoNumber}${extension}`;
+};

@@ -507,7 +507,7 @@ describe('client payments', () => {
 });
 
 describe('file uploads', () => {
-  it.each([managerRole, measurerRole])(
+  it.each([managerRole, measurerRole, workshopRole])(
     'lets roles that attach photos upload files',
     (role) => {
       expect(role.config.permissionFlagUniversalIdentifiers).toContain(
@@ -522,9 +522,9 @@ describe('file uploads', () => {
     );
   });
 
-  it('keeps the workshop login from uploading', () => {
-    expect(
-      workshopRole.config.permissionFlagUniversalIdentifiers ?? [],
-    ).not.toContain(SystemPermissionFlag.UPLOAD_FILE);
+  it('keeps downloads from the workshop login', () => {
+    expect(workshopRole.config.permissionFlagUniversalIdentifiers).toEqual([
+      SystemPermissionFlag.UPLOAD_FILE,
+    ]);
   });
 });

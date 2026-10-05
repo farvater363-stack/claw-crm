@@ -2,6 +2,8 @@ import { type CoreApiClient } from 'twenty-client-sdk/core';
 import { describe, expect, it } from 'vitest';
 
 import {
+  addFinishedPhotos,
+  buildFinishedPhotoLabel,
   loadWorkshopOrders,
   markReady,
   setStage,
@@ -358,5 +360,63 @@ describe('setStage', () => {
     const { client } = fakeClient(ORDERS, []);
 
     expect(await setStage(client, 'order-1', 'PAINTING')).toBe('moved');
+  });
+});
+
+describe('addFinishedPhotos', () => {
+  const NEW_PHOTO = { fileId: 'file-new', label: 'Готово №1042, фото 2.jpg' };
+
+  it('keeps the photos already on the order and adds the new ones', async () => {
+    const { client, queries, mutations } = fakeClient([
+      {
+        finishedPhotos: [
+          { fileId: 'file-old', label: 'Старое.jpg' },
+          { fileId: null, label: 'broken' },
+        ],
+      },
+    ]);
+
+    expect(await addFinishedPhotos(client, 'order-1', [NEW_PHOTO])).toBe(
+      'saved',
+    );
+    expect(queries[0]?.orders.__args).toMatchObject({
+      filter: { id: { eq: 'order-1' }, status: { eq: 'PRODUCTION' } },
+    });
+    expect(mutations).toEqual([
+      {
+        updateOrders: {
+          __args: {
+            filter: { id: { eq: 'order-1' }, status: { eq: 'PRODUCTION' } },
+            data: {
+              finishedPhotos: [
+                { fileId: 'file-old', label: 'Старое.jpg' },
+                NEW_PHOTO,
+              ],
+            },
+          },
+          id: true,
+        },
+      },
+    ]);
+  });
+
+  it('writes nothing to an order that has left production', async () => {
+    const { client, mutations } = fakeClient([]);
+
+    expect(await addFinishedPhotos(client, 'order-1', [NEW_PHOTO])).toBe(
+      'moved',
+    );
+    expect(mutations).toEqual([]);
+  });
+});
+
+describe('buildFinishedPhotoLabel', () => {
+  it('names the photo after the order, keeping the file type', () => {
+    expect(buildFinishedPhotoLabel('№1042', 3, 'IMG_0042.JPG')).toBe(
+      'Готово №1042, фото 3.jpg',
+    );
+    expect(buildFinishedPhotoLabel('№1042', 1, 'image')).toBe(
+      'Готово №1042, фото 1',
+    );
   });
 });
