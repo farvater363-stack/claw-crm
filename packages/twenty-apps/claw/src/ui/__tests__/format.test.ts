@@ -31,7 +31,9 @@ describe('format', () => {
 describe('groupThousands', () => {
   it('groups a typed sum and leaves anything else as typed', () => {
     expect(groupThousands('1250000')).toBe('1,250,000');
-    expect(groupThousands('1,2500')).toBe('12,500');
+    expect(groupThousands('1,250,000')).toBe('1,250,000');
+    expect(groupThousands('12,5')).toBe('12,5');
+    expect(groupThousands('1,2500')).toBe('1,2500');
     expect(groupThousands('1 250 000')).toBe('1,250,000');
     expect(groupThousands('999')).toBe('999');
     expect(groupThousands('')).toBe('');

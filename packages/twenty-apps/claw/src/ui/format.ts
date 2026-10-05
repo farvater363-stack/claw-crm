@@ -17,10 +17,10 @@ export const formatDayMonth = (isoDate: string): string =>
 export const formatWhole = (value: number): string =>
   value.toLocaleString('en-US', { maximumFractionDigits: 0 });
 
-// Regroups a typed sum. Anything that is not plain digits is left as typed,
-// for the field's own check to refuse.
+// Groups a sum typed as plain digits. Anything else is left as typed, for the
+// field's own check: «12,5» must be refused, not read as 125.
 export const groupThousands = (typed: string): string => {
-  const digits = typed.replace(/[\s,]/g, '');
+  const digits = typed.replace(/\s/g, '');
 
   return /^[1-9]\d{0,14}$/.test(digits) ? formatWhole(Number(digits)) : typed;
 };
