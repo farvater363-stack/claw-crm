@@ -565,17 +565,10 @@ test('the header takes the order to «Установлен» and accepts a payme
     ]);
   });
 
-  await test.step('«Отправить на установку» takes an installer', async () => {
+  await test.step('«Отправить на установку» goes on without an installer', async () => {
     const step = headerButton(page, 'Отправить на установку');
 
     await expect(step).toBeVisible({ timeout: 30_000 });
-    await step.click(FORCE);
-    await expect(
-      page.getByRole('alert').filter({ hasText: 'Выберите установщика' }),
-    ).toBeVisible();
-    expect((await readOrder(orderId)).status).toBe('PRODUCTION');
-
-    await chooseValue(headerSelect(page, 'Установщик'), installerId);
     await step.click(FORCE);
 
     await expect
@@ -584,24 +577,29 @@ test('the header takes the order to «Установлен» and accepts a payme
 
         return [order.status, order.installerId, order.readyAt !== null];
       }, POLL)
-      .toEqual(['QUALITY_CHECK', installerId, true]);
+      .toEqual(['QUALITY_CHECK', null, true]);
   });
 
-  await test.step('«Установлен» is the last step', async () => {
+  await test.step('«Установлен» takes an installer and is the last step', async () => {
     const installed = headerButton(page, 'Установлен');
 
     await expect(installed).toBeVisible({ timeout: 30_000 });
-    // The installer is chosen, so nothing is asked.
-    await expect(headerSelect(page, 'Установщик')).toHaveCount(0);
+    await installed.click(FORCE);
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Выберите установщика' }),
+    ).toBeVisible();
+    expect((await readOrder(orderId)).status).toBe('QUALITY_CHECK');
+
+    await chooseValue(headerSelect(page, 'Установщик'), installerId);
     await installed.click(FORCE);
 
     await expect
       .poll(async () => {
         const order = await readOrder(orderId);
 
-        return [order.status, order.installedAt !== null];
+        return [order.status, order.installerId, order.installedAt !== null];
       }, POLL)
-      .toEqual(['INSTALLED', true]);
+      .toEqual(['INSTALLED', installerId, true]);
 
     // No step is left, and the unpaid rest stays in sight.
     await expect(installed).toHaveCount(0, { timeout: 30_000 });
