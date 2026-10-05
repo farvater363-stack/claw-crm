@@ -6,7 +6,12 @@ import {
   test,
 } from '@playwright/test';
 import { LoginPage } from '../../lib/pom/loginPage';
-import { graphql, requireEnv, type Role } from './claw-helpers';
+import {
+  graphql,
+  openOrderFields,
+  requireEnv,
+  type Role,
+} from './claw-helpers';
 
 const API_URL = process.env.CLAW_API_URL ?? 'http://localhost:3000';
 const TABLET_VIEWPORT = { width: 820, height: 1180 };
@@ -116,21 +121,6 @@ const readFieldValue = async (page: Page, label: string) => {
   const labelIndex = lines.indexOf(label);
 
   return labelIndex === -1 ? null : (lines[labelIndex + 1] ?? null);
-};
-
-// The fields of the card: a tab of their own on a narrow screen, the pinned
-// left column on a wide one.
-const openOrderFields = async (page: Page) => {
-  await expect(page.getByText(/^Заказ №\d{4}$/).first()).toBeVisible({
-    timeout: 60_000,
-  });
-
-  const fieldsTab = page
-    .getByRole('tab', { name: 'Заказ', exact: true })
-    .or(page.getByRole('link', { name: 'Заказ', exact: true }))
-    .first();
-
-  if (await fieldsTab.isVisible()) await fieldsTab.click();
 };
 
 const createdOrderIds: string[] = [];

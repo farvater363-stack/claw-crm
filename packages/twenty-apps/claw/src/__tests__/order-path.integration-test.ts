@@ -1,5 +1,5 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type PayRule } from 'src/payroll/pay-rules';
 import { planFixedAccruals } from 'src/payroll/plan-fixed-accruals';
@@ -21,7 +21,15 @@ const SALES_PERCENT = 3;
 const MEASUREMENT_PAY = 50_000;
 const FIXED_PAY = 2_000_000;
 
-const created: { mutation: string; id: string }[] = [];
+// No real row starts with this, so every row that does is this file's own:
+// the cleanup finds its rows by it, and so does the next run after a run that
+// was killed or whose cleanup was refused.
+const PREFIX = 'Интеграция путь';
+const OWN_NAME = { like: `${PREFIX} %` };
+
+// The key allows 100 requests a minute and the cases spend most of them.
+const DESTROY_PAUSE = 1_000;
+
 let orderId = '';
 let materialId = '';
 let masterId = '';
@@ -29,9 +37,15 @@ let installerId = '';
 let sellerId = '';
 let measurerWorkerId = '';
 let fixedWorkerId = '';
-// A member no worker is linked to, so the measurement line can have one owner
-// only. Null when every member is already somebody's login.
+// A measurement is paid to the worker whose login is the order's measurer.
+// The test needs a member who is nobody's login yet: linking a second worker
+// to a taken one would leave the line with two possible owners. Null when
+// every member is already somebody's login.
 let freeMemberId: string | null = null;
+let accrualsAtMeasured: Awaited<ReturnType<typeof readState>>['accruals'] = [];
+
+const sleep = (milliseconds: number) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const waitFor = async <TValue>(
   read: () => Promise<TValue>,
@@ -42,16 +56,14 @@ const waitFor = async <TValue>(
 
     if (isDone(value)) return value;
 
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await sleep(1_000);
   }
 
   throw new Error('Timed out waiting for the order to settle');
 };
 
-const remember = (mutation: string, id: string | undefined) => {
+const idOf = (mutation: string, id: string | undefined) => {
   if (id === undefined) throw new Error(`${mutation}: create returned no id`);
-
-  created.push({ mutation, id });
 
   return id;
 };
@@ -59,23 +71,25 @@ const remember = (mutation: string, id: string | undefined) => {
 const createWorker = async (name: string, data: Record<string, unknown>) => {
   const { createMaster } = await client.mutation({
     createMaster: {
-      __args: { data: { name, isActive: true, ...data } },
+      __args: {
+        data: { name: `${PREFIX} ${name}`, isActive: true, ...data },
+      },
       id: true,
     },
   });
 
-  return remember('destroyMaster', createMaster?.id);
+  return idOf('createMaster', createMaster?.id);
 };
 
 const createRule = async (data: Record<string, unknown>) => {
   const { createPayRule } = await client.mutation({
     createPayRule: {
-      __args: { data: { name: 'Правило пути (тест)', ...data } },
+      __args: { data: { name: `${PREFIX} правило`, ...data } },
       id: true,
     },
   });
 
-  return remember('destroyPayRule', createPayRule?.id);
+  return idOf('createPayRule', createPayRule?.id);
 };
 
 const updateOrder = (data: Record<string, unknown>) =>
@@ -172,79 +186,247 @@ const measurementLine = () =>
         },
       ];
 
-describe('the order path', () => {
-  // The suite runs against a real workspace; one failed destroy must not stop the rest.
-  afterAll(async () => {
-    const system: { mutation: string; id: string }[] = [];
-    const idsOf = (
-      page: { edges?: { node: { id: string } }[] } | undefined,
-      mutation: string,
-    ) => (page?.edges ?? []).map(({ node }) => ({ mutation, id: node.id }));
+// The functions that follow a write run after it and nothing says when the
+// last one has ended: a state read the same three times, two seconds apart,
+// is taken as settled.
+const waitUntilSettled = async () => {
+  let previous = '';
+  let equalReads = 0;
 
-    // A run that failed before creating the order has no system records to find.
-    if (orderId !== '') {
-      // Soft-deleted first: the functions started by the destroys below stop
-      // when they do not find the order, so none writes a line or an accrual back.
-      try {
-        await client.mutation({
-          deleteOrder: { __args: { id: orderId }, id: true },
-        });
-      } catch (error) {
-        console.error('cleanup: deleting the order failed', error);
-      }
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const state = await readState();
+    const serialized = JSON.stringify(state);
 
-      try {
-        const { payAccruals, stockMovements, orderMaterials } =
-          await client.query({
-            payAccruals: {
-              __args: { filter: { orderId: { eq: orderId } }, first: 20 },
-              edges: { node: { id: true } },
-            },
-            stockMovements: {
-              __args: { filter: { orderId: { eq: orderId } }, first: 10 },
-              edges: { node: { id: true } },
-            },
-            orderMaterials: {
-              __args: { filter: { orderId: { eq: orderId } }, first: 10 },
-              edges: { node: { id: true } },
-            },
-          });
+    equalReads = serialized === previous ? equalReads + 1 : 1;
 
-        system.push(
-          ...idsOf(payAccruals, 'destroyPayAccrual'),
-          ...idsOf(stockMovements, 'destroyStockMovement'),
-          ...idsOf(orderMaterials, 'destroyOrderMaterial'),
-        );
-      } catch (error) {
-        console.error('cleanup: loading system records failed', error);
-      }
+    if (equalReads === 3) return state;
+
+    previous = serialized;
+    await sleep(2_000);
+  }
+
+  throw new Error('The order did not settle');
+};
+
+type IdPage = { edges?: { node: { id: string } }[] } | null | undefined;
+
+const idsOf = (page: IdPage) => (page?.edges ?? []).map(({ node }) => node.id);
+
+// A row removed by the app or by a cleanup that stopped halfway is
+// soft-deleted, and a plain query skips it.
+const DELETED_STATES = ['NULL', 'NOT_NULL'] as const;
+
+// Destroys every row named with the prefix and what hangs on those rows.
+// A refused request is recorded and the rest goes on.
+const removeOwnRows = async (): Promise<{
+  found: number;
+  failures: string[];
+}> => {
+  const failures: string[] = [];
+  const orderIds: string[] = [];
+  const workerIds: string[] = [];
+  const linkedWorkerIds: string[] = [];
+  const materialIds: string[] = [];
+  const designIds: string[] = [];
+  // In the order of destruction; a line of an order is also a line of its
+  // worker or its material, so a row can be found twice.
+  const children = new Map<string, string>();
+  const addChildren = (mutation: string, page: IdPage) => {
+    for (const id of idsOf(page)) children.set(id, mutation);
+  };
+  const attempt = async (label: string, request: () => Promise<unknown>) => {
+    try {
+      await request();
+    } catch (error) {
+      failures.push(`${label}: ${String(error)}`);
     }
+  };
 
-    if (fixedWorkerId !== '') {
-      try {
-        const { payAccruals } = await client.query({
+  for (const is of DELETED_STATES) {
+    const deletedAt = { is };
+
+    await attempt(`find rows (deletedAt ${is})`, async () => {
+      const { orders, masters, materials, designs } = await client.query({
+        orders: {
+          __args: { filter: { clientName: OWN_NAME, deletedAt }, first: 50 },
+          edges: { node: { id: true } },
+        },
+        masters: {
+          __args: { filter: { name: OWN_NAME, deletedAt }, first: 50 },
+          edges: { node: { id: true, loginId: true } },
+        },
+        materials: {
+          __args: { filter: { name: OWN_NAME, deletedAt }, first: 50 },
+          edges: { node: { id: true } },
+        },
+        designs: {
+          __args: { filter: { name: OWN_NAME, deletedAt }, first: 50 },
+          edges: { node: { id: true } },
+        },
+      });
+
+      orderIds.push(...idsOf(orders));
+      workerIds.push(...idsOf(masters));
+      materialIds.push(...idsOf(materials));
+      designIds.push(...idsOf(designs));
+
+      if (is === 'NULL') {
+        linkedWorkerIds.push(
+          ...(masters?.edges ?? [])
+            .filter(({ node }) => node.loginId !== null)
+            .map(({ node }) => node.id),
+        );
+      }
+    });
+  }
+
+  const found =
+    orderIds.length + workerIds.length + materialIds.length + designIds.length;
+
+  if (found === 0) return { found, failures };
+
+  // First of all: a worker left linked would keep the member taken, and every
+  // later run would find nobody free to be its measurer.
+  for (const id of linkedWorkerIds) {
+    await attempt(`unlink the login of worker ${id}`, () =>
+      client.mutation({
+        updateMaster: { __args: { id, data: { loginId: null } }, id: true },
+      }),
+    );
+  }
+
+  // Soft-deleted before its rows go: the functions started by the destroys
+  // below stop when they do not find the order, so none writes a line or an
+  // accrual back. An order that is already deleted refuses, which is fine.
+  for (const id of orderIds) {
+    await client
+      .mutation({ deleteOrder: { __args: { id }, id: true } })
+      .catch(() => undefined);
+  }
+
+  for (const is of DELETED_STATES) {
+    const deletedAt = { is };
+
+    if (orderIds.length > 0) {
+      const filter = { orderId: { in: orderIds }, deletedAt };
+
+      await attempt(`find rows of the orders (deletedAt ${is})`, async () => {
+        const found = await client.query({
           payAccruals: {
-            __args: { filter: { workerId: { eq: fixedWorkerId } }, first: 10 },
+            __args: { filter, first: 50 },
+            edges: { node: { id: true } },
+          },
+          stockMovements: {
+            __args: { filter, first: 50 },
+            edges: { node: { id: true } },
+          },
+          orderMaterials: {
+            __args: { filter, first: 50 },
+            edges: { node: { id: true } },
+          },
+          orderPayments: {
+            __args: { filter, first: 50 },
+            edges: { node: { id: true } },
+          },
+          orderItems: {
+            __args: { filter, first: 50 },
             edges: { node: { id: true } },
           },
         });
 
-        system.push(...idsOf(payAccruals, 'destroyPayAccrual'));
-      } catch (error) {
-        console.error('cleanup: loading the fixed line failed', error);
-      }
+        addChildren('destroyPayAccrual', found.payAccruals);
+        addChildren('destroyStockMovement', found.stockMovements);
+        addChildren('destroyOrderMaterial', found.orderMaterials);
+        addChildren('destroyOrderPayment', found.orderPayments);
+        addChildren('destroyOrderItem', found.orderItems);
+      });
     }
 
-    for (const { mutation, id } of [...system, ...[...created].reverse()]) {
-      try {
-        await client.mutation({ [mutation]: { __args: { id }, id: true } });
-      } catch (error) {
-        console.error(`cleanup ${mutation} ${id} failed`, error);
-      }
-    }
-  });
+    if (workerIds.length > 0) {
+      const filter = { workerId: { in: workerIds }, deletedAt };
 
-  it('reserves material and pays the measurer at «Замер выполнен»', async () => {
+      await attempt(`find rows of the workers (deletedAt ${is})`, async () => {
+        const found = await client.query({
+          payAccruals: {
+            __args: { filter, first: 50 },
+            edges: { node: { id: true } },
+          },
+          payRules: {
+            __args: { filter, first: 50 },
+            edges: { node: { id: true } },
+          },
+        });
+
+        addChildren('destroyPayAccrual', found.payAccruals);
+        addChildren('destroyPayRule', found.payRules);
+      });
+    }
+
+    if (materialIds.length > 0) {
+      const filter = { materialId: { in: materialIds }, deletedAt };
+
+      await attempt(`find rows of the material (deletedAt ${is})`, async () => {
+        const found = await client.query({
+          stockMovements: {
+            __args: { filter, first: 50 },
+            edges: { node: { id: true } },
+          },
+          materialNorms: {
+            __args: { filter, first: 50 },
+            edges: { node: { id: true } },
+          },
+        });
+
+        addChildren('destroyStockMovement', found.stockMovements);
+        addChildren('destroyMaterialNorm', found.materialNorms);
+      });
+    }
+  }
+
+  const destroys = [
+    ...[...children].map(([id, mutation]) => ({ mutation, id })),
+    ...orderIds.map((id) => ({ mutation: 'destroyOrder', id })),
+    ...workerIds.map((id) => ({ mutation: 'destroyMaster', id })),
+    ...materialIds.map((id) => ({ mutation: 'destroyMaterial', id })),
+    ...designIds.map((id) => ({ mutation: 'destroyDesign', id })),
+  ];
+
+  for (const { mutation, id } of destroys) {
+    await attempt(`${mutation} ${id}`, () =>
+      client.mutation({ [mutation]: { __args: { id }, id: true } }),
+    );
+    await sleep(DESTROY_PAUSE);
+  }
+
+  return { found, failures };
+};
+
+describe('the order path', () => {
+  beforeAll(async () => {
+    const { found, failures } = await removeOwnRows();
+
+    if (failures.length > 0) {
+      throw new Error(
+        `Rows named «${PREFIX} …» were left by an earlier run and could not be removed:\n${failures.join('\n')}`,
+      );
+    }
+
+    if (found > 0) {
+      console.warn(
+        `Removed ${found} rows named «${PREFIX} …» that an earlier run left behind`,
+      );
+    }
+  }, 300_000);
+
+  afterAll(async () => {
+    const { failures } = await removeOwnRows();
+
+    if (failures.length > 0) {
+      throw new Error(`Cleanup left data behind:\n${failures.join('\n')}`);
+    }
+  }, 300_000);
+
+  it('reserves material at «Замер выполнен»', async () => {
     const { workspaceMembers, masters } = await client.query({
       workspaceMembers: {
         __args: { first: 50 },
@@ -264,13 +446,13 @@ describe('the order path', () => {
         .map(({ node }) => node.id)
         .find((id) => !takenMemberIds.has(id)) ?? null;
 
-    masterId = await createWorker('Путь мастер (тест)', {
+    masterId = await createWorker('мастер', {
       categories: ['MASTER'],
     });
-    installerId = await createWorker('Путь установщик (тест)', {
+    installerId = await createWorker('установщик', {
       categories: ['INSTALLER'],
     });
-    sellerId = await createWorker('Путь продажник (тест)', {
+    sellerId = await createWorker('продажник', {
       categories: ['SALES'],
     });
     await createRule({
@@ -293,7 +475,7 @@ describe('the order path', () => {
     });
 
     if (freeMemberId !== null) {
-      measurerWorkerId = await createWorker('Путь замерщик (тест)', {
+      measurerWorkerId = await createWorker('замерщик', {
         categories: ['MEASURER'],
         loginId: freeMemberId,
       });
@@ -309,27 +491,31 @@ describe('the order path', () => {
       createDesign: {
         __args: {
           data: {
-            name: 'Путь (тест)',
+            name: `${PREFIX} решётка`,
             pricePerSquareMeter: toCurrency(PRICE_PER_SQUARE_METER),
           },
         },
         id: true,
       },
     });
-    const designId = remember('destroyDesign', createDesign?.id);
+    const designId = idOf('createDesign', createDesign?.id);
 
     const { createMaterial } = await client.mutation({
       createMaterial: {
         __args: {
-          data: { name: 'Пруток пути (тест)', unit: 'METER', minimumStock: 0 },
+          data: {
+            name: `${PREFIX} пруток`,
+            unit: 'METER',
+            minimumStock: 0,
+          },
         },
         id: true,
       },
     });
 
-    materialId = remember('destroyMaterial', createMaterial?.id);
+    materialId = idOf('createMaterial', createMaterial?.id);
 
-    const { createMaterialNorm } = await client.mutation({
+    await client.mutation({
       createMaterialNorm: {
         __args: {
           data: {
@@ -342,9 +528,7 @@ describe('the order path', () => {
       },
     });
 
-    remember('destroyMaterialNorm', createMaterialNorm?.id);
-
-    const { createStockMovement } = await client.mutation({
+    await client.mutation({
       createStockMovement: {
         __args: {
           data: {
@@ -358,14 +542,12 @@ describe('the order path', () => {
       },
     });
 
-    remember('destroyStockMovement', createStockMovement?.id);
-
     const { createOrder } = await client.mutation({
       createOrder: {
         __args: {
           data: {
             name: '',
-            clientName: 'Тест путь',
+            clientName: `${PREFIX} клиент`,
             soldById: sellerId,
             measurerId: freeMemberId,
             discountKind: 'PERCENT',
@@ -376,9 +558,9 @@ describe('the order path', () => {
       },
     });
 
-    orderId = remember('destroyOrder', createOrder?.id);
+    orderId = idOf('createOrder', createOrder?.id);
 
-    const { createOrderItem } = await client.mutation({
+    await client.mutation({
       createOrderItem: {
         __args: {
           data: { orderId, designId, widthCm: 100, heightCm: 100, quantity: 2 },
@@ -386,8 +568,6 @@ describe('the order path', () => {
         id: true,
       },
     });
-
-    remember('destroyOrderItem', createOrderItem?.id);
 
     await waitFor(readState, (state) => state.money.total === TOTAL);
     await updateOrder({ status: 'MEASUREMENT_SCHEDULED' });
@@ -407,6 +587,7 @@ describe('the order path', () => {
     ]);
     expect(measured.movements).toEqual([]);
     expect(measured.accruals).toEqual(measurementLine());
+    accrualsAtMeasured = measured.accruals;
     expect(measured.money).toEqual({
       subtotal: SUBTOTAL,
       discount: SUBTOTAL - TOTAL,
@@ -414,6 +595,27 @@ describe('the order path', () => {
       paid: 0,
       balance: TOTAL,
     });
+  });
+
+  it('pays the measurer at «Замер выполнен»', (context) => {
+    if (freeMemberId === null) {
+      const reason =
+        "every workspace member is already the login of a worker, so no measurer could be linked and the measurement pay was NOT checked; free a member (clear a worker's login) and run again";
+
+      console.warn(`SKIPPED: ${reason}`);
+      context.skip(reason);
+    }
+
+    expect(accrualsAtMeasured).toEqual([
+      {
+        workerId: measurerWorkerId,
+        method: 'PER_MEASUREMENT',
+        work: 'MEASURER',
+        basis: 1,
+        rate: MEASUREMENT_PAY,
+        amount: MEASUREMENT_PAY,
+      },
+    ]);
   });
 
   it('counts payments into «Оплачено» and «Остаток», and a removed one out again', async () => {
@@ -432,8 +634,7 @@ describe('the order path', () => {
         },
       });
 
-      // Destroyed by id at the end: a soft-deleted payment is not found by a query.
-      return remember('destroyOrderPayment', createOrderPayment?.id);
+      return idOf('createOrderPayment', createOrderPayment?.id);
     };
 
     await pay(50_000);
@@ -477,9 +678,8 @@ describe('the order path', () => {
 
     await updateOrder({ status: 'MEASURED' });
     await updateOrder({ status: 'PRODUCTION' });
-    await new Promise((resolve) => setTimeout(resolve, 5_000));
 
-    const again = await readState();
+    const again = await waitUntilSettled();
 
     expect(again.movements).toEqual([
       { kind: 'WRITE_OFF', quantity: -MATERIAL_NEED },
@@ -490,13 +690,10 @@ describe('the order path', () => {
   it('accrues pay for the master, the installer, the measurer and the salesperson at «Установлен»', async () => {
     await updateOrder({ status: 'QUALITY_CHECK', installerId });
 
-    const sent = await waitFor(
-      readState,
-      (state) => state.order?.readyAt !== null,
-    );
+    await waitFor(readState, (state) => state.order?.readyAt !== null);
 
     // Nobody but the measurer has earned anything before the order is installed.
-    expect(sent.accruals).toEqual(measurementLine());
+    expect((await waitUntilSettled()).accruals).toEqual(measurementLine());
 
     await updateOrder({ status: 'INSTALLED' });
 
@@ -506,6 +703,11 @@ describe('the order path', () => {
     );
 
     expect(installed.order?.installedAt).not.toBeNull();
+    // Long after the second «Производство»: a late second write-off would show here.
+    expect(installed.movements).toEqual([
+      { kind: 'WRITE_OFF', quantity: -MATERIAL_NEED },
+    ]);
+    expect(installed.material?.onHand).toBe(100 - MATERIAL_NEED);
     expect(installed.accruals).toEqual([
       {
         workerId: installerId,
@@ -538,7 +740,7 @@ describe('the order path', () => {
   });
 
   it('writes the fixed line of a month once', async () => {
-    fixedWorkerId = await createWorker('Путь фикса (тест)', {
+    fixedWorkerId = await createWorker('фикса', {
       categories: ['MASTER'],
     });
 

@@ -423,9 +423,11 @@ for (const { role, title, entries } of MENUS) {
   test(`the sidebar of ${title} has the menu of its role and only Russian entries`, async ({
     page,
   }) => {
+    // Only the workshop has no login on some local servers; a missing login
+    // of any other role must fail the case in signIn.
     test.skip(
-      !process.env[`CLAW_${role}_EMAIL`],
-      `no local login for ${role}: CLAW_${role}_EMAIL is not set`,
+      role === 'WORKSHOP' && !process.env.CLAW_WORKSHOP_EMAIL,
+      'no local login for the workshop: CLAW_WORKSHOP_EMAIL is not set',
     );
     test.setTimeout(180_000);
 

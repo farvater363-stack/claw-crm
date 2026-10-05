@@ -4,8 +4,11 @@ import {
   createRecord,
   destroyOrderTestData,
   findIds,
+  findRows,
   FORCE,
   graphql,
+  LEFTOVER_AGE_MINUTES,
+  leftoverCutoff,
   pause,
   requireEnv,
   type Role,
@@ -24,7 +27,7 @@ test.use({
 test.describe.configure({ mode: 'serial' });
 
 // No real row starts with this, so a run killed before afterAll leaves rows
-// that the next run recognises and removes.
+// that a later run recognises and removes once they are old enough.
 const PREFIX = 'Спек путь';
 const RUN = String(Date.now());
 const CLIENT = `${PREFIX} клиент ${RUN}`;
@@ -34,7 +37,8 @@ const MASTER = `${PREFIX} мастер ${RUN}`;
 const INSTALLER = `${PREFIX} установщик ${RUN}`;
 
 // A number no real customer uses. The form needs a phone, and a phone makes
-// the app link a client; beforeAll refuses to run if a client already has it.
+// the app link a client; beforeAll refuses to run if a client or an order
+// that is not this spec's own leftover already has it.
 const NATIONAL_PHONE = '930000016';
 const STORED_PHONE = `+998${NATIONAL_PHONE}`;
 
@@ -68,7 +72,6 @@ const shown = (amount: number) =>
 const whole = (value: { amountMicros: number | string } | null) =>
   value === null ? null : Number(value.amountMicros) / 1_000_000;
 
-let isTestPhoneUnused = false;
 let orderId = '';
 let workshopOrderId = '';
 let masterId = '';
@@ -201,24 +204,53 @@ const openWall = async (page: Page, role: Role) => {
 
 test.beforeAll(async () => {
   test.setTimeout(300_000);
-  await destroyOrderTestData(PREFIX);
 
-  if (
-    (
-      await findIds(
+  // Read before anything is removed: what holds the phone decides whether
+  // this run may remove or create anything at all.
+  const cutoff = leftoverCutoff();
+  const holders = [
+    ...(
+      await findRows<{
+        id: string;
+        createdAt: string;
+        name: { firstName: string | null } | null;
+      }>(
         'people',
         `phones: { primaryPhoneNumber: { eq: "${NATIONAL_PHONE}" } }`,
+        'id createdAt name { firstName }',
       )
-    ).length > 0 ||
-    (await findIds('orders', `clientPhone: { eq: "${STORED_PHONE}" }`)).length >
-      0
-  ) {
+    ).map(({ createdAt, name }) => ({ createdAt, name: name?.firstName })),
+    ...(
+      await findRows<{
+        id: string;
+        createdAt: string;
+        clientName: string | null;
+      }>(
+        'orders',
+        `clientPhone: { eq: "${STORED_PHONE}" }`,
+        'id createdAt clientName',
+      )
+    ).map(({ createdAt, clientName }) => ({ createdAt, name: clientName })),
+  ];
+
+  if (holders.some(({ name }) => !name?.startsWith(`${PREFIX} `))) {
     throw new Error(
       `A client or an order already uses ${STORED_PHONE}; refusing to create and delete data that may be real`,
     );
   }
 
-  isTestPhoneUnused = true;
+  if (
+    holders.some(({ createdAt }) => Date.parse(createdAt) >= Date.parse(cutoff))
+  ) {
+    throw new Error(
+      `Rows of this spec younger than ${LEFTOVER_AGE_MINUTES} minutes use ${STORED_PHONE}: another run is going, or one was killed a moment ago. Wait for it, or remove the «${PREFIX} …» rows by hand`,
+    );
+  }
+
+  await destroyOrderTestData(PREFIX, {
+    createdBefore: cutoff,
+    nationalPhones: [NATIONAL_PHONE],
+  });
 
   const { workspaceMembers } = await graphql(
     'query($email: String!) { workspaceMembers(filter: { userEmail: { eq: $email } }) { edges { node { id } } } }',
@@ -288,7 +320,12 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   test.setTimeout(300_000);
-  await destroyOrderTestData(PREFIX, isTestPhoneUnused ? [NATIONAL_PHONE] : []);
+  // The client the app linked to the order is named after it, so the run's
+  // stamp finds him too.
+  await destroyOrderTestData(PREFIX, {
+    run: RUN,
+    nationalPhones: [NATIONAL_PHONE],
+  });
 });
 
 test('«Назначить замер» asks for the measurer and the time and schedules the order', async ({
@@ -404,7 +441,8 @@ test('the measurer saves the scheduled order: still one order, with its discount
     ),
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'Сохранить' }).click(FORCE);
+  // Twice, as a hurried hand does: the second tap must save nothing.
+  await page.getByRole('button', { name: 'Сохранить' }).dblclick(FORCE);
   await expect(page.getByText('Замер сохранён')).toBeVisible({
     timeout: 30_000,
   });
@@ -470,6 +508,12 @@ test('the header takes the order to «Установлен» and accepts a payme
     const step = headerButton(page, 'В производство');
 
     await expect(step).toBeVisible({ timeout: 30_000 });
+    await step.click(FORCE);
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Выберите мастера' }),
+    ).toBeVisible();
+    expect((await readOrder(orderId)).status).toBe('MEASURED');
+
     await chooseValue(headerSelect(page, 'Мастер'), masterId);
     await step.click(FORCE);
 
@@ -492,9 +536,16 @@ test('the header takes the order to «Установлен» and accepts a payme
         timeout: 30_000,
       })
       .toBe(String(BALANCE_AFTER_MEASUREMENT));
+    await amount.fill('0', FORCE);
+    await headerButton(page, 'Принять').click(FORCE);
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Введите число больше нуля' }),
+    ).toBeVisible();
+
     await amount.fill(String(SECOND_PAYMENT), FORCE);
     await chooseOption(headerSelect(page, 'Способ'), 'Перевод');
-    await headerButton(page, 'Принять').click(FORCE);
+    // Twice, as a hurried hand does: the second tap must take no second payment.
+    await headerButton(page, 'Принять').dblclick(FORCE);
 
     await expect
       .poll(async () => {
@@ -518,6 +569,12 @@ test('the header takes the order to «Установлен» and accepts a payme
     const step = headerButton(page, 'Отправить на установку');
 
     await expect(step).toBeVisible({ timeout: 30_000 });
+    await step.click(FORCE);
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Выберите установщика' }),
+    ).toBeVisible();
+    expect((await readOrder(orderId)).status).toBe('PRODUCTION');
+
     await chooseValue(headerSelect(page, 'Установщик'), installerId);
     await step.click(FORCE);
 

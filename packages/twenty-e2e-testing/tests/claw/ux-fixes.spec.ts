@@ -5,7 +5,13 @@ import {
   type Page,
   test,
 } from '@playwright/test';
-import { FORCE, graphql, type Role, signIn } from './claw-helpers';
+import {
+  FORCE,
+  graphql,
+  openOrderFields,
+  type Role,
+  signIn,
+} from './claw-helpers';
 
 const TABLET_VIEWPORT = { width: 820, height: 1180 };
 const DESKTOP_VIEWPORT = { width: 1440, height: 900 };
@@ -290,21 +296,6 @@ const openViewList = async (page: Page) => {
     .click();
 };
 
-// The fields of the card: a tab of their own on a narrow screen, the pinned
-// left column on a wide one.
-const openOrderFields = async (page: Page) => {
-  await expect(page.getByText(/^Заказ №\d{4}$/).first()).toBeVisible({
-    timeout: 60_000,
-  });
-
-  const fieldsTab = page
-    .getByRole('tab', { name: 'Заказ', exact: true })
-    .or(page.getByRole('link', { name: 'Заказ', exact: true }))
-    .first();
-
-  if (await fieldsTab.isVisible()) await fieldsTab.click();
-};
-
 test.describe('admin', () => {
   test('order page opens on «Работа» with the next step above the openings table', async ({
     browser,
@@ -387,14 +378,11 @@ test.describe('admin', () => {
     await openViewList(page);
     await page.getByText('Все заказы', { exact: true }).last().click();
 
-    // The view has no menu entry; the bar above the list names it.
-    await expect
-      .poll(
-        async () =>
-          (await page.getByText('Все заказы', { exact: true }).all()).length,
-        { timeout: 60_000 },
-      )
-      .toBeGreaterThanOrEqual(1);
+    // The view has no menu entry; the bar above the list is a button named
+    // by the open view.
+    await expect(
+      page.getByRole('button', { name: /^Все заказы/ }).first(),
+    ).toBeVisible({ timeout: 60_000 });
     await expect(
       page.getByText(seededOrderName, { exact: true }).first(),
     ).toBeVisible({ timeout: 30_000 });

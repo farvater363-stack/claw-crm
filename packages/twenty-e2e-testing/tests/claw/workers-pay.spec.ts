@@ -5,6 +5,7 @@ import {
   destroyOrderTestData,
   FORCE,
   graphql,
+  leftoverCutoff,
   pause,
   signIn,
   updateRecord,
@@ -21,7 +22,7 @@ test.use({
 test.describe.configure({ mode: 'serial' });
 
 // No real row starts with this, so a run killed before afterAll leaves rows
-// that the next run recognises and removes.
+// that a later run recognises and removes once they are old enough.
 const PREFIX = 'Спек зп';
 const RUN = String(Date.now());
 const WORKER = `${PREFIX} работник ${RUN}`;
@@ -107,7 +108,7 @@ const openRow = async (page: Page, name: string) => {
 
 test.beforeAll(async () => {
   test.setTimeout(300_000);
-  await destroyOrderTestData(PREFIX);
+  await destroyOrderTestData(PREFIX, { createdBefore: leftoverCutoff() });
 
   workerId = await createRecord('Master', {
     name: WORKER,
@@ -176,7 +177,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   test.setTimeout(300_000);
-  await destroyOrderTestData(PREFIX);
+  await destroyOrderTestData(PREFIX, { run: RUN });
 });
 
 test('«ЗП» shows the fixed pay, the rate per m² and the percent of sales of one worker', async ({
@@ -266,9 +267,10 @@ test('«Выплатить» offers the whole sum and lowers what is owed by wha
     row.getByRole('combobox', { name: 'Тип', exact: true }),
     'Аванс',
   );
+  // Twice, as a hurried hand does: the second tap must pay nothing more.
   await row
     .getByRole('button', { name: 'Сохранить', exact: true })
-    .click(FORCE);
+    .dblclick(FORCE);
 
   await expect(header).toContainText(
     new RegExp(`${shown(OWED_AFTER_CHANGE - PAID_OUT)}\\sсум`),
