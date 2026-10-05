@@ -20,7 +20,7 @@ export default defineView({
   objectUniversalIdentifier: IDS.order.object,
   type: ViewType.KANBAN,
   icon: 'IconRuler2',
-  position: 1,
+  position: 2,
   // Two columns in option order: «Замер назначен», then «Замер выполнен».
   mainGroupByFieldMetadataUniversalIdentifier: IDS.order.status,
   groups: ORDER_STATUS_OPTIONS.map((option, position) => ({

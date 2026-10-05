@@ -110,8 +110,15 @@ export const IDS = {
     installer: 'c77f3172-535a-43ea-af81-bb3b93e3643c',
     soldBy: '56e42582-5bd8-4386-825a-e44681555132',
     accruals: 'e61401f7-fb11-4b47-bf4b-4990e9f48fc1',
-    // Twenty's deterministic id for the built-in createdAt of this app's order object.
+    // Twenty's deterministic ids for the built-in fields of this app's order
+    // object: uuid v5 of "fieldMetadata:<object id>:<field name>" in the
+    // namespace of the application id. Never made up, never generated here.
     createdAt: '187b9cd2-2f7c-55cc-ba12-5a1cbeec7bbf',
+    updatedAt: '7f1c57de-311c-5fa0-86d2-03d49cc97fe4',
+    deletedAt: 'e374b0af-7a96-5cc7-86c3-6b8bdb2d5a9c',
+    createdBy: '7f83d639-f609-580e-98c2-ed0612164118',
+    updatedBy: '284e5262-be11-5752-8941-bad728697e1a',
+    position: '316052eb-83a7-58b4-9e4b-3dffb6a83263',
   },
   orderItem: {
     object: 'c54a858f-68e0-4901-b5ca-78baedeceb83',
@@ -248,11 +255,11 @@ export const IDS = {
   view: {
     ordersKanban: 'dfcc304e-6ee3-49be-820a-abc525d06583',
     myMeasurements: '73cb55eb-1511-4fc2-bbb2-f14457334c48',
-    production: '2c99e8c5-38ee-4475-86bf-01b011ab8559',
+    production: '2c99e8c5-38ee-4475-86bf-01b011ab8559', // Retired: replaced by the «В работе» screen; ids are never reused.
     masterPay: 'b4cc6845-8918-4861-af82-179ea79985ea', // Retired: replaced by masterPayment; ids are never reused.
     orderItemsTable: '4d5ec168-0807-4260-95c2-5180fdc79159',
     orderExtraServicesTable: '90c9a437-18e4-4d2f-ae50-482889c7dc8b',
-    orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d',
+    orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d', // Retired: the order header shows the money; ids are never reused.
     allOrders: '8e7883c5-d382-4a79-9acb-2ef4974ceb48',
     dashboardOverdue: '174f3195-48cc-45cb-9fb3-3a0c9d8ee9a1',
     dashboardOwesUs: '9d20587f-8238-40fa-a04d-7fa4e28e5858',
@@ -262,25 +269,26 @@ export const IDS = {
     warehouseMovements: '85cc0f6a-5cf6-434f-b371-22da4a87fb46',
     warehouseNorms: '11ae3607-1db4-4b43-98a7-90a29d8768a2', // Retired: composition is edited on the prices screen; ids are never reused.
     orderMaterialsTable: '4822592d-5f07-4c2a-9125-c5540d540af0',
-    orderMaterialStatus: 'db3a3e8e-a3b3-4933-b4d0-8682679cdacf',
+    orderMaterialStatus: 'db3a3e8e-a3b3-4933-b4d0-8682679cdacf', // Retired: the order header shows the material sentence; ids are never reused.
     dashboardPurchasePlan: 'c8875f81-bfed-4cf3-a37d-a8c66a6b4221',
+    dashboardNearestDeadlines: '1cff4610-fa0f-4f00-a5ca-9df851b03407',
     dashboardOverrun: '25cbe306-0c48-4d04-a0ed-ef8cee407fd0',
     orderPaymentsTable: '9795c1d9-9fdb-4e6e-91a2-6da5e13c5ec6',
   },
   navigation: {
-    orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: the sidebar uses allOrders; ids are never reused.
+    orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: «Все заказы» is the second view of «Заказы» and has no menu item; ids are never reused.
     ordersKanban: '5b4925cf-bf24-422b-bc5b-f6a6b125ddf7',
     myMeasurements: '5b65e2e1-2c9f-4b87-8f16-95e20851bf8b',
-    production: '379a3f5b-57ec-48c2-bf5f-e9a8d970ce65',
+    production: '379a3f5b-57ec-48c2-bf5f-e9a8d970ce65', // Retired: replaced by the «В работе» screen; ids are never reused.
     masterPay: 'abbbca23-eb51-45af-b6ab-4840461639ac', // Retired: pay is no longer a sidebar item; ids are never reused.
     designs: '8e87114d-b386-4ce8-9654-f092ffb1b23f', // Retired: replaced by the prices screen; ids are never reused.
     priceList: '19714acd-d450-4a1f-a73e-a74266399b6c', // Retired: replaced by the prices screen; ids are never reused.
     extraServices: '7084db31-ff82-4fae-831a-180eafb45cee', // Retired: replaced by the prices screen; ids are never reused.
-    masters: 'f1ae7b6b-2645-48bd-b2cd-8118e871672e',
-    masterPayments: '7ccac197-4231-4128-9385-7e00cc414e86',
+    masters: 'f1ae7b6b-2645-48bd-b2cd-8118e871672e', // Retired: workers are edited in «ЗП»; ids are never reused.
+    masterPayments: '7ccac197-4231-4128-9385-7e00cc414e86', // Retired: payments are listed in «ЗП»; ids are never reused.
     payroll: '2e98d495-7d32-4a64-abaf-7866fa2206b5',
     newMeasurement: 'd9580fb9-a409-4e83-92a5-42f87706486e',
-    allOrders: 'ae5debb5-3b25-4a50-bb34-99a2c561ef57',
+    allOrders: 'ae5debb5-3b25-4a50-bb34-99a2c561ef57', // Retired: «Все заказы» is the second view of «Заказы»; ids are never reused.
     warehouse: 'd6702970-1943-4462-8355-a7ac13d372bc', // Retired: replaced by the stock screen; ids are never reused.
     warehouseMaterials: 'abdeddd8-d102-4991-956b-8206771de190', // Retired: replaced by the stock screen; ids are never reused.
     warehousePurchasePlan: 'db6da1ac-23e0-4b55-b1a3-318fd75281e1', // Retired: replaced by the stock screen; ids are never reused.
@@ -288,6 +296,7 @@ export const IDS = {
     warehouseNorms: '335e4eeb-d9e1-4369-abb5-b2049d93b425', // Retired: replaced by the stock screen; ids are never reused.
     prices: '5270c73e-d422-4d41-b0d4-1489b25265f5',
     stock: '3b354a86-2ee7-49b5-88aa-8164f323fb63',
+    workshop: 'fb6b018a-7e6d-4375-93af-e20acb846878',
   },
   stock: {
     frontComponent: '0f9c4b6b-3d4d-4979-ba26-84ba1cc57c06',
@@ -310,6 +319,11 @@ export const IDS = {
   ownerDashboard: {
     pageLayout: '260281fc-4390-42d0-90f7-91afdeacd969',
     pageLayoutTab: 'a6c9f937-a218-47db-8286-ee395627fcb8',
+    todayTab: '2b9046b4-3d83-4ac7-87fe-f4ec446b79ed',
+    overdueCountWidget: '7872722e-099e-4700-8a77-ef6f1e320784',
+    owesUsSumWidget: '10c733c9-de1a-406a-83a6-eca54676510c',
+    inProductionCountWidget: '96f32a4d-58d4-4fed-9153-27f1674e9ace',
+    nearestDeadlinesTableWidget: '3fb53217-1e0d-431f-b9b2-f84c78449532',
     revenueThisMonthWidget: 'fcba88b3-7a38-4230-b248-89a3dcedc3d4',
     marginThisMonthWidget: 'e6c04afb-f3cd-46a7-9ed5-a44cada06a9d',
     areaThisMonthWidget: '94aac39d-1aab-4df4-bd43-4ac2e728453e',
@@ -326,9 +340,9 @@ export const IDS = {
     overdueTableWidget: '284f3def-3ffe-44a9-a448-f6dda376928d',
     owesUsTableWidget: '6192770d-28fe-4660-93f4-03b9ae9fe5c7',
     lateThisMonthTableWidget: 'a312ac6a-2983-4b55-922f-cb29ea7c024c',
-    materialsTotalWidget: '534919a9-f829-4b23-bf23-51df2818c1be',
-    materialsOkWidget: '68eb843d-a637-45b5-8a6b-0d9c9d55a9a2',
-    materialsLowWidget: 'fa70bf1f-9dc8-4202-9822-a828e14dd396',
+    materialsTotalWidget: '534919a9-f829-4b23-bf23-51df2818c1be', // Retired: «Сегодня» has one «Купить» tile; ids are never reused.
+    materialsOkWidget: '68eb843d-a637-45b5-8a6b-0d9c9d55a9a2', // Retired: «Сегодня» has one «Купить» tile; ids are never reused.
+    materialsLowWidget: 'fa70bf1f-9dc8-4202-9822-a828e14dd396', // Retired: «Сегодня» has one «Купить» tile; ids are never reused.
     materialsBuyWidget: 'a5215eac-7c29-4eca-8ef5-b75525deda11',
     purchasePlanTableWidget: '3e5f6037-4815-468d-a38e-456926656f15',
     overrunTableWidget: 'dabc602c-9188-4ff9-a220-48f0ecba5dc7',
@@ -342,6 +356,16 @@ export const IDS = {
   measurementNotes: {
     frontComponent: '74aa9d07-1296-4578-a9e4-a623002c5b4b',
     orderPageWidget: '4102beab-e8d1-4e1a-a324-982bf1a35ed3',
+  },
+  orderHeader: {
+    frontComponent: 'f085c652-a22d-4954-94b6-0c381d443efb',
+    orderPageWidget: 'a075d6e9-7538-4a50-81b5-db059ce66ee1',
+  },
+  workshop: {
+    frontComponent: '0c5802c0-53cd-4f7d-a9eb-baeef90bd2fb',
+    pageLayout: 'da67f406-7b5f-48fc-8b40-3d43b86b0ea3',
+    pageLayoutTab: 'b7469839-e48b-4230-b43d-1c99a7235575',
+    pageLayoutWidget: 'df63d9ee-7389-4d5d-8ef1-374280ab2eb9',
   },
   logicFunction: {
     onOrderCreated: '9f84f9bb-0b71-4991-8531-fc479be51150',

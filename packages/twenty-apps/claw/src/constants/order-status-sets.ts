@@ -51,6 +51,13 @@ export const STATUSES_HOLDING_MATERIAL: readonly OrderStatus[] = [
   'QUALITY_CHECK',
 ];
 
+// What the workshop's wall shows: an order being built, then the same order
+// built and waiting for its installation.
+export const WORKSHOP_STATUSES: readonly OrderStatus[] = [
+  'PRODUCTION',
+  'QUALITY_CHECK',
+];
+
 // A status read from a record is a plain string, and it may be empty.
 export const isStatusIn = (
   statuses: readonly OrderStatus[],
@@ -69,6 +76,12 @@ export const isWrittenOff = (status: string | null): boolean =>
 
 export const isMeasured = (status: string | null): boolean =>
   status === 'MEASURED';
+
+export const isInProduction = (status: string | null): boolean =>
+  status === 'PRODUCTION';
+
+export const isSentToInstallation = (status: string | null): boolean =>
+  status === 'QUALITY_CHECK';
 
 export const isInstalled = (status: string | null): boolean =>
   status === 'INSTALLED';

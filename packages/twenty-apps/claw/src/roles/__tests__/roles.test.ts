@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { IDS } from 'src/constants/universal-identifiers';
 import loginOnMasterField from 'src/fields/login-on-master.field';
 import designObject from 'src/objects/design.object';
+import orderObject from 'src/objects/order.object';
 import payAccrualObject from 'src/objects/pay-accrual.object';
 import payRuleObject from 'src/objects/pay-rule.object';
 import functionsRole from 'src/roles/functions.role';
@@ -110,24 +111,145 @@ const updatableObjectIds = (role: RoleResult) =>
     .map((permission) => permission.objectUniversalIdentifier);
 
 describe('workshop', () => {
-  it('reads orders and masters, and writes nothing', () => {
+  it('reads orders and workers, and updates orders only', () => {
     expect(workshopRole.config.canReadAllObjectRecords).toBe(false);
     expect(workshopRole.config.canUpdateAllObjectRecords).toBe(false);
     expect(readableObjectIds(workshopRole)).toEqual(
-      expect.arrayContaining([IDS.order.object, IDS.master.object]),
+      expect.arrayContaining([
+        IDS.order.object,
+        IDS.orderItem.object,
+        IDS.orderExtraService.object,
+        IDS.master.object,
+        IDS.design.object,
+      ]),
     );
-    expect(updatableObjectIds(workshopRole)).toEqual([]);
+    expect(updatableObjectIds(workshopRole)).toEqual([IDS.order.object]);
+  });
+
+  // Walks every identifier of the order, so a field added later is read-only
+  // for the workshop until somebody classifies it here.
+  it('may change only the status and the finished photos of an order', () => {
+    const limited = new Set([
+      ...hiddenFieldIds(workshopRole),
+      ...readOnlyFieldIds(workshopRole),
+    ]);
+    const definedFields = new Map(
+      orderObject.config.fields.map((field) => [
+        field.universalIdentifier,
+        field,
+      ]),
+    );
+    // The other side holds the value; the order has no column to lock.
+    const oneToManyKeys = [
+      'items',
+      'extraServices',
+      'materials',
+      'stockMovements',
+      'payments',
+      'accruals',
+    ] as const;
+    // The object's own identifier, and a retired field that is no longer defined.
+    const keysWithoutField: string[] = ['object', 'masterPayPaid'];
+    const writableIds = [
+      IDS.order.status,
+      IDS.order.finishedPhotos,
+      // Twenty writes the author itself on every update, through the same
+      // check as the caller's fields, and overwrites whatever the caller sent:
+      // locked, «Готово» would be refused; open, it still cannot be falsified.
+      IDS.order.updatedBy,
+    ];
+
+    for (const key of oneToManyKeys) {
+      expect(definedFields.get(IDS.order[key])).toMatchObject({
+        type: 'RELATION',
+        universalSettings: { relationType: 'ONE_TO_MANY' },
+      });
+    }
+
+    expect(definedFields.has(IDS.order.masterPayPaid)).toBe(false);
+
+    const columnIds = Object.entries(IDS.order)
+      .filter(
+        ([key]) =>
+          !keysWithoutField.includes(key) &&
+          !oneToManyKeys.some((oneToManyKey) => oneToManyKey === key),
+      )
+      .map(([, id]) => id);
+
+    expect(columnIds.filter((id) => !limited.has(id)).sort()).toEqual(
+      [...writableIds].sort(),
+    );
+  });
+
+  // Twenty has no create right apart from update. Every create carries a
+  // position, so a login that may not write it cannot create an order; the
+  // rest closes a soft delete, a move between periods and a false author
+  // through a plain update.
+  it('cannot write the fields Twenty keeps on an order', () => {
+    expect(readOnlyFieldIds(workshopRole)).toEqual(
+      expect.arrayContaining([
+        IDS.order.position,
+        IDS.order.deletedAt,
+        IDS.order.createdAt,
+        IDS.order.createdBy,
+        IDS.order.updatedAt,
+      ]),
+    );
+  });
+
+  it('names each order field once', () => {
+    const orderFieldIds = (workshopRole.config.fieldPermissions ?? [])
+      .filter(
+        (permission) =>
+          permission.objectUniversalIdentifier === IDS.order.object,
+      )
+      .map((permission) => permission.fieldUniversalIdentifier);
+
+    expect(new Set(orderFieldIds).size).toBe(orderFieldIds.length);
+  });
+
+  it('removes and destroys nothing, and reads no more than before', () => {
+    const permissions = workshopRole.config.objectPermissions ?? [];
+
+    expect(workshopRole.config.canSoftDeleteAllObjectRecords).toBe(false);
+    expect(workshopRole.config.canDestroyAllObjectRecords).toBe(false);
+    expect(
+      permissions.filter(
+        (permission) =>
+          permission.canSoftDeleteObjectRecords !== false ||
+          permission.canDestroyObjectRecords !== false,
+      ),
+    ).toEqual([]);
+    expect(
+      permissions
+        .map((permission) => permission.objectUniversalIdentifier)
+        .sort(),
+    ).toEqual(
+      [
+        IDS.order.object,
+        IDS.orderItem.object,
+        IDS.orderExtraService.object,
+        IDS.master.object,
+        IDS.design.object,
+        IDS.material.object,
+        IDS.orderMaterial.object,
+      ].sort(),
+    );
   });
 
   // A menu entry shows only to a role that reads its object; there is no
   // workshop login to check the menu in a browser.
   it.each([
-    ['«Склад»', IDS.stockMovement.object],
+    ['«Заказы» and «Склад»', IDS.stockMovement.object],
     ['«Цены»', IDS.materialNorm.object],
     ['«Новый замер» and «Мои замеры»', IDS.extraService.object],
-    ['«ЗП» and «Выплаты»', IDS.masterPayment.object],
+    ['«ЗП»', IDS.masterPayment.object],
   ])('has no %s in its menu', (_, objectId) => {
     expect(readableObjectIds(workshopRole)).not.toContain(objectId);
+  });
+
+  it('has «В работе» in its menu', () => {
+    expect(readableObjectIds(workshopRole)).toContain(IDS.master.object);
   });
 });
 

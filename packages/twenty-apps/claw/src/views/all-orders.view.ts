@@ -16,7 +16,7 @@ export default defineView({
   objectUniversalIdentifier: IDS.order.object,
   type: ViewType.TABLE,
   icon: 'IconList',
-  position: -1,
+  position: 1,
   fields: toKeyedViewFields(
     fieldNames.map((name) => ({
       field: IDS.order[name],

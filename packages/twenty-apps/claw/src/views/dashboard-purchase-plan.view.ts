@@ -15,7 +15,7 @@ const { material } = IDS;
 // BUY and LOW are exactly the materials with toBuy > 0.
 export default defineView({
   universalIdentifier: IDS.view.dashboardPurchasePlan,
-  name: 'План закупок',
+  name: 'Купить',
   objectUniversalIdentifier: material.object,
   type: ViewType.TABLE_WIDGET,
   fields: toKeyedViewFields([
@@ -30,11 +30,13 @@ export default defineView({
       field: material.onHand,
       viewField: ids.purchasePlanFields.onHand,
       size: 120,
+      isVisible: false,
     },
     {
       field: material.reserved,
       viewField: ids.purchasePlanFields.reserved,
       size: 170,
+      isVisible: false,
     },
   ]),
   filters: [

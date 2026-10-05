@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   AWAITING_MEASUREMENT_STATUSES,
   BOARD_STATUSES,
+  isInProduction,
   isInstalled,
   isMeasured,
   isReserving,
+  isSentToInstallation,
   isStatusIn,
   isWrittenOff,
   MEASURER_BOARD_STATUSES,
@@ -13,6 +15,7 @@ import {
   RESERVING_STATUSES,
   STATUSES_HOLDING_MATERIAL,
   STATUSES_WITHOUT_DEADLINE,
+  WORKSHOP_STATUSES,
   WRITTEN_OFF_STATUSES,
 } from 'src/constants/order-status-sets';
 import { ORDER_STATUS_OPTIONS } from 'src/constants/select-options';
@@ -85,6 +88,16 @@ describe('order status sets', () => {
     expect(isInstalled(null)).toBe(false);
   });
 
+  it('shows the workshop the orders it builds and the ones it sent on', () => {
+    expect(WORKSHOP_STATUSES).toEqual(['PRODUCTION', 'QUALITY_CHECK']);
+    expect(isInProduction('PRODUCTION')).toBe(true);
+    expect(isInProduction('QUALITY_CHECK')).toBe(false);
+    expect(isInProduction(null)).toBe(false);
+    expect(isSentToInstallation('QUALITY_CHECK')).toBe(true);
+    expect(isSentToInstallation('PRODUCTION')).toBe(false);
+    expect(isSentToInstallation(null)).toBe(false);
+  });
+
   it('tests membership for a status read from a record', () => {
     expect(isStatusIn(READY_AT_STATUSES, 'INSTALLED')).toBe(true);
     expect(isStatusIn(READY_AT_STATUSES, 'NEW')).toBe(false);
@@ -103,6 +116,7 @@ describe('order status sets', () => {
       ...BOARD_STATUSES,
       ...MEASURER_BOARD_STATUSES,
       ...AWAITING_MEASUREMENT_STATUSES,
+      ...WORKSHOP_STATUSES,
     ]) {
       expect(values).toContain(status);
     }

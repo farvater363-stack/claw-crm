@@ -45,6 +45,7 @@ export const VIEW_PART_IDS = {
     CANCELLED: '7fd48330-79f9-4032-8378-84cb747803c1',
   },
   myMeasurementsStatusField: 'ad9bd666-b4f0-4c79-b9cf-338446e74300',
+  // Retired: replaced by the «В работе» screen; ids are never reused.
   productionFields: [
     '32eccbfe-e790-4a9c-bb0f-e50ebbfc20ac',
     '70bf79cf-ad5e-4395-b390-5f76aab31820',
@@ -54,8 +55,8 @@ export const VIEW_PART_IDS = {
     'a03ee396-2468-4ab8-bf78-cc428931640e',
     '2ea5277e-fce5-4d96-99cc-72cd5ad580b9',
   ],
-  productionFilterStatus: '5bae668c-4dc2-4a2d-958f-bb030642f05d',
-  productionSortDeadline: '6e8a8743-0774-462c-96f2-ea03e7aee41f',
+  productionFilterStatus: '5bae668c-4dc2-4a2d-958f-bb030642f05d', // Retired: replaced by the «В работе» screen; ids are never reused.
+  productionSortDeadline: '6e8a8743-0774-462c-96f2-ea03e7aee41f', // Retired: replaced by the «В работе» screen; ids are never reused.
   orderRecordPage: {
     view: '37c11df0-6a5e-44a4-8ee9-f98666c50d5c',
     layout: 'f9a2abc4-0bd4-4ef1-a321-1bc12298e2c3',
@@ -65,8 +66,9 @@ export const VIEW_PART_IDS = {
     timelineWidget: 'c05473f0-8bc5-4f67-b376-fe2fe5fe5089',
     notesTab: '380321ca-b431-49bf-af72-fe7358868abc',
     notesWidget: '3d155d46-a564-4bbc-8f42-70be037b93e1',
-    filesTab: '528f1689-57f2-4173-ac15-89be8d272f2d',
-    filesWidget: 'da9ecc50-b8f3-4756-8b58-d232172e2689',
+    filesTab: '528f1689-57f2-4173-ac15-89be8d272f2d', // Retired: files moved to «Фото и заметки»; ids are never reused.
+    filesWidget: 'da9ecc50-b8f3-4756-8b58-d232172e2689', // Retired: sat on the removed tab «Файлы», and the server deletes a widget with its tab; ids are never reused.
+    notesFilesWidget: 'f47172b1-7b46-47b5-a866-724ba0f3503d',
     fields: {
       name: 'cd944afe-fb6b-4e38-871e-040261845e7a',
       status: '7d28695b-ea00-4ce5-8d3c-6c15811843e7',
@@ -104,20 +106,27 @@ export const VIEW_PART_IDS = {
       finishedPhotos: '6756e9ca-32a0-4f13-8a42-6b00cb3a1fb1',
       number: '9935d210-8c15-4478-b013-288c7b644787',
       deadlineState: 'cea7c783-20de-46b5-9ef8-af28d410ceb2',
+      installer: 'c28b7092-4a1e-4fb4-be92-8e8e70c497bc',
+      soldBy: '65186f93-4a8a-4607-8f8e-e494db2d3e78',
+      subtotal: 'a060310e-336c-4a42-91d2-6ef395382fe5',
+      discountKind: 'f8a64914-a3b0-4021-9d37-1388657e642f',
+      discountValue: '71951613-4aa3-470a-860d-31dfe88c91b3',
+      discount: '07e6b7ad-5c58-4638-9a3a-06bac785da7f',
+      paid: '431966ff-f129-4755-a158-2a0063e6efb4',
     },
     groups: {
-      order: '6f29b78f-755f-4670-900a-555e4fe00efe',
+      order: '6f29b78f-755f-4670-900a-555e4fe00efe', // Retired: the order card has four field groups; ids are never reused.
       client: '63bff9b1-1389-4729-b45d-7c79cb802e26',
-      measurement: '6211c34d-143f-4223-8c3f-f600124418f8',
+      measurement: '6211c34d-143f-4223-8c3f-f600124418f8', // Retired: the order card has four field groups; ids are never reused.
       itemsAndTotal: 'fd7659ec-ee2a-4eea-972a-21b6365cba06',
       production: 'a437602e-3d24-424f-96a7-f3b630b8ae91',
       economics: '592e8287-f0bc-4d78-8701-f1caddba681d',
-      pay: 'cdefecbe-9318-45b6-9c1e-a2ba1892f03a',
+      pay: 'cdefecbe-9318-45b6-9c1e-a2ba1892f03a', // Retired: the order card has four field groups; ids are never reused.
     },
     itemsTab: '9b80e4a4-c5d8-4cc4-9b48-1e14d5492dbc',
     itemsWidget: '68501b2f-eca6-4e1a-9a47-b6b2e59f5d52',
     extraServicesWidget: 'd8e92482-1717-4d6f-9dab-c9765cf650cd',
-    totalsWidget: '70e74600-882e-4a4e-8a7b-a9f2751bca41',
+    totalsWidget: '70e74600-882e-4a4e-8a7b-a9f2751bca41', // Retired: replaced by the order header; ids are never reused.
     itemsTableFields: {
       design: '37b447eb-5e5b-46df-9ef3-e3812ec26532',
       metal: '4027a655-03f9-4ddd-9699-6831367dc9b6', // Retired: the metal comes from the grille; ids are never reused.
@@ -143,14 +152,17 @@ export const VIEW_PART_IDS = {
       lineCost: '358364a9-bab8-4d82-9bfb-1d5b57c57d15',
     },
     extraServicesTableFilter: 'dea25d57-67a3-48f6-8e69-d6d5225b44b4',
+    // Retired: replaced by the order header; ids are never reused.
     totalsFields: {
       areaSquareMeters: 'ab0f0328-62a5-447d-b381-05672660540e',
       total: '83c279b5-5899-47d3-b4ae-057e2515a91b',
       prepayment: 'b22b794f-96f7-4bfc-889b-b012c249a170',
       balance: 'db99312e-8ff8-4582-b445-0d7f864022ba',
     },
-    materialStatusWidget: 'fe099e60-5375-4cbe-b907-05230a76eb17',
+    materialStatusWidget: 'fe099e60-5375-4cbe-b907-05230a76eb17', // Retired: replaced by the order header; ids are never reused.
     materialsWidget: '1562124c-2987-4d89-84d6-bc5b363e5c24',
+    paymentsWidget: '0dbc1405-4760-4e04-b21f-44c5fb5b58e5',
+    // Retired: replaced by the order header; ids are never reused.
     materialStatusFields: {
       materialState: '9d9c51e6-e272-4884-bc36-899d238e64ab',
       materialNote: '74367bbe-8fd3-4619-b808-6aa2663faf46',
@@ -169,7 +181,7 @@ export const VIEW_PART_IDS = {
     measurementDate: '4bc106dc-2f08-40b4-914d-23261e2b98c2',
     deadlineState: 'aa916d9b-9ad4-4b8f-a8a3-dc863d66e7f2',
   },
-  productionDeadlineStateField: '754039b5-5524-48e2-9eb3-8d7fc013c1c6',
+  productionDeadlineStateField: '754039b5-5524-48e2-9eb3-8d7fc013c1c6', // Retired: replaced by the «В работе» screen; ids are never reused.
   allOrdersFields: {
     name: '22746edd-7dfe-431b-b2a0-c1702ea00b28',
     status: 'c86ada91-d4bc-44ed-b99b-03a6e00c1417',
@@ -228,6 +240,14 @@ export const VIEW_PART_IDS = {
       overrunPercent: '60864117-1a04-4c38-9f22-68c61386afd7',
     },
     overrunFilter: '0d277846-f550-4191-80d2-9edf21eb237b',
+    nearestDeadlinesFields: {
+      name: 'a472bc4b-6359-404c-8ba6-73468982f083',
+      clientName: '2e47ecfa-9b1e-4918-bde2-1ffef9231bda',
+      installationDeadline: '13bf8cbc-05dd-4b17-91a1-f8f5baa1e9eb',
+      master: '6b2a0c59-811d-42e6-8b02-d3c0aae27193',
+    },
+    nearestDeadlinesFilterStatus: 'fc0f9569-8450-4882-a116-f6c45dd29ff8',
+    nearestDeadlinesSortDeadline: '87be6048-730a-419d-a839-3660e90e7675',
   },
   orderPayments: {
     tableFields: {

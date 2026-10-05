@@ -381,7 +381,10 @@ test.describe('admin', () => {
     const page = await openPageAs(browser, 'ADMIN', DESKTOP_VIEWPORT);
 
     await page.goto('/objects/orders');
-    await page.getByRole('link', { name: 'Доска заказов' }).first().click();
+    await page
+      .getByRole('link', { name: /^Заказы/ })
+      .first()
+      .click();
 
     await expect(
       page.getByText(seededOrderName, { exact: true }).first(),
@@ -402,7 +405,10 @@ test.describe('admin', () => {
     const page = await openPageAs(browser, 'ADMIN', DESKTOP_VIEWPORT);
 
     await page.goto('/objects/orders');
-    await page.getByRole('link', { name: 'Доска заказов' }).first().click();
+    await page
+      .getByRole('link', { name: /^Заказы/ })
+      .first()
+      .click();
 
     const card = page
       .locator('[data-selectable-id]')

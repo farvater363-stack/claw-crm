@@ -39,10 +39,13 @@ const toneColors = (colors: Palette, tone: Tone) =>
 export const Screen = ({
   title,
   action,
+  isWide = false,
   children,
 }: {
   title: string;
   action?: ReactNode;
+  // The wall screen uses the whole width; every other screen is a column
+  isWide?: boolean;
   children: ReactNode;
 }) => {
   const colors = usePalette();
@@ -50,7 +53,7 @@ export const Screen = ({
   return (
     <div
       style={{
-        maxWidth: CONTENT_MAX_WIDTH,
+        maxWidth: isWide ? 'none' : CONTENT_MAX_WIDTH,
         margin: '0 auto',
         padding: SPACE.lg,
         color: colors.text,
@@ -61,6 +64,8 @@ export const Screen = ({
       <div
         style={{
           display: 'flex',
+          // An action too wide for the title's line goes under the title
+          flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: SPACE.md,
@@ -408,10 +413,13 @@ export const TextInput = ({
   onEnter,
   onCancel,
   inputMode = 'text',
+  type = 'text',
   suffix,
   placeholder,
   label,
 }: {
+  // `datetime-local` gives local wall time without a zone: «2026-10-12T14:00»
+  type?: 'text' | 'datetime-local';
   value: string;
   onChange: (value: string) => void;
   // The accessible name. Without it the name is all the text of the field
@@ -447,6 +455,7 @@ export const TextInput = ({
       }}
     >
       <input
+        type={type}
         aria-label={label}
         inputMode={inputMode}
         value={value}
@@ -563,12 +572,17 @@ export const InlineConfirm = ({
   question,
   confirmText,
   cancelText,
+  confirmVariant = 'quiet',
+  isBusy = false,
   onConfirm,
   onCancel,
 }: {
   question: string;
   confirmText: string;
   cancelText: string;
+  // `primary` where confirming is the one thing the screen asks for
+  confirmVariant?: 'primary' | 'quiet';
+  isBusy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) => (
@@ -581,7 +595,9 @@ export const InlineConfirm = ({
     }}
   >
     <span style={{ flex: '1 1 200px' }}>{question}</span>
-    <Button onClick={onConfirm}>{confirmText}</Button>
+    <Button variant={confirmVariant} isBusy={isBusy} onClick={onConfirm}>
+      {confirmText}
+    </Button>
     <Button variant="link" onClick={onCancel}>
       {cancelText}
     </Button>
@@ -999,5 +1015,142 @@ export const FilePicker = ({
         }}
       />
     </label>
+  );
+};
+
+type StepTrackerProps = {
+  steps: readonly { key: string; label: string }[];
+  currentKey: string | null;
+};
+
+// The steps of an order in a row. A done step carries a check mark and the
+// current one is filled and bold, so the state never rests on colour alone.
+export const StepTracker = ({ steps, currentKey }: StepTrackerProps) => {
+  const colors = usePalette();
+  const currentIndex = steps.findIndex((step) => step.key === currentKey);
+
+  return (
+    <ol
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: SPACE.sm,
+        margin: 0,
+        padding: 0,
+        listStyle: 'none',
+      }}
+    >
+      {steps.map((step, index) => {
+        const isDone = index < currentIndex;
+        const isCurrent = index === currentIndex;
+
+        return (
+          <li
+            key={step.key}
+            aria-current={isCurrent ? 'step' : undefined}
+            style={{
+              ...TYPE.body,
+              fontWeight: isCurrent ? 600 : 400,
+              padding: `${SPACE.xs}px ${SPACE.md}px`,
+              borderRadius: RADIUS.control,
+              border: `1px solid ${
+                isCurrent
+                  ? colors.accent
+                  : isDone
+                    ? colors.successTint
+                    : colors.border
+              }`,
+              background: isCurrent
+                ? colors.accent
+                : isDone
+                  ? colors.successTint
+                  : 'transparent',
+              color: isCurrent
+                ? colors.onAccent
+                : isDone
+                  ? colors.success
+                  : colors.muted,
+            }}
+          >
+            {isDone ? `✓ ${step.label}` : step.label}
+          </li>
+        );
+      })}
+    </ol>
+  );
+};
+
+// One order on the workshop's wall, read from across the room: its number and
+// the days left in the wall sizes, what to build under them, then its action.
+// The words of `note` carry the urgency; the colour only repeats it.
+export const WallCard = ({
+  title,
+  note,
+  tone,
+  lines,
+  children,
+}: {
+  title: string;
+  note: string;
+  tone: 'danger' | 'warning' | null;
+  lines: string[];
+  children?: ReactNode;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <article
+      aria-label={title}
+      style={{
+        ...SHRINKABLE_GRID,
+        gap: SPACE.sm,
+        padding: SPACE.lg,
+        marginBottom: SPACE.md,
+        background: colors.surface,
+        border: `1px solid ${colors.border}`,
+        borderRadius: RADIUS.card,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: SPACE.sm,
+        }}
+      >
+        <span style={TYPE.wallRowTitle}>{title}</span>
+        <span
+          style={{
+            ...TYPE.wall,
+            ...TABULAR_NUMBERS,
+            minWidth: 0,
+            overflowWrap: 'anywhere',
+            color:
+              tone === 'danger'
+                ? colors.danger
+                : tone === 'warning'
+                  ? colors.warning
+                  : colors.text,
+          }}
+        >
+          {note}
+        </span>
+      </div>
+      {lines.map((line, index) => (
+        <div
+          key={index}
+          style={{
+            ...TYPE.rowTitle,
+            fontWeight: 400,
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {line}
+        </div>
+      ))}
+      {children}
+    </article>
   );
 };

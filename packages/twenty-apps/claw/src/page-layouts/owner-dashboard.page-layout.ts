@@ -12,15 +12,15 @@ import {
   CHART_DEFAULTS,
   type ChartFilter,
   DECIDED_ORDERS,
-  materialsInStockState,
+  INSTALLED_WITH_BALANCE,
+  MATERIALS_TO_BUY,
+  ORDERS_IN_PRODUCTION,
+  OVERDUE_ORDERS,
   READY_IN_LAST_TWELVE_MONTHS,
   READY_THIS_MONTH,
 } from 'src/page-layouts/owner-dashboard-filters';
 
-// The warehouse block takes the first rows; every analytics widget sits below it.
-const WAREHOUSE_ROWS = 8;
-
-const topGrid = (
+const grid = (
   row: number,
   column: number,
   rowSpan: number,
@@ -33,31 +33,35 @@ const topGrid = (
   columnSpan,
 });
 
-const grid = (
-  row: number,
-  column: number,
-  rowSpan: number,
-  columnSpan: number,
-): PageLayoutWidgetGridPosition =>
-  topGrid(row + WAREHOUSE_ROWS, column, rowSpan, columnSpan);
-
-const materialCount = (
-  universalIdentifier: string,
-  title: string,
-  column: number,
-  filter?: ChartFilter,
-) => ({
+// One number of «Сегодня»: four of them share the first row.
+const tile = ({
+  universalIdentifier,
+  title,
+  column,
+  objectUniversalIdentifier,
+  fieldUniversalIdentifier,
+  aggregateOperation,
+  filter,
+}: {
+  universalIdentifier: string;
+  title: string;
+  column: number;
+  objectUniversalIdentifier: string;
+  fieldUniversalIdentifier: string;
+  aggregateOperation: AggregateOperations;
+  filter: ChartFilter;
+}) => ({
   universalIdentifier,
   title,
   type: 'GRAPH' as const,
-  objectUniversalIdentifier: IDS.material.object,
-  position: topGrid(0, column, 2, 3),
+  objectUniversalIdentifier,
+  position: grid(0, column, 2, 3),
   configuration: {
     configurationType: 'AGGREGATE_CHART' as const,
-    aggregateFieldMetadataUniversalIdentifier: IDS.material.name,
-    aggregateOperation: AggregateOperations.COUNT,
+    aggregateFieldMetadataUniversalIdentifier: fieldUniversalIdentifier,
+    aggregateOperation,
     numberFormat: 'FULL' as const,
-    ...(filter !== undefined && { filter }),
+    filter,
     ...CHART_DEFAULTS,
   },
 });
@@ -71,59 +75,75 @@ const BAR_DEFAULTS = {
 
 export default definePageLayout({
   universalIdentifier: IDS.ownerDashboard.pageLayout,
-  name: 'Аналитика',
+  name: 'Сегодня',
   type: 'DASHBOARD',
   tabs: [
     {
-      universalIdentifier: IDS.ownerDashboard.pageLayoutTab,
-      title: 'Аналитика',
+      universalIdentifier: IDS.ownerDashboard.todayTab,
+      title: 'Сегодня',
       position: 0,
-      icon: 'IconChartBar',
+      icon: 'IconSun',
       layoutMode: PageLayoutTabLayoutMode.GRID,
       widgets: [
-        materialCount(
-          IDS.ownerDashboard.materialsTotalWidget,
-          'Всего материалов',
-          0,
-        ),
-        materialCount(
-          IDS.ownerDashboard.materialsOkWidget,
-          'Достаточно',
-          3,
-          materialsInStockState('OK'),
-        ),
-        materialCount(
-          IDS.ownerDashboard.materialsLowWidget,
-          'Скоро закончится',
-          6,
-          materialsInStockState('LOW'),
-        ),
-        materialCount(
-          IDS.ownerDashboard.materialsBuyWidget,
-          'Нужно купить',
-          9,
-          materialsInStockState('BUY'),
-        ),
+        tile({
+          universalIdentifier: IDS.ownerDashboard.overdueCountWidget,
+          title: 'Просрочены',
+          column: 0,
+          objectUniversalIdentifier: IDS.order.object,
+          fieldUniversalIdentifier: IDS.order.name,
+          aggregateOperation: AggregateOperations.COUNT,
+          filter: OVERDUE_ORDERS,
+        }),
+        tile({
+          universalIdentifier: IDS.ownerDashboard.owesUsSumWidget,
+          title: 'Должны нам',
+          column: 3,
+          objectUniversalIdentifier: IDS.order.object,
+          fieldUniversalIdentifier: IDS.order.balance,
+          aggregateOperation: AggregateOperations.SUM,
+          filter: INSTALLED_WITH_BALANCE,
+        }),
+        tile({
+          universalIdentifier: IDS.ownerDashboard.inProductionCountWidget,
+          title: 'В работе',
+          column: 6,
+          objectUniversalIdentifier: IDS.order.object,
+          fieldUniversalIdentifier: IDS.order.name,
+          aggregateOperation: AggregateOperations.COUNT,
+          filter: ORDERS_IN_PRODUCTION,
+        }),
+        // Keeps its identifier whatever it counts: the server then updates the
+        // widget in place instead of destroying it and creating another.
+        tile({
+          universalIdentifier: IDS.ownerDashboard.materialsBuyWidget,
+          title: 'Купить',
+          column: 9,
+          objectUniversalIdentifier: IDS.material.object,
+          fieldUniversalIdentifier: IDS.material.name,
+          aggregateOperation: AggregateOperations.COUNT,
+          filter: MATERIALS_TO_BUY,
+        }),
         {
           universalIdentifier: IDS.ownerDashboard.purchasePlanTableWidget,
-          title: 'План закупок',
+          title: 'Купить',
           type: 'RECORD_TABLE',
           objectUniversalIdentifier: IDS.material.object,
-          position: topGrid(2, 0, 6, 8),
+          position: grid(2, 0, 6, 6),
           configuration: {
             configurationType: 'RECORD_TABLE',
             viewUniversalIdentifier: IDS.view.dashboardPurchasePlan,
           },
         },
         {
-          universalIdentifier: IDS.ownerDashboard.overrunTableWidget,
-          title: 'Уходит больше нормы',
+          universalIdentifier: IDS.ownerDashboard.nearestDeadlinesTableWidget,
+          title: 'Ближайшие сроки',
           type: 'RECORD_TABLE',
-          objectUniversalIdentifier: IDS.material.object,
-          position: topGrid(2, 8, 6, 4),
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(2, 6, 6, 6),
           configuration: {
             configurationType: 'RECORD_TABLE',
-            viewUniversalIdentifier: IDS.view.dashboardOverrun,
+            viewUniversalIdentifier: IDS.view.dashboardNearestDeadlines,
+            recordLimit: 5,
           },
         },
         {
@@ -131,7 +151,7 @@ export default definePageLayout({
           title: 'Выручка за месяц',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(0, 0, 2, 3),
+          position: grid(8, 0, 2, 6),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.order.total,
@@ -146,7 +166,7 @@ export default definePageLayout({
           title: 'Маржа за месяц',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(0, 3, 2, 3),
+          position: grid(8, 6, 2, 6),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.order.margin,
@@ -156,12 +176,21 @@ export default definePageLayout({
             ...CHART_DEFAULTS,
           },
         },
+      ],
+    },
+    {
+      universalIdentifier: IDS.ownerDashboard.pageLayoutTab,
+      title: 'Аналитика',
+      position: 1,
+      icon: 'IconChartBar',
+      layoutMode: PageLayoutTabLayoutMode.GRID,
+      widgets: [
         {
           universalIdentifier: IDS.ownerDashboard.areaThisMonthWidget,
           title: 'м² за месяц',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(0, 6, 2, 2),
+          position: grid(0, 0, 2, 4),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier:
@@ -177,7 +206,7 @@ export default definePageLayout({
           title: 'Готово заказов',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(0, 8, 2, 2),
+          position: grid(0, 4, 2, 4),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.order.name,
@@ -192,7 +221,7 @@ export default definePageLayout({
           title: 'Средний чек',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(0, 10, 2, 2),
+          position: grid(0, 8, 2, 4),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.order.total,
@@ -383,6 +412,17 @@ export default definePageLayout({
           configuration: {
             configurationType: 'RECORD_TABLE',
             viewUniversalIdentifier: IDS.view.dashboardLateThisMonth,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.overrunTableWidget,
+          title: 'Уходит больше нормы',
+          type: 'RECORD_TABLE',
+          objectUniversalIdentifier: IDS.material.object,
+          position: grid(44, 0, 6, 12),
+          configuration: {
+            configurationType: 'RECORD_TABLE',
+            viewUniversalIdentifier: IDS.view.dashboardOverrun,
           },
         },
       ],

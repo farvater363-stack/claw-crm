@@ -413,7 +413,10 @@ test.describe('kanban and measurer views', () => {
 
     const page = await openPageAs(browser, 'ADMIN', DESKTOP_VIEWPORT);
     await page.goto('/objects/orders');
-    await page.getByRole('link', { name: 'Доска заказов' }).first().click();
+    await page
+      .getByRole('link', { name: /^Заказы/ })
+      .first()
+      .click();
 
     const card = page.getByText(orderName, { exact: true }).first();
 

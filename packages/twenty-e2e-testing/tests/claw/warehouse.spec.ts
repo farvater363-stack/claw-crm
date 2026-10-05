@@ -341,8 +341,8 @@ test('the measurer has no «Склад» in the sidebar', async ({ page }) => {
   await expect(stockLink(page)).toHaveCount(0);
 });
 
-// Two entries every role has.
-const MENU_ANCHORS = ['Новый замер', 'Производство'] as const;
+// Both are in every role's menu that this spec signs in as.
+const MENU_ANCHORS = ['Новый замер', 'Мои замеры'] as const;
 
 // The workspace section has no role, test id or fixed heading (its title
 // follows the user's language), so it is the smallest block that holds both
@@ -374,38 +374,34 @@ const workspaceMenuEntries = (page: Page): Promise<string[]> =>
     ).map(textOf);
   }, MENU_ANCHORS);
 
-// A view's entry reads «Все заказы · Заказы»: the view, then its object.
+// A view's entry reads «Заказы · Заказы»: the view, then its object.
 const entryName = (entry: string) => entry.split(' · ')[0];
 
-// In the order of the phase 1 spec §7.5, which is the order on screen.
+// Top to bottom, as on screen. A role sees only the items whose object it
+// can read: the owner all of them, the others the screens they work in.
 const MENUS: { role: Role; title: string; entries: string[] }[] = [
   {
     role: 'ADMIN',
     title: 'the owner',
     entries: [
-      'Аналитика',
+      'Сегодня',
+      'Заказы',
+      'В работе',
       'Новый замер',
-      'Все заказы',
-      'Доска заказов',
       'Мои замеры',
-      'Производство',
-      'ЗП',
-      'Работники',
-      'Выплаты',
       'Склад',
       'Цены',
+      'ЗП',
     ],
   },
   {
     role: 'MANAGER',
     title: 'a manager',
     entries: [
+      'Заказы',
+      'В работе',
       'Новый замер',
-      'Все заказы',
-      'Доска заказов',
       'Мои замеры',
-      'Производство',
-      'Работники',
       'Склад',
       'Цены',
     ],
@@ -413,18 +409,12 @@ const MENUS: { role: Role; title: string; entries: string[] }[] = [
   {
     role: 'MEASURER',
     title: 'the measurer',
-    entries: [
-      'Новый замер',
-      'Все заказы',
-      'Доска заказов',
-      'Мои замеры',
-      'Производство',
-    ],
+    entries: ['Новый замер', 'Мои замеры'],
   },
 ];
 
 for (const { role, title, entries } of MENUS) {
-  test(`the sidebar of ${title} has the phase 1 menu and only Russian entries`, async ({
+  test(`the sidebar of ${title} has the menu of its role and only Russian entries`, async ({
     page,
   }) => {
     test.setTimeout(180_000);
@@ -524,7 +514,7 @@ test('an order in «Замер выполнен» is a need on the material and 
   );
 });
 
-test('the owner dashboard names the overuse table «Уходит больше нормы»', async ({
+test('the owner dashboard opens on «Сегодня» and keeps the overuse table on «Аналитика»', async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -532,15 +522,26 @@ test('the owner dashboard names the overuse table «Уходит больше н
   await signIn(page, 'ADMIN');
 
   for (const title of [
-    'Всего материалов',
-    'Достаточно',
-    'Скоро закончится',
-    'Нужно купить',
-    'План закупок',
-    'Уходит больше нормы',
+    'Просрочены',
+    'Должны нам',
+    'В работе',
+    'Купить',
+    'Ближайшие сроки',
   ]) {
     await expect(
       page.locator('[data-widget-id]').filter({ hasText: title }).first(),
     ).toBeVisible({ timeout: 30_000 });
   }
+
+  await page
+    .getByRole('tab', { name: 'Аналитика' })
+    .or(page.getByRole('link', { name: 'Аналитика' }))
+    .first()
+    .click(FORCE);
+  await expect(
+    page
+      .locator('[data-widget-id]')
+      .filter({ hasText: 'Уходит больше нормы' })
+      .first(),
+  ).toBeVisible({ timeout: 30_000 });
 });

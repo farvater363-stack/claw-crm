@@ -2,6 +2,7 @@ import { defineView, ViewFilterOperand, ViewType } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { VIEW_PART_IDS } from 'src/constants/view-part-identifiers';
+import { STEP_STATUS } from 'src/order-header/order-steps';
 import { toKeyedViewFields } from 'src/utils/to-view-fields';
 
 const ids = VIEW_PART_IDS.ownerDashboard;
@@ -35,7 +36,7 @@ export default defineView({
       universalIdentifier: ids.owesUsFilterStatus,
       fieldMetadataUniversalIdentifier: IDS.order.status,
       operand: ViewFilterOperand.IS,
-      value: JSON.stringify(['INSTALLED', 'CLOSED']),
+      value: JSON.stringify([STEP_STATUS.installed]),
     },
     {
       universalIdentifier: ids.owesUsFilterBalance,
