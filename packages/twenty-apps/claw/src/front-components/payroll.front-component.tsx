@@ -48,7 +48,7 @@ import {
   withCategory,
 } from 'src/payroll/payroll-screen';
 import { todayInTashkent } from 'src/pricing/dates';
-import { formatMoney } from 'src/ui/format';
+import { formatMoney, formatWhole } from 'src/ui/format';
 import {
   Button,
   Checkbox,
@@ -462,7 +462,7 @@ const Payroll = () => {
 
     // A sum already typed for this row is kept when the form is opened again.
     if (!isSameRow || payForm === null) {
-      setPayForm({ kind: 'SETTLEMENT', amount: row.owed > 0 ? String(row.owed) : '', comment: '' });
+      setPayForm({ kind: 'SETTLEMENT', amount: row.owed > 0 ? formatWhole(row.owed) : '', comment: '' });
     }
 
     setPanel('pay');
@@ -546,6 +546,7 @@ const Payroll = () => {
               <TextInput
                 label="Сумма"
                 inputMode="numeric"
+                isMoney
                 value={form.amount}
                 suffix="сум"
                 onChange={(amount) => setPayForm({ ...form, amount })}
@@ -626,6 +627,7 @@ const Payroll = () => {
           <TextInput
             label={label}
             inputMode={rule.method === 'PERCENT_OF_SALES' ? 'decimal' : 'numeric'}
+            isMoney={rule.method !== 'PERCENT_OF_SALES'}
             value={drafts[key] ?? payRuleValue(rule)}
             suffix={payRuleSuffix(rule.method)}
             onChange={(value) => setDraft(key, value)}
@@ -682,6 +684,7 @@ const Payroll = () => {
               <TextInput
                 label={valueLabel}
                 inputMode={newRule.method === 'PERCENT_OF_SALES' ? 'decimal' : 'numeric'}
+                isMoney={newRule.method !== 'PERCENT_OF_SALES'}
                 value={newRule.value}
                 suffix={payRuleSuffix(newRule.method)}
                 onChange={(value) => setNewRule({ ...newRule, value })}

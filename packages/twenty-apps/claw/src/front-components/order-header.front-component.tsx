@@ -60,6 +60,7 @@ import {
   TextInput,
   Wrap,
 } from 'src/ui/kit';
+import { formatWhole } from 'src/ui/format';
 import { SPACE, TABULAR_NUMBERS } from 'src/ui/tokens';
 import { isAccessError } from 'src/utils/is-access-error';
 import { randomUuid } from 'src/utils/random-uuid';
@@ -311,7 +312,7 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
       change({
         amount:
           order.balance !== null && order.balance > 0
-            ? String(order.balance)
+            ? formatWhole(order.balance)
             : '',
       });
     }
@@ -563,6 +564,7 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
                 <TextInput
                   label="Сумма"
                   inputMode="numeric"
+                  isMoney
                   suffix="сум"
                   value={draft.amount}
                   onChange={(amount) => change({ amount })}

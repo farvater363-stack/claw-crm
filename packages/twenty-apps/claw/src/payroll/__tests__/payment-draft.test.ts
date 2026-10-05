@@ -12,7 +12,7 @@ describe('buildPaymentInput', () => {
   };
 
   it('builds a named payment in UZS micros', () => {
-    expect(buildPaymentInput({ ...base, amount: '100 000' })).toEqual({
+    expect(buildPaymentInput({ ...base, amount: '100,000' })).toEqual({
       isValid: true,
       data: {
         name: 'Аванс · Работник 1',
@@ -31,7 +31,7 @@ describe('buildPaymentInput', () => {
       expect(buildPaymentInput({ ...base, amount })).toEqual({
         isValid: false,
         error:
-          'Сумма должна быть целым числом больше 0 и не больше 1 000 000 000',
+          'Сумма должна быть целым числом больше 0 и не больше 1,000,000,000',
       });
     },
   );

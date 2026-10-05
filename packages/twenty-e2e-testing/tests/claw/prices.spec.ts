@@ -31,8 +31,8 @@ const NEW_GRILLE_PLACEHOLDER = 'Новая решётка';
 // Synthetic. 140 × 150 × 30 cm, 2 pieces, is 7.68 m²: 944 640 at this price.
 const TEST_GRILLE_PRICE = 123_000;
 // \s: the thousands separator is a non-breaking space.
-const PRICE_TEXT = /123\s000 сум за м²/;
-const MEASUREMENT_TOTAL = /· 944\s640 сум$/;
+const PRICE_TEXT = /123,000 сум за м²/;
+const MEASUREMENT_TOTAL = /· 944,640 сум$/;
 const MATERIAL_AMOUNT = '2,5';
 
 // Every step is independent so one failure does not skip the rest.

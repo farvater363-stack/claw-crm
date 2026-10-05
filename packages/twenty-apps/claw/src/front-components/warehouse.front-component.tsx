@@ -572,6 +572,7 @@ const Stock = () => {
         <TextInput
           label={label}
           inputMode={field === 'price' ? 'numeric' : 'decimal'}
+          isMoney={field === 'price'}
           value={drafts[`${row.id}:${field}`] ?? ''}
           suffix={suffix}
           onChange={(value) => {

@@ -132,13 +132,13 @@ describe('moneySentence', () => {
       plain(
         moneySentence({ total: 1_410_000, paid: 500_000, balance: 910_000 }),
       ),
-    ).toBe('Итого 1 410 000 сум · оплачено 500 000 · остаток 910 000');
+    ).toBe('Итого 1,410,000 сум · оплачено 500,000 · остаток 910,000');
   });
 
   it('counts the balance itself when the order has none stored yet', () => {
     expect(
       plain(moneySentence({ total: 300_000, paid: null, balance: null })),
-    ).toBe('Итого 300 000 сум · оплачено 0 · остаток 300 000');
+    ).toBe('Итого 300,000 сум · оплачено 0 · остаток 300,000');
   });
 
   it('says who names the price when the total is unknown', () => {
@@ -190,7 +190,7 @@ describe('balanceWarning', () => {
   it('speaks only for an installed order that still owes', () => {
     expect(
       plain(balanceWarning({ status: 'INSTALLED', balance: 910_000 }) ?? ''),
-    ).toBe('Остаток 910 000 сум');
+    ).toBe('Остаток 910,000 сум');
     expect(balanceWarning({ status: 'INSTALLED', balance: 0 })).toBeNull();
     expect(balanceWarning({ status: 'INSTALLED', balance: null })).toBeNull();
     expect(
@@ -299,7 +299,7 @@ describe('buildPayment', () => {
   } as const;
 
   it('takes a whole sum above zero, dated today', () => {
-    expect(buildPayment({ ...input, amount: '500 000' })).toEqual({
+    expect(buildPayment({ ...input, amount: '500,000' })).toEqual({
       ok: true,
       data: {
         amount: 500_000,
