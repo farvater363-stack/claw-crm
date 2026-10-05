@@ -255,6 +255,9 @@ export const computeOpeningQuote = (
 };
 
 const CENTIMETERS_PER_METER = 100;
+// The length used to be typed in metres: «2,5» out of habit must not be saved
+// as two and a half centimetres.
+const MIN_VISOR_LENGTH_CM = 10;
 
 // A visor alone: no sizes, so no grille is made for this opening.
 export const isVisorOnlyOpening = (opening: OpeningDraft): boolean =>
@@ -266,7 +269,7 @@ export const isVisorOnlyOpening = (opening: OpeningDraft): boolean =>
 const computeVisorRunningMeters = (opening: OpeningDraft): number | null => {
   const lengthCm = parseDecimalInput(opening.visorLengthCm);
 
-  if (lengthCm === null || lengthCm <= 0) return null;
+  if (lengthCm === null || lengthCm < MIN_VISOR_LENGTH_CM) return null;
 
   return roundTo(
     (lengthCm / CENTIMETERS_PER_METER) *
@@ -618,7 +621,7 @@ export const buildMeasurementPayload = (
 
     if (opening.visorServiceId !== '' && visorRunningMeters === null) {
       openingErrors.push(
-        `${label}: укажите длину козырька в сантиметрах больше 0`,
+        `${label}: укажите длину козырька в сантиметрах, от ${MIN_VISOR_LENGTH_CM}`,
       );
     }
 

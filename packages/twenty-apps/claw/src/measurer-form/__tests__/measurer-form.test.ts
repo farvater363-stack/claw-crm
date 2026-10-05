@@ -452,12 +452,16 @@ describe('visor', () => {
     });
   });
 
-  it('requires a positive length once a visor is chosen', () => {
+  it('requires a length in centimetres once a visor is chosen', () => {
     expect(
       buildMeasurementPayload(
         draft({
           openings: [
-            opening({ ...sized, visorServiceId: 'visor-1', visorLengthCm: '' }),
+            opening({
+              ...sized,
+              visorServiceId: 'visor-1',
+              visorLengthCm: '2,5',
+            }),
           ],
         }),
         'member-1',
@@ -465,7 +469,7 @@ describe('visor', () => {
       ),
     ).toEqual({
       isValid: false,
-      errors: ['Проём 1: укажите длину козырька в сантиметрах больше 0'],
+      errors: ['Проём 1: укажите длину козырька в сантиметрах, от 10'],
     });
   });
 

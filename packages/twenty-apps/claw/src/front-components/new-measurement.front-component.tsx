@@ -408,7 +408,7 @@ const SignaturePad = ({
   const pad = useRef<HTMLDivElement>(null);
   // Where the pad sits on the screen while one stroke is drawn; null between
   // strokes. A pointer event carries screen coordinates only.
-  const origin = useRef<SignaturePoint | null>(null);
+  const origin = useRef<(SignaturePoint & { pointerId: number }) | null>(null);
 
   const pointOf = (event: PointerEvent<HTMLDivElement>): SignaturePoint => ({
     x: Math.round(event.clientX - (origin.current?.x ?? 0)),
@@ -426,7 +426,10 @@ const SignaturePad = ({
 
     if (rect === undefined || rect.width === 0) return;
 
-    origin.current = { x: rect.x, y: rect.y };
+    // One finger draws; a palm resting on the screen starts nothing.
+    if (origin.current !== null) return;
+
+    origin.current = { x: rect.x, y: rect.y, pointerId: event.pointerId };
 
     const point = pointOf(event);
 
@@ -434,7 +437,7 @@ const SignaturePad = ({
   };
 
   const extend = (event: PointerEvent<HTMLDivElement>) => {
-    if (origin.current === null) return;
+    if (origin.current?.pointerId !== event.pointerId) return;
 
     const point = pointOf(event);
 
@@ -444,8 +447,8 @@ const SignaturePad = ({
     ]);
   };
 
-  const end = () => {
-    origin.current = null;
+  const end = (event: PointerEvent<HTMLDivElement>) => {
+    if (origin.current?.pointerId === event.pointerId) origin.current = null;
   };
 
   return (
@@ -852,8 +855,14 @@ const NewMeasurement = () => {
   const isDirty =
     draft.clientName !== '' ||
     draft.clientPhone !== '' ||
+    draft.addressLine !== '' ||
+    draft.comment !== '' ||
     draft.openings.some(
-      (opening) => opening.widthCm !== '' || opening.photos.length > 0,
+      (opening) =>
+        opening.widthCm !== '' ||
+        opening.notes !== '' ||
+        opening.visorServiceId !== '' ||
+        opening.photos.length > 0,
     );
 
   // The payment has its own screen, so the sizes are checked before it opens.
@@ -1229,6 +1238,8 @@ const NewMeasurement = () => {
           style={{ ...styles.secondaryButton, marginBottom: '16px' }}
           onClick={() => {
             setErrors([]);
+            // The client signed for these sizes and this sum.
+            setSignature([]);
             setStep('measurement');
           }}
         >

@@ -147,7 +147,7 @@ describe('workshop', () => {
       'payments',
       'accruals',
     ] as const;
-    const retiredKeys = ['masterPayPaid', 'prepayment'] as const;
+    const retiredKeys = ['masterPayPaid', 'prepayment', 'isUrgent'] as const;
     // The object's own identifier, and the retired fields that are no longer defined.
     const keysWithoutField: string[] = ['object', ...retiredKeys];
     const writableIds = [
