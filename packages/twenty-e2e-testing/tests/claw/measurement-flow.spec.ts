@@ -427,7 +427,7 @@ test.describe('kanban and measurer views', () => {
     const orderName = await waitForOrderName(orderId);
 
     const page = await openPageAs(browser, 'ADMIN', DESKTOP_VIEWPORT);
-    await page.goto('/objects/orders');
+    await page.goto('/');
     await page
       .getByRole('link', { name: /^Заказы/ })
       .first()

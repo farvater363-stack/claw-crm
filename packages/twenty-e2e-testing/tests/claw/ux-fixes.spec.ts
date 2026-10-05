@@ -376,8 +376,10 @@ test.describe('admin', () => {
 
     const page = await openPageAs(browser, 'ADMIN', DESKTOP_VIEWPORT);
 
-    await page.goto('/objects/orders');
-    // The menu entry opens the board, whatever view was open last.
+    await page.goto('/');
+    // From the start page only the menu entry is named «Заказы»; on the orders
+    // page the sidebar lists the open page under that name first, and it keeps
+    // whatever view was open last.
     await page
       .getByRole('link', { name: /^Заказы/ })
       .first()
@@ -416,7 +418,7 @@ test.describe('admin', () => {
 
     const page = await openPageAs(browser, 'ADMIN', DESKTOP_VIEWPORT);
 
-    await page.goto('/objects/orders');
+    await page.goto('/');
     await page
       .getByRole('link', { name: /^Заказы/ })
       .first()
@@ -440,7 +442,7 @@ test.describe('admin', () => {
 
     const page = await openPageAs(browser, 'ADMIN', DESKTOP_VIEWPORT);
 
-    await page.goto('/objects/orders');
+    await page.goto('/');
     await page
       .getByRole('link', { name: /^Заказы/ })
       .first()
