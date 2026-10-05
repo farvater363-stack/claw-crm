@@ -27,7 +27,6 @@ const SEEDED_ORDER_NATIONAL_PHONE = '930000002';
 // 140 x 150 x 30 cm, 2 pieces: area 7.68 m2 at 180 000 UZS/m2.
 // Money renders in full with the viewer's group separator (space, comma or dot).
 const EXPECTED_TOTAL = /^1\D?382\D?400$/;
-const EXPECTED_AREA = /^7[.,]68$/;
 const EXPECTED_MARGIN = /^614\D?400$/;
 
 // The seeded order is priced by its own grille, so it never depends on, or
@@ -117,6 +116,21 @@ const readFieldValue = async (page: Page, label: string) => {
   const labelIndex = lines.indexOf(label);
 
   return labelIndex === -1 ? null : (lines[labelIndex + 1] ?? null);
+};
+
+// The fields of the card: a tab of their own on a narrow screen, the pinned
+// left column on a wide one.
+const openOrderFields = async (page: Page) => {
+  await expect(page.getByText(/^Заказ №\d{4}$/).first()).toBeVisible({
+    timeout: 60_000,
+  });
+
+  const fieldsTab = page
+    .getByRole('tab', { name: 'Заказ', exact: true })
+    .or(page.getByRole('link', { name: 'Заказ', exact: true }))
+    .first();
+
+  if (await fieldsTab.isVisible()) await fieldsTab.click();
 };
 
 const createdOrderIds: string[] = [];
@@ -319,6 +333,7 @@ test.describe('order totals and role visibility', () => {
     test.setTimeout(120_000);
     const page = await openPageAs(browser, 'ADMIN', TABLET_VIEWPORT);
     await page.goto(`/object/order/${seededOrderId}`);
+    await openOrderFields(page);
 
     await expect(page.getByText(/^№\d{4}$/).first()).toBeVisible({
       timeout: 30_000,
@@ -326,7 +341,6 @@ test.describe('order totals and role visibility', () => {
     await expect
       .poll(() => readFieldValue(page, 'Итого'), { timeout: 30_000 })
       .toMatch(EXPECTED_TOTAL);
-    expect(await readFieldValue(page, 'Площадь, м²')).toMatch(EXPECTED_AREA);
     expect(await readFieldValue(page, 'Маржа')).toMatch(EXPECTED_MARGIN);
     expect(await readFieldValue(page, 'Себестоимость')).toMatch(/^768\D?000$/);
 
@@ -334,7 +348,7 @@ test.describe('order totals and role visibility', () => {
       type: 'rendered',
       description: (
         await Promise.all(
-          ['Итого', 'Площадь, м²', 'Себестоимость', 'Маржа'].map(
+          ['Итого', 'Себестоимость', 'Маржа'].map(
             async (label) => `${label}=${await readFieldValue(page, label)}`,
           ),
         )
@@ -349,6 +363,7 @@ test.describe('order totals and role visibility', () => {
       test.setTimeout(120_000);
       const page = await openPageAs(browser, role, TABLET_VIEWPORT);
       await page.goto(`/object/order/${seededOrderId}`);
+      await openOrderFields(page);
 
       await expect
         .poll(() => readFieldValue(page, 'Итого'), { timeout: 30_000 })

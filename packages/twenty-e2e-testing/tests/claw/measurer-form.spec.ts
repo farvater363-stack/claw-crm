@@ -278,12 +278,12 @@ test('measurer records a measurement from the tablet form', async ({
   try {
     await signInAsMeasurer(page);
 
-    // Load the order list first, as a measurer does during the day: the
+    // Load the measurer's own list first, as he does during the day: the
     // app caches it, and the new order must still show up after saving.
-    await page.getByRole('link', { name: 'Все заказы' }).first().click();
-    await expect(page.getByText(/^№\d{4}$/).first()).toBeVisible({
-      timeout: 60_000,
-    });
+    await page.getByRole('link', { name: 'Мои замеры' }).first().click();
+    await expect(
+      page.getByText('Замер назначен', { exact: true }).first(),
+    ).toBeVisible({ timeout: 60_000 });
 
     // Step 1: open the form from the sidebar.
     await page.getByRole('link', { name: 'Новый замер' }).first().click();
@@ -509,8 +509,8 @@ test('measurer records a measurement from the tablet form', async ({
       });
     }
 
-    // From the success screen the list shows the new order without a reload.
-    await page.getByRole('link', { name: 'К списку заказов' }).click(FORCE);
+    // Back in the list, the new order is there without a reload.
+    await page.getByRole('link', { name: 'Мои замеры' }).first().click();
     await expect(
       page.getByText(orderName, { exact: true }).first(),
     ).toBeVisible({ timeout: 60_000 });

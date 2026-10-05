@@ -3,7 +3,7 @@ import { LoginPage } from '../../lib/pom/loginPage';
 
 const API_URL = process.env.CLAW_API_URL ?? 'http://localhost:3000';
 
-export type Role = 'ADMIN' | 'MANAGER' | 'MEASURER';
+export type Role = 'ADMIN' | 'MANAGER' | 'MEASURER' | 'WORKSHOP';
 
 // Twenty wraps every widget in a dnd-kit draggable with aria-disabled="true"
 // outside layout edit mode; Playwright reads that as disabled for the whole
@@ -139,4 +139,117 @@ export const signIn = async (page: Page, role: Role) => {
   await page.waitForURL(/objects|object\/|dashboard|\/page\//, {
     timeout: 60_000,
   });
+};
+
+export const pause = (milliseconds: number) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+export const createRecord = async (
+  object: string,
+  data: Record<string, unknown>,
+): Promise<string> => {
+  const result = await graphql(
+    `mutation($data: ${object}CreateInput!) { create${object}(data: $data) { id } }`,
+    { data },
+  );
+
+  return result[`create${object}`].id;
+};
+
+export const updateRecord = async (
+  object: string,
+  id: string,
+  data: Record<string, unknown>,
+) => {
+  await graphql(
+    `mutation($id: UUID!, $data: ${object}UpdateInput!) { update${object}(id: $id, data: $data) { id } }`,
+    { id, data },
+  );
+};
+
+const DESTROY_PAUSE = 1_500;
+
+const ORDER_CHILDREN = [
+  ['orderItems', 'OrderItem'],
+  ['orderExtraServices', 'OrderExtraService'],
+  ['orderPayments', 'OrderPayment'],
+  ['payAccruals', 'PayAccrual'],
+  ['stockMovements', 'StockMovement'],
+  ['orderMaterials', 'OrderMaterial'],
+] as const;
+
+const WORKER_CHILDREN = [
+  ['payAccruals', 'PayAccrual', 'workerId'],
+  ['payRules', 'PayRule', 'workerId'],
+  ['masterPayments', 'MasterPayment', 'masterId'],
+] as const;
+
+// Removes what the order specs create: orders whose client name starts with
+// the prefix, workers and grilles whose name starts with it, and the clients
+// linked by the given phones. Every step is independent, so one failure does
+// not skip the rest.
+export const destroyOrderTestData = async (
+  prefix: string,
+  nationalPhones: string[] = [],
+) => {
+  assertLocalApi();
+
+  const failures: string[] = [];
+  const startsWith = (field: string) =>
+    `${field}: { like: ${JSON.stringify(`${prefix} %`)} }`;
+
+  const find = async (plural: string, filter: string) => {
+    try {
+      return await findIds(plural, filter);
+    } catch (error) {
+      failures.push(`find ${plural}: ${String(error)}`);
+
+      return [];
+    }
+  };
+
+  const destroy = async (object: string, ids: string[]) => {
+    for (const id of ids) {
+      await destroyRecord(object, id, failures);
+      await pause(DESTROY_PAUSE);
+    }
+  };
+
+  for (const orderId of await find('orders', startsWith('clientName'))) {
+    // Soft-deleted first: the functions that a destroyed child starts stop
+    // when they do not find the order, so none writes a line or an accrual
+    // back. An order that is already deleted refuses, which is fine.
+    await graphql('mutation($id: UUID!) { deleteOrder(id: $id) { id } }', {
+      id: orderId,
+    }).catch(() => undefined);
+    await pause(DESTROY_PAUSE);
+
+    for (const [plural, object] of ORDER_CHILDREN) {
+      await destroy(object, await find(plural, equalTo('orderId', orderId)));
+    }
+
+    await destroy('Order', [orderId]);
+  }
+
+  for (const workerId of await find('masters', startsWith('name'))) {
+    for (const [plural, object, relation] of WORKER_CHILDREN) {
+      await destroy(object, await find(plural, equalTo(relation, workerId)));
+    }
+
+    await destroy('Master', [workerId]);
+  }
+
+  await destroy('Design', await find('designs', startsWith('name')));
+
+  for (const phone of nationalPhones) {
+    await destroy(
+      'Person',
+      await find(
+        'people',
+        `phones: { primaryPhoneNumber: { eq: ${JSON.stringify(phone)} } }`,
+      ),
+    );
+  }
+
+  throwCleanupFailures(failures);
 };

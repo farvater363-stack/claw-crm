@@ -282,8 +282,31 @@ test.afterAll(async () => {
   }
 });
 
+// The bar above the list names the open view; pressing it lists the views.
+const openViewList = async (page: Page) => {
+  await page
+    .getByRole('button', { name: /^Заказы/ })
+    .first()
+    .click();
+};
+
+// The fields of the card: a tab of their own on a narrow screen, the pinned
+// left column on a wide one.
+const openOrderFields = async (page: Page) => {
+  await expect(page.getByText(/^Заказ №\d{4}$/).first()).toBeVisible({
+    timeout: 60_000,
+  });
+
+  const fieldsTab = page
+    .getByRole('tab', { name: 'Заказ', exact: true })
+    .or(page.getByRole('link', { name: 'Заказ', exact: true }))
+    .first();
+
+  if (await fieldsTab.isVisible()) await fieldsTab.click();
+};
+
 test.describe('admin', () => {
-  test('order page opens on «Позиции» with the openings table and the total below', async ({
+  test('order page opens on «Работа» with the next step above the openings table', async ({
     browser,
   }) => {
     test.setTimeout(120_000);
@@ -292,17 +315,17 @@ test.describe('admin', () => {
 
     await page.goto(`/object/order/${seededOrderId}`);
 
-    const positionsTab = page
-      .getByRole('tab', { name: 'Позиции' })
-      .or(page.getByRole('link', { name: 'Позиции' }))
+    const workTab = page
+      .getByRole('tab', { name: 'Работа' })
+      .or(page.getByRole('link', { name: 'Работа' }))
       .first();
 
-    await expect(positionsTab).toBeVisible({ timeout: 60_000 });
+    await expect(workTab).toBeVisible({ timeout: 60_000 });
     // Tabs mark the open one with aria-selected or aria-current by variant.
     await expect
       .poll(
         () =>
-          positionsTab.evaluate(
+          workTab.evaluate(
             (element) =>
               element.getAttribute('aria-selected') === 'true' ||
               element.getAttribute('aria-current') === 'page',
@@ -311,52 +334,65 @@ test.describe('admin', () => {
       )
       .toBe(true);
 
-    const tabBox = await positionsTab.boundingBox();
+    // Files and notes are widgets of «Фото и заметки» now, not tabs.
+    for (const gone of ['Позиции', 'Заметки', 'Файлы']) {
+      await expect(
+        page.getByRole('tab', { name: gone, exact: true }),
+        `the tab «${gone}» is gone`,
+      ).toHaveCount(0);
+    }
 
-    if (!tabBox) throw new Error('The «Позиции» tab has no box');
+    // The seeded order is «Новый», so its one step is the first of the path.
+    const step = page.getByRole('button', {
+      name: 'Назначить замер',
+      exact: true,
+    });
 
-    // The pinned «Заказ» column is left of the tab; only look at the main area.
-    const inMainArea = (box: { x: number }) => box.x >= tabBox.x - 4;
+    await expect(step).toBeVisible({ timeout: 30_000 });
+    // The header carries the money; the main area has no «Итого» widget.
+    await expect
+      .poll(() => bodyText(page), { timeout: 30_000 })
+      .toMatch(/Итого\s[\d\D]*?сум\s·\sоплачено\s[\d\D]*?·\sостаток\s/);
 
     await expect
-      .poll(
-        async () =>
-          (await boxesOfText(page, 'Площадь, м²')).filter(inMainArea).length,
-        { timeout: 30_000 },
-      )
+      .poll(async () => (await boxesOfText(page, 'Площадь, м²')).length, {
+        timeout: 30_000,
+      })
       .toBeGreaterThan(0);
 
-    const headerTop = Math.min(
-      ...(await boxesOfText(page, 'Площадь, м²'))
-        .filter(inMainArea)
-        .map((box) => box.y),
-    );
-    const totalBoxes = (await boxesOfText(page, 'Итого')).filter(inMainArea);
+    const stepBox = await step.boundingBox();
+    const tableHeaders = await boxesOfText(page, 'Площадь, м²');
 
     expect(
-      totalBoxes.some((box) => box.y > headerTop),
-      '«Итого» must appear below the table header',
+      tableHeaders.some((box) => stepBox !== null && box.y > stepBox.y),
+      'the openings table must sit below the step button',
     ).toBe(true);
   });
 
-  test('«Все заказы» opens as the orders view with the new first columns', async ({
+  test('«Все заказы» opens from the view list with the new first columns', async ({
     browser,
   }) => {
     test.setTimeout(120_000);
 
     const page = await openPageAs(browser, 'ADMIN', DESKTOP_VIEWPORT);
 
-    await page.goto('/');
-    await page.getByRole('link', { name: 'Все заказы' }).first().click();
+    await page.goto('/objects/orders');
+    // The menu entry opens the board, whatever view was open last.
+    await page
+      .getByRole('link', { name: /^Заказы/ })
+      .first()
+      .click();
+    await openViewList(page);
+    await page.getByText('Все заказы', { exact: true }).last().click();
 
-    // The menu item and the open view both carry the name.
+    // The view has no menu entry; the bar above the list names it.
     await expect
       .poll(
         async () =>
           (await page.getByText('Все заказы', { exact: true }).all()).length,
         { timeout: 60_000 },
       )
-      .toBeGreaterThanOrEqual(2);
+      .toBeGreaterThanOrEqual(1);
     await expect(
       page.getByText(seededOrderName, { exact: true }).first(),
     ).toBeVisible({ timeout: 30_000 });
@@ -474,6 +510,7 @@ test.describe('measurer', () => {
     const page = await openPageAs(browser, 'MEASURER', TABLET_VIEWPORT);
 
     await page.goto(`/object/order/${seededOrderId}`);
+    await openOrderFields(page);
 
     await expect(
       page.getByText(seededOrderName, { exact: true }).first(),
