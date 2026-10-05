@@ -24,7 +24,7 @@ const TEST_STORED_PHONE = `+998${TEST_NATIONAL_PHONE}`;
 const TEST_DESIGN_NAME = 'E2E UX design (temporary)';
 // 140 x 150 x 30 cm is 3.84 m2 per piece; one piece at 180 000 UZS/m2.
 const PRICE_PER_SQUARE_METER_MICROS = 180_000_000_000;
-const EXPECTED_LINE_TOTAL = /^Итого: 691\D200 сум$/;
+const EXPECTED_LINE_TOTAL = /· 691\D200 сум$/;
 
 // Compact money such as "2.3m" or "950k" instead of the full amount.
 const COMPACT_MONEY = /\d(\.\d)?[km]\b/;
@@ -469,7 +469,7 @@ test.describe('measurer', () => {
     await opening.getByLabel('Количество').fill('1', FORCE);
 
     await expect(grilleTile).toContainText(/180\D000 сум за м²/);
-    await expect(page.getByText(/^Итого: /)).toHaveText(EXPECTED_LINE_TOTAL);
+    await expect(opening.getByText(EXPECTED_LINE_TOTAL)).toBeVisible();
   });
 
   test('the sidebar has no «Работники», «ЗП» and «Выплаты»', async ({

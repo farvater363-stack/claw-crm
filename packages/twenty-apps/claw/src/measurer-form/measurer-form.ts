@@ -32,6 +32,8 @@ export type OpeningPhoto = {
 // Inputs keep raw strings so a half-typed value ("1,") survives re-render.
 export type OpeningDraft = {
   key: string;
+  // The id its visor line is saved under, as `key` is for the order item
+  visorKey: string;
   designId: string;
   widthCm: string;
   heightCm: string;
@@ -39,6 +41,8 @@ export type OpeningDraft = {
   quantity: string;
   notes: string;
   photos: OpeningPhoto[];
+  visorServiceId: string;
+  visorLengthCm: string;
 };
 
 export type MeasurementDraft = {
@@ -51,8 +55,6 @@ export type MeasurementDraft = {
   measurementDate: string;
   comment: string;
   openings: OpeningDraft[];
-  visorServiceId: string;
-  visorLengthMeters: string;
 };
 
 export type OrderPayload = {
@@ -71,6 +73,7 @@ export type OrderPayload = {
 };
 
 export type OrderItemPayload = {
+  id: string;
   designId: string | null;
   widthCm: number;
   heightCm: number;
@@ -79,7 +82,14 @@ export type OrderItemPayload = {
   notes: string | null;
 };
 
-export type VisorPayload = { extraServiceId: string; quantity: number };
+// `quantity` is running metres, the unit a visor is priced in.
+export type VisorPayload = {
+  id: string;
+  extraServiceId: string;
+  quantity: number;
+  // null for a visor ordered without a grille
+  orderItemId: string | null;
+};
 
 export type FirstPayment = {
   amount: number;
@@ -104,15 +114,19 @@ export type MeasurementPayloadResult =
       orderId: string | null;
       order: OrderPayload;
       items: OrderItemPayload[];
-      visor: VisorPayload | null;
+      visors: VisorPayload[];
       firstPayment: FirstPayment | null;
     }
   | { isValid: false; errors: string[] };
 
 const NATIONAL_PHONE_GROUPS = [2, 3, 2, 2];
 
-export const createEmptyOpening = (key: string): OpeningDraft => ({
+export const createEmptyOpening = (
+  key: string,
+  visorKey: string,
+): OpeningDraft => ({
   key,
+  visorKey,
   designId: '',
   widthCm: '',
   heightCm: '',
@@ -120,6 +134,8 @@ export const createEmptyOpening = (key: string): OpeningDraft => ({
   quantity: '1',
   notes: '',
   photos: [],
+  visorServiceId: '',
+  visorLengthCm: '',
 });
 
 export const takePhotosWithinLimit = <TPhoto>(
@@ -238,38 +254,66 @@ export const computeOpeningQuote = (
   };
 };
 
+const CENTIMETERS_PER_METER = 100;
+// The length used to be typed in metres: «2,5» out of habit must not be saved
+// as two and a half centimetres.
+const MIN_VISOR_LENGTH_CM = 10;
+
+// A visor alone: no sizes, so no grille is made for this opening.
+export const isVisorOnlyOpening = (opening: OpeningDraft): boolean =>
+  opening.visorServiceId !== '' &&
+  opening.widthCm.trim() === '' &&
+  opening.heightCm.trim() === '';
+
+// One visor per piece, so three equal openings take three visors.
+const computeVisorRunningMeters = (opening: OpeningDraft): number | null => {
+  const lengthCm = parseDecimalInput(opening.visorLengthCm);
+
+  if (lengthCm === null || lengthCm < MIN_VISOR_LENGTH_CM) return null;
+
+  return roundTo(
+    (lengthCm / CENTIMETERS_PER_METER) *
+      (parseDecimalInput(opening.quantity) ?? 1),
+    2,
+  );
+};
+
+// 0 without a visor; null while its length or its price is missing.
+export const computeOpeningVisorTotal = (
+  opening: OpeningDraft,
+  visorOptions: VisorOption[],
+): number | null => {
+  if (opening.visorServiceId === '') return 0;
+
+  const price = visorOptions.find(
+    (option) => option.id === opening.visorServiceId,
+  )?.price;
+  const runningMeters = computeVisorRunningMeters(opening);
+
+  if (price == null || runningMeters === null) return null;
+
+  return Math.round(price * runningMeters);
+};
+
 export const computeDraftTotal = (
   openings: OpeningDraft[],
   grilles: GrillePrice[],
-): number | null => {
-  const quotes = openings.map((opening) =>
-    computeOpeningQuote(opening, grilles),
-  );
-
-  return quotes.every((quote) => quote !== null)
-    ? quotes.reduce((total, quote) => total + (quote?.lineTotal ?? 0), 0)
-    : null;
-};
-
-// A total is also missing while sizes are still empty; only a missing price is the manager's to name.
-export const hasOpeningWithoutPrice = (
-  openings: OpeningDraft[],
-  grilles: GrillePrice[],
-): boolean =>
-  openings.some((opening) => findGrillePrice(opening, grilles) === null);
-
-export const computeVisorTotal = (
-  draft: Pick<MeasurementDraft, 'visorServiceId' | 'visorLengthMeters'>,
   visorOptions: VisorOption[],
 ): number | null => {
-  const price = visorOptions.find(
-    (option) => option.id === draft.visorServiceId,
-  )?.price;
-  const lengthMeters = parseDecimalInput(draft.visorLengthMeters);
+  let total = 0;
 
-  if (price == null || lengthMeters === null || lengthMeters <= 0) return null;
+  for (const opening of openings) {
+    const grilleTotal = isVisorOnlyOpening(opening)
+      ? 0
+      : (computeOpeningQuote(opening, grilles)?.lineTotal ?? null);
+    const visorTotal = computeOpeningVisorTotal(opening, visorOptions);
 
-  return Math.round(price * lengthMeters);
+    if (grilleTotal === null || visorTotal === null) return null;
+
+    total += grilleTotal + visorTotal;
+  }
+
+  return total;
 };
 
 // datetime-local wants local wall time without a zone.
@@ -542,18 +586,12 @@ export const buildMeasurementPayload = (
     errors.push('Проверьте дату замера');
   }
 
-  const hasVisor = draft.visorServiceId !== '';
-  const visorLengthMeters = parseDecimalInput(draft.visorLengthMeters);
-
-  if (draft.openings.length === 0 && !hasVisor) {
-    errors.push('Добавьте проём или козырёк');
-  }
-
-  if (hasVisor && (visorLengthMeters === null || visorLengthMeters <= 0)) {
-    errors.push('Козырёк: укажите длину в метрах больше 0');
+  if (draft.openings.length === 0) {
+    errors.push('Добавьте проём');
   }
 
   const items: OrderItemPayload[] = [];
+  const visors: VisorPayload[] = [];
 
   draft.openings.forEach((opening, index) => {
     const label = `Проём ${index + 1}`;
@@ -561,38 +599,68 @@ export const buildMeasurementPayload = (
     const heightCm = parseDecimalInput(opening.heightCm);
     const projectionCm = parseDecimalInput(opening.projectionCm) ?? 0;
     const quantity = parseDecimalInput(opening.quantity);
+    const isVisorOnly = isVisorOnlyOpening(opening);
+    const openingErrors: string[] = [];
 
     if (
-      widthCm === null ||
-      heightCm === null ||
-      widthCm <= 0 ||
-      heightCm <= 0
+      !isVisorOnly &&
+      (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0)
     ) {
-      errors.push(`${label}: укажите ширину и высоту больше 0`);
+      openingErrors.push(`${label}: укажите ширину и высоту больше 0`);
+    } else if (projectionCm < 0) {
+      openingErrors.push(`${label}: вылет не может быть отрицательным`);
+    } else if (
+      quantity === null ||
+      !Number.isInteger(quantity) ||
+      quantity < 1
+    ) {
+      openingErrors.push(`${label}: количество должно быть целым числом от 1`);
+    }
+
+    const visorRunningMeters = computeVisorRunningMeters(opening);
+
+    if (opening.visorServiceId !== '' && visorRunningMeters === null) {
+      openingErrors.push(
+        `${label}: укажите длину козырька в сантиметрах, от ${MIN_VISOR_LENGTH_CM}`,
+      );
+    }
+
+    // Notes and photos are kept on the order item, and a visor alone has none.
+    if (
+      isVisorOnly &&
+      (opening.notes.trim() !== '' || opening.photos.length > 0)
+    ) {
+      openingErrors.push(
+        `${label}: заметки и фото сохраняются только с размерами проёма. Укажите ширину и высоту.`,
+      );
+    }
+
+    if (openingErrors.length > 0) {
+      errors.push(...openingErrors);
 
       return;
     }
 
-    if (projectionCm < 0) {
-      errors.push(`${label}: вылет не может быть отрицательным`);
-
-      return;
+    if (!isVisorOnly && widthCm !== null && heightCm !== null) {
+      items.push({
+        id: opening.key,
+        designId: emptyToNull(opening.designId),
+        widthCm,
+        heightCm,
+        projectionCm,
+        quantity: quantity ?? 1,
+        notes: emptyToNull(opening.notes),
+      });
     }
 
-    if (quantity === null || !Number.isInteger(quantity) || quantity < 1) {
-      errors.push(`${label}: количество должно быть целым числом от 1`);
-
-      return;
+    if (opening.visorServiceId !== '' && visorRunningMeters !== null) {
+      visors.push({
+        id: opening.visorKey,
+        extraServiceId: opening.visorServiceId,
+        quantity: visorRunningMeters,
+        orderItemId: isVisorOnly ? null : opening.key,
+      });
     }
-
-    items.push({
-      designId: emptyToNull(opening.designId),
-      widthCm,
-      heightCm,
-      projectionCm,
-      quantity,
-      notes: emptyToNull(opening.notes),
-    });
   });
 
   const preview = computePaymentPreview(context.subtotal, context.payment);
@@ -629,10 +697,7 @@ export const buildMeasurementPayload = (
           : null,
     },
     items,
-    visor:
-      hasVisor && visorLengthMeters !== null
-        ? { extraServiceId: draft.visorServiceId, quantity: visorLengthMeters }
-        : null,
+    visors,
     firstPayment:
       preview.prepayment > 0
         ? {

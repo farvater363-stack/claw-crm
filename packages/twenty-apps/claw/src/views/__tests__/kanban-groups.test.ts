@@ -96,7 +96,7 @@ describe('«Заказы»', () => {
       IDS.order.installationDeadline,
       IDS.order.deadlineState,
       IDS.order.productionStage,
-      IDS.order.isUrgent,
+      IDS.order.urgency,
     ]);
     expect(fieldIds(false)).toEqual([]);
   });

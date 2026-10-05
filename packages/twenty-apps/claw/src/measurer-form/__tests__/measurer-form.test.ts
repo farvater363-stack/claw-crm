@@ -8,13 +8,12 @@ import {
   computeOpeningQuote,
   computeOpeningsTotalAreaSquareMeters,
   computePaymentPreview,
-  computeVisorTotal,
+  computeOpeningVisorTotal,
   createEmptyOpening,
   describePhotoUploadFailure,
   draftFromScheduledOrder,
   EMPTY_PAYMENT_DRAFT,
   formatUzbekNationalPhone,
-  hasOpeningWithoutPrice,
   type MeasurementContext,
   type MeasurementDraft,
   NEW_CLIENT_TARGET,
@@ -30,7 +29,7 @@ import {
 } from 'src/measurer-form/measurer-form';
 
 const opening = (overrides: Partial<OpeningDraft>): OpeningDraft => ({
-  ...createEmptyOpening('opening'),
+  ...createEmptyOpening('opening', 'opening-visor'),
   ...overrides,
 });
 
@@ -82,8 +81,6 @@ const draft = (overrides: Partial<MeasurementDraft>): MeasurementDraft => ({
       quantity: '2',
     }),
   ],
-  visorServiceId: '',
-  visorLengthMeters: '',
   ...overrides,
 });
 
@@ -173,6 +170,7 @@ describe('buildMeasurementPayload', () => {
       },
       items: [
         {
+          id: 'opening',
           designId: 'design-1',
           widthCm: 140,
           heightCm: 150.5,
@@ -181,7 +179,7 @@ describe('buildMeasurementPayload', () => {
           notes: 'угловое',
         },
       ],
-      visor: null,
+      visors: [],
       firstPayment: null,
     });
   });
@@ -220,7 +218,7 @@ describe('buildMeasurementPayload', () => {
   it('requires at least one opening and a whole quantity', () => {
     expect(
       buildMeasurementPayload(draft({ openings: [] }), 'member-1', context()),
-    ).toEqual({ isValid: false, errors: ['Добавьте проём или козырёк'] });
+    ).toEqual({ isValid: false, errors: ['Добавьте проём'] });
 
     expect(
       buildMeasurementPayload(
@@ -288,7 +286,7 @@ describe('quote by grille', () => {
       heightCm: '100',
     });
 
-    expect(computeDraftTotal([priced, priced], grilles)).toBe(200_000);
+    expect(computeDraftTotal([priced, priced], grilles, [])).toBe(200_000);
     expect(
       computeDraftTotal(
         [
@@ -296,24 +294,9 @@ describe('quote by grille', () => {
           opening({ designId: 'grille-2', widthCm: '100', heightCm: '100' }),
         ],
         grilles,
+        [],
       ),
     ).toBeNull();
-  });
-
-  it('finds an opening whose grille has no price, whatever its dimensions', () => {
-    expect(
-      hasOpeningWithoutPrice(
-        [opening({ designId: 'grille-1' }), opening({ designId: 'grille-2' })],
-        grilles,
-      ),
-    ).toBe(true);
-    expect(hasOpeningWithoutPrice([opening({ designId: '' })], grilles)).toBe(
-      true,
-    );
-    expect(
-      hasOpeningWithoutPrice([opening({ designId: 'grille-1' })], grilles),
-    ).toBe(false);
-    expect(hasOpeningWithoutPrice([], grilles)).toBe(false);
   });
 });
 
@@ -378,61 +361,152 @@ describe('buildOpeningPhotoLabel', () => {
 });
 
 describe('visor', () => {
-  it('adds the visor as an extra service line, length in metres', () => {
-    const result = buildMeasurementPayload(
-      draft({ visorServiceId: 'visor-1', visorLengthMeters: '2,5' }),
-      'member-1',
-      context(),
-    );
+  const options = [
+    { id: 'visor-1', name: 'Козырёк пластик 50', price: 180_000 },
+    { id: 'visor-2', name: 'Козырёк туника 50', price: null },
+  ];
+  const sized = { widthCm: '100', heightCm: '100' };
 
-    expect(result.isValid && result.visor).toEqual({
-      extraServiceId: 'visor-1',
-      quantity: 2.5,
-    });
-  });
-
-  it('allows a visor-only order', () => {
+  it('saves the visor of an opening as a line in running metres, tied to its item', () => {
     const result = buildMeasurementPayload(
       draft({
-        openings: [],
-        visorServiceId: 'visor-1',
-        visorLengthMeters: '3',
+        openings: [
+          opening({
+            ...sized,
+            visorServiceId: 'visor-1',
+            visorLengthCm: '250',
+          }),
+        ],
       }),
       'member-1',
       context(),
     );
 
-    expect(result.isValid && result.items).toEqual([]);
+    expect(result.isValid && result.visors).toEqual([
+      {
+        id: 'opening-visor',
+        extraServiceId: 'visor-1',
+        quantity: 2.5,
+        orderItemId: 'opening',
+      },
+    ]);
   });
 
-  it('requires a positive length once a visor is chosen', () => {
+  it('counts one visor per piece', () => {
+    const result = buildMeasurementPayload(
+      draft({
+        openings: [
+          opening({
+            ...sized,
+            quantity: '3',
+            visorServiceId: 'visor-1',
+            visorLengthCm: '120,5',
+          }),
+        ],
+      }),
+      'member-1',
+      context(),
+    );
+
+    expect(result.isValid && result.visors[0].quantity).toBe(3.62);
+  });
+
+  it('allows a visor without a grille: no sizes, no order item', () => {
+    const result = buildMeasurementPayload(
+      draft({
+        openings: [
+          opening({ visorServiceId: 'visor-1', visorLengthCm: '300' }),
+        ],
+      }),
+      'member-1',
+      context(),
+    );
+
+    expect(result).toMatchObject({
+      isValid: true,
+      items: [],
+      visors: [{ quantity: 3, orderItemId: null }],
+    });
+  });
+
+  it('does not drop the notes or photos of a visor without sizes', () => {
+    const result = buildMeasurementPayload(
+      draft({
+        openings: [
+          opening({
+            visorServiceId: 'visor-1',
+            visorLengthCm: '300',
+            notes: 'над дверью',
+          }),
+        ],
+      }),
+      'member-1',
+      context(),
+    );
+
+    expect(result).toEqual({
+      isValid: false,
+      errors: [
+        'Проём 1: заметки и фото сохраняются только с размерами проёма. Укажите ширину и высоту.',
+      ],
+    });
+  });
+
+  it('requires a length in centimetres once a visor is chosen', () => {
     expect(
       buildMeasurementPayload(
-        draft({ visorServiceId: 'visor-1', visorLengthMeters: '' }),
+        draft({
+          openings: [
+            opening({
+              ...sized,
+              visorServiceId: 'visor-1',
+              visorLengthCm: '2,5',
+            }),
+          ],
+        }),
         'member-1',
         context(),
       ),
     ).toEqual({
       isValid: false,
-      errors: ['Козырёк: укажите длину в метрах больше 0'],
+      errors: ['Проём 1: укажите длину козырька в сантиметрах, от 10'],
     });
   });
 
-  it('prices the visor per running metre', () => {
-    const options = [
-      { id: 'visor-1', name: 'Козырёк пластик 50', price: 180_000 },
-      { id: 'visor-2', name: 'Козырёк туника 50', price: null },
-    ];
-
+  it('prices the visor per running metre from centimetres', () => {
     expect(
-      computeVisorTotal(
-        { visorServiceId: 'visor-1', visorLengthMeters: '2,5' },
+      computeOpeningVisorTotal(
+        opening({ visorServiceId: 'visor-1', visorLengthCm: '250' }),
         options,
       ),
     ).toBe(450_000);
     expect(
-      computeVisorTotal(
-        { visorServiceId: 'visor-2', visorLengthMeters: '2' },
+      computeOpeningVisorTotal(
+        opening({ visorServiceId: 'visor-2', visorLengthCm: '200' }),
+        options,
+      ),
+    ).toBeNull();
+    expect(computeOpeningVisorTotal(opening({}), options)).toBe(0);
+  });
+
+  it('adds the visors to the total and waits for a missing length', () => {
+    const grilles = [{ id: 'grille-1', pricePerSquareMeter: 100_000 }];
+    const priced = opening({ ...sized, designId: 'grille-1' });
+
+    expect(
+      computeDraftTotal(
+        [
+          { ...priced, visorServiceId: 'visor-1', visorLengthCm: '100' },
+          opening({ visorServiceId: 'visor-1', visorLengthCm: '200' }),
+        ],
+        grilles,
+        options,
+      ),
+    ).toBe(100_000 + 180_000 + 360_000);
+    expect(
+      computeDraftTotal(
+        [{ ...priced, visorServiceId: 'visor-1' }],
+        grilles,
         options,
       ),
     ).toBeNull();

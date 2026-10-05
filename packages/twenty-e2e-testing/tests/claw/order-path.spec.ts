@@ -415,7 +415,8 @@ test('the measurer saves the scheduled order: still one order, with its discount
   await opening.getByLabel('Вылет, см').fill('30', FORCE);
   await opening.getByLabel('Количество').fill('2', FORCE);
 
-  // The payment block appears once the openings have a price.
+  // The payment has a screen of its own, after the sizes.
+  await page.getByRole('button', { name: 'Далее: оплата' }).click(FORCE);
   await expect(
     page.getByText(new RegExp(`^Сумма: ${shown(SUBTOTAL)} сум$`)),
   ).toBeVisible({ timeout: 30_000 });

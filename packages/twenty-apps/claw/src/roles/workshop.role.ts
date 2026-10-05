@@ -42,6 +42,7 @@ const ORDER_KEYS_WITHOUT_FIELD: string[] = [
   'object',
   'masterPayPaid',
   'prepayment',
+  'isUrgent',
 ];
 
 const SHARED_FIELD_PERMISSIONS = [

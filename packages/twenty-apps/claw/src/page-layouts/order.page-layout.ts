@@ -102,7 +102,7 @@ export default definePageLayout({
       widgets: [
         {
           universalIdentifier: IDS.measurementNotes.orderPageWidget,
-          title: 'Из замера',
+          title: 'Комментарии и заметки',
           type: 'FRONT_COMPONENT',
           configuration: {
             configurationType: 'FRONT_COMPONENT',

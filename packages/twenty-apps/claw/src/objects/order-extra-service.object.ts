@@ -69,5 +69,20 @@ export default defineObject({
         joinColumnName: 'extraServiceId',
       },
     },
+    {
+      universalIdentifier: IDS.orderExtraService.orderItem,
+      type: FieldType.RELATION,
+      name: 'orderItem',
+      label: 'Проём',
+      icon: 'IconRuler',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.orderItem.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.orderItem.extraServices,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'orderItemId',
+      },
+    },
   ]),
 });

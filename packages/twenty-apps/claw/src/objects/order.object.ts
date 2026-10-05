@@ -15,6 +15,7 @@ import {
   ORDER_STATUS_OPTIONS,
   PRODUCTION_STAGE_OPTIONS,
   SOURCE_OPTIONS,
+  URGENCY_OPTIONS,
 } from 'src/constants/select-options';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -142,12 +143,13 @@ export default defineObject({
       options: PRODUCTION_STAGE_OPTIONS,
     },
     {
-      universalIdentifier: IDS.order.isUrgent,
-      type: FieldType.BOOLEAN,
-      name: 'isUrgent',
+      universalIdentifier: IDS.order.urgency,
+      type: FieldType.SELECT,
+      name: 'urgency',
       label: 'Срочно',
       icon: 'IconFlame',
-      defaultValue: false,
+      isNullable: true,
+      options: URGENCY_OPTIONS,
     },
     text(IDS.order.paintColor, 'paintColor', 'Цвет покраски', 'IconPalette'),
     date(IDS.order.productionStartDate, 'productionStartDate', 'Начало'),
@@ -233,6 +235,15 @@ export default defineObject({
       icon: 'IconPhoto',
       isNullable: true,
       universalSettings: { maxNumberOfValues: 10 },
+    },
+    {
+      universalIdentifier: IDS.order.clientSignature,
+      type: FieldType.FILES,
+      name: 'clientSignature',
+      label: 'Подпись клиента',
+      icon: 'IconSignature',
+      isNullable: true,
+      universalSettings: { maxNumberOfValues: 1 },
     },
     {
       universalIdentifier: IDS.order.master,
