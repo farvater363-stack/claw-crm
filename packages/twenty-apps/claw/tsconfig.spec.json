@@ -6,9 +6,7 @@
   },
   "include": [
     "src/**/*.ts",
-    "src/**/*.tsx",
-    "scripts/*.move.ts",
-    "vitest.move.config.ts"
+    "src/**/*.tsx"
   ],
   "exclude": ["node_modules", "dist"]
 }
