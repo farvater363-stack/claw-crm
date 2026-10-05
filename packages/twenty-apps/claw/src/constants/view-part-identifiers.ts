@@ -4,18 +4,15 @@ export const VIEW_PART_IDS = {
     NEW: '7d0c2a7d-5346-46bc-9154-46322e53f0a6',
     MEASUREMENT_SCHEDULED: '6145efec-e0ec-4f1c-ad81-9d80a1ecea9a',
     MEASURED: '3a25a32c-2749-437e-a33c-5e79387067d1',
-    PRICE_APPROVAL: 'a6c95205-1ad1-45a5-9374-89c853c0a6d2',
     PRODUCTION: '5e44ee03-b859-4453-981a-8d5060aed81b',
     QUALITY_CHECK: 'b8cb0602-3cd0-4546-91b8-be01c009f1d8',
-    READY: 'f15eb918-2e9f-4241-a8ca-f9aa870692c9',
     INSTALLED: '7dea75ba-d8be-4f64-979f-f45c1656081d',
-    CLOSED: '76b7870b-9a83-43f8-9566-cba668534d5d',
     CANCELLED: '56d6e014-11ba-450f-88d9-ba7a53e6930f',
   },
   ordersKanbanFields: [
     '926742a4-05ca-4f18-8d6d-37f5b8520728',
     'ffc0b6a4-fa12-4556-be27-592a4c95487d',
-    'cd5ab1b0-659b-4a64-820b-96ca612e806c',
+    'cd5ab1b0-659b-4a64-820b-96ca612e806c', // Retired: the column left its view; ids are never reused.
     'b47d60f3-1695-430f-b2ec-07794034e281',
     '2847cf61-5314-40f0-aa90-d341e054c02d',
     'fc86f0e5-79f5-40a7-83c4-15c7540fd1b1',
@@ -36,13 +33,19 @@ export const VIEW_PART_IDS = {
     NEW: '168ea825-2b93-42aa-bedf-ac7ce2fbf4a1',
     MEASUREMENT_SCHEDULED: '0ae1cffa-b87a-4e62-8a3d-ac8513ce8405',
     MEASURED: 'c8636426-d2a3-4f80-9e46-46d04770f00d',
-    PRICE_APPROVAL: '1b5ca5ac-a27c-46ad-aeea-1ddb6e7286f2',
     PRODUCTION: '913b493d-75b8-436e-809b-1bb695948877',
     QUALITY_CHECK: 'f8161134-d272-474f-b585-9b61c30a60e4',
-    READY: 'ce0ff359-0f0d-47db-9d8e-35be1fceea00',
     INSTALLED: 'b077b531-29aa-422b-a0f6-a3fe3dc59b13',
-    CLOSED: '6844975d-0410-45bb-876c-a60dd8ad2b45',
     CANCELLED: '7fd48330-79f9-4032-8378-84cb747803c1',
+  },
+  // Retired: the statuses PRICE_APPROVAL, READY and CLOSED were removed; ids are never reused.
+  retiredBoardGroups: {
+    ordersPriceApproval: 'a6c95205-1ad1-45a5-9374-89c853c0a6d2',
+    ordersReady: 'f15eb918-2e9f-4241-a8ca-f9aa870692c9',
+    ordersClosed: '76b7870b-9a83-43f8-9566-cba668534d5d',
+    myMeasurementsPriceApproval: '1b5ca5ac-a27c-46ad-aeea-1ddb6e7286f2',
+    myMeasurementsReady: 'ce0ff359-0f0d-47db-9d8e-35be1fceea00',
+    myMeasurementsClosed: '6844975d-0410-45bb-876c-a60dd8ad2b45',
   },
   myMeasurementsStatusField: 'ad9bd666-b4f0-4c79-b9cf-338446e74300',
   // Retired: replaced by the «В работе» screen; ids are never reused.
@@ -70,7 +73,7 @@ export const VIEW_PART_IDS = {
     filesWidget: 'da9ecc50-b8f3-4756-8b58-d232172e2689', // Retired: sat on the removed tab «Файлы», and the server deletes a widget with its tab; ids are never reused.
     notesFilesWidget: 'f47172b1-7b46-47b5-a866-724ba0f3503d',
     fields: {
-      name: 'cd944afe-fb6b-4e38-871e-040261845e7a',
+      name: 'cd944afe-fb6b-4e38-871e-040261845e7a', // Retired: the column left its view; ids are never reused.
       status: '7d28695b-ea00-4ce5-8d3c-6c15811843e7',
       clientName: '46d3e417-2340-4b2c-b336-b4e7d47464d8',
       clientPhone: 'cb6831b9-6a85-4f6c-9ac6-166b3280c81b',
@@ -79,8 +82,8 @@ export const VIEW_PART_IDS = {
       floor: '7ad73e7f-d486-4b05-9391-1a8d56dfe020',
       measurementDate: '0ba971cf-1131-4809-8979-60772b8e948d',
       source: '1c34e8d6-7099-48bc-86a4-dbe8c4820b73',
-      items: 'd3f804d2-5eac-461e-a793-5d4ee65f7222',
-      extraServices: '35698986-b0d9-4c3f-8a62-65b6b5c9b059',
+      items: 'd3f804d2-5eac-461e-a793-5d4ee65f7222', // Retired: the column left its view; ids are never reused.
+      extraServices: '35698986-b0d9-4c3f-8a62-65b6b5c9b059', // Retired: the column left its view; ids are never reused.
       comment: '48efa1f2-1893-4f59-90ad-2db5b3c79fef',
       measurer: 'f62c69f5-8aa9-48b3-b61c-5e3cba262480',
       manager: '8efd8b9d-19d9-4d38-9271-eedd3f243962',
@@ -89,9 +92,9 @@ export const VIEW_PART_IDS = {
       productionStartDate: 'f8c4af18-a181-441c-b3af-b5956937c5c9',
       installationDeadline: 'd7d78737-9f77-41c0-bcbd-091734e841f8',
       installedAt: 'a6e5fef8-e416-4a47-b0e5-7086659a4d3b',
-      areaSquareMeters: 'be5b54b4-1ac6-4e2b-a3e8-ec6b91762de5',
+      areaSquareMeters: 'be5b54b4-1ac6-4e2b-a3e8-ec6b91762de5', // Retired: the column left its view; ids are never reused.
       total: 'e98c865d-f42b-41cc-b47c-51a7c8ffa4ca',
-      prepayment: 'ebfc1eb3-b8ef-4342-ac46-06082f5008ac',
+      prepayment: 'ebfc1eb3-b8ef-4342-ac46-06082f5008ac', // Retired: the column left its view; ids are never reused.
       balance: '1547ba8a-1e2a-4ecc-a376-86cc700a30cd',
       costTotal: 'fddc1270-a3d0-4e2a-80e3-af3d5839697f',
       margin: '9437bb5d-0fc4-4c5e-ae22-23182c5fb80e',
@@ -104,8 +107,8 @@ export const VIEW_PART_IDS = {
       cancelReason: '9aafb5ea-45ac-4d11-a719-8d1f9fddd291',
       masterPayTotal: 'e2f77e8a-3c9b-4bb4-82f6-5ef1321b95d3',
       finishedPhotos: '6756e9ca-32a0-4f13-8a42-6b00cb3a1fb1',
-      number: '9935d210-8c15-4478-b013-288c7b644787',
-      deadlineState: 'cea7c783-20de-46b5-9ef8-af28d410ceb2',
+      number: '9935d210-8c15-4478-b013-288c7b644787', // Retired: the column left its view; ids are never reused.
+      deadlineState: 'cea7c783-20de-46b5-9ef8-af28d410ceb2', // Retired: the column left its view; ids are never reused.
       installer: 'c28b7092-4a1e-4fb4-be92-8e8e70c497bc',
       soldBy: '65186f93-4a8a-4607-8f8e-e494db2d3e78',
       subtotal: 'a060310e-336c-4a42-91d2-6ef395382fe5',
@@ -177,8 +180,8 @@ export const VIEW_PART_IDS = {
     materialsTableFilter: '28137051-ca73-448b-b9d0-1ddcea18f02f',
   },
   ordersKanbanExtraFields: {
-    clientPhone: '624dbd61-a9ae-4e9a-ab21-467003e0b899',
-    measurementDate: '4bc106dc-2f08-40b4-914d-23261e2b98c2',
+    clientPhone: '624dbd61-a9ae-4e9a-ab21-467003e0b899', // Retired: the column left its view; ids are never reused.
+    measurementDate: '4bc106dc-2f08-40b4-914d-23261e2b98c2', // Retired: the column left its view; ids are never reused.
     deadlineState: 'aa916d9b-9ad4-4b8f-a8a3-dc863d66e7f2',
   },
   productionDeadlineStateField: '754039b5-5524-48e2-9eb3-8d7fc013c1c6', // Retired: replaced by the «В работе» screen; ids are never reused.
@@ -230,8 +233,8 @@ export const VIEW_PART_IDS = {
       name: 'a54629d6-4ee1-4382-825f-60643e6f54f6',
       unit: '8a793e10-de03-461f-afce-cc188d967555',
       toBuy: '87338467-b362-48dc-adc8-5ec9d9fcde2a',
-      onHand: '8a78cac9-a63e-4fe6-9b09-50518fbd68d1',
-      reserved: 'e362c2b7-84e0-4b07-87b8-0affdc9eb16b',
+      onHand: '8a78cac9-a63e-4fe6-9b09-50518fbd68d1', // Retired: the column left its view; ids are never reused.
+      reserved: 'e362c2b7-84e0-4b07-87b8-0affdc9eb16b', // Retired: the column left its view; ids are never reused.
     },
     purchasePlanFilterState: '90511f2b-5805-40ac-8652-c1814fa59497',
     purchasePlanSortState: '40c4f05b-9683-4c91-b85f-87552f6dc082',

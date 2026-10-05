@@ -327,8 +327,8 @@ test('a manager opens «Склад» and a row has no price field', async ({
   ).toHaveCount(0);
 });
 
-// No local user has the workshop role; the roles unit test covers it: the
-// workshop cannot read the stock history, which the menu item opens.
+// The workshop is not signed in here: the roles unit test covers that it
+// cannot read the stock history, which the menu item opens.
 test('the measurer has no «Склад» in the sidebar', async ({ page }) => {
   test.setTimeout(180_000);
 
@@ -341,38 +341,43 @@ test('the measurer has no «Склад» in the sidebar', async ({ page }) => {
   await expect(stockLink(page)).toHaveCount(0);
 });
 
-// Both are in every role's menu that this spec signs in as.
-const MENU_ANCHORS = ['Новый замер', 'Мои замеры'] as const;
-
 // The workspace section has no role, test id or fixed heading (its title
-// follows the user's language), so it is the smallest block that holds both
-// anchors. Twenty's own entries (search, settings) sit outside it.
-const workspaceMenuEntries = (page: Page): Promise<string[]> =>
-  page.evaluate(([firstLabel, lastLabel]) => {
-    const items = Array.from(
-      document.querySelectorAll('.navigation-drawer-item'),
-    );
-    // The label is the only text read: an entry's avatar holds a letter too.
-    const textOf = (item: Element) =>
-      (
-        (item.querySelector('[data-testid="tooltip"]') ?? item).textContent ??
-        ''
-      ).trim();
-    const firstItem = items.find((item) => textOf(item).startsWith(firstLabel));
-    const lastItem = items.find((item) => textOf(item).startsWith(lastLabel));
+// follows the user's language), so it is the smallest block that holds the
+// role's first and last entry. Twenty's own entries (search, settings) sit
+// outside it.
+const workspaceMenuEntries = (
+  page: Page,
+  firstLabel: string,
+  lastLabel: string,
+): Promise<string[]> =>
+  page.evaluate(
+    ([first, last]) => {
+      const items = Array.from(
+        document.querySelectorAll('.navigation-drawer-item'),
+      );
+      // The label is the only text read: an entry's avatar holds a letter too.
+      const textOf = (item: Element) =>
+        (
+          (item.querySelector('[data-testid="tooltip"]') ?? item).textContent ??
+          ''
+        ).trim();
+      const firstItem = items.find((item) => textOf(item).startsWith(first));
+      const lastItem = items.find((item) => textOf(item).startsWith(last));
 
-    if (firstItem === undefined || lastItem === undefined) return [];
+      if (firstItem === undefined || lastItem === undefined) return [];
 
-    let section = firstItem.parentElement;
+      let section = firstItem.parentElement;
 
-    while (section !== null && !section.contains(lastItem)) {
-      section = section.parentElement;
-    }
+      while (section !== null && !section.contains(lastItem)) {
+        section = section.parentElement;
+      }
 
-    return Array.from(
-      section?.querySelectorAll('.navigation-drawer-item') ?? [],
-    ).map(textOf);
-  }, MENU_ANCHORS);
+      return Array.from(
+        section?.querySelectorAll('.navigation-drawer-item') ?? [],
+      ).map(textOf);
+    },
+    [firstLabel, lastLabel],
+  );
 
 // A view's entry reads «Заказы · Заказы»: the view, then its object.
 const entryName = (entry: string) => entry.split(' · ')[0];
@@ -406,6 +411,7 @@ const MENUS: { role: Role; title: string; entries: string[] }[] = [
       'Цены',
     ],
   },
+  { role: 'WORKSHOP', title: 'the workshop', entries: ['В работе'] },
   {
     role: 'MEASURER',
     title: 'the measurer',
@@ -417,21 +423,32 @@ for (const { role, title, entries } of MENUS) {
   test(`the sidebar of ${title} has the menu of its role and only Russian entries`, async ({
     page,
   }) => {
+    // Only the workshop has no login on some local servers; a missing login
+    // of any other role must fail the case in signIn.
+    test.skip(
+      role === 'WORKSHOP' && !process.env.CLAW_WORKSHOP_EMAIL,
+      'no local login for the workshop: CLAW_WORKSHOP_EMAIL is not set',
+    );
     test.setTimeout(180_000);
 
+    const first = entries[0];
+    const last = entries[entries.length - 1];
+
     await signIn(page, role);
-    await expect(
-      page.getByRole('link', { name: MENU_ANCHORS[0] }).first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('link', { name: first }).first()).toBeVisible({
+      timeout: 60_000,
+    });
 
     await expect
-      .poll(async () => (await workspaceMenuEntries(page)).map(entryName), {
-        timeout: 30_000,
-      })
+      .poll(
+        async () =>
+          (await workspaceMenuEntries(page, first, last)).map(entryName),
+        { timeout: 30_000 },
+      )
       .toEqual(entries);
 
     expect(
-      (await workspaceMenuEntries(page)).filter((entry) =>
+      (await workspaceMenuEntries(page, first, last)).filter((entry) =>
         /[A-Za-z]/.test(entry),
       ),
     ).toEqual([]);

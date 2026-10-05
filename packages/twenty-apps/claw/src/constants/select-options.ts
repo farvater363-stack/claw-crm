@@ -48,7 +48,6 @@ export const ORDER_STATUS_OPTIONS = toOptions([
   ['NEW', 'Новый', 'gray'],
   ['MEASUREMENT_SCHEDULED', 'Замер назначен', 'blue'],
   ['MEASURED', 'Замер выполнен', 'sky'],
-  ['PRICE_APPROVAL', 'Согласование цены', 'yellow'],
   ['PRODUCTION', 'Производство', 'orange'],
   [
     'QUALITY_CHECK',
@@ -56,9 +55,7 @@ export const ORDER_STATUS_OPTIONS = toOptions([
     'purple',
     '96aee4e3-71ce-5947-8df6-0cc4e80c8b2a',
   ],
-  ['READY', 'Готов', 'turquoise'],
   ['INSTALLED', 'Установлен', 'green'],
-  ['CLOSED', 'Закрыт', 'green'],
   ['CANCELLED', 'Отменен', 'red'],
 ] as const);
 
@@ -83,7 +80,6 @@ export type ExtraServiceKind =
   (typeof EXTRA_SERVICE_KIND_OPTIONS)[number]['value'];
 
 export const DEADLINE_STATE_OPTIONS = toOptions([
-  ['ON_TIME', 'В срок', 'green'],
   ['DUE_TODAY', 'Срок сегодня', 'orange'],
   ['OVERDUE', 'Просрочен', 'red'],
 ] as const);

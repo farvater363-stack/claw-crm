@@ -46,8 +46,8 @@ const RULES: Node[] = [
   },
 ];
 const WORKERS: Node[] = [
-  { id: 'worker-2', loginId: null, ratePerSquareMeter: micros(0) },
-  { id: 'sardor', loginId: 'member-sardor', ratePerSquareMeter: micros(0) },
+  { id: 'worker-2', loginId: null },
+  { id: 'sardor', loginId: 'member-sardor' },
 ];
 const INSTALLER_LINE_ID = accrualId({
   orderId: 'order-1',
@@ -193,33 +193,6 @@ describe('syncOrderAccruals', () => {
     ]);
   });
 
-  it('pays a master without rules by the old rate', async () => {
-    const { client, mutations } = fakeClient({
-      order: {
-        ...ORDER,
-        masterId: 'worker-3',
-        installerId: null,
-        measurerId: null,
-      },
-      rules: [],
-      workers: [
-        { id: 'worker-3', loginId: null, ratePerSquareMeter: micros(25_000) },
-      ],
-    });
-
-    await syncOrderAccruals(client, 'order-1');
-
-    expect(writtenLines(mutations)).toMatchObject([
-      {
-        workerId: 'worker-3',
-        method: 'PER_SQUARE_METER',
-        work: 'MASTER',
-        rate: 25_000,
-        amount: uzs(96_000),
-      },
-    ]);
-  });
-
   it('reads the rules as the recalc does and takes the first of two rules of one method', async () => {
     const masterRule = (id: string, amount: number): Node => ({
       id,
@@ -237,10 +210,7 @@ describe('syncOrderAccruals', () => {
         measurerId: null,
       },
       rules: [masterRule('first', 25_000), masterRule('second', 40_000)],
-      // The old rate is not added next to a per-m² rule.
-      workers: [
-        { id: 'worker-3', loginId: null, ratePerSquareMeter: micros(30_000) },
-      ],
+      workers: [{ id: 'worker-3', loginId: null }],
     });
 
     await syncOrderAccruals(client, 'order-1');
@@ -327,11 +297,7 @@ describe('syncOrderAccruals', () => {
       ],
       workers: [
         ...WORKERS,
-        {
-          id: 'worker-1',
-          loginId: 'member-worker-1',
-          ratePerSquareMeter: micros(0),
-        },
+        { id: 'worker-1', loginId: 'member-worker-1' },
       ],
       accruals: writtenLines(first.mutations),
     });

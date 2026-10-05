@@ -125,32 +125,3 @@ export const applyLatePenalty = ({
   Math.round(
     basePay * Math.max(0, 1 - (penaltyPercentPerDay / 100) * daysLate),
   );
-
-// The old single rate still exists on the worker until it is moved into a
-// per-m² rule, so a master without such a rule is still paid by it.
-export const withLegacyMasterRate = (
-  rules: PayRule[],
-  {
-    workerId,
-    ratePerSquareMeter,
-  }: { workerId: string; ratePerSquareMeter: number },
-): PayRule[] =>
-  ratePerSquareMeter <= 0 ||
-  rules.some(
-    (rule) =>
-      rule.workerId === workerId &&
-      rule.work === 'MASTER' &&
-      rule.method === 'PER_SQUARE_METER',
-  )
-    ? rules
-    : [
-        ...rules,
-        {
-          id: `legacy-rate:${workerId}`,
-          workerId,
-          method: 'PER_SQUARE_METER',
-          work: 'MASTER',
-          amount: ratePerSquareMeter,
-          percent: null,
-        },
-      ];

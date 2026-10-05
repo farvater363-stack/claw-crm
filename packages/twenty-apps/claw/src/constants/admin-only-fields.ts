@@ -29,7 +29,6 @@ export const ADMIN_ONLY_FIELD_IDS_BY_OBJECT: Record<string, string[]> = {
   ],
   [IDS.extraService.object]: [IDS.extraService.cost],
   [IDS.master.object]: [
-    IDS.master.ratePerSquareMeter,
     IDS.master.penaltyPercentPerDay,
     IDS.master.login,
   ],

@@ -8,7 +8,6 @@ import {
   isAllowedPayRulePair,
   type PayRule,
   type PayWork,
-  withLegacyMasterRate,
 } from 'src/payroll/pay-rules';
 
 // toLocaleString groups thousands with a no-break space
@@ -218,54 +217,4 @@ describe('applyLatePenalty', () => {
       ).toBe(pay);
     },
   );
-});
-
-describe('withLegacyMasterRate', () => {
-  const master = { workerId: 'worker-3', ratePerSquareMeter: 25_000 };
-  const legacy = {
-    id: 'legacy-rate:worker-3',
-    workerId: 'worker-3',
-    method: 'PER_SQUARE_METER',
-    work: 'MASTER',
-    amount: 25_000,
-    percent: null,
-  };
-
-  it('pays a master without a rule for his work by the old rate', () => {
-    const fixed = rule({
-      id: 'fixed',
-      method: 'FIXED',
-      work: null,
-      amount: 2_000_000,
-    });
-
-    expect(withLegacyMasterRate([fixed], master)).toEqual([fixed, legacy]);
-  });
-
-  it('keeps the old per-m² rate next to a per-order rule alone', () => {
-    const perOrder = rule({
-      id: 'per-order',
-      method: 'PER_ORDER',
-      amount: 100_000,
-    });
-    const rules = withLegacyMasterRate([perOrder], master);
-
-    expect(rules).toEqual([perOrder, legacy]);
-    expect(
-      computeMasterBasePay({ rules, keptRates: [], areaSquareMeters: 10 }),
-    ).toBe(350_000);
-  });
-
-  it('adds nothing once the master has a per-m² rule, or when the old rate is zero', () => {
-    expect(withLegacyMasterRate([rule({})], master)).toEqual([rule({})]);
-    expect(
-      withLegacyMasterRate([], { workerId: 'worker-3', ratePerSquareMeter: 0 }),
-    ).toEqual([]);
-  });
-
-  it("does not take another worker's rule for the master's", () => {
-    const other = rule({ workerId: 'worker-2' });
-
-    expect(withLegacyMasterRate([other], master)).toHaveLength(2);
-  });
 });

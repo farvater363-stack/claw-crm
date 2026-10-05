@@ -11,7 +11,7 @@ test.use({
   storageState: { cookies: [], origins: [] },
 });
 
-type Role = 'ADMIN' | 'MANAGER' | 'MEASURER';
+type Role = 'ADMIN' | 'MANAGER' | 'MEASURER' | 'WORKSHOP';
 
 const requireEnv = (name: string): string => {
   const value = process.env[name];
@@ -139,5 +139,32 @@ test('a measurer still lands on the measurement form', async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Сегодня', exact: true }),
+  ).toHaveCount(0);
+});
+
+test('the workshop lands on «В работе»', async ({ page }) => {
+  test.skip(
+    !process.env.CLAW_WORKSHOP_EMAIL,
+    'no local login for the workshop: CLAW_WORKSHOP_EMAIL is not set',
+  );
+
+  await signIn(page, 'WORKSHOP');
+
+  await expect(page).toHaveURL(/\/page\//);
+  await expect(
+    page.getByRole('link', { name: 'В работе', exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Заказы/ })).toHaveCount(0);
+});
+
+test('the measurer has no «Заказы» and no «В работе»', async ({ page }) => {
+  await signIn(page, 'MEASURER');
+
+  await expect(page.getByLabel('Имя клиента')).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(page.getByRole('link', { name: /^Заказы/ })).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'В работе', exact: true }),
   ).toHaveCount(0);
 });

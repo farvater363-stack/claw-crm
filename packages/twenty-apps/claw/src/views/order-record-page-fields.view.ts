@@ -12,15 +12,6 @@ type FieldName = keyof typeof fields & keyof typeof order;
 const section = (group: string, names: readonly FieldName[]) =>
   names.map((name) => ({ field: order[name], viewField: fields[name], group }));
 
-// Shown elsewhere on the card (the header, the tables) or replaced
-// (prepayment, until its field goes): kept in the view, hidden.
-const hidden = (names: readonly FieldName[]) =>
-  names.map((name) => ({
-    field: order[name],
-    viewField: fields[name],
-    isVisible: false,
-  }));
-
 // Sections a role cannot read any field of disappear for that role.
 export default defineView({
   universalIdentifier: VIEW_PART_IDS.orderRecordPage.view,
@@ -98,15 +89,6 @@ export default defineView({
       'masterBonus',
       'masterPayTotal',
       'daysLate',
-    ]),
-    ...hidden([
-      'name',
-      'number',
-      'items',
-      'extraServices',
-      'areaSquareMeters',
-      'prepayment',
-      'deadlineState',
     ]),
   ]),
 });

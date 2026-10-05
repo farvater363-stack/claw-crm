@@ -1,11 +1,9 @@
 import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
 
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { WORKER_CATEGORY_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 
-const DEFAULT_RATE_PER_SQUARE_METER = 0;
 const DEFAULT_PENALTY_PERCENT_PER_DAY = 0;
 
 export default defineObject({
@@ -48,20 +46,6 @@ export default defineObject({
       icon: 'IconUsers',
       isNullable: true,
       options: WORKER_CATEGORY_OPTIONS,
-    },
-    {
-      universalIdentifier: IDS.master.ratePerSquareMeter,
-      type: FieldType.CURRENCY,
-      universalSettings: FULL_MONEY_DISPLAY,
-      name: 'ratePerSquareMeter',
-      label: 'Ставка за м²',
-      icon: 'IconCurrency',
-      // SDK types amountMicros as string, but a string default warns as an unquoted literal; the server takes a number
-      defaultValue: {
-        amountMicros: (DEFAULT_RATE_PER_SQUARE_METER *
-          1_000_000) as unknown as string,
-        currencyCode: "'UZS'",
-      },
     },
     {
       universalIdentifier: IDS.master.penaltyPercentPerDay,

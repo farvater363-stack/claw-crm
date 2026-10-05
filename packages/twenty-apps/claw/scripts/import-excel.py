@@ -122,7 +122,7 @@ def build_payloads(path):
             'costTotal': money(total - margin) if total is not None and margin is not None else None,
             'prepayment': money(number_or_none(cell('AB'))),
             'masterName': cell('AA'),
-            'status': 'PRODUCTION' if deadline and deadline >= today else 'CLOSED',
+            'status': 'PRODUCTION' if deadline and deadline >= today else 'INSTALLED',
         })
 
     return {'masters': masters, 'designs': designs,
@@ -148,6 +148,8 @@ def graphql(query, variables):
 
 
 def create_many(mutation_name, input_type, records):
+    if not records:
+        return {}
     data = graphql(
         f'mutation($data: [{input_type}!]!) {{ {mutation_name}(data: $data) {{ id name }} }}',
         {'data': records},
@@ -182,10 +184,20 @@ def main():
     create_many('createExtraServices', 'ExtraServiceCreateInput', payloads['extraServices'])
 
     orders = []
+    prepayments = {}
     for order in payloads['orders']:
         master_name = order.pop('masterName')
+        prepayment = order.pop('prepayment')
+        if prepayment and prepayment['amountMicros'] > 0:
+            prepayments[order['name']] = (prepayment, order['productionStartDate'])
         orders.append({**order, 'masterId': master_ids.get(master_name)})
-    create_many('createOrders', 'OrderCreateInput', orders)
+    order_ids = create_many('createOrders', 'OrderCreateInput', orders)
+    # The workbook has one prepaid sum per order and neither its date nor its method.
+    create_many('createOrderPayments', 'OrderPaymentCreateInput', [
+        {'orderId': order_ids[name], 'amount': amount, 'method': 'CASH',
+         'paidOn': paid_on or datetime.date.today().isoformat()}
+        for name, (amount, paid_on) in prepayments.items()
+    ])
     print('done')
 
 

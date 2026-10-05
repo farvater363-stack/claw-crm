@@ -1,9 +1,9 @@
-import { type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { LoginPage } from '../../lib/pom/loginPage';
 
 const API_URL = process.env.CLAW_API_URL ?? 'http://localhost:3000';
 
-export type Role = 'ADMIN' | 'MANAGER' | 'MEASURER';
+export type Role = 'ADMIN' | 'MANAGER' | 'MEASURER' | 'WORKSHOP';
 
 // Twenty wraps every widget in a dnd-kit draggable with aria-disabled="true"
 // outside layout edit mode; Playwright reads that as disabled for the whole
@@ -60,28 +60,32 @@ export const graphql = async (
 export const equalTo = (field: string, value: string) =>
   `${field}: { eq: ${JSON.stringify(value)} }`;
 
-// `filter` is the inside of a GraphQL filter object, e.g. equalTo('name', …).
-export const findIds = async (
+// `filter` is the inside of a GraphQL filter object, e.g. equalTo('name', …);
+// `fields` is the selection of a row.
+export const findRows = async <TRow extends { id: string }>(
   plural: string,
   filter: string,
-): Promise<string[]> => {
-  const ids: string[] = [];
+  fields: string,
+): Promise<TRow[]> => {
+  const rows: TRow[] = [];
 
   // A row removed on a screen or by the app is soft-deleted, and a plain
   // query skips it.
   for (const deletedAt of ['NULL', 'NOT_NULL']) {
     const data =
-      await graphql(`{ ${plural}(filter: { ${filter}, deletedAt: { is: ${deletedAt} } }) { edges { node { id } } } }`);
+      await graphql(`{ ${plural}(filter: { ${filter}, deletedAt: { is: ${deletedAt} } }) { edges { node { ${fields} } } } }`);
 
-    ids.push(
-      ...data[plural].edges.map(
-        ({ node }: { node: { id: string } }) => node.id,
-      ),
-    );
+    rows.push(...data[plural].edges.map(({ node }: { node: TRow }) => node));
   }
 
-  return ids;
+  return rows;
 };
+
+export const findIds = async (
+  plural: string,
+  filter: string,
+): Promise<string[]> =>
+  (await findRows<{ id: string }>(plural, filter, 'id')).map(({ id }) => id);
 
 const LOCAL_API_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
 
@@ -139,4 +143,158 @@ export const signIn = async (page: Page, role: Role) => {
   await page.waitForURL(/objects|object\/|dashboard|\/page\//, {
     timeout: 60_000,
   });
+};
+
+export const pause = (milliseconds: number) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+export const createRecord = async (
+  object: string,
+  data: Record<string, unknown>,
+): Promise<string> => {
+  const result = await graphql(
+    `mutation($data: ${object}CreateInput!) { create${object}(data: $data) { id } }`,
+    { data },
+  );
+
+  return result[`create${object}`].id;
+};
+
+export const updateRecord = async (
+  object: string,
+  id: string,
+  data: Record<string, unknown>,
+) => {
+  await graphql(
+    `mutation($id: UUID!, $data: ${object}UpdateInput!) { update${object}(id: $id, data: $data) { id } }`,
+    { id, data },
+  );
+};
+
+const DESTROY_PAUSE = 1_500;
+
+const ORDER_CHILDREN = [
+  ['orderItems', 'OrderItem'],
+  ['orderExtraServices', 'OrderExtraService'],
+  ['orderPayments', 'OrderPayment'],
+  ['payAccruals', 'PayAccrual'],
+  ['stockMovements', 'StockMovement'],
+  ['orderMaterials', 'OrderMaterial'],
+] as const;
+
+const WORKER_CHILDREN = [
+  ['payAccruals', 'PayAccrual', 'workerId'],
+  ['payRules', 'PayRule', 'workerId'],
+  ['masterPayments', 'MasterPayment', 'masterId'],
+] as const;
+
+// A run takes far less than this. A row with a spec's prefix that is older
+// can only be what a killed run left; a younger one may belong to a run that
+// is still going, on this machine or another.
+export const LEFTOVER_AGE_MINUTES = 30;
+
+export const leftoverCutoff = () =>
+  new Date(Date.now() - LEFTOVER_AGE_MINUTES * 60_000).toISOString();
+
+// Removes what the order specs create: orders whose client name starts with
+// the prefix, workers and grilles whose name starts with it, and the clients
+// on the given phones whose first name starts with it. `run` narrows all of
+// them to the names ending in one run's stamp, `createdBefore` to rows older
+// than that moment, so no run removes the rows another run is working on.
+// Every step is independent, so one failure does not skip the rest.
+export const destroyOrderTestData = async (
+  prefix: string,
+  {
+    run = '',
+    createdBefore,
+    nationalPhones = [],
+  }: { run?: string; createdBefore?: string; nationalPhones?: string[] },
+) => {
+  assertLocalApi();
+
+  const failures: string[] = [];
+  const age =
+    createdBefore === undefined
+      ? ''
+      : `, createdAt: { lt: ${JSON.stringify(createdBefore)} }`;
+  const namePattern = `{ like: ${JSON.stringify(`${prefix} %${run}`)} }`;
+  const startsWith = (field: string) => `${field}: ${namePattern}${age}`;
+
+  const find = async (plural: string, filter: string) => {
+    try {
+      return await findIds(plural, filter);
+    } catch (error) {
+      failures.push(`find ${plural}: ${String(error)}`);
+
+      return [];
+    }
+  };
+
+  const destroy = async (object: string, ids: string[]) => {
+    for (const id of ids) {
+      await destroyRecord(object, id, failures);
+      await pause(DESTROY_PAUSE);
+    }
+  };
+
+  for (const orderId of await find('orders', startsWith('clientName'))) {
+    // Soft-deleted first: the functions that a destroyed child starts stop
+    // when they do not find the order, so none writes a line or an accrual
+    // back. An order that is already deleted refuses, which is fine.
+    await graphql('mutation($id: UUID!) { deleteOrder(id: $id) { id } }', {
+      id: orderId,
+    }).catch(() => undefined);
+    await pause(DESTROY_PAUSE);
+
+    for (const [plural, object] of ORDER_CHILDREN) {
+      await destroy(object, await find(plural, equalTo('orderId', orderId)));
+    }
+
+    await destroy('Order', [orderId]);
+  }
+
+  for (const workerId of await find('masters', startsWith('name'))) {
+    for (const [plural, object, relation] of WORKER_CHILDREN) {
+      await destroy(object, await find(plural, equalTo(relation, workerId)));
+    }
+
+    await destroy('Master', [workerId]);
+  }
+
+  await destroy('Design', await find('designs', startsWith('name')));
+
+  for (const phone of nationalPhones) {
+    await destroy(
+      'Person',
+      await find(
+        'people',
+        `phones: { primaryPhoneNumber: { eq: ${JSON.stringify(phone)} } }, name: { firstName: ${namePattern} }${age}`,
+      ),
+    );
+  }
+
+  throwCleanupFailures(failures);
+};
+
+// The fields of the card: a tab of their own on a narrow screen, the pinned
+// left column on a wide one.
+export const openOrderFields = async (page: Page) => {
+  await expect(page.getByText(/^Заказ №\d{4}$/).first()).toBeVisible({
+    timeout: 60_000,
+  });
+
+  const fieldsTab = page
+    .getByRole('tab', { name: 'Заказ', exact: true })
+    .or(page.getByRole('link', { name: 'Заказ', exact: true }))
+    .first();
+  // «Итого» is a field every role may read.
+  const pinnedField = page.getByText('Итого', { exact: true }).first();
+
+  await expect(fieldsTab.or(pinnedField).first()).toBeVisible({
+    timeout: 60_000,
+  });
+
+  // The tabs are drawn with the page, before any field: once either is in
+  // sight, a tab that is not there will not come.
+  if (await fieldsTab.isVisible()) await fieldsTab.click();
 };

@@ -103,9 +103,6 @@ describe('nextStepOf', () => {
   it.each([
     'INSTALLED',
     'CANCELLED',
-    'PRICE_APPROVAL',
-    'READY',
-    'CLOSED',
     'SOMETHING_ELSE',
     null,
   ])('has no next step from %s', (status) => {
@@ -117,7 +114,7 @@ describe('currentStepKey and canCancel', () => {
   it('marks a step only for a status of the board', () => {
     expect(currentStepKey('PRODUCTION')).toBe('PRODUCTION');
     expect(currentStepKey('CANCELLED')).toBeNull();
-    expect(currentStepKey('READY')).toBeNull();
+    expect(currentStepKey('SOMETHING_ELSE')).toBeNull();
     expect(currentStepKey(null)).toBeNull();
   });
 

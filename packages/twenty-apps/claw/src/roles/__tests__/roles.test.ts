@@ -33,7 +33,7 @@ describe('roles', () => {
           IDS.order.masterPayTotal,
           IDS.orderItem.lineCost,
           IDS.design.manufacturingCostPerSquareMeter,
-          IDS.master.ratePerSquareMeter,
+          IDS.master.penaltyPercentPerDay,
           IDS.stockMovement.unitPrice,
           IDS.material.lastPurchasePrice,
         ]),
@@ -74,7 +74,6 @@ describe('calculated fields and object access', () => {
         ]),
       );
       expect(readOnlyFieldIds(role)).toContain(IDS.order.measuredAt);
-      expect(readOnlyFieldIds(role)).not.toContain(IDS.order.prepayment);
       expect(readOnlyFieldIds(role)).not.toContain(IDS.order.discountKind);
       expect(readOnlyFieldIds(role)).not.toContain(IDS.order.discountValue);
       expect(hiddenFieldIds(role)).not.toContain(IDS.order.discountKind);
@@ -148,8 +147,9 @@ describe('workshop', () => {
       'payments',
       'accruals',
     ] as const;
-    // The object's own identifier, and a retired field that is no longer defined.
-    const keysWithoutField: string[] = ['object', 'masterPayPaid'];
+    const retiredKeys = ['masterPayPaid', 'prepayment'] as const;
+    // The object's own identifier, and the retired fields that are no longer defined.
+    const keysWithoutField: string[] = ['object', ...retiredKeys];
     const writableIds = [
       IDS.order.status,
       IDS.order.finishedPhotos,
@@ -166,7 +166,11 @@ describe('workshop', () => {
       });
     }
 
-    expect(definedFields.has(IDS.order.masterPayPaid)).toBe(false);
+    // A permission on a field that is not defined would point at nothing.
+    for (const key of retiredKeys) {
+      expect(definedFields.has(IDS.order[key])).toBe(false);
+      expect(limited.has(IDS.order[key])).toBe(false);
+    }
 
     const columnIds = Object.entries(IDS.order)
       .filter(
