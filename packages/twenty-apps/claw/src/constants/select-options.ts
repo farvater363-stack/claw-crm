@@ -61,6 +61,17 @@ export const ORDER_STATUS_OPTIONS = toOptions([
 
 export type OrderStatus = (typeof ORDER_STATUS_OPTIONS)[number]['value'];
 
+// Where an order in production stands in the workshop; empty means it waits
+// in the queue.
+export const PRODUCTION_STAGE_OPTIONS = toOptions([
+  ['CUTTING', 'Резка', 'sky'],
+  ['WELDING', 'Сварка', 'orange'],
+  ['PAINTING', 'Покраска', 'purple'],
+] as const);
+
+export type ProductionStage =
+  (typeof PRODUCTION_STAGE_OPTIONS)[number]['value'];
+
 export const EXTRA_SERVICE_UNIT_OPTIONS = toOptions([
   ['FIXED', 'Фикс', 'gray'],
   ['PER_SQUARE_METER', 'За м²', 'blue'],

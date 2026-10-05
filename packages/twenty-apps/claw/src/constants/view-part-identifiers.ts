@@ -116,6 +116,9 @@ export const VIEW_PART_IDS = {
       discountValue: '71951613-4aa3-470a-860d-31dfe88c91b3',
       discount: '07e6b7ad-5c58-4638-9a3a-06bac785da7f',
       paid: '431966ff-f129-4755-a158-2a0063e6efb4',
+      productionStage: 'fa91bfb5-620b-42ae-a7d4-a2717da3e79e',
+      isUrgent: '2d238878-5e45-4adc-be18-77631b0e5004',
+      paintColor: '0d143852-7da9-4b21-9607-6ae66c9b2ed4',
     },
     groups: {
       order: '6f29b78f-755f-4670-900a-555e4fe00efe', // Retired: the order card has four field groups; ids are never reused.
@@ -183,6 +186,8 @@ export const VIEW_PART_IDS = {
     clientPhone: '624dbd61-a9ae-4e9a-ab21-467003e0b899', // Retired: the column left its view; ids are never reused.
     measurementDate: '4bc106dc-2f08-40b4-914d-23261e2b98c2', // Retired: the column left its view; ids are never reused.
     deadlineState: 'aa916d9b-9ad4-4b8f-a8a3-dc863d66e7f2',
+    productionStage: 'e80a5929-1614-4852-b288-f2102beb10cc',
+    isUrgent: 'bdda621a-fd2f-4015-b2ab-c4bd7cf27097',
   },
   productionDeadlineStateField: '754039b5-5524-48e2-9eb3-8d7fc013c1c6', // Retired: replaced by the «В работе» screen; ids are never reused.
   allOrdersFields: {

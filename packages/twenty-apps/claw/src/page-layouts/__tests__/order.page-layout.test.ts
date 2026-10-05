@@ -165,6 +165,7 @@ describe('order fields', () => {
 
   it('ends «Срок и люди» with the status and the cancel reason, for corrections', () => {
     expect(visibleIn(ids.groups.production)).toEqual([
+      IDS.order.isUrgent,
       IDS.order.master,
       IDS.order.installer,
       IDS.order.soldBy,
@@ -173,6 +174,8 @@ describe('order fields', () => {
       IDS.order.installationDeadline,
       IDS.order.readyAt,
       IDS.order.installedAt,
+      IDS.order.paintColor,
+      IDS.order.productionStage,
       IDS.order.finishedPhotos,
       IDS.order.status,
       IDS.order.cancelReason,

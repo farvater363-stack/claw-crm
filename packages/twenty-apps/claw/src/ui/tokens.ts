@@ -13,6 +13,9 @@ export const PALETTE = {
     warningTint: '#fdf1d6',
     success: '#17693a',
     successTint: '#e4f4e9',
+    urgent: '#6b3fc2',
+    urgentTint: '#efe7fb',
+    note: '#fff6cc',
   },
   dark: {
     text: '#ebebeb',
@@ -28,6 +31,9 @@ export const PALETTE = {
     warningTint: '#33250a',
     success: '#62d08c',
     successTint: '#10301c',
+    urgent: '#b896ff',
+    urgentTint: '#2b2142',
+    note: '#332e14',
   },
 } as const;
 
@@ -41,9 +47,6 @@ export const TYPE = {
   body: { fontSize: '16px', lineHeight: '24px', fontWeight: 400 },
   label: { fontSize: '14px', lineHeight: '20px', fontWeight: 400 },
   keyNumber: { fontSize: '28px', lineHeight: '32px', fontWeight: 600 },
-  // «В работе» only: read from across the workshop
-  wall: { fontSize: '40px', lineHeight: '44px', fontWeight: 600 },
-  wallRowTitle: { fontSize: '24px', lineHeight: '32px', fontWeight: 600 },
 } as const;
 
 export const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;

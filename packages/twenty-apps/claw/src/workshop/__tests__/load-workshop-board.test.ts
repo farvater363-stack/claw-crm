@@ -2,8 +2,11 @@ import { type CoreApiClient } from 'twenty-client-sdk/core';
 import { describe, expect, it } from 'vitest';
 
 import {
+  addFinishedPhotos,
+  buildFinishedPhotoLabel,
   loadWorkshopOrders,
   markReady,
+  setStage,
 } from 'src/workshop/load-workshop-board';
 
 type Request = Record<string, { __args?: unknown; edges?: { node?: unknown } }>;
@@ -18,19 +21,41 @@ const ORDERS = [
     id: 'order-1',
     name: '№1042',
     status: 'PRODUCTION',
+    productionStage: 'WELDING',
+    isUrgent: true,
     masterId: 'worker-1',
+    clientName: ' Клиент 1 ',
+    district: 'CHILANZAR',
+    addressLine: 'ул. Тестовая, 1',
+    floor: 4,
+    comment: 'Нижнюю варить на месте',
+    paintColor: 'Чёрный',
+    productionStartDate: '2026-09-30',
+    installationDeadline: '2026-10-07',
+    areaSquareMeters: 7.5,
+    finishedPhotos: [{ url: 'https://files/done.jpg' }],
     master: { name: 'Мастер 1' },
     installer: null,
-    installationDeadline: '2026-10-07',
   },
   {
     id: 'order-2',
     name: '№1035',
     status: 'QUALITY_CHECK',
+    productionStage: null,
+    isUrgent: null,
     masterId: null,
+    clientName: '',
+    district: null,
+    addressLine: null,
+    floor: null,
+    comment: '  ',
+    paintColor: null,
+    productionStartDate: null,
+    installationDeadline: null,
+    areaSquareMeters: null,
+    finishedPhotos: null,
     master: null,
     installer: { name: 'Работник 2' },
-    installationDeadline: null,
   },
 ];
 
@@ -38,28 +63,49 @@ const ITEMS = [
   {
     id: 'item-1',
     orderId: 'order-1',
-    name: '140×150×30',
-    quantity: 1,
-    design: { name: 'Решётка А' },
+    name: '80×150',
+    quantity: 5,
+    areaSquareMeters: 6,
+    notes: 'Две открываются',
+    photos: [{ url: 'https://files/opening.jpg' }, { url: '' }],
+    design: {
+      name: 'Решётка А',
+      metal: 'ROD',
+      photos: [{ url: 'https://files/design.jpg' }],
+    },
   },
   {
     id: 'item-2',
-    orderId: 'order-1',
-    name: '120×140',
-    quantity: 2,
-    design: { name: 'Решётка Б' },
-  },
-  {
-    id: 'item-3',
     orderId: 'order-2',
     name: '100×100',
     quantity: null,
+    areaSquareMeters: null,
+    notes: null,
+    photos: null,
     design: null,
   },
 ];
 
 const SERVICES = [
-  { id: 'line-1', orderId: 'order-1', name: 'Козырёк пробный' },
+  { id: 'line-1', orderId: 'order-1', name: 'Козырёк пробный', quantity: 2 },
+  { id: 'line-2', orderId: 'order-1', name: null, quantity: 1 },
+];
+
+const MATERIALS = [
+  {
+    id: 'material-line-1',
+    orderId: 'order-1',
+    name: 'Прут 12 мм — №1042',
+    plannedQuantity: 42,
+    material: { name: 'Прут 12 мм', unit: 'METER', onHand: -18 },
+  },
+  {
+    id: 'material-line-2',
+    orderId: 'order-1',
+    name: 'Полоса — №1042',
+    plannedQuantity: 16,
+    material: { name: 'Полоса 40×4', unit: 'METER', onHand: 120 },
+  },
 ];
 
 const fakeClient = (
@@ -77,6 +123,7 @@ const fakeClient = (
         orders: page(orders),
         orderItems: page(ITEMS),
         orderExtraServices: page(SERVICES),
+        orderMaterials: page(MATERIALS),
       };
     },
     mutation: async (request: Request) => {
@@ -90,7 +137,7 @@ const fakeClient = (
 };
 
 describe('loadWorkshopOrders', () => {
-  it('reads the orders of the two workshop steps with what to build, grilles first', async () => {
+  it('reads the orders of the two workshop steps with photos, client, lines and materials', async () => {
     const { client, queries } = fakeClient();
 
     expect(await loadWorkshopOrders(client)).toEqual([
@@ -98,25 +145,86 @@ describe('loadWorkshopOrders', () => {
         id: 'order-1',
         name: '№1042',
         status: 'PRODUCTION',
+        stage: 'WELDING',
+        isUrgent: true,
         masterId: 'worker-1',
         masterName: 'Мастер 1',
         installerName: null,
+        clientName: 'Клиент 1',
+        districtLabel: 'Чиланзарский',
+        addressLine: 'ул. Тестовая, 1',
+        floor: 4,
+        comment: 'Нижнюю варить на месте',
+        paintColor: 'Чёрный',
+        startDate: '2026-09-30',
         deadline: '2026-10-07',
-        lines: [
-          'Решётка А 140×150×30',
-          'Решётка Б 120×140 · 2 шт',
-          'Козырёк пробный',
+        areaSquareMeters: 7.5,
+        items: [
+          {
+            id: 'item-1',
+            designName: 'Решётка А',
+            metalLabel: 'Прут',
+            size: '80×150',
+            quantity: 5,
+            areaSquareMeters: 6,
+            notes: 'Две открываются',
+            designPhotoUrl: 'https://files/design.jpg',
+            openingPhotoUrls: ['https://files/opening.jpg'],
+          },
         ],
+        services: [{ id: 'line-1', name: 'Козырёк пробный', quantity: 2 }],
+        materials: [
+          {
+            id: 'material-line-1',
+            name: 'Прут 12 мм',
+            plannedQuantity: 42,
+            unitLabel: 'м',
+            isShort: true,
+          },
+          {
+            id: 'material-line-2',
+            name: 'Полоса 40×4',
+            plannedQuantity: 16,
+            unitLabel: 'м',
+            isShort: false,
+          },
+        ],
+        finishedPhotoUrls: ['https://files/done.jpg'],
       },
       {
         id: 'order-2',
         name: '№1035',
         status: 'QUALITY_CHECK',
+        stage: null,
+        isUrgent: false,
         masterId: null,
         masterName: null,
         installerName: 'Работник 2',
+        clientName: null,
+        districtLabel: null,
+        addressLine: null,
+        floor: null,
+        comment: null,
+        paintColor: null,
+        startDate: null,
         deadline: null,
-        lines: ['100×100'],
+        areaSquareMeters: null,
+        items: [
+          {
+            id: 'item-2',
+            designName: null,
+            metalLabel: null,
+            size: '100×100',
+            quantity: 1,
+            areaSquareMeters: null,
+            notes: null,
+            designPhotoUrl: null,
+            openingPhotoUrls: [],
+          },
+        ],
+        services: [],
+        materials: [],
+        finishedPhotoUrls: [],
       },
     ]);
     expect(
@@ -124,15 +232,17 @@ describe('loadWorkshopOrders', () => {
     ).toMatchObject({
       filter: { status: { in: ['PRODUCTION', 'QUALITY_CHECK'] } },
     });
-    expect(
-      queries.find((request) => request.orderItems)?.orderItems.__args,
-    ).toMatchObject({
-      filter: { orderId: { in: ['order-1', 'order-2'] } },
-    });
+
+    for (const key of ['orderItems', 'orderExtraServices', 'orderMaterials']) {
+      expect(
+        queries.find((request) => request[key])?.[key].__args,
+      ).toMatchObject({ filter: { orderId: { in: ['order-1', 'order-2'] } } });
+    }
   });
 
   // A query that names a field the workshop role cannot read fails as a
-  // whole, so the selection is pinned: no money, no cost, no client.
+  // whole, so the selection is pinned: no money, no cost, no phone, no
+  // linked person.
   it('names only what the workshop role reads', async () => {
     const { client, queries } = fakeClient();
 
@@ -145,8 +255,19 @@ describe('loadWorkshopOrders', () => {
       id: true,
       name: true,
       status: true,
+      productionStage: true,
+      isUrgent: true,
       masterId: true,
+      clientName: true,
+      district: true,
+      addressLine: true,
+      floor: true,
+      comment: true,
+      paintColor: true,
+      productionStartDate: true,
       installationDeadline: true,
+      areaSquareMeters: true,
+      finishedPhotos: { url: true },
       master: { name: true },
       installer: { name: true },
     });
@@ -155,12 +276,23 @@ describe('loadWorkshopOrders', () => {
       orderId: true,
       name: true,
       quantity: true,
-      design: { name: true },
+      areaSquareMeters: true,
+      notes: true,
+      photos: { url: true },
+      design: { name: true, metal: true, photos: { url: true } },
     });
     expect(selectionOf('orderExtraServices')).toEqual({
       id: true,
       orderId: true,
       name: true,
+      quantity: true,
+    });
+    expect(selectionOf('orderMaterials')).toEqual({
+      id: true,
+      orderId: true,
+      name: true,
+      plannedQuantity: true,
+      material: { name: true, unit: true, onHand: true },
     });
   });
 
@@ -176,7 +308,7 @@ describe('markReady', () => {
   it('sends an order still in production to installation and writes nothing else', async () => {
     const { client, mutations } = fakeClient();
 
-    expect(await markReady(client, 'order-1')).toBe('ready');
+    expect(await markReady(client, 'order-1')).toBe('saved');
     expect(mutations).toEqual([
       {
         updateOrders: {
@@ -200,5 +332,91 @@ describe('markReady', () => {
     expect(mutations[0]?.updateOrders?.__args).toMatchObject({
       filter: { status: { eq: 'PRODUCTION' } },
     });
+  });
+});
+
+describe('setStage', () => {
+  it.each([['CUTTING' as const], [null]])(
+    'writes the stage %s of an order still in production, and nothing else',
+    async (stage) => {
+      const { client, mutations } = fakeClient();
+
+      expect(await setStage(client, 'order-1', stage)).toBe('saved');
+      expect(mutations).toEqual([
+        {
+          updateOrders: {
+            __args: {
+              filter: { id: { eq: 'order-1' }, status: { eq: 'PRODUCTION' } },
+              data: { productionStage: stage },
+            },
+            id: true,
+          },
+        },
+      ]);
+    },
+  );
+
+  it('leaves an order that has left production where it is', async () => {
+    const { client } = fakeClient(ORDERS, []);
+
+    expect(await setStage(client, 'order-1', 'PAINTING')).toBe('moved');
+  });
+});
+
+describe('addFinishedPhotos', () => {
+  const NEW_PHOTO = { fileId: 'file-new', label: 'Готово №1042, фото 2.jpg' };
+
+  it('keeps the photos already on the order and adds the new ones', async () => {
+    const { client, queries, mutations } = fakeClient([
+      {
+        finishedPhotos: [
+          { fileId: 'file-old', label: 'Старое.jpg' },
+          { fileId: null, label: 'broken' },
+        ],
+      },
+    ]);
+
+    expect(await addFinishedPhotos(client, 'order-1', [NEW_PHOTO])).toBe(
+      'saved',
+    );
+    expect(queries[0]?.orders.__args).toMatchObject({
+      filter: { id: { eq: 'order-1' }, status: { eq: 'PRODUCTION' } },
+    });
+    expect(mutations).toEqual([
+      {
+        updateOrders: {
+          __args: {
+            filter: { id: { eq: 'order-1' }, status: { eq: 'PRODUCTION' } },
+            data: {
+              finishedPhotos: [
+                { fileId: 'file-old', label: 'Старое.jpg' },
+                NEW_PHOTO,
+              ],
+            },
+          },
+          id: true,
+        },
+      },
+    ]);
+  });
+
+  it('writes nothing to an order that has left production', async () => {
+    const { client, mutations } = fakeClient([]);
+
+    expect(await addFinishedPhotos(client, 'order-1', [NEW_PHOTO])).toBe(
+      'moved',
+    );
+    expect(mutations).toEqual([]);
+  });
+});
+
+describe('buildFinishedPhotoLabel', () => {
+  it('names the photo after the order, keeping the file type', () => {
+    expect(buildFinishedPhotoLabel('№1042', 3, 'IMG_0042.JPG')).toBe(
+      'Готово №1042, фото 3.jpg',
+    );
+    expect(buildFinishedPhotoLabel('№1042', 1, 'image')).toBe(
+      'Готово №1042, фото 1',
+    );
   });
 });
