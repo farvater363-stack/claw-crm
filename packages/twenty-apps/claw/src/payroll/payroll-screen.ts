@@ -45,9 +45,8 @@ export const payRuleSuffix = (method: PayMethod): string =>
 export const payRuleValueLabel = (method: PayMethod): string =>
   method === 'PERCENT_OF_SALES' ? 'Процент' : 'Сумма';
 
-// Plain digits, as the field takes them back: a grouped number would be typed over, not edited.
 export const payRuleValue = ({ method, amount, percent }: Pick<PayRule, 'method' | 'amount' | 'percent'>): string =>
-  method === 'PERCENT_OF_SALES' ? String(percent ?? '').replace('.', ',') : String(amount ?? '');
+  method === 'PERCENT_OF_SALES' ? String(percent ?? '').replace('.', ',') : amount === null ? '' : formatWhole(amount);
 
 export const withCategory = (
   categories: WorkerCategory[],

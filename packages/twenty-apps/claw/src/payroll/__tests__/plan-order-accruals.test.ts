@@ -96,7 +96,7 @@ describe('planOrderAccruals', () => {
       amount: 57_600,
     });
     expect(plain(upserts[0].name)).toBe(
-      '№1042 · Установщик · 3,84 м² × 15 000',
+      '№1042 · Установщик · 3,84 м² × 15,000',
     );
   });
 
@@ -118,7 +118,7 @@ describe('planOrderAccruals', () => {
       rate: 100_000,
       amount: 100_000,
     });
-    expect(plain(upserts[0].name)).toBe('№1042 · Мастер · за заказ 100 000');
+    expect(plain(upserts[0].name)).toBe('№1042 · Мастер · за заказ 100,000');
   });
 
   it('pays the salesperson a percent of the total', () => {
@@ -139,7 +139,7 @@ describe('planOrderAccruals', () => {
       rate: 3,
       amount: 42_300,
     });
-    expect(plain(upserts[0].name)).toBe('№1042 · Продажник · 3 % от 1 410 000');
+    expect(plain(upserts[0].name)).toBe('№1042 · Продажник · 3 % от 1,410,000');
   });
 
   it('pays the measurer for the measurement as soon as it is done, and nothing else before the installation', () => {
@@ -164,7 +164,7 @@ describe('planOrderAccruals', () => {
       rate: 50_000,
       amount: 50_000,
     });
-    expect(plain(upserts[0].name)).toBe('№1042 · Замерщик · за замер 50 000');
+    expect(plain(upserts[0].name)).toBe('№1042 · Замерщик · за замер 50,000');
   });
 
   it("adds the master's bonus and penalty so his lines add up to his pay", () => {
@@ -179,8 +179,8 @@ describe('planOrderAccruals', () => {
       ['PENALTY', -12_000],
     ]);
     expect(upserts.map((line) => plain(line.name)).slice(1)).toEqual([
-      '№1042 · Мастер · премия 100 000',
-      '№1042 · Мастер · штраф 12 000',
+      '№1042 · Мастер · премия 100,000',
+      '№1042 · Мастер · штраф 12,000',
     ]);
   });
 

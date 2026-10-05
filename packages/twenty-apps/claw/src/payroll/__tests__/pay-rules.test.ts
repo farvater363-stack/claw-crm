@@ -75,22 +75,22 @@ describe('isAllowedPayRulePair', () => {
 
 describe('describePayRule', () => {
   it.each<[Partial<PayRule>, string]>([
-    [{ work: 'INSTALLER', amount: 15_000 }, 'Установщик: 15 000 сум за м²'],
+    [{ work: 'INSTALLER', amount: 15_000 }, 'Установщик: 15,000 сум за м²'],
     [
       { method: 'PERCENT_OF_SALES', work: 'SALES', amount: null, percent: 3 },
       'Продажник: 3 % от продаж',
     ],
     [
       { method: 'FIXED', work: null, amount: 2_000_000 },
-      'Фикса 2 000 000 сум в месяц',
+      'Фикса 2,000,000 сум в месяц',
     ],
     [
       { method: 'PER_MEASUREMENT', work: 'MEASURER', amount: 50_000 },
-      'Замерщик: 50 000 сум за замер',
+      'Замерщик: 50,000 сум за замер',
     ],
     [
       { method: 'PER_ORDER', work: 'MASTER', amount: 100_000 },
-      'Мастер: 100 000 сум за заказ',
+      'Мастер: 100,000 сум за заказ',
     ],
   ])('words %o', (overrides, text) => {
     expect(plain(describePayRule(rule(overrides)))).toBe(text);
@@ -206,7 +206,7 @@ describe('applyLatePenalty', () => {
     [3, 88_000],
     [25, 0],
   ])(
-    'after %i late days at 4 %% a day leaves %i of 100 000',
+    'after %i late days at 4 %% a day leaves %i of 100,000',
     (daysLate, pay) => {
       expect(
         applyLatePenalty({

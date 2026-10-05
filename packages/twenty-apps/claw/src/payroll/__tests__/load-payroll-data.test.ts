@@ -268,7 +268,7 @@ describe('writes', () => {
               amount: { amountMicros: 15_000_000_000, currencyCode: 'UZS' },
               percent: null,
               // The thousands are grouped with a no-break space.
-              name: expect.stringMatching(/^Установщик: 15\s000 сум за м²$/),
+              name: 'Установщик: 15,000 сум за м²',
             },
             upsert: true,
           },

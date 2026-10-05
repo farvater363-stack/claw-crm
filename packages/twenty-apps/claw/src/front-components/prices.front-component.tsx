@@ -21,7 +21,7 @@ import {
   UNIT_TEXT,
 } from 'src/prices/prices-screen';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
-import { formatMoney } from 'src/ui/format';
+import { formatMoney, formatWhole } from 'src/ui/format';
 import {
   Button,
   Columns,
@@ -121,7 +121,7 @@ const UNIT_OPTIONS = EXTRA_SERVICE_UNIT_OPTIONS.map(({ value }) => ({
 }));
 
 const moneyText = (value: number | null) =>
-  value === null ? '' : value.toLocaleString('ru-RU');
+  value === null ? '' : formatWhole(value);
 
 const toPhotos = (
   photos: (Partial<Photo> | undefined)[] | undefined,
@@ -667,6 +667,7 @@ const Prices = () => {
       <Field label={label} error={errors[key]} isSaved={savedKey === key}>
         <TextInput
           inputMode="numeric"
+          isMoney
           value={drafts[key] ?? moneyText(saved)}
           suffix={suffix}
           onChange={(value) => setDraft(key, value)}

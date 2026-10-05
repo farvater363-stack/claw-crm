@@ -11,7 +11,7 @@ describe('paymentName', () => {
       plain(
         paymentName({ paidOn: '2026-10-05', method: 'CASH', amount: 500_000 }),
       ),
-    ).toBe('5 октября Наличные 500 000 сум');
+    ).toBe('5 октября Наличные 500,000 сум');
     expect(
       plain(
         paymentName({
@@ -20,7 +20,7 @@ describe('paymentName', () => {
           amount: 1_250_000,
         }),
       ),
-    ).toBe('12 ноября Перевод 1 250 000 сум');
+    ).toBe('12 ноября Перевод 1,250,000 сум');
   });
 });
 
@@ -37,14 +37,14 @@ describe('paymentFix', () => {
     const fix = paymentFix(payment, today);
 
     expect(Object.keys(fix)).toEqual(['name']);
-    expect(plain(fix.name ?? '')).toBe('5 октября Карта 300 000 сум');
+    expect(plain(fix.name ?? '')).toBe('5 октября Карта 300,000 сум');
   });
 
   it('dates a payment typed without a date, and names it by that date', () => {
     const fix = paymentFix({ ...payment, paidOn: null }, today);
 
     expect(fix.paidOn).toBe('2026-10-06');
-    expect(plain(fix.name ?? '')).toBe('6 октября Карта 300 000 сум');
+    expect(plain(fix.name ?? '')).toBe('6 октября Карта 300,000 сум');
   });
 
   it('changes nothing when the name is already right', () => {

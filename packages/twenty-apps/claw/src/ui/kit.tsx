@@ -1,6 +1,7 @@
 import { type CSSProperties, type ReactNode, useState } from 'react';
 import { useColorScheme } from 'twenty-sdk/front-component';
 
+import { groupThousands } from 'src/ui/format';
 import {
   COLUMNS_MIN_WIDTH,
   CONTENT_MAX_WIDTH,
@@ -386,7 +387,7 @@ export const Field = ({
           {label}
           {saved}
         </span>
-        <span style={{ flex: '0 1 160px', minWidth: 0, ...SHRINKABLE_GRID }}>
+        <span style={{ flex: '0 1 200px', minWidth: 0, ...SHRINKABLE_GRID }}>
           {children}
         </span>
         {errorLine}
@@ -414,6 +415,7 @@ export const TextInput = ({
   onCancel,
   inputMode = 'text',
   type = 'text',
+  isMoney = false,
   suffix,
   placeholder,
   label,
@@ -433,6 +435,9 @@ export const TextInput = ({
   // Escape, for a field in a form that can be closed
   onCancel?: () => void;
   inputMode?: 'text' | 'decimal' | 'numeric';
+  // A whole sum: thousands get their commas when the field is left. Regrouping
+  // on every key would scramble the digits: the caret keeps its index here.
+  isMoney?: boolean;
   suffix?: string;
   placeholder?: string;
 }) => {
@@ -464,6 +469,11 @@ export const TextInput = ({
         onFocus={() => setIsFocused(true)}
         onBlur={() => {
           setIsFocused(false);
+
+          if (isMoney && groupThousands(value) !== value) {
+            onChange(groupThousands(value));
+          }
+
           onCommit?.();
         }}
         onKeyDown={(event) => {

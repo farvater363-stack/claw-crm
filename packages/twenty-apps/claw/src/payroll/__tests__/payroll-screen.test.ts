@@ -37,7 +37,7 @@ const line = (overrides: Partial<AccrualLine> = {}): AccrualLine => ({
   basis: 12.4,
   rate: 25_000,
   amount: 310_000,
-  name: '№1031 · Мастер · 12,4 м² × 25 000',
+  name: '№1031 · Мастер · 12,4 м² × 25,000',
   ...overrides,
 });
 
@@ -69,7 +69,7 @@ describe('pay rule words', () => {
     expect(payRuleSuffix('PERCENT_OF_SALES')).toBe('% от продаж');
     expect(payRuleValueLabel('PER_ORDER')).toBe('Сумма');
     expect(payRuleValueLabel('PERCENT_OF_SALES')).toBe('Процент');
-    expect(payRuleValue(rule())).toBe('25000');
+    expect(payRuleValue(rule())).toBe('25,000');
     expect(payRuleValue(rule({ method: 'PERCENT_OF_SALES', amount: null, percent: 2.5 }))).toBe('2,5');
   });
 });
@@ -90,13 +90,13 @@ describe('row texts', () => {
   });
 
   it('words the month, the carry and a payment', () => {
-    expect(plain(earnedHeading(1_305_000))).toBe('За месяц начислено 1 305 000');
+    expect(plain(earnedHeading(1_305_000))).toBe('За месяц начислено 1,305,000');
     expect(plain(carrySentence({ carriedOver: 235_000, paidThisMonth: 300_000 }))).toBe(
-      'С прошлого месяца 235 000 · выплачено 300 000',
+      'С прошлого месяца 235,000 · выплачено 300,000',
     );
     expect(
       plain(paymentText({ id: 'p', masterId: 'worker-3', paidOn: '2026-10-05', amount: 300_000, kind: 'ADVANCE', comment: null })),
-    ).toBe('5 октября аванс 300 000');
+    ).toBe('5 октября аванс 300,000');
   });
 });
 
@@ -110,9 +110,9 @@ describe('summarizeEarned', () => {
     ];
 
     expect(summarizeEarned(lines).map(plain)).toEqual([
-      'Мастер, за м²: 22,2 м² × 25 000 = 555 000',
-      'Премия 100 000',
-      'Штраф −12 000',
+      'Мастер, за м²: 22,2 м² × 25,000 = 555,000',
+      'Премия 100,000',
+      'Штраф −12,000',
     ]);
   });
 
@@ -126,10 +126,10 @@ describe('summarizeEarned', () => {
     ];
 
     expect(summarizeEarned(lines).map(plain)).toEqual([
-      'Фикса 2 000 000',
-      'Установщик, за заказ: 2 × 100 000 = 200 000',
-      'Продажник, % от продаж: 3 % от 1 410 000 = 42 300',
-      'Замерщик, за замер: 1 × 50 000 = 50 000',
+      'Фикса 2,000,000',
+      'Установщик, за заказ: 2 × 100,000 = 200,000',
+      'Продажник, % от продаж: 3 % от 1,410,000 = 42,300',
+      'Замерщик, за замер: 1 × 50,000 = 50,000',
     ]);
   });
 
@@ -142,8 +142,8 @@ describe('listMonthOrders', () => {
   it('lists each order once, by number, with its area when a per-m² line has one', () => {
     const lines = [
       line({ id: 'a' }),
-      line({ id: 'bonus', method: 'BONUS', basis: 1, name: '№1031 · Мастер · премия 100 000' }),
-      line({ id: 'b', orderId: 'order-1027', method: 'PER_ORDER', basis: 1, name: '№1027 · Мастер · за заказ 100 000' }),
+      line({ id: 'bonus', method: 'BONUS', basis: 1, name: '№1031 · Мастер · премия 100,000' }),
+      line({ id: 'b', orderId: 'order-1027', method: 'PER_ORDER', basis: 1, name: '№1027 · Мастер · за заказ 100,000' }),
       line({ id: 'f', orderId: null, method: 'FIXED', work: null, name: 'Фикса · Октябрь 2026' }),
     ];
 
@@ -158,7 +158,7 @@ describe('buildPayRule', () => {
   const base = { id: 'new', workerId: 'worker-3', existing: [] as PayRule[] };
 
   it.each<[PayMethod, PayWork | null, string, Pick<PayRule, 'amount' | 'percent'>]>([
-    ['PER_SQUARE_METER', 'MASTER', '25 000', { amount: 25_000, percent: null }],
+    ['PER_SQUARE_METER', 'MASTER', '25,000', { amount: 25_000, percent: null }],
     ['FIXED', null, '2000000', { amount: 2_000_000, percent: null }],
     ['PERCENT_OF_SALES', 'SALES', '2,5', { amount: null, percent: 2.5 }],
   ])('builds %s for %s from «%s»', (method, work, value, numbers) => {

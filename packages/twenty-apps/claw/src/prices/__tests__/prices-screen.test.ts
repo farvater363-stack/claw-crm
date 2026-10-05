@@ -35,7 +35,7 @@ describe('buildPriceSections', () => {
     });
 
     expect(grilles.map((row) => row.name)).toEqual(['Волна', 'Ромб']);
-    expect(plain(grilles[0].priceText)).toBe('100 000 сум за м²');
+    expect(plain(grilles[0].priceText)).toBe('100,000 сум за м²');
   });
 
   it('splits services into visors and services', () => {
@@ -62,8 +62,8 @@ describe('buildPriceSections', () => {
     });
 
     expect(sections.visors.map((row) => row.id)).toEqual(['v']);
-    expect(plain(sections.visors[0].priceText)).toBe('80 000 сум за п.м.');
-    expect(plain(sections.services[0].priceText)).toBe('40 000 сум за заказ');
+    expect(plain(sections.visors[0].priceText)).toBe('80,000 сум за п.м.');
+    expect(plain(sections.services[0].priceText)).toBe('40,000 сум за заказ');
   });
 
   it('warns about a missing price', () => {

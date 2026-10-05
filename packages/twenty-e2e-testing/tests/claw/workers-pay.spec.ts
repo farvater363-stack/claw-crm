@@ -395,5 +395,5 @@ test('the owner adds a worker with two categories and a pay rule', async ({
   // The saved rule is a line of the row, named by its work and its way.
   await expect(
     row.getByRole('textbox', { name: 'Мастер · за м²', exact: true }),
-  ).toHaveValue(String(NEW_RULE_AMOUNT), { timeout: 30_000 });
+  ).toHaveValue(NEW_RULE_AMOUNT.toLocaleString('en-US'), { timeout: 30_000 });
 });

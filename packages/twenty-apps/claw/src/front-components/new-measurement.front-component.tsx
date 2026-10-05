@@ -1312,6 +1312,7 @@ const NewMeasurement = () => {
                   <TextInput
                     label="Скидка"
                     inputMode="decimal"
+                    isMoney={payment.discountKind === 'AMOUNT'}
                     value={payment.discountValue}
                     onChange={(discountValue) =>
                       updatePayment({ discountValue })
@@ -1345,6 +1346,7 @@ const NewMeasurement = () => {
                   <TextInput
                     label="Предоплата"
                     inputMode="numeric"
+                    isMoney
                     suffix="сум"
                     value={payment.prepayment}
                     onChange={(prepayment) => updatePayment({ prepayment })}
