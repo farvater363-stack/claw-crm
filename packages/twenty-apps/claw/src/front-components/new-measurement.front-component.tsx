@@ -1114,9 +1114,24 @@ const NewMeasurement = () => {
       objectNameSingular: 'orderItem',
     });
 
+  const leaveHref =
+    openedFromOrderId === null
+      ? '/objects/orders'
+      : `/object/order/${openedFromOrderId}`;
+
   if (result !== null) {
     return (
       <div style={styles.page}>
+        <a
+          href={leaveHref}
+          style={{
+            ...styles.secondaryButton,
+            ...styles.link,
+            marginBottom: '16px',
+          }}
+        >
+          ← Назад
+        </a>
         <section style={{ ...styles.section, display: 'block' }}>
           <h2 style={{ ...styles.heading, color: colors.success }}>
             Замер сохранён
@@ -1182,29 +1197,56 @@ const NewMeasurement = () => {
           <section style={{ ...styles.section, display: 'block' }}>
             <h3 style={styles.heading}>Фото проёмов</h3>
             {result.items.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  alignItems: 'center',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '12px',
-                  justifyContent: 'space-between',
-                  padding: '6px 0',
-                }}
-              >
-                <span>
-                  Проём {item.openingNumber}: {item.label}
-                  {item.photoCount > 0 && `, фото: ${item.photoCount}`}
-                </span>
-                <button
-                  type="button"
-                  aria-label={`Добавить фото: проём ${item.openingNumber}`}
-                  style={styles.secondaryButton}
-                  onClick={() => openItemForPhotos(item.id)}
+              <div key={item.id} style={{ padding: '6px 0' }}>
+                <div
+                  style={{
+                    alignItems: 'center',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    justifyContent: 'space-between',
+                  }}
                 >
-                  Добавить фото
-                </button>
+                  <span>
+                    Проём {item.openingNumber}: {item.label}
+                    {item.photoCount > 0 && `, фото: ${item.photoCount}`}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Добавить фото: проём ${item.openingNumber}`}
+                    style={styles.secondaryButton}
+                    onClick={() => openItemForPhotos(item.id)}
+                  >
+                    Добавить фото
+                  </button>
+                </div>
+                {/* The photos picked in the form, which stays filled until
+                    «Новый замер». */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    marginTop: '8px',
+                  }}
+                >
+                  {draft.openings[item.openingNumber - 1]?.photos.map(
+                    (photo, photoIndex) =>
+                      photo.thumbnailUrl !== null && (
+                        <div key={photo.key} style={styles.thumbnail}>
+                          <img
+                            src={photo.thumbnailUrl}
+                            alt={`Фото ${photoIndex + 1}, проём ${item.openingNumber}`}
+                            style={{
+                              height: '100%',
+                              objectFit: 'cover',
+                              width: '100%',
+                            }}
+                          />
+                        </div>
+                      ),
+                  )}
+                </div>
               </div>
             ))}
           </section>
@@ -1371,11 +1413,6 @@ const NewMeasurement = () => {
       </div>
     );
   }
-
-  const leaveHref =
-    openedFromOrderId === null
-      ? '/objects/orders'
-      : `/object/order/${openedFromOrderId}`;
 
   return (
     <div style={styles.page}>
