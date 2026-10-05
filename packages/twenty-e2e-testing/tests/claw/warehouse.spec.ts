@@ -433,9 +433,9 @@ for (const { role, title, entries } of MENUS) {
     const last = entries[entries.length - 1];
 
     await signIn(page, role);
-    await expect(
-      page.getByRole('link', { name: first }).first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('link', { name: first }).first()).toBeVisible({
+      timeout: 60_000,
+    });
 
     await expect
       .poll(
