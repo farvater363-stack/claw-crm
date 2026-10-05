@@ -87,7 +87,7 @@ describe('«Заказы»', () => {
     ).toBeGreaterThanOrEqual(BOARD_STATUSES.length);
   });
 
-  it('shows six fields on a card', () => {
+  it('shows eight fields on a card, the workshop stage and «Срочно» last', () => {
     expect(fieldIds(true)).toEqual([
       IDS.order.name,
       IDS.order.clientName,
@@ -95,6 +95,8 @@ describe('«Заказы»', () => {
       IDS.order.master,
       IDS.order.installationDeadline,
       IDS.order.deadlineState,
+      IDS.order.productionStage,
+      IDS.order.isUrgent,
     ]);
     expect(fieldIds(false)).toEqual([]);
   });

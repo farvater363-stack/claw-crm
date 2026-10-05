@@ -191,17 +191,24 @@ export const CommentNote = ({
         background: colors.note,
         borderLeft: `3px solid ${colors.warning}`,
         ...TYPE.label,
-        ...(lines === undefined
-          ? { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
-          : {
-              display: '-webkit-box',
-              WebkitLineClamp: lines,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }),
       }}
     >
-      {text}
+      {/* Clamped inside the padding: on the padded box itself the next line
+          shows through the bottom padding. */}
+      <div
+        style={
+          lines === undefined
+            ? { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
+            : {
+                display: '-webkit-box',
+                WebkitLineClamp: lines,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }
+        }
+      >
+        {text}
+      </div>
     </div>
   );
 };

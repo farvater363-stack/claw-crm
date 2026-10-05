@@ -30,6 +30,15 @@ export default defineView({
       field: IDS.order.deadlineState,
       viewField: ordersKanbanExtraFields.deadlineState,
     },
+    // The workshop's own progress, so a manager need not call to ask
+    {
+      field: IDS.order.productionStage,
+      viewField: ordersKanbanExtraFields.productionStage,
+    },
+    {
+      field: IDS.order.isUrgent,
+      viewField: ordersKanbanExtraFields.isUrgent,
+    },
   ]),
   groups: ORDER_STATUS_OPTIONS.map((option, optionIndex) => {
     const column = BOARD_STATUSES.indexOf(option.value);

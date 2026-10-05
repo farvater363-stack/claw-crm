@@ -186,6 +186,8 @@ export const VIEW_PART_IDS = {
     clientPhone: '624dbd61-a9ae-4e9a-ab21-467003e0b899', // Retired: the column left its view; ids are never reused.
     measurementDate: '4bc106dc-2f08-40b4-914d-23261e2b98c2', // Retired: the column left its view; ids are never reused.
     deadlineState: 'aa916d9b-9ad4-4b8f-a8a3-dc863d66e7f2',
+    productionStage: 'e80a5929-1614-4852-b288-f2102beb10cc',
+    isUrgent: 'bdda621a-fd2f-4015-b2ab-c4bd7cf27097',
   },
   productionDeadlineStateField: '754039b5-5524-48e2-9eb3-8d7fc013c1c6', // Retired: replaced by the «В работе» screen; ids are never reused.
   allOrdersFields: {
