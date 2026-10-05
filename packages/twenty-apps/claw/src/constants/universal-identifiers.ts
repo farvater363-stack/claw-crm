@@ -110,6 +110,9 @@ export const IDS = {
     installer: 'c77f3172-535a-43ea-af81-bb3b93e3643c',
     soldBy: '56e42582-5bd8-4386-825a-e44681555132',
     accruals: 'e61401f7-fb11-4b47-bf4b-4990e9f48fc1',
+    productionStage: 'd2809306-97dd-4c57-968a-3b56c06e3d80',
+    isUrgent: '488375b1-d088-41d3-b520-34967b87a222',
+    paintColor: 'e0732eb6-bef7-4820-b13f-ebd1bab4e732',
     // Twenty's deterministic ids for the built-in fields of this app's order
     // object: uuid v5 of "fieldMetadata:<object id>:<field name>" in the
     // namespace of the application id. Never made up, never generated here.

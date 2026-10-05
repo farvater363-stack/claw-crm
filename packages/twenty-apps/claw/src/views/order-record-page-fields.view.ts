@@ -58,6 +58,7 @@ export default defineView({
       'comment',
     ]),
     ...section(groups.production, [
+      'isUrgent',
       'master',
       'installer',
       'soldBy',
@@ -66,6 +67,8 @@ export default defineView({
       'installationDeadline',
       'readyAt',
       'installedAt',
+      'paintColor',
+      'productionStage',
       'finishedPhotos',
       // Last, for corrections: the header moves an order forward
       'status',

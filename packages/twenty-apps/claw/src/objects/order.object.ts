@@ -13,6 +13,7 @@ import {
   DISTRICT_OPTIONS,
   ORDER_MATERIAL_STATE_OPTIONS,
   ORDER_STATUS_OPTIONS,
+  PRODUCTION_STAGE_OPTIONS,
   SOURCE_OPTIONS,
 } from 'src/constants/select-options';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
@@ -131,6 +132,24 @@ export default defineObject({
       options: SOURCE_OPTIONS,
     },
     text(IDS.order.comment, 'comment', 'Комментарий', 'IconMessage'),
+    {
+      universalIdentifier: IDS.order.productionStage,
+      type: FieldType.SELECT,
+      name: 'productionStage',
+      label: 'Этап в цеху',
+      icon: 'IconProgress',
+      isNullable: true,
+      options: PRODUCTION_STAGE_OPTIONS,
+    },
+    {
+      universalIdentifier: IDS.order.isUrgent,
+      type: FieldType.BOOLEAN,
+      name: 'isUrgent',
+      label: 'Срочно',
+      icon: 'IconFlame',
+      defaultValue: false,
+    },
+    text(IDS.order.paintColor, 'paintColor', 'Цвет покраски', 'IconPalette'),
     date(IDS.order.productionStartDate, 'productionStartDate', 'Начало'),
     date(IDS.order.installationDeadline, 'installationDeadline', 'Срок'),
     date(IDS.order.readyAt, 'readyAt', 'Готов'),

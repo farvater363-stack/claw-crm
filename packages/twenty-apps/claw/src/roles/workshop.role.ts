@@ -24,6 +24,7 @@ const readUpdate = (objectUniversalIdentifier: string) => ({
 
 const WORKSHOP_WRITABLE_ORDER_FIELDS: string[] = [
   IDS.order.status,
+  IDS.order.productionStage,
   IDS.order.finishedPhotos,
   // Twenty writes the author itself on every update, through the same check
   // as the caller's fields, and overwrites whatever the caller sent: locked,
@@ -96,7 +97,7 @@ export default defineRole({
   label: 'Цех',
   description: 'Общий логин монитора в цехе: видит работу и отмечает «Готово»',
   icon: 'IconHammer',
-  // Shared monitor login: reads orders, workers and materials; writes an order's status and photos only.
+  // Shared monitor login: reads orders, workers and materials; writes an order's status, stage and photos only.
   canReadAllObjectRecords: false,
   canUpdateAllObjectRecords: false,
   canSoftDeleteAllObjectRecords: false,
