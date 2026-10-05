@@ -56,9 +56,10 @@ export default defineView({
       'measurementDate',
       'measurer',
       'comment',
+      'clientSignature',
     ]),
     ...section(groups.production, [
-      'isUrgent',
+      'urgency',
       'master',
       'installer',
       'soldBy',

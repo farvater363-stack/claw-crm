@@ -1,5 +1,6 @@
 import {
   type CSSProperties,
+  type PointerEvent,
   type ReactNode,
   useEffect,
   useRef,
@@ -32,8 +33,8 @@ import {
   computeOpeningAreaSquareMeters,
   computeOpeningQuote,
   computeOpeningsTotalAreaSquareMeters,
+  computeOpeningVisorTotal,
   computePaymentPreview,
-  computeVisorTotal,
   buildOpeningPhotoLabel,
   createEmptyOpening,
   describePhotoUploadFailure,
@@ -41,7 +42,7 @@ import {
   EMPTY_PAYMENT_DRAFT,
   formatUzbekNationalPhone,
   type GrilleOption,
-  hasOpeningWithoutPrice,
+  isVisorOnlyOpening,
   MAX_PHOTOS_PER_OPENING,
   MEASUREMENT_ORDER_STORAGE_KEY,
   type MeasurementDraft,
@@ -81,7 +82,13 @@ type SaveResult = {
   photoFailureOpeningNumbers: number[];
   isVisorFailed: boolean;
   isPaymentFailed: boolean;
+  isSignatureFailed: boolean;
 };
+
+type Step = 'measurement' | 'payment';
+
+type SignaturePoint = { x: number; y: number };
+type SignatureStroke = SignaturePoint[];
 
 const ORDER_NAME_POLL_ATTEMPTS = 20;
 const ORDER_NAME_POLL_INTERVAL_MS = 750;
@@ -89,7 +96,7 @@ const THUMBNAIL_MAX_SIDE_PX = 160;
 
 // An opening's key is also the id of the order item it is saved as, so a save
 // sent twice writes the same item again and does not add a second one.
-const createOpeningKey = randomUuid;
+const createOpening = () => createEmptyOpening(randomUuid(), randomUuid());
 // crypto.randomUUID is missing in the sandbox (no secure context); keys only
 // need to be unique within this page.
 let photoKeySequence = 0;
@@ -104,9 +111,7 @@ const createEmptyDraft = (): MeasurementDraft => ({
   source: '',
   measurementDate: toDateTimeLocalInputValue(new Date()),
   comment: '',
-  openings: [createEmptyOpening(createOpeningKey())],
-  visorServiceId: '',
-  visorLengthMeters: '',
+  openings: [createOpening()],
 });
 
 const describeError = (error: unknown) =>
@@ -149,12 +154,14 @@ const loadFormContext = async (userId: string) => {
 
   return {
     measurerId: workspaceMembers?.edges[0]?.node?.id ?? null,
-    grilles: (designs?.edges ?? []).map(({ node }): GrilleOption => ({
-      id: node.id,
-      name: node.name ?? '',
-      photoUrl: node.photos?.[0]?.url ?? null,
-      pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
-    })),
+    grilles: (designs?.edges ?? []).map(
+      ({ node }): GrilleOption => ({
+        id: node.id,
+        name: node.name ?? '',
+        photoUrl: node.photos?.[0]?.url ?? null,
+        pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
+      }),
+    ),
     visorOptions: (extraServices?.edges ?? [])
       .map(({ node }) => ({
         id: node.id,
@@ -244,10 +251,9 @@ const loadScheduledOrders = async (
 
 // One set per filled form: every record a save creates carries its id, so a
 // save sent twice (a lost response, a double tap) writes the same records again
-// and never a second order, visor line or prepayment.
+// and never a second order or prepayment.
 const createSaveIds = () => ({
   order: randomUuid(),
-  visor: randomUuid(),
   payment: randomUuid(),
 });
 
@@ -287,14 +293,17 @@ const createThumbnailUrl = async (file: File): Promise<string | null> => {
   }
 };
 
-// uploadFile needs this workspace's id for orderItem.photos, which differs
-// from the universalIdentifier the app declares.
-const fetchPhotosFieldMetadataId = async (): Promise<string | null> => {
+// uploadFile needs this workspace's id of the files field, which differs from
+// the universalIdentifier the app declares.
+const fetchFieldMetadataId = async (
+  objectUniversalIdentifier: string,
+  fieldUniversalIdentifier: string,
+): Promise<string | null> => {
   const { objects } = await new MetadataApiClient().query({
     objects: {
       __args: {
         paging: { first: 1 },
-        filter: { universalIdentifier: { eq: IDS.orderItem.object } },
+        filter: { universalIdentifier: { eq: objectUniversalIdentifier } },
       },
       edges: { node: { fieldsList: { id: true, universalIdentifier: true } } },
     },
@@ -302,8 +311,187 @@ const fetchPhotosFieldMetadataId = async (): Promise<string | null> => {
 
   return (
     objects.edges[0]?.node.fieldsList?.find(
-      (field) => field.universalIdentifier === IDS.orderItem.photos,
+      (field) => field.universalIdentifier === fieldUniversalIdentifier,
     )?.id ?? null
+  );
+};
+
+const SIGNATURE_PAD_HEIGHT_PX = 180;
+const SIGNATURE_PADDING_PX = 12;
+const SIGNATURE_FILE_NAME = 'Подпись клиента.png';
+
+// The sandbox has no <canvas> element, so the strokes are kept as points,
+// shown as SVG and drawn into an image only when the order is saved.
+const renderSignatureFile = async (
+  strokes: SignatureStroke[],
+): Promise<File> => {
+  const points = strokes.flat();
+  const left = Math.min(...points.map((point) => point.x));
+  const top = Math.min(...points.map((point) => point.y));
+  const canvas = new OffscreenCanvas(
+    Math.max(...points.map((point) => point.x)) -
+      left +
+      2 * SIGNATURE_PADDING_PX,
+    Math.max(...points.map((point) => point.y)) -
+      top +
+      2 * SIGNATURE_PADDING_PX,
+  );
+  const context = canvas.getContext('2d');
+
+  if (context === null) throw new Error('no 2d context');
+
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = '#000000';
+  context.lineWidth = 2;
+  context.lineCap = 'round';
+  context.lineJoin = 'round';
+  context.translate(SIGNATURE_PADDING_PX - left, SIGNATURE_PADDING_PX - top);
+
+  for (const stroke of strokes) {
+    context.beginPath();
+    context.moveTo(stroke[0].x, stroke[0].y);
+    // Starts with the first point again, so a single tap leaves a dot.
+    stroke.forEach((point) => context.lineTo(point.x, point.y));
+    context.stroke();
+  }
+
+  return new File(
+    [await canvas.convertToBlob({ type: 'image/png' })],
+    SIGNATURE_FILE_NAME,
+    { type: 'image/png' },
+  );
+};
+
+const attachClientSignature = async (
+  orderId: string,
+  strokes: SignatureStroke[],
+) => {
+  const fieldMetadataId = await fetchFieldMetadataId(
+    IDS.order.object,
+    IDS.order.clientSignature,
+  );
+
+  if (fieldMetadataId === null) throw new Error('no signature field');
+
+  const result = await uploadFile(await renderSignatureFile(strokes), {
+    fieldMetadataId,
+    fileName: SIGNATURE_FILE_NAME,
+  });
+
+  if (result.status !== 'uploaded') throw new Error('upload failed');
+
+  await new CoreApiClient().mutation({
+    updateOrder: {
+      __args: {
+        id: orderId,
+        data: {
+          clientSignature: [
+            { fileId: result.file.fileId, label: SIGNATURE_FILE_NAME },
+          ],
+        },
+      },
+      id: true,
+    },
+  });
+};
+
+const SignaturePad = ({
+  strokes,
+  onChange,
+  borderColor,
+}: {
+  strokes: SignatureStroke[];
+  onChange: (update: (strokes: SignatureStroke[]) => SignatureStroke[]) => void;
+  borderColor: string;
+}) => {
+  const pad = useRef<HTMLDivElement>(null);
+  // Where the pad sits on the screen while one stroke is drawn; null between
+  // strokes. A pointer event carries screen coordinates only.
+  const origin = useRef<SignaturePoint | null>(null);
+
+  const pointOf = (event: PointerEvent<HTMLDivElement>): SignaturePoint => ({
+    x: Math.round(event.clientX - (origin.current?.x ?? 0)),
+    y: Math.round(event.clientY - (origin.current?.y ?? 0)),
+  });
+
+  // The sandbox starts measuring an element at the first read and has nothing
+  // to give until then; read once here, so the first stroke finds the pad.
+  useEffect(() => {
+    pad.current?.getBoundingClientRect();
+  }, []);
+
+  const start = (event: PointerEvent<HTMLDivElement>) => {
+    const rect = pad.current?.getBoundingClientRect();
+
+    if (rect === undefined || rect.width === 0) return;
+
+    origin.current = { x: rect.x, y: rect.y };
+
+    const point = pointOf(event);
+
+    onChange((current) => [...current, [point]]);
+  };
+
+  const extend = (event: PointerEvent<HTMLDivElement>) => {
+    if (origin.current === null) return;
+
+    const point = pointOf(event);
+
+    onChange((current) => [
+      ...current.slice(0, -1),
+      [...(current[current.length - 1] ?? []), point],
+    ]);
+  };
+
+  const end = () => {
+    origin.current = null;
+  };
+
+  return (
+    <div
+      ref={pad}
+      role="img"
+      aria-label="Поле для подписи клиента"
+      style={{
+        background: '#ffffff',
+        border: `1px solid ${borderColor}`,
+        borderRadius: '6px',
+        cursor: 'crosshair',
+        height: `${SIGNATURE_PAD_HEIGHT_PX}px`,
+        overflow: 'hidden',
+        position: 'relative',
+        // Without it a finger drawing on the pad scrolls the page instead.
+        touchAction: 'none',
+        userSelect: 'none',
+      }}
+      onPointerDown={start}
+      onPointerMove={extend}
+      onPointerUp={end}
+      onPointerLeave={end}
+      onPointerCancel={end}
+    >
+      <svg
+        width="100%"
+        height="100%"
+        style={{ inset: 0, pointerEvents: 'none', position: 'absolute' }}
+      >
+        {strokes.map((stroke, index) => (
+          <polyline
+            key={index}
+            // A lone point is doubled so a tap shows as a dot.
+            points={[stroke[0], ...stroke]
+              .map((point) => `${point.x},${point.y}`)
+              .join(' ')}
+            fill="none"
+            stroke="#000000"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+      </svg>
+    </div>
   );
 };
 
@@ -385,6 +573,13 @@ const NewMeasurement = () => {
   // What «Чей замер» holds: '' until the measurer chooses
   const [target, setTarget] = useState('');
   const [saveIds, setSaveIds] = useState(createSaveIds);
+  const [step, setStep] = useState<Step>('measurement');
+  const [signature, setSignature] = useState<SignatureStroke[]>([]);
+  // The order whose card opened the form: «Назад» returns there
+  const [openedFromOrderId, setOpenedFromOrderId] = useState<string | null>(
+    null,
+  );
+  const [isLeaving, setIsLeaving] = useState(false);
   // State is read from the render's closure, so two taps before the next
   // render would both pass a check on isSaving.
   const isSaveInFlight = useRef(false);
@@ -419,6 +614,7 @@ const NewMeasurement = () => {
 
         if (preselected !== undefined) {
           setTarget(preselected.id);
+          setOpenedFromOrderId(preselected.id);
           setDraft((current) => ({
             ...current,
             ...draftFromScheduledOrder(preselected),
@@ -553,7 +749,7 @@ const NewMeasurement = () => {
   const addOpening = () =>
     setDraft((current) => ({
       ...current,
-      openings: [...current.openings, createEmptyOpening(createOpeningKey())],
+      openings: [...current.openings, createOpening()],
     }));
 
   const removeOpening = (key: string) =>
@@ -642,24 +838,42 @@ const NewMeasurement = () => {
     setErrors([]);
     setResult(null);
     setPhotoLimitNotice(null);
+    setStep('measurement');
+    setSignature([]);
+    setIsLeaving(false);
   };
 
   const totalAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
     draft.openings,
   );
-  const openingsTotal = computeDraftTotal(draft.openings, grilles);
-  const visorTotal = computeVisorTotal(draft, visorOptions);
-  const draftTotal =
-    openingsTotal === null ||
-    (draft.visorServiceId !== '' && visorTotal === null)
-      ? null
-      : openingsTotal + (visorTotal ?? 0);
-  const totalAwaitsManagerPrice = hasOpeningWithoutPrice(
-    draft.openings,
-    grilles,
-  );
+  const draftTotal = computeDraftTotal(draft.openings, grilles, visorOptions);
   const preview = computePaymentPreview(draftTotal, payment);
   const today = todayInTashkent();
+  const isDirty =
+    draft.clientName !== '' ||
+    draft.clientPhone !== '' ||
+    draft.openings.some(
+      (opening) => opening.widthCm !== '' || opening.photos.length > 0,
+    );
+
+  // The payment has its own screen, so the sizes are checked before it opens.
+  const goToPayment = () => {
+    const targetOrder = resolveTargetOrderId(target, scheduledOrders);
+    const payload = buildMeasurementPayload(draft, measurerId ?? '', {
+      orderId: null,
+      payment: EMPTY_PAYMENT_DRAFT,
+      subtotal: null,
+      today,
+    });
+    const stepErrors = [
+      ...(targetOrder.ok ? [] : [targetOrder.error]),
+      ...(payload.isValid ? [] : payload.errors),
+    ];
+
+    setErrors(stepErrors);
+
+    if (stepErrors.length === 0) setStep('payment');
+  };
 
   const save = async () => {
     if (measurerId === null) {
@@ -738,14 +952,14 @@ const NewMeasurement = () => {
     const items: SavedItem[] = [];
     const failedOpeningNumbers: number[] = [];
 
-    for (const [index, item] of payload.items.entries()) {
+    for (const item of payload.items) {
+      const openingNumber =
+        draft.openings.findIndex((opening) => opening.key === item.id) + 1;
+
       try {
         const { createOrderItem } = await client.mutation({
           createOrderItem: {
-            __args: {
-              data: { id: draft.openings[index].key, ...item, orderId },
-              upsert: true,
-            },
+            __args: { data: { ...item, orderId }, upsert: true },
             id: true,
           },
         });
@@ -754,12 +968,12 @@ const NewMeasurement = () => {
 
         items.push({
           id: createOrderItem.id,
-          openingNumber: index + 1,
+          openingNumber,
           label: `${item.widthCm}×${item.heightCm}${item.projectionCm > 0 ? `×${item.projectionCm}` : ''} см, ${item.quantity} шт`,
           photoCount: 0,
         });
       } catch {
-        failedOpeningNumbers.push(index + 1);
+        failedOpeningNumbers.push(openingNumber);
       }
     }
 
@@ -771,9 +985,10 @@ const NewMeasurement = () => {
     );
 
     if (itemsWithPhotos.length > 0) {
-      const photosFieldMetadataId = await fetchPhotosFieldMetadataId().catch(
-        () => null,
-      );
+      const photosFieldMetadataId = await fetchFieldMetadataId(
+        IDS.orderItem.object,
+        IDS.orderItem.photos,
+      ).catch(() => null);
 
       for (const item of itemsWithPhotos) {
         const photos = draft.openings[item.openingNumber - 1].photos;
@@ -793,13 +1008,23 @@ const NewMeasurement = () => {
     }
 
     let isVisorFailed = false;
+    const savedItemIds = new Set(items.map((item) => item.id));
 
-    if (payload.visor !== null) {
+    for (const visor of payload.visors) {
       try {
         const { createOrderExtraService } = await client.mutation({
           createOrderExtraService: {
             __args: {
-              data: { id: saveIds.visor, ...payload.visor, orderId },
+              data: {
+                ...visor,
+                // An opening that was not saved cannot be pointed at.
+                orderItemId:
+                  visor.orderItemId !== null &&
+                  savedItemIds.has(visor.orderItemId)
+                    ? visor.orderItemId
+                    : null,
+                orderId,
+              },
               upsert: true,
             },
             id: true,
@@ -839,6 +1064,13 @@ const NewMeasurement = () => {
       }
     }
 
+    const isSignatureFailed =
+      signature.length > 0 &&
+      (await attachClientSignature(orderId, signature).then(
+        () => false,
+        () => true,
+      ));
+
     const orderName = await waitForOrderName(orderId).catch(() => null);
 
     setResult({
@@ -849,6 +1081,7 @@ const NewMeasurement = () => {
       photoFailureOpeningNumbers,
       isVisorFailed,
       isPaymentFailed,
+      isSignatureFailed,
     });
   };
 
@@ -891,14 +1124,19 @@ const NewMeasurement = () => {
           )}
           {result.isVisorFailed && (
             <p role="alert" style={styles.error}>
-              Заказ создан, но козырёк не сохранён. Откройте заказ и добавьте
-              его в доп. услуги вручную.
+              Заказ создан, но не все козырьки сохранены. Откройте заказ и
+              добавьте их в «Козырьки и услуги» вручную.
             </p>
           )}
           {result.isPaymentFailed && (
             <p role="alert" style={styles.error}>
               Заказ сохранён, но предоплата не записана. Откройте заказ и
               запишите её вручную.
+            </p>
+          )}
+          {result.isSignatureFailed && (
+            <p role="alert" style={styles.error}>
+              Заказ сохранён, но подпись клиента не загрузилась.
             </p>
           )}
           {result.photoFailureOpeningNumbers.length > 0 && (
@@ -973,8 +1211,206 @@ const NewMeasurement = () => {
     </label>
   );
 
+  const errorList = errors.length > 0 && (
+    <div role="alert" style={styles.error}>
+      {errors.map((error) => (
+        <p key={error} style={{ margin: '0 0 4px' }}>
+          {error}
+        </p>
+      ))}
+    </div>
+  );
+
+  if (step === 'payment') {
+    return (
+      <div style={styles.page}>
+        <button
+          type="button"
+          style={{ ...styles.secondaryButton, marginBottom: '16px' }}
+          onClick={() => {
+            setErrors([]);
+            setStep('measurement');
+          }}
+        >
+          ← Назад к замеру
+        </button>
+        <h2 style={{ ...styles.heading, fontSize: '22px' }}>Оплата</h2>
+        <p style={{ color: colors.muted, margin: '0 0 16px' }}>
+          {[
+            draft.clientName.trim(),
+            `проёмов: ${draft.openings.length}`,
+            formatQuantity(totalAreaSquareMeters, 'м²'),
+          ]
+            .filter((part) => part !== '')
+            .join(' · ')}
+        </p>
+        <section style={{ ...styles.section, display: 'block' }}>
+          {preview.subtotal === null ||
+          preview.total === null ||
+          preview.balance === null ? (
+            <p style={styles.sum}>Цену назовёт менеджер</p>
+          ) : (
+            <div style={{ display: 'grid', gap: SPACE.md }}>
+              <p style={styles.sum}>
+                {`Сумма: ${formatMoney(preview.subtotal)}`}
+              </p>
+              <Columns>
+                <Field label="Скидка" error={preview.errors.discountValue}>
+                  <TextInput
+                    label="Скидка"
+                    inputMode="decimal"
+                    value={payment.discountValue}
+                    onChange={(discountValue) =>
+                      updatePayment({ discountValue })
+                    }
+                  />
+                </Field>
+                <Field label="Скидка в">
+                  <SelectInput
+                    label="Скидка в"
+                    value={payment.discountKind}
+                    onChange={(discountKind) =>
+                      updatePayment({
+                        discountKind: discountKind as DiscountKind,
+                      })
+                    }
+                    options={DISCOUNT_KIND_OPTIONS.map(({ value, label }) => ({
+                      value,
+                      label,
+                    }))}
+                  />
+                </Field>
+              </Columns>
+              {preview.discount > 0 && (
+                <p style={styles.sum}>
+                  {`Скидка: −${formatMoney(preview.discount)}`}
+                </p>
+              )}
+              <p style={styles.sum}>{`Итого: ${formatMoney(preview.total)}`}</p>
+              <Columns>
+                <Field label="Предоплата" error={preview.errors.prepayment}>
+                  <TextInput
+                    label="Предоплата"
+                    inputMode="numeric"
+                    suffix="сум"
+                    value={payment.prepayment}
+                    onChange={(prepayment) => updatePayment({ prepayment })}
+                  />
+                </Field>
+                <Field label="Способ">
+                  <SelectInput
+                    label="Способ"
+                    value={payment.method}
+                    onChange={(method) =>
+                      updatePayment({ method: method as PaymentMethod })
+                    }
+                    options={PAYMENT_METHOD_OPTIONS.map(({ value, label }) => ({
+                      value,
+                      label,
+                    }))}
+                  />
+                </Field>
+              </Columns>
+              <Field label="Комментарий к оплате">
+                <TextInput
+                  label="Комментарий к оплате"
+                  value={payment.comment}
+                  onChange={(comment) => updatePayment({ comment })}
+                />
+              </Field>
+              <p style={styles.sum}>
+                {`Остаток: ${formatMoney(preview.balance)}`}
+              </p>
+            </div>
+          )}
+        </section>
+        <h3 style={styles.heading}>Подпись клиента</h3>
+        <section style={{ ...styles.section, display: 'block' }}>
+          <p
+            style={{ color: colors.muted, fontSize: '13px', margin: '0 0 8px' }}
+          >
+            Клиент расписывается пальцем: согласен с размерами и суммой.
+          </p>
+          <SignaturePad
+            strokes={signature}
+            onChange={setSignature}
+            borderColor={colors.border}
+          />
+          {signature.length > 0 && (
+            <button
+              type="button"
+              style={{ ...styles.secondaryButton, marginTop: '8px' }}
+              onClick={() => setSignature([])}
+            >
+              Очистить подпись
+            </button>
+          )}
+        </section>
+
+        {errorList}
+
+        <button
+          type="button"
+          style={{ ...styles.primaryButton, opacity: isSaving ? 0.6 : 1 }}
+          aria-busy={isSaving}
+          onClick={handleSave}
+        >
+          {isSaving ? 'Сохранение…' : 'Сохранить'}
+        </button>
+      </div>
+    );
+  }
+
+  const leaveHref =
+    openedFromOrderId === null
+      ? '/objects/orders'
+      : `/object/order/${openedFromOrderId}`;
+
   return (
     <div style={styles.page}>
+      <div
+        style={{
+          alignItems: 'center',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '16px',
+        }}
+      >
+        {isLeaving ? (
+          <>
+            <span>Выйти без сохранения? Введённое пропадёт.</span>
+            <a
+              href={leaveHref}
+              style={{ ...styles.secondaryButton, ...styles.link }}
+            >
+              Выйти
+            </a>
+            <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={() => setIsLeaving(false)}
+            >
+              Остаться
+            </button>
+          </>
+        ) : isDirty ? (
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            onClick={() => setIsLeaving(true)}
+          >
+            ← Назад
+          </button>
+        ) : (
+          <a
+            href={leaveHref}
+            style={{ ...styles.secondaryButton, ...styles.link }}
+          >
+            ← Назад
+          </a>
+        )}
+      </div>
       <h2 style={{ ...styles.heading, fontSize: '22px' }}>Новый замер</h2>
       {loadError !== null && (
         <p role="alert" style={styles.error}>
@@ -1130,6 +1566,7 @@ const NewMeasurement = () => {
           'м²',
         );
         const quote = computeOpeningQuote(opening, grilles);
+        const visorTotal = computeOpeningVisorTotal(opening, visorOptions);
 
         return (
           <section
@@ -1146,8 +1583,7 @@ const NewMeasurement = () => {
               }}
             >
               <strong>Проём {index + 1}</strong>
-              {/* A visor-only order needs no opening. */}
-              {(draft.openings.length > 1 || draft.visorServiceId !== '') && (
+              {draft.openings.length > 1 && (
                 <button
                   type="button"
                   style={styles.secondaryButton}
@@ -1220,6 +1656,49 @@ const NewMeasurement = () => {
                   ? areaText
                   : `${areaText} · ${formatMoney(quote.lineTotal)}`}
               </div>
+            )}
+            {field(
+              'Козырёк',
+              <select
+                style={styles.input}
+                value={opening.visorServiceId}
+                onChange={(event) =>
+                  updateOpening(opening.key, {
+                    visorServiceId: event.target.value,
+                  })
+                }
+              >
+                <option value="">Не нужен</option>
+                {visorOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.price === null
+                      ? option.name
+                      : `${option.name} · ${formatMoney(option.price)} за п.м.`}
+                  </option>
+                ))}
+              </select>,
+            )}
+            {opening.visorServiceId !== '' &&
+              field(
+                'Длина козырька, см',
+                <input
+                  inputMode="decimal"
+                  style={styles.input}
+                  value={opening.visorLengthCm}
+                  onChange={(event) =>
+                    updateOpening(opening.key, {
+                      visorLengthCm: event.target.value,
+                    })
+                  }
+                />,
+              )}
+            {visorTotal !== null && visorTotal > 0 && (
+              <div style={styles.area}>Козырёк: {formatMoney(visorTotal)}</div>
+            )}
+            {isVisorOnlyOpening(opening) && (
+              <p style={{ ...styles.wide, color: colors.muted, margin: 0 }}>
+                Без ширины и высоты сохранится только козырёк, без решётки.
+              </p>
             )}
             {field(
               'Заметки',
@@ -1311,151 +1790,14 @@ const NewMeasurement = () => {
         + Добавить проём
       </button>
 
-      <h3 style={styles.heading}>Козырёк</h3>
-      <section style={styles.section}>
-        {field(
-          'Козырёк',
-          <select
-            style={styles.input}
-            value={draft.visorServiceId}
-            onChange={(event) =>
-              updateDraft({ visorServiceId: event.target.value })
-            }
-          >
-            <option value="">Не нужен</option>
-            {visorOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.price === null
-                  ? option.name
-                  : `${option.name} · ${formatMoney(option.price)} за п.м.`}
-              </option>
-            ))}
-          </select>,
-        )}
-        {draft.visorServiceId !== '' &&
-          field(
-            'Длина, м',
-            <input
-              inputMode="decimal"
-              style={styles.input}
-              value={draft.visorLengthMeters}
-              onChange={(event) =>
-                updateDraft({ visorLengthMeters: event.target.value })
-              }
-            />,
-          )}
-        {visorTotal !== null && (
-          <div style={styles.area}>{formatMoney(visorTotal)}</div>
-        )}
-      </section>
-
       <p style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 16px' }}>
         Итого площадь: {formatQuantity(totalAreaSquareMeters, 'м²')}
       </p>
 
-      {(draftTotal !== null || totalAwaitsManagerPrice) && (
-        <>
-          <h3 style={styles.heading}>Оплата</h3>
-          <section style={{ ...styles.section, display: 'block' }}>
-            {preview.subtotal === null ||
-            preview.total === null ||
-            preview.balance === null ? (
-              <p style={styles.sum}>Цену назовёт менеджер</p>
-            ) : (
-              <div style={{ display: 'grid', gap: SPACE.md }}>
-                <p style={styles.sum}>
-                  {`Сумма: ${formatMoney(preview.subtotal)}`}
-                </p>
-                <Columns>
-                  <Field label="Скидка" error={preview.errors.discountValue}>
-                    <TextInput
-                      label="Скидка"
-                      inputMode="decimal"
-                      value={payment.discountValue}
-                      onChange={(discountValue) =>
-                        updatePayment({ discountValue })
-                      }
-                    />
-                  </Field>
-                  <Field label="Скидка в">
-                    <SelectInput
-                      label="Скидка в"
-                      value={payment.discountKind}
-                      onChange={(discountKind) =>
-                        updatePayment({
-                          discountKind: discountKind as DiscountKind,
-                        })
-                      }
-                      options={DISCOUNT_KIND_OPTIONS.map(
-                        ({ value, label }) => ({ value, label }),
-                      )}
-                    />
-                  </Field>
-                </Columns>
-                {preview.discount > 0 && (
-                  <p style={styles.sum}>
-                    {`Скидка: −${formatMoney(preview.discount)}`}
-                  </p>
-                )}
-                <p style={styles.sum}>
-                  {`Итого: ${formatMoney(preview.total)}`}
-                </p>
-                <Columns>
-                  <Field label="Предоплата" error={preview.errors.prepayment}>
-                    <TextInput
-                      label="Предоплата"
-                      inputMode="numeric"
-                      suffix="сум"
-                      value={payment.prepayment}
-                      onChange={(prepayment) => updatePayment({ prepayment })}
-                    />
-                  </Field>
-                  <Field label="Способ">
-                    <SelectInput
-                      label="Способ"
-                      value={payment.method}
-                      onChange={(method) =>
-                        updatePayment({ method: method as PaymentMethod })
-                      }
-                      options={PAYMENT_METHOD_OPTIONS.map(
-                        ({ value, label }) => ({ value, label }),
-                      )}
-                    />
-                  </Field>
-                </Columns>
-                <Field label="Комментарий к оплате">
-                  <TextInput
-                    label="Комментарий к оплате"
-                    value={payment.comment}
-                    onChange={(comment) => updatePayment({ comment })}
-                  />
-                </Field>
-                <p style={styles.sum}>
-                  {`Остаток: ${formatMoney(preview.balance)}`}
-                </p>
-              </div>
-            )}
-          </section>
-        </>
-      )}
+      {errorList}
 
-      {errors.length > 0 && (
-        <div role="alert" style={styles.error}>
-          {errors.map((error) => (
-            <p key={error} style={{ margin: '0 0 4px' }}>
-              {error}
-            </p>
-          ))}
-        </div>
-      )}
-
-      <button
-        type="button"
-        style={{ ...styles.primaryButton, opacity: isSaving ? 0.6 : 1 }}
-        aria-busy={isSaving}
-        onClick={handleSave}
-      >
-        {isSaving ? 'Сохранение…' : 'Сохранить'}
+      <button type="button" style={styles.primaryButton} onClick={goToPayment}>
+        Далее: оплата
       </button>
     </div>
   );

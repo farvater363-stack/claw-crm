@@ -32,7 +32,7 @@ const NEW_GRILLE_PLACEHOLDER = 'Новая решётка';
 const TEST_GRILLE_PRICE = 123_000;
 // \s: the thousands separator is a non-breaking space.
 const PRICE_TEXT = /123\s000 сум за м²/;
-const MEASUREMENT_TOTAL = /^Итого: 944\s640 сум$/;
+const MEASUREMENT_TOTAL = /· 944\s640 сум$/;
 const MATERIAL_AMOUNT = '2,5';
 
 // Every step is independent so one failure does not skip the rest.
@@ -273,7 +273,7 @@ test('the measurer has no «Цены» and gets the new grille in «Новый �
 
   await expect(grilleTile).toHaveAttribute('aria-pressed', 'true');
   await expect(grilleTile).toContainText(PRICE_TEXT);
-  await expect(page.getByText(MEASUREMENT_TOTAL)).toBeVisible();
+  await expect(opening.getByText(MEASUREMENT_TOTAL)).toBeVisible();
 });
 
 test('the owner removes the grille and brings it back with «Вернуть»', async ({

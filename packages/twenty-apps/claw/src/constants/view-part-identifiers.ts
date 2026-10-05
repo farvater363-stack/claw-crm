@@ -117,7 +117,9 @@ export const VIEW_PART_IDS = {
       discount: '07e6b7ad-5c58-4638-9a3a-06bac785da7f',
       paid: '431966ff-f129-4755-a158-2a0063e6efb4',
       productionStage: 'fa91bfb5-620b-42ae-a7d4-a2717da3e79e',
-      isUrgent: '2d238878-5e45-4adc-be18-77631b0e5004',
+      isUrgent: '2d238878-5e45-4adc-be18-77631b0e5004', // Retired: «Срочно» is the select `urgency`; ids are never reused.
+      urgency: '5da001b1-eae8-4771-ac51-5d95d09fb572',
+      clientSignature: '3c4676ce-ddcf-48dd-a670-a4d145f56f94',
       paintColor: '0d143852-7da9-4b21-9607-6ae66c9b2ed4',
     },
     groups: {
@@ -156,6 +158,7 @@ export const VIEW_PART_IDS = {
       lineTotal: '3ca3186b-9ec7-4490-bb2c-d10dd54cf81e',
       cost: '4c9076eb-af4f-4be9-b510-8b45fc31d1e1',
       lineCost: '358364a9-bab8-4d82-9bfb-1d5b57c57d15',
+      orderItem: '0777087c-e58a-47a7-900e-38a35b14a156',
     },
     extraServicesTableFilter: 'dea25d57-67a3-48f6-8e69-d6d5225b44b4',
     // Retired: replaced by the order header; ids are never reused.
@@ -187,7 +190,8 @@ export const VIEW_PART_IDS = {
     measurementDate: '4bc106dc-2f08-40b4-914d-23261e2b98c2', // Retired: the column left its view; ids are never reused.
     deadlineState: 'aa916d9b-9ad4-4b8f-a8a3-dc863d66e7f2',
     productionStage: 'e80a5929-1614-4852-b288-f2102beb10cc',
-    isUrgent: 'bdda621a-fd2f-4015-b2ab-c4bd7cf27097',
+    isUrgent: 'bdda621a-fd2f-4015-b2ab-c4bd7cf27097', // Retired: «Срочно» is the select `urgency`; ids are never reused.
+    urgency: '33dd0098-5d32-45fa-a601-d227cead8f35',
   },
   productionDeadlineStateField: '754039b5-5524-48e2-9eb3-8d7fc013c1c6', // Retired: replaced by the «В работе» screen; ids are never reused.
   allOrdersFields: {

@@ -36,8 +36,8 @@ export default defineView({
       viewField: ordersKanbanExtraFields.productionStage,
     },
     {
-      field: IDS.order.isUrgent,
-      viewField: ordersKanbanExtraFields.isUrgent,
+      field: IDS.order.urgency,
+      viewField: ordersKanbanExtraFields.urgency,
     },
   ]),
   groups: ORDER_STATUS_OPTIONS.map((option, optionIndex) => {

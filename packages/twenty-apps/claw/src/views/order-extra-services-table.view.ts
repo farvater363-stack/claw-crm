@@ -15,6 +15,7 @@ const COLUMN_WIDTHS = {
   lineTotal: 130,
   cost: 140,
   lineCost: 170,
+  orderItem: 150,
 } as const satisfies Record<keyof typeof ids.extraServicesTableFields, number>;
 const fieldNames = Object.keys(
   ids.extraServicesTableFields,

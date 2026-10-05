@@ -120,5 +120,17 @@ export default defineObject({
         joinColumnName: 'designId',
       },
     },
+    {
+      universalIdentifier: IDS.orderItem.extraServices,
+      type: FieldType.RELATION,
+      name: 'extraServices',
+      label: 'Козырьки',
+      icon: 'IconTool',
+      relationTargetObjectMetadataUniversalIdentifier:
+        IDS.orderExtraService.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.orderExtraService.orderItem,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
   ]),
 });

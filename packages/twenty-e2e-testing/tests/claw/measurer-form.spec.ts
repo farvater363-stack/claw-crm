@@ -317,7 +317,6 @@ test('measurer records a measurement from the tablet form', async ({
     // alone, no price.
     await expect(opening.getByText('7,68 м²', { exact: true })).toBeVisible();
     await expect(page.getByText('Итого площадь: 7,68 м²')).toBeVisible();
-    await expect(page.getByText('Цену назовёт менеджер')).toBeVisible();
 
     const grilleTile = opening.getByRole('button', { name: TEST_GRILLE_NAME });
 
@@ -328,8 +327,6 @@ test('measurer records a measurement from the tablet form', async ({
     await expect(
       opening.getByText(/^7,68 м² · 1\D920\D000 сум$/),
     ).toBeVisible();
-    await expect(page.getByText(/^Итого: 1\D920\D000 сум$/)).toBeVisible();
-    await expect(page.getByText('Цену назовёт менеджер')).toBeHidden();
 
     // Two photos picked, the second removed again: one goes up with the item.
     await opening
@@ -349,6 +346,18 @@ test('measurer records a measurement from the tablet form', async ({
       .click(FORCE);
     await expect(opening.getByText('Фото: 1 из 5')).toBeVisible();
 
+    // «Чей замер» is there only while this measurer has a scheduled order, and
+    // then the form refuses to go on until it is answered.
+    const measurementTarget = page.getByLabel('Чей замер');
+
+    if (await measurementTarget.isVisible()) {
+      await chooseOption(measurementTarget, 'Новый клиент');
+    }
+
+    // The payment has a screen of its own, after the sizes.
+    await page.getByRole('button', { name: 'Далее: оплата' }).click(FORCE);
+    await expect(page.getByText(/^Итого: 1\D920\D000 сум$/)).toBeVisible();
+
     // The price is agreed on site: 5 % off 1 920 000 and a prepayment by card.
     await page.getByLabel('Скидка', { exact: true }).fill('5', FORCE);
     await expect(page.getByText(/^Итого: 1\D824\D000 сум$/)).toBeVisible();
@@ -356,14 +365,6 @@ test('measurer records a measurement from the tablet form', async ({
     await chooseOption(page.getByLabel('Способ'), 'Карта');
     await page.getByLabel('Комментарий к оплате').fill('E2E предоплата', FORCE);
     await expect(page.getByText(/^Остаток: 1\D324\D000 сум$/)).toBeVisible();
-
-    // «Чей замер» is there only while this measurer has a scheduled order, and
-    // then the form refuses to save until it is answered.
-    const measurementTarget = page.getByLabel('Чей замер');
-
-    if (await measurementTarget.isVisible()) {
-      await chooseOption(measurementTarget, 'Новый клиент');
-    }
 
     // Step 4: save.
     await page.getByRole('button', { name: 'Сохранить' }).click(FORCE);

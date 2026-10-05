@@ -160,12 +160,13 @@ describe('order fields', () => {
       IDS.order.measurementDate,
       IDS.order.measurer,
       IDS.order.comment,
+      IDS.order.clientSignature,
     ]);
   });
 
   it('ends «Срок и люди» with the status and the cancel reason, for corrections', () => {
     expect(visibleIn(ids.groups.production)).toEqual([
-      IDS.order.isUrgent,
+      IDS.order.urgency,
       IDS.order.master,
       IDS.order.installer,
       IDS.order.soldBy,

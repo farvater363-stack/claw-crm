@@ -111,7 +111,9 @@ export const IDS = {
     soldBy: '56e42582-5bd8-4386-825a-e44681555132',
     accruals: 'e61401f7-fb11-4b47-bf4b-4990e9f48fc1',
     productionStage: 'd2809306-97dd-4c57-968a-3b56c06e3d80',
-    isUrgent: '488375b1-d088-41d3-b520-34967b87a222',
+    isUrgent: '488375b1-d088-41d3-b520-34967b87a222', // Retired: «Срочно» is the select `urgency`; ids are never reused.
+    urgency: '29af3039-d76e-4223-a2ed-e3ab2b82b5cc',
+    clientSignature: 'f1cded87-98a7-4feb-b091-ceeeab3615d0',
     paintColor: 'e0732eb6-bef7-4820-b13f-ebd1bab4e732',
     // Twenty's deterministic ids for the built-in fields of this app's order
     // object: uuid v5 of "fieldMetadata:<object id>:<field name>" in the
@@ -141,6 +143,7 @@ export const IDS = {
     notes: '0b255e96-2709-41e9-919b-b9d4c7b3f460',
     order: 'a6a3b933-914d-4325-b166-41fdd01ad6ff',
     design: '81ba9544-964a-4d96-ab5e-c0f860dd7b74',
+    extraServices: '6eb798db-ed75-4f2e-bc96-79cc81be1ef6',
   },
   orderExtraService: {
     object: '035541ea-e6a3-4338-a841-67b201bdb3d0',
@@ -152,6 +155,7 @@ export const IDS = {
     lineCost: '8c5ea7fa-9b78-48a1-967e-55f802f222a6',
     order: '72ee4b00-c57e-4588-b61d-86a549a44022',
     extraService: '3f52757d-611f-418d-9288-c591742d4fae',
+    orderItem: '55611fda-be00-48b4-ba40-e2c7a98a1865',
   },
   masterPayment: {
     object: '97af6485-78d1-4250-9b8f-7b7af9d9a6e4',

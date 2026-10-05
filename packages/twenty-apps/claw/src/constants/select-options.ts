@@ -69,6 +69,12 @@ export const PRODUCTION_STAGE_OPTIONS = toOptions([
   ['PAINTING', 'Покраска', 'purple'],
 ] as const);
 
+// One option: an order is urgent or the field is empty, and an empty field
+// takes no room on a card.
+export const URGENCY_OPTIONS = toOptions([
+  ['URGENT', 'Срочно', 'red'],
+] as const);
+
 export type ProductionStage =
   (typeof PRODUCTION_STAGE_OPTIONS)[number]['value'];
 

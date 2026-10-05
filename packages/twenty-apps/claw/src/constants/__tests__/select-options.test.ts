@@ -252,6 +252,7 @@ describe('every select option of every object keeps its id', () => {
         "order.status.NEW": "25c79dc6-9489-5c70-a79b-22b147cc46d2",
         "order.status.PRODUCTION": "328ba57a-e0bd-5e2b-9efa-f29b3957e09c",
         "order.status.QUALITY_CHECK": "96aee4e3-71ce-5947-8df6-0cc4e80c8b2a",
+        "order.urgency.URGENT": "6a99201a-abd9-5799-8fa1-2ab827da67b9",
         "orderPayment.method.CARD": "200a51f9-3ff9-54ed-b654-187fa6c0df86",
         "orderPayment.method.CASH": "60529631-3fa3-5a83-a9c0-7cc2fd387317",
         "orderPayment.method.TRANSFER": "aba49e83-d595-5b08-b727-78a71ecd8fac",
