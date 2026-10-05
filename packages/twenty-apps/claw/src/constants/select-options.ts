@@ -50,7 +50,12 @@ export const ORDER_STATUS_OPTIONS = toOptions([
   ['MEASURED', 'Замер выполнен', 'sky'],
   ['PRICE_APPROVAL', 'Согласование цены', 'yellow'],
   ['PRODUCTION', 'Производство', 'orange'],
-  ['QUALITY_CHECK', 'Проверка качества', 'purple'],
+  [
+    'QUALITY_CHECK',
+    'Отправлено на установку',
+    'purple',
+    '96aee4e3-71ce-5947-8df6-0cc4e80c8b2a',
+  ],
   ['READY', 'Готов', 'turquoise'],
   ['INSTALLED', 'Установлен', 'green'],
   ['CLOSED', 'Закрыт', 'green'],
@@ -150,3 +155,48 @@ export const ORDER_MATERIAL_STATE_OPTIONS = toOptions([
 
 export type OrderMaterialState =
   (typeof ORDER_MATERIAL_STATE_OPTIONS)[number]['value'];
+
+export const PAYMENT_METHOD_OPTIONS = toOptions([
+  ['CASH', 'Наличные', 'gray'],
+  ['CARD', 'Карта', 'gray'],
+  ['TRANSFER', 'Перевод', 'gray'],
+] as const);
+
+export type PaymentMethod = (typeof PAYMENT_METHOD_OPTIONS)[number]['value'];
+
+export const DISCOUNT_KIND_OPTIONS = toOptions([
+  ['PERCENT', '%', 'gray'],
+  ['AMOUNT', 'сум', 'gray'],
+] as const);
+
+export type DiscountKind = (typeof DISCOUNT_KIND_OPTIONS)[number]['value'];
+
+export const WORKER_CATEGORY_OPTIONS = toOptions([
+  ['MASTER', 'Мастер', 'gray'],
+  ['INSTALLER', 'Установщик', 'gray'],
+  ['MEASURER', 'Замерщик', 'gray'],
+  ['SALES', 'Продажник', 'gray'],
+] as const);
+
+export type WorkerCategory = (typeof WORKER_CATEGORY_OPTIONS)[number]['value'];
+
+const PAY_METHOD_ENTRIES = [
+  ['FIXED', 'Фикса', 'gray'],
+  ['PER_SQUARE_METER', 'За м²', 'gray'],
+  ['PER_ORDER', 'За заказ', 'gray'],
+  ['PERCENT_OF_SALES', '% от продаж', 'gray'],
+  ['PER_MEASUREMENT', 'За замер', 'gray'],
+] as const;
+
+export const PAY_METHOD_OPTIONS = toOptions(PAY_METHOD_ENTRIES);
+
+export type PayMethod = (typeof PAY_METHOD_OPTIONS)[number]['value'];
+
+// A line of earned pay keeps the method of its rule; a bonus and a penalty have no rule.
+export const ACCRUAL_METHOD_OPTIONS = toOptions([
+  ...PAY_METHOD_ENTRIES,
+  ['BONUS', 'Премия', 'gray'],
+  ['PENALTY', 'Штраф', 'gray'],
+] as const);
+
+export type AccrualMethod = (typeof ACCRUAL_METHOD_OPTIONS)[number]['value'];

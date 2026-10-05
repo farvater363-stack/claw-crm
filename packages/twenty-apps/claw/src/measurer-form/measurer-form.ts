@@ -1,13 +1,19 @@
 import {
-  type DISTRICT_OPTIONS,
-  type SOURCE_OPTIONS,
+  type DiscountKind,
+  DISTRICT_OPTIONS,
+  type PaymentMethod,
+  SOURCE_OPTIONS,
 } from 'src/constants/select-options';
+import { PLAIN_DECIMAL, parseOptionalMoney } from 'src/prices/prices-screen';
+import { computeDiscount } from 'src/pricing/compute-discount';
 import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
+import { todayInTashkent } from 'src/pricing/dates';
 import {
   normalizeUzbekPhone,
   toStoredUzbekPhone,
 } from 'src/pricing/normalize-uzbek-phone';
 import { roundTo } from 'src/pricing/round';
+import { formatDayMonth } from 'src/ui/format';
 
 type District = (typeof DISTRICT_OPTIONS)[number]['value'];
 type Source = (typeof SOURCE_OPTIONS)[number]['value'];
@@ -60,6 +66,8 @@ export type OrderPayload = {
   source: Source | null;
   measurementDate: string | null;
   comment: string | null;
+  discountKind: DiscountKind;
+  discountValue: number | null;
 };
 
 export type OrderItemPayload = {
@@ -73,6 +81,13 @@ export type OrderItemPayload = {
 
 export type VisorPayload = { extraServiceId: string; quantity: number };
 
+export type FirstPayment = {
+  amount: number;
+  method: PaymentMethod;
+  comment: string;
+  paidOn: string;
+};
+
 export type VisorOption = { id: string; name: string; price: number | null };
 
 export type GrilleOption = {
@@ -85,9 +100,12 @@ export type GrilleOption = {
 export type MeasurementPayloadResult =
   | {
       isValid: true;
+      // The scheduled order to save into; null creates a new order
+      orderId: string | null;
       order: OrderPayload;
       items: OrderItemPayload[];
       visor: VisorPayload | null;
+      firstPayment: FirstPayment | null;
     }
   | { isValid: false; errors: string[] };
 
@@ -261,9 +279,244 @@ export const toDateTimeLocalInputValue = (date: Date): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+export type PaymentDraft = {
+  discountKind: DiscountKind;
+  discountValue: string;
+  prepayment: string;
+  method: PaymentMethod;
+  comment: string;
+};
+
+export const EMPTY_PAYMENT_DRAFT: PaymentDraft = {
+  discountKind: 'PERCENT',
+  discountValue: '',
+  prepayment: '',
+  method: 'CASH',
+  comment: '',
+};
+
+export type PaymentPreview = {
+  subtotal: number | null;
+  discount: number;
+  total: number | null;
+  prepayment: number;
+  balance: number | null;
+  errors: { discountValue?: string; prepayment?: string };
+};
+
+const NOT_A_NUMBER = 'Введите число, ноль или больше';
+
+type TypedNumber = { ok: true; value: number | null } | { ok: false };
+
+// A percent may have a fraction; an amount in сум is a whole sum.
+const parseDiscountValue = ({
+  discountKind,
+  discountValue,
+}: PaymentDraft): TypedNumber => {
+  if (discountKind === 'AMOUNT') return parseOptionalMoney(discountValue);
+
+  const trimmed = discountValue.trim();
+
+  if (trimmed === '') return { ok: true, value: null };
+
+  // Number() alone would also take «1e1» and a signed value; digits alone can
+  // still be too many to fit a number.
+  const value = PLAIN_DECIMAL.test(trimmed) ? parseDecimalInput(trimmed) : null;
+
+  return value === null ? { ok: false } : { ok: true, value };
+};
+
+// The server computes the same numbers again on save; this is what the measurer
+// sees while typing. A value with an error counts as not typed.
+export const computePaymentPreview = (
+  subtotal: number | null,
+  draft: PaymentDraft,
+): PaymentPreview => {
+  if (subtotal === null) {
+    return {
+      subtotal: null,
+      discount: 0,
+      total: null,
+      prepayment: 0,
+      balance: null,
+      errors: {},
+    };
+  }
+
+  const errors: PaymentPreview['errors'] = {};
+  const discountValue = parseDiscountValue(draft);
+  const isAboveSubtotal =
+    discountValue.ok &&
+    (discountValue.value ?? 0) >
+      (draft.discountKind === 'PERCENT' ? 100 : subtotal);
+
+  if (!discountValue.ok) {
+    errors.discountValue = NOT_A_NUMBER;
+  } else if (isAboveSubtotal) {
+    errors.discountValue = 'Скидка больше суммы';
+  }
+
+  const discount =
+    discountValue.ok && !isAboveSubtotal
+      ? computeDiscount({
+          subtotal,
+          kind: draft.discountKind,
+          value: discountValue.value,
+        })
+      : 0;
+  const total = subtotal - discount;
+  const typedPrepayment = parseOptionalMoney(draft.prepayment);
+  const isAboveTotal =
+    typedPrepayment.ok && (typedPrepayment.value ?? 0) > total;
+
+  if (!typedPrepayment.ok) {
+    errors.prepayment = NOT_A_NUMBER;
+  } else if (isAboveTotal) {
+    errors.prepayment = 'Предоплата больше итога';
+  }
+
+  const prepayment =
+    typedPrepayment.ok && !isAboveTotal ? (typedPrepayment.value ?? 0) : 0;
+
+  return {
+    subtotal,
+    discount,
+    total,
+    prepayment,
+    balance: total - prepayment,
+    errors,
+  };
+};
+
+export type ScheduledOrder = {
+  id: string;
+  name: string;
+  clientName: string | null;
+  clientPhone: string | null;
+  district: string | null;
+  addressLine: string | null;
+  floor: number | null;
+  measurementDate: string | null;
+  comment: string | null;
+  source: string | null;
+};
+
+// Sorts after every real date
+const NO_DATE = '9999';
+
+export const sortScheduledOrders = (
+  orders: ScheduledOrder[],
+): ScheduledOrder[] =>
+  [...orders].sort(
+    (left, right) =>
+      (left.measurementDate ?? NO_DATE).localeCompare(
+        right.measurementDate ?? NO_DATE,
+      ) || left.name.localeCompare(right.name, 'ru', { numeric: true }),
+  );
+
+const TASHKENT_TIME = new Intl.DateTimeFormat('ru-RU', {
+  timeZone: 'Asia/Tashkent',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+const isDistrict = (value: string | null): value is District =>
+  DISTRICT_OPTIONS.some((option) => option.value === value);
+
+const isSource = (value: string | null): value is Source =>
+  SOURCE_OPTIONS.some((option) => option.value === value);
+
+const describeMeasurementTime = (
+  measurementDate: string | null,
+  today: string,
+): string | null => {
+  const date = measurementDate === null ? null : new Date(measurementDate);
+
+  if (date === null || Number.isNaN(date.getTime())) return null;
+
+  const day = todayInTashkent(date);
+
+  return `${day === today ? 'Сегодня' : formatDayMonth(day)} ${TASHKENT_TIME.format(date)}`;
+};
+
+export const scheduledOrderLabel = (
+  order: ScheduledOrder,
+  today: string,
+): string =>
+  [
+    describeMeasurementTime(order.measurementDate, today),
+    order.clientName?.trim() || order.name,
+    DISTRICT_OPTIONS.find((option) => option.value === order.district)?.label,
+  ]
+    .filter((part) => part !== null && part !== undefined && part !== '')
+    .join(' · ');
+
+export const draftFromScheduledOrder = (
+  order: ScheduledOrder,
+): Partial<MeasurementDraft> => ({
+  clientName: order.clientName ?? '',
+  clientPhone: formatUzbekNationalPhone(order.clientPhone ?? ''),
+  district: isDistrict(order.district) ? order.district : '',
+  addressLine: order.addressLine ?? '',
+  floor: order.floor === null ? '' : String(order.floor),
+  // Without a scheduled time the form keeps its own, which is now.
+  ...(order.measurementDate !== null && {
+    measurementDate: toDateTimeLocalInputValue(new Date(order.measurementDate)),
+  }),
+  // What the manager wrote stays in front of the measurer: the save writes
+  // these fields back, so an unseen text would be replaced.
+  comment: order.comment ?? '',
+  source: isSource(order.source) ? order.source : '',
+});
+
+// The order header writes this key to sessionStorage before it opens the form.
+// A front component runs in a worker and cannot read the page address; the
+// storage is shared by the app's components for one user.
+export const MEASUREMENT_ORDER_STORAGE_KEY = 'claw:measurement-order';
+
+export const NEW_CLIENT_TARGET = 'NEW';
+
+// `target` is what «Чей замер» holds: '' until the measurer chooses, the id of
+// a scheduled order, or NEW_CLIENT_TARGET. Saving unchosen would make a second
+// order for a client who already has a scheduled one.
+export const resolveTargetOrderId = (
+  target: string,
+  scheduledOrders: ScheduledOrder[],
+): { ok: true; orderId: string | null } | { ok: false; error: string } => {
+  if (scheduledOrders.length === 0 || target === NEW_CLIENT_TARGET) {
+    return { ok: true, orderId: null };
+  }
+
+  return scheduledOrders.some((order) => order.id === target)
+    ? { ok: true, orderId: target }
+    : { ok: false, error: 'Выберите, чей это замер' };
+};
+
+// Saving into a scheduled order must not wipe what the manager entered, nor
+// hand the order to whoever opened the form: the measurer's pay follows the
+// order's measurer. The discount is the exception: the form never shows an
+// earlier one, so an empty value clears it and the saved total matches the
+// preview; a new kind over an old value would change the total.
+export const toOrderUpdateData = (order: OrderPayload): Partial<OrderPayload> =>
+  Object.fromEntries(
+    Object.entries(order).filter(
+      ([key, value]) =>
+        key !== 'measurerId' && (value !== null || key === 'discountValue'),
+    ),
+  ) as Partial<OrderPayload>;
+
+export type MeasurementContext = {
+  orderId: string | null;
+  payment: PaymentDraft;
+  // The draft's sum before the discount; null while a price is missing
+  subtotal: number | null;
+  today: string;
+};
+
 export const buildMeasurementPayload = (
   draft: MeasurementDraft,
   measurerId: string,
+  context: MeasurementContext,
 ): MeasurementPayloadResult => {
   const errors: string[] = [];
 
@@ -342,12 +595,21 @@ export const buildMeasurementPayload = (
     });
   });
 
+  const preview = computePaymentPreview(context.subtotal, context.payment);
+  const discountValue = parseDiscountValue(context.payment);
+
+  // Each of the two fields shows its own reason; this line only says why nothing was saved.
+  if (Object.keys(preview.errors).length > 0) {
+    errors.push('Проверьте скидку и предоплату');
+  }
+
   if (errors.length > 0 || clientPhone === null) {
     return { isValid: false, errors };
   }
 
   return {
     isValid: true,
+    orderId: context.orderId,
     order: {
       status: 'MEASURED',
       measurerId,
@@ -359,11 +621,26 @@ export const buildMeasurementPayload = (
       source: emptyToNull(draft.source),
       measurementDate: measurementDate?.toISOString() ?? null,
       comment: emptyToNull(draft.comment),
+      discountKind: context.payment.discountKind,
+      // Without a sum («Другая») the manager names the price and the discount later.
+      discountValue:
+        preview.subtotal !== null && discountValue.ok
+          ? discountValue.value
+          : null,
     },
     items,
     visor:
       hasVisor && visorLengthMeters !== null
         ? { extraServiceId: draft.visorServiceId, quantity: visorLengthMeters }
+        : null,
+    firstPayment:
+      preview.prepayment > 0
+        ? {
+            amount: preview.prepayment,
+            method: context.payment.method,
+            comment: context.payment.comment.trim(),
+            paidOn: context.today,
+          }
         : null,
   };
 };

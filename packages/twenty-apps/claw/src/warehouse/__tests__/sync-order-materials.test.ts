@@ -12,7 +12,7 @@ const LINE_ID = orderMaterialLineId('order-1', 'material-1');
 const fakeClient = (
   lines: Record<string, unknown>[],
   {
-    status = 'PRICE_APPROVAL',
+    status = 'MEASURED',
     missingNorms = null as string | null,
     movements = [] as Record<string, unknown>[],
   } = {},
@@ -153,7 +153,7 @@ describe('syncOrderMaterials', () => {
         },
       ],
       {
-        status: 'READY',
+        status: 'INSTALLED',
         movements: [{ id: writeOffMovementId(LINE_ID), quantity: -4 }],
       },
     );

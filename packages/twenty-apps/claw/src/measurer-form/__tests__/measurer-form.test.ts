@@ -7,18 +7,61 @@ import {
   computeOpeningAreaSquareMeters,
   computeOpeningQuote,
   computeOpeningsTotalAreaSquareMeters,
+  computePaymentPreview,
   computeVisorTotal,
   createEmptyOpening,
   describePhotoUploadFailure,
+  draftFromScheduledOrder,
+  EMPTY_PAYMENT_DRAFT,
   formatUzbekNationalPhone,
   hasOpeningWithoutPrice,
+  type MeasurementContext,
   type MeasurementDraft,
+  NEW_CLIENT_TARGET,
   type OpeningDraft,
+  type PaymentDraft,
+  resolveTargetOrderId,
+  type ScheduledOrder,
+  scheduledOrderLabel,
+  sortScheduledOrders,
   takePhotosWithinLimit,
+  toDateTimeLocalInputValue,
+  toOrderUpdateData,
 } from 'src/measurer-form/measurer-form';
 
 const opening = (overrides: Partial<OpeningDraft>): OpeningDraft => ({
   ...createEmptyOpening('opening'),
+  ...overrides,
+});
+
+const context = (
+  overrides: Partial<MeasurementContext> = {},
+): MeasurementContext => ({
+  orderId: null,
+  payment: EMPTY_PAYMENT_DRAFT,
+  subtotal: null,
+  today: '2026-10-05',
+  ...overrides,
+});
+
+const payment = (overrides: Partial<PaymentDraft> = {}): PaymentDraft => ({
+  ...EMPTY_PAYMENT_DRAFT,
+  ...overrides,
+});
+
+const scheduled = (
+  overrides: Partial<ScheduledOrder> = {},
+): ScheduledOrder => ({
+  id: 'order-1',
+  name: '№1042',
+  clientName: 'Алишер',
+  clientPhone: '+998901234567',
+  district: 'CHILANZAR',
+  addressLine: 'ул. Катартал, 5',
+  floor: 3,
+  measurementDate: '2026-10-05T09:00:00.000Z',
+  comment: 'Домофон не работает, звонить',
+  source: 'INSTAGRAM',
   ...overrides,
 });
 
@@ -108,10 +151,12 @@ describe('buildMeasurementPayload', () => {
         ],
       }),
       'member-1',
+      context(),
     );
 
     expect(result).toEqual({
       isValid: true,
+      orderId: null,
       order: {
         status: 'MEASURED',
         measurerId: 'member-1',
@@ -123,6 +168,8 @@ describe('buildMeasurementPayload', () => {
         source: 'OLX',
         measurementDate: new Date('2026-09-30T10:15').toISOString(),
         comment: null,
+        discountKind: 'PERCENT',
+        discountValue: null,
       },
       items: [
         {
@@ -135,6 +182,7 @@ describe('buildMeasurementPayload', () => {
         },
       ],
       visor: null,
+      firstPayment: null,
     });
   });
 
@@ -142,6 +190,7 @@ describe('buildMeasurementPayload', () => {
     const result = buildMeasurementPayload(
       draft({ clientPhone: '90 123' }),
       'member-1',
+      context(),
     );
 
     expect(result).toEqual({
@@ -159,6 +208,7 @@ describe('buildMeasurementPayload', () => {
         ],
       }),
       'member-1',
+      context(),
     );
 
     expect(result).toEqual({
@@ -169,7 +219,7 @@ describe('buildMeasurementPayload', () => {
 
   it('requires at least one opening and a whole quantity', () => {
     expect(
-      buildMeasurementPayload(draft({ openings: [] }), 'member-1'),
+      buildMeasurementPayload(draft({ openings: [] }), 'member-1', context()),
     ).toEqual({ isValid: false, errors: ['Добавьте проём или козырёк'] });
 
     expect(
@@ -180,6 +230,7 @@ describe('buildMeasurementPayload', () => {
           ],
         }),
         'member-1',
+        context(),
       ),
     ).toEqual({
       isValid: false,
@@ -310,6 +361,7 @@ describe('opening photos in the payload', () => {
         ],
       }),
       'member-1',
+      context(),
     );
 
     expect(result.isValid && result.items[0]).not.toHaveProperty('photos');
@@ -330,6 +382,7 @@ describe('visor', () => {
     const result = buildMeasurementPayload(
       draft({ visorServiceId: 'visor-1', visorLengthMeters: '2,5' }),
       'member-1',
+      context(),
     );
 
     expect(result.isValid && result.visor).toEqual({
@@ -346,6 +399,7 @@ describe('visor', () => {
         visorLengthMeters: '3',
       }),
       'member-1',
+      context(),
     );
 
     expect(result.isValid && result.items).toEqual([]);
@@ -356,6 +410,7 @@ describe('visor', () => {
       buildMeasurementPayload(
         draft({ visorServiceId: 'visor-1', visorLengthMeters: '' }),
         'member-1',
+        context(),
       ),
     ).toEqual({
       isValid: false,
@@ -381,5 +436,453 @@ describe('visor', () => {
         options,
       ),
     ).toBeNull();
+  });
+});
+
+describe('computePaymentPreview', () => {
+  const SUBTOTAL = 1_410_000;
+
+  it('shows the sum as the total when nothing is typed', () => {
+    expect(computePaymentPreview(SUBTOTAL, EMPTY_PAYMENT_DRAFT)).toEqual({
+      subtotal: 1_410_000,
+      discount: 0,
+      total: 1_410_000,
+      prepayment: 0,
+      balance: 1_410_000,
+      errors: {},
+    });
+  });
+
+  it('takes a percent discount and a prepayment', () => {
+    expect(
+      computePaymentPreview(
+        SUBTOTAL,
+        payment({ discountValue: '5', prepayment: '500 000' }),
+      ),
+    ).toEqual({
+      subtotal: 1_410_000,
+      discount: 70_500,
+      total: 1_339_500,
+      prepayment: 500_000,
+      balance: 839_500,
+      errors: {},
+    });
+  });
+
+  it('takes a percent with a comma', () => {
+    expect(
+      computePaymentPreview(SUBTOTAL, payment({ discountValue: '2,5' })),
+    ).toMatchObject({ discount: 35_250, total: 1_374_750, errors: {} });
+  });
+
+  it('takes a discount in сум, with or without thousands groups', () => {
+    for (const discountValue of ['70500', '70 500', '70.500']) {
+      expect(
+        computePaymentPreview(
+          SUBTOTAL,
+          payment({ discountKind: 'AMOUNT', discountValue }),
+        ),
+      ).toMatchObject({ discount: 70_500, total: 1_339_500, errors: {} });
+    }
+  });
+
+  it('counts a typed zero as no discount and no prepayment', () => {
+    expect(
+      computePaymentPreview(
+        SUBTOTAL,
+        payment({ discountValue: '0', prepayment: '0' }),
+      ),
+    ).toMatchObject({
+      discount: 0,
+      prepayment: 0,
+      balance: 1_410_000,
+      errors: {},
+    });
+  });
+
+  it.each([
+    ['PERCENT', '101'],
+    ['AMOUNT', '1 410 001'],
+  ] as const)(
+    'refuses a discount above the sum (%s %s)',
+    (discountKind, discountValue) => {
+      expect(
+        computePaymentPreview(
+          SUBTOTAL,
+          payment({ discountKind, discountValue }),
+        ),
+      ).toMatchObject({
+        discount: 0,
+        total: 1_410_000,
+        errors: { discountValue: 'Скидка больше суммы' },
+      });
+    },
+  );
+
+  it('allows a discount of the whole sum', () => {
+    expect(
+      computePaymentPreview(SUBTOTAL, payment({ discountValue: '100' })),
+    ).toMatchObject({ discount: 1_410_000, total: 0, balance: 0, errors: {} });
+  });
+
+  it.each([
+    ['PERCENT', 'abc'],
+    ['PERCENT', '-5'],
+    ['PERCENT', '1e1'],
+    // Too many digits to fit a number
+    ['PERCENT', '9'.repeat(400)],
+    ['AMOUNT', '70,5'],
+    ['AMOUNT', '-100'],
+  ] as const)(
+    'asks for a number when the discount is not one (%s %j)',
+    (discountKind, discountValue) => {
+      expect(
+        computePaymentPreview(
+          SUBTOTAL,
+          payment({ discountKind, discountValue }),
+        ),
+      ).toMatchObject({
+        discount: 0,
+        errors: { discountValue: 'Введите число, ноль или больше' },
+      });
+    },
+  );
+
+  it('refuses a prepayment above the total after the discount', () => {
+    expect(
+      computePaymentPreview(
+        SUBTOTAL,
+        payment({ discountValue: '5', prepayment: '1 339 501' }),
+      ),
+    ).toMatchObject({
+      total: 1_339_500,
+      prepayment: 0,
+      balance: 1_339_500,
+      errors: { prepayment: 'Предоплата больше итога' },
+    });
+  });
+
+  it('allows a prepayment of the whole total', () => {
+    expect(
+      computePaymentPreview(SUBTOTAL, payment({ prepayment: '1410000' })),
+    ).toMatchObject({ prepayment: 1_410_000, balance: 0, errors: {} });
+  });
+
+  it.each(['abc', '-1', '500,5'])(
+    'asks for a number when the prepayment is %j',
+    (prepayment) => {
+      expect(
+        computePaymentPreview(SUBTOTAL, payment({ prepayment })),
+      ).toMatchObject({
+        prepayment: 0,
+        balance: 1_410_000,
+        errors: { prepayment: 'Введите число, ноль или больше' },
+      });
+    },
+  );
+
+  it('takes no discount and no prepayment while the price is unknown', () => {
+    expect(
+      computePaymentPreview(
+        null,
+        payment({ discountValue: 'abc', prepayment: '500 000' }),
+      ),
+    ).toEqual({
+      subtotal: null,
+      discount: 0,
+      total: null,
+      prepayment: 0,
+      balance: null,
+      errors: {},
+    });
+  });
+});
+
+describe('scheduled orders', () => {
+  it('sorts the soonest first, an order without a date last, then by number', () => {
+    const orders = [
+      scheduled({ id: 'c', name: '№1044', measurementDate: null }),
+      scheduled({
+        id: 'b',
+        name: '№1043',
+        measurementDate: '2026-10-06T05:00:00.000Z',
+      }),
+      scheduled({
+        id: 'd',
+        name: '№1041',
+        measurementDate: '2026-10-06T05:00:00.000Z',
+      }),
+      scheduled({
+        id: 'a',
+        name: '№1042',
+        measurementDate: '2026-10-05T09:00:00.000Z',
+      }),
+    ];
+
+    expect(sortScheduledOrders(orders).map((order) => order.id)).toEqual([
+      'a',
+      'd',
+      'b',
+      'c',
+    ]);
+    expect(orders[0].id).toBe('c');
+  });
+
+  it('labels an order by its time in Tashkent, the client and the district', () => {
+    expect(scheduledOrderLabel(scheduled(), '2026-10-05')).toBe(
+      'Сегодня 14:00 · Алишер · Чиланзарский',
+    );
+    expect(
+      scheduledOrderLabel(
+        scheduled({
+          clientName: 'Нодира',
+          district: null,
+          measurementDate: '2026-10-06T11:30:00.000Z',
+        }),
+        '2026-10-05',
+      ),
+    ).toBe('6 октября 16:30 · Нодира');
+  });
+
+  it('counts the day in Tashkent, not in UTC', () => {
+    expect(
+      scheduledOrderLabel(
+        scheduled({ measurementDate: '2026-10-05T20:30:00.000Z' }),
+        '2026-10-06',
+      ),
+    ).toBe('Сегодня 01:30 · Алишер · Чиланзарский');
+  });
+
+  it('falls back to the order number when there is no client name or date', () => {
+    expect(
+      scheduledOrderLabel(
+        scheduled({ clientName: ' ', district: null, measurementDate: null }),
+        '2026-10-05',
+      ),
+    ).toBe('№1042');
+  });
+
+  it('fills the client block from the order', () => {
+    expect(draftFromScheduledOrder(scheduled())).toEqual({
+      clientName: 'Алишер',
+      clientPhone: '90 123 45 67',
+      district: 'CHILANZAR',
+      addressLine: 'ул. Катартал, 5',
+      floor: '3',
+      measurementDate: toDateTimeLocalInputValue(
+        new Date('2026-10-05T09:00:00.000Z'),
+      ),
+      comment: 'Домофон не работает, звонить',
+      source: 'INSTAGRAM',
+    });
+  });
+
+  it('leaves empty what the order does not have, and keeps the form date', () => {
+    expect(
+      draftFromScheduledOrder(
+        scheduled({
+          clientName: null,
+          clientPhone: null,
+          district: 'NOT_A_DISTRICT',
+          addressLine: null,
+          floor: null,
+          measurementDate: null,
+          comment: null,
+          source: 'NOT_A_SOURCE',
+        }),
+      ),
+    ).toEqual({
+      clientName: '',
+      clientPhone: '',
+      district: '',
+      addressLine: '',
+      floor: '',
+      comment: '',
+      source: '',
+    });
+  });
+});
+
+describe('resolveTargetOrderId', () => {
+  const orders = [scheduled({ id: 'order-1' })];
+
+  it('creates a new order when nothing is scheduled', () => {
+    expect(resolveTargetOrderId('', [])).toEqual({ ok: true, orderId: null });
+  });
+
+  it('creates a new order for «Новый клиент»', () => {
+    expect(resolveTargetOrderId(NEW_CLIENT_TARGET, orders)).toEqual({
+      ok: true,
+      orderId: null,
+    });
+  });
+
+  it('saves into the scheduled order that was picked', () => {
+    expect(resolveTargetOrderId('order-1', orders)).toEqual({
+      ok: true,
+      orderId: 'order-1',
+    });
+  });
+
+  it('asks whose measurement it is while scheduled orders wait and none is picked', () => {
+    expect(resolveTargetOrderId('', orders)).toEqual({
+      ok: false,
+      error: 'Выберите, чей это замер',
+    });
+    expect(resolveTargetOrderId('order-9', orders)).toMatchObject({
+      ok: false,
+    });
+  });
+});
+
+describe('payment in the payload', () => {
+  it('sends the discount with the order and the prepayment as the first payment', () => {
+    const result = buildMeasurementPayload(
+      draft({}),
+      'member-1',
+      context({
+        subtotal: 1_410_000,
+        payment: payment({
+          discountValue: '5',
+          prepayment: '500 000',
+          method: 'CARD',
+          comment: ' задаток ',
+        }),
+      }),
+    );
+
+    expect(result).toMatchObject({
+      isValid: true,
+      orderId: null,
+      order: { discountKind: 'PERCENT', discountValue: 5 },
+      firstPayment: {
+        amount: 500_000,
+        method: 'CARD',
+        comment: 'задаток',
+        paidOn: '2026-10-05',
+      },
+    });
+  });
+
+  it('sends no payment without a prepayment', () => {
+    const result = buildMeasurementPayload(
+      draft({}),
+      'member-1',
+      context({
+        subtotal: 1_410_000,
+        payment: payment({ discountKind: 'AMOUNT', discountValue: '70 500' }),
+      }),
+    );
+
+    expect(result).toMatchObject({
+      order: { discountKind: 'AMOUNT', discountValue: 70_500 },
+      firstPayment: null,
+    });
+  });
+
+  it('names the scheduled order to save into', () => {
+    expect(
+      buildMeasurementPayload(
+        draft({}),
+        'member-1',
+        context({ orderId: 'order-1' }),
+      ),
+    ).toMatchObject({ isValid: true, orderId: 'order-1' });
+  });
+
+  it('takes no discount and no payment while the price is unknown («Другая»)', () => {
+    const result = buildMeasurementPayload(
+      draft({}),
+      'member-1',
+      context({
+        subtotal: null,
+        payment: payment({ discountValue: '5', prepayment: '500 000' }),
+      }),
+    );
+
+    expect(result).toMatchObject({
+      isValid: true,
+      order: { discountValue: null },
+      firstPayment: null,
+    });
+  });
+
+  it('does not save while the discount or the prepayment is wrong', () => {
+    const result = buildMeasurementPayload(
+      draft({}),
+      'member-1',
+      context({
+        subtotal: 1_410_000,
+        payment: payment({ prepayment: '2 000 000' }),
+      }),
+    );
+
+    expect(result).toEqual({
+      isValid: false,
+      errors: ['Проверьте скидку и предоплату'],
+    });
+  });
+});
+
+describe('toOrderUpdateData', () => {
+  it('keeps what the manager entered and the order measurer', () => {
+    const result = buildMeasurementPayload(
+      draft({ source: '', comment: '' }),
+      'member-1',
+      context({ orderId: 'order-1' }),
+    );
+
+    if (!result.isValid) throw new Error('expected a valid payload');
+
+    const data = toOrderUpdateData(result.order);
+
+    expect(data).toMatchObject({
+      status: 'MEASURED',
+      clientName: 'Азиз',
+      clientPhone: '+998901234567',
+      discountKind: 'PERCENT',
+      discountValue: null,
+    });
+    expect(Object.keys(data)).not.toContain('measurerId');
+    expect(Object.keys(data)).not.toContain('source');
+    expect(Object.keys(data)).not.toContain('comment');
+  });
+
+  it('writes the typed discount kind and value together', () => {
+    const result = buildMeasurementPayload(
+      draft({}),
+      'member-1',
+      context({
+        orderId: 'order-1',
+        subtotal: 1_410_000,
+        payment: payment({ discountKind: 'AMOUNT', discountValue: '70 500' }),
+      }),
+    );
+
+    if (!result.isValid) throw new Error('expected a valid payload');
+
+    expect(toOrderUpdateData(result.order)).toMatchObject({
+      discountKind: 'AMOUNT',
+      discountValue: 70_500,
+    });
+  });
+
+  it('clears an earlier discount while the price is unknown («Другая»)', () => {
+    const result = buildMeasurementPayload(
+      draft({}),
+      'member-1',
+      context({
+        orderId: 'order-1',
+        subtotal: null,
+        payment: payment({ discountKind: 'AMOUNT', discountValue: '5' }),
+      }),
+    );
+
+    if (!result.isValid) throw new Error('expected a valid payload');
+
+    expect(toOrderUpdateData(result.order)).toMatchObject({
+      discountKind: 'AMOUNT',
+      discountValue: null,
+    });
   });
 });

@@ -5,9 +5,9 @@ import {
   RelationType,
 } from 'twenty-sdk/define';
 
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { MASTER_PAYMENT_KIND_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
+import { money } from 'src/objects/money-field';
 
 const { masterPayment } = IDS;
 
@@ -40,16 +40,7 @@ export default defineObject({
       isNullable: true,
       ...NOT_AUDIT_LOGGED,
     },
-    {
-      universalIdentifier: masterPayment.amount,
-      type: FieldType.CURRENCY,
-      name: 'amount',
-      label: 'Сумма',
-      icon: 'IconCurrency',
-      isNullable: true,
-      universalSettings: FULL_MONEY_DISPLAY,
-      ...NOT_AUDIT_LOGGED,
-    },
+    money(masterPayment.amount, 'amount', 'Сумма', NOT_AUDIT_LOGGED),
     {
       universalIdentifier: masterPayment.kind,
       type: FieldType.SELECT,

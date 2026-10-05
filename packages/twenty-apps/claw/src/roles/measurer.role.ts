@@ -45,6 +45,7 @@ export default defineRole({
     createAndEdit(IDS.order.object),
     createAndEdit(IDS.orderItem.object),
     createAndEdit(IDS.orderExtraService.object),
+    createAndEdit(IDS.orderPayment.object),
     createAndEdit(
       STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
     ),

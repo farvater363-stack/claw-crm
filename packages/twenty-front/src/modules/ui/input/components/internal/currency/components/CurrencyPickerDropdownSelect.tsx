@@ -8,9 +8,11 @@ import { OverflowingTextWithTooltip } from 'twenty-ui/primitives/typography';
 
 export const CurrencyPickerDropdownSelect = ({
   selectedCurrency,
+  allowedCurrencyCodes,
   onChange,
 }: {
   selectedCurrency?: Currency;
+  allowedCurrencyCodes?: string[];
   onChange: (currency: Currency) => void;
 }) => {
   const [searchFilter, setSearchFilter] = useState<string>('');
@@ -19,12 +21,16 @@ export const CurrencyPickerDropdownSelect = ({
     () =>
       CURRENCIES.filter(
         ({ value, label }) =>
-          value
+          (!isDefined(allowedCurrencyCodes) ||
+            allowedCurrencyCodes.includes(value)) &&
+          (value
             .toLocaleLowerCase()
             .includes(searchFilter.toLocaleLowerCase()) ||
-          label.toLocaleLowerCase().includes(searchFilter.toLocaleLowerCase()),
+            label
+              .toLocaleLowerCase()
+              .includes(searchFilter.toLocaleLowerCase())),
       ),
-    [searchFilter],
+    [searchFilter, allowedCurrencyCodes],
   );
 
   const isSelectedCurrencyMatchingSearch =

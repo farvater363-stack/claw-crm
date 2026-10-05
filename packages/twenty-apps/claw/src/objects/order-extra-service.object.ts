@@ -6,20 +6,9 @@ import {
   RelationType,
 } from 'twenty-sdk/define';
 
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
-
-const money = (universalIdentifier: string, name: string, label: string) =>
-  ({
-    universalIdentifier,
-    type: FieldType.CURRENCY,
-    name,
-    label,
-    icon: 'IconCurrency',
-    isNullable: true,
-    universalSettings: FULL_MONEY_DISPLAY,
-  }) as const;
+import { money } from 'src/objects/money-field';
 
 export default defineObject({
   universalIdentifier: IDS.orderExtraService.object,

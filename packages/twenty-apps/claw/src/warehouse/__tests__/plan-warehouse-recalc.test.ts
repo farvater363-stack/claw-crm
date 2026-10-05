@@ -56,7 +56,7 @@ const orderLine = (
 
 const order = (overrides: Partial<WarehouseOrder> = {}): WarehouseOrder => ({
   id: 'order-1',
-  status: 'PRICE_APPROVAL',
+  status: 'MEASURED',
   materialState: null,
   materialNote: null,
   missingNorms: null,
@@ -361,7 +361,7 @@ describe('planWarehouseRecalc with orders', () => {
     expect(result.materialUpdates[0]?.update.reserved).toBe(10);
   });
 
-  it('reserves only lines of orders still at price approval', () => {
+  it('reserves only lines of orders still at the measured step', () => {
     const reservedFor = (orders: WarehouseOrder[]) =>
       plan(
         [material()],
@@ -389,7 +389,7 @@ describe('planWarehouseRecalc with orders', () => {
     ]);
   });
 
-  it('flags an order at price approval whose material is short', () => {
+  it('flags an order at the measured step whose material is short', () => {
     const result = plan(
       [material()],
       [movement({ quantity: 50 })],
@@ -435,7 +435,7 @@ describe('planWarehouseRecalc with orders', () => {
     });
   });
 
-  it('returns nothing for a settled order at price approval', () => {
+  it('returns nothing for a settled order at the measured step', () => {
     const result = plan(
       [
         material({
@@ -454,7 +454,7 @@ describe('planWarehouseRecalc with orders', () => {
     expect(result.orderUpdates).toEqual([]);
   });
 
-  it('clears the state once the order leaves price approval', () => {
+  it('clears the state once the order leaves the measured step', () => {
     const result = plan(
       [material()],
       [],

@@ -9,14 +9,15 @@ import {
 import {
   CANCEL_REASON_OPTIONS,
   DEADLINE_STATE_OPTIONS,
+  DISCOUNT_KIND_OPTIONS,
   DISTRICT_OPTIONS,
   ORDER_MATERIAL_STATE_OPTIONS,
   ORDER_STATUS_OPTIONS,
   SOURCE_OPTIONS,
 } from 'src/constants/select-options';
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
+import { money } from 'src/objects/money-field';
 
 const text = (
   universalIdentifier: string,
@@ -31,16 +32,6 @@ const text = (
     label,
     icon,
     isNullable: true,
-  }) as const;
-const money = (universalIdentifier: string, name: string, label: string) =>
-  ({
-    universalIdentifier,
-    type: FieldType.CURRENCY,
-    name,
-    label,
-    icon: 'IconCurrency',
-    isNullable: true,
-    universalSettings: FULL_MONEY_DISPLAY,
   }) as const;
 const date = (universalIdentifier: string, name: string, label: string) =>
   ({
@@ -145,6 +136,14 @@ export default defineObject({
     date(IDS.order.readyAt, 'readyAt', 'Готов'),
     date(IDS.order.installedAt, 'installedAt', 'Установка'),
     {
+      universalIdentifier: IDS.order.measuredAt,
+      type: FieldType.DATE_TIME,
+      name: 'measuredAt',
+      label: 'Замер сделан',
+      icon: 'IconCalendarCheck',
+      isNullable: true,
+    },
+    {
       universalIdentifier: IDS.order.deadlineState,
       type: FieldType.SELECT,
       name: 'deadlineState',
@@ -159,7 +158,25 @@ export default defineObject({
       'Площадь, м²',
       'IconRuler',
     ),
+    money(IDS.order.subtotal, 'subtotal', 'Сумма'),
+    {
+      universalIdentifier: IDS.order.discountKind,
+      type: FieldType.SELECT,
+      name: 'discountKind',
+      label: 'Скидка в',
+      icon: 'IconPercentage',
+      defaultValue: "'PERCENT'",
+      options: DISCOUNT_KIND_OPTIONS,
+    },
+    decimal(
+      IDS.order.discountValue,
+      'discountValue',
+      'Скидка',
+      'IconDiscount2',
+    ),
+    money(IDS.order.discount, 'discount', 'Скидка, сум'),
     money(IDS.order.total, 'total', 'Итого'),
+    money(IDS.order.paid, 'paid', 'Оплачено'),
     money(IDS.order.prepayment, 'prepayment', 'Предоплата'),
     money(IDS.order.balance, 'balance', 'Остаток'),
     money(IDS.order.costTotal, 'costTotal', 'Себестоимость'),
@@ -233,6 +250,16 @@ export default defineObject({
         IDS.orderExtraService.object,
       relationTargetFieldMetadataUniversalIdentifier:
         IDS.orderExtraService.order,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+    {
+      universalIdentifier: IDS.order.payments,
+      type: FieldType.RELATION,
+      name: 'payments',
+      label: 'Оплаты',
+      icon: 'IconCash',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.orderPayment.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.orderPayment.order,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
     {

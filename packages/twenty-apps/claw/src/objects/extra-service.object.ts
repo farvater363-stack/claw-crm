@@ -4,9 +4,9 @@ import {
   EXTRA_SERVICE_KIND_OPTIONS,
   EXTRA_SERVICE_UNIT_OPTIONS,
 } from 'src/constants/select-options';
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
+import { money } from 'src/objects/money-field';
 
 export default defineObject({
   universalIdentifier: IDS.extraService.object,
@@ -42,24 +42,8 @@ export default defineObject({
       defaultValue: "'SERVICE'",
       options: EXTRA_SERVICE_KIND_OPTIONS,
     },
-    {
-      universalIdentifier: IDS.extraService.price,
-      type: FieldType.CURRENCY,
-      name: 'price',
-      label: 'Цена',
-      icon: 'IconCurrency',
-      isNullable: true,
-      universalSettings: FULL_MONEY_DISPLAY,
-    },
-    {
-      universalIdentifier: IDS.extraService.cost,
-      type: FieldType.CURRENCY,
-      name: 'cost',
-      label: 'Себестоимость',
-      icon: 'IconCoin',
-      isNullable: true,
-      universalSettings: FULL_MONEY_DISPLAY,
-    },
+    money(IDS.extraService.price, 'price', 'Цена'),
+    money(IDS.extraService.cost, 'cost', 'Себестоимость', { icon: 'IconCoin' }),
     {
       universalIdentifier: IDS.extraService.orderExtraServices,
       type: FieldType.RELATION,

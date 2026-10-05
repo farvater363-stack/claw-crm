@@ -1,9 +1,8 @@
 import { t } from '@lingui/core/macro';
-import { isNonEmptyString } from '@sniptt/guards';
 
 import { type FieldCurrencyValue } from '@/object-record/record-field/ui/types/FieldMetadata';
 import { CurrencyInput } from '@/ui/field/input/components/CurrencyInput';
-import { CurrencyCode } from 'twenty-shared/constants';
+import { type CurrencyCode } from 'twenty-shared/constants';
 
 import { useCurrencyField } from '@/object-record/record-field/ui/meta-types/hooks/useCurrencyField';
 
@@ -11,6 +10,7 @@ import { FieldInputEventContext } from '@/object-record/record-field/ui/contexts
 import { RecordFieldComponentInstanceContext } from '@/object-record/record-field/ui/states/contexts/RecordFieldComponentInstanceContext';
 
 import { hasCurrencyValueChanged } from '@/object-record/record-field/ui/meta-types/input/utils/hasCurrencyValueChanged';
+import { resolveCurrencyFieldInputCode } from '@/object-record/record-field/ui/meta-types/input/utils/resolveCurrencyFieldInputCode';
 import { isFieldCurrencyValue } from '@/object-record/record-field/ui/types/guards/isFieldCurrencyValue';
 import { useAvailableComponentInstanceIdOrThrow } from '@/ui/utilities/state/component-state/hooks/useAvailableComponentInstanceIdOrThrow';
 import { useContext } from 'react';
@@ -29,31 +29,13 @@ export const CurrencyFieldInput = () => {
     RecordFieldComponentInstanceContext,
   );
 
-  const defaultCurrencyCodeWithoutSQLQuotes = (
-    defaultValue as FieldCurrencyValue
-  )?.currencyCode?.replace(/'/g, '') as CurrencyCode;
-
-  const defaultCurrencyCodeIsNotEmpty = isNonEmptyString(
-    defaultCurrencyCodeWithoutSQLQuotes,
-  );
-
-  const draftCurrencyCode = draftValue?.currencyCode;
-
-  const draftCurrencyCodeIsEmptyIsNotEmpty =
-    isNonEmptyString(draftCurrencyCode);
-  const recordCurrencyCode = isFieldCurrencyValue(fieldValue)
-    ? fieldValue.currencyCode
-    : undefined;
-
-  const recordCurrencyCodeIsNotEmpty = isNonEmptyString(recordCurrencyCode);
-
-  const currencyCode = draftCurrencyCodeIsEmptyIsNotEmpty
-    ? draftCurrencyCode
-    : recordCurrencyCodeIsNotEmpty
-      ? recordCurrencyCode
-      : defaultCurrencyCodeIsNotEmpty
-        ? defaultCurrencyCodeWithoutSQLQuotes
-        : CurrencyCode.USD;
+  const { currencyCode, allowedCurrencyCodes } = resolveCurrencyFieldInputCode({
+    draftCurrencyCode: draftValue?.currencyCode,
+    recordCurrencyCode: isFieldCurrencyValue(fieldValue)
+      ? fieldValue.currencyCode
+      : undefined,
+    defaultCurrencyCode: (defaultValue as FieldCurrencyValue)?.currencyCode,
+  });
 
   const getNewCurrencyValue = ({
     amountText,
@@ -133,6 +115,7 @@ export const CurrencyFieldInput = () => {
       instanceId={instanceId}
       value={draftValue?.amount?.toString() ?? ''}
       currencyCode={currencyCode}
+      allowedCurrencyCodes={allowedCurrencyCodes}
       autoFocus
       placeholder={t`Currency`}
       onClickOutside={handleClickOutside}

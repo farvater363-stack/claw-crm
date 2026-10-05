@@ -19,7 +19,7 @@ const input = (
   overrides: Partial<OrderMaterialsInput>,
 ): OrderMaterialsInput => ({
   orderId: ORDER,
-  status: 'PRICE_APPROVAL',
+  status: 'MEASURED',
   demand: new Map([['profile', 16.5]]),
   lines: [],
   systemMovements: [],
@@ -39,7 +39,7 @@ const line = (
 });
 
 describe('planOrderMaterials', () => {
-  it('reserves demand as unwritten lines at price approval', () => {
+  it('reserves demand as unwritten lines once the order is measured', () => {
     expect(planOrderMaterials(input({}))).toEqual({
       lineUpserts: [
         {
@@ -81,7 +81,7 @@ describe('planOrderMaterials', () => {
     expect(plan.lineDeletes).toEqual([stale.id]);
   });
 
-  it('writes off once when production starts, even without price approval first', () => {
+  it('writes off once when production starts, even without a measured step first', () => {
     const plan = planOrderMaterials(
       input({ status: 'PRODUCTION', entersWrittenOff: true }),
     );
@@ -145,7 +145,7 @@ describe('planOrderMaterials', () => {
     const written = line({ writtenOffQuantity: 16.5 });
     const movements = [{ id: writeOffMovementId(LINE), quantity: -16.5 }];
 
-    for (const status of ['PRICE_APPROVAL', 'PRODUCTION', 'CANCELLED', 'NEW']) {
+    for (const status of ['MEASURED', 'PRODUCTION', 'CANCELLED', 'NEW']) {
       const plan = planOrderMaterials(
         input({
           status,
@@ -173,7 +173,7 @@ describe('planOrderMaterials', () => {
   });
 
   it('drops unwritten lines when the order is cancelled or moved back', () => {
-    for (const status of ['CANCELLED', 'MEASURED']) {
+    for (const status of ['CANCELLED', 'MEASUREMENT_SCHEDULED']) {
       expect(planOrderMaterials(input({ status, lines: [line()] }))).toEqual({
         lineUpserts: [],
         lineDeletes: [LINE],
@@ -185,7 +185,7 @@ describe('planOrderMaterials', () => {
   it('writes off once and never plans another movement kind', () => {
     const result = planOrderMaterials(
       input({
-        status: 'READY',
+        status: 'INSTALLED',
         lines: [line({ writtenOffQuantity: 10 })],
         systemMovements: [],
       }),
@@ -224,9 +224,9 @@ describe('planOrderMaterials', () => {
 describe('isEnteringWrittenOff', () => {
   it.each([
     ['MEASURED', 'PRODUCTION', true],
-    ['PRICE_APPROVAL', 'PRODUCTION', true],
-    ['QUALITY_CHECK', 'READY', false],
-    ['PRODUCTION', 'PRICE_APPROVAL', false],
+    ['NEW', 'PRODUCTION', true],
+    ['QUALITY_CHECK', 'INSTALLED', false],
+    ['PRODUCTION', 'MEASURED', false],
     [null, 'PRODUCTION', true],
     [null, 'NEW', false],
   ])('%s -> %s is %s', (previousStatus, status, expected) => {

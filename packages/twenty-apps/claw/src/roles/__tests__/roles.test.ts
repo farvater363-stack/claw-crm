@@ -56,6 +56,8 @@ describe('calculated fields and object access', () => {
       expect(readOnlyFieldIds(role)).toEqual(
         expect.arrayContaining([
           IDS.order.areaSquareMeters,
+          IDS.order.subtotal,
+          IDS.order.discount,
           IDS.order.total,
           IDS.order.balance,
           IDS.orderItem.areaSquareMeters,
@@ -64,7 +66,12 @@ describe('calculated fields and object access', () => {
           IDS.order.number,
         ]),
       );
+      expect(readOnlyFieldIds(role)).toContain(IDS.order.measuredAt);
       expect(readOnlyFieldIds(role)).not.toContain(IDS.order.prepayment);
+      expect(readOnlyFieldIds(role)).not.toContain(IDS.order.discountKind);
+      expect(readOnlyFieldIds(role)).not.toContain(IDS.order.discountValue);
+      expect(hiddenFieldIds(role)).not.toContain(IDS.order.discountKind);
+      expect(hiddenFieldIds(role)).not.toContain(IDS.order.discountValue);
     },
   );
 
@@ -242,6 +249,8 @@ describe('functions role', () => {
         (permission) => permission.canDestroyObjectRecords !== false,
       ),
     ).toEqual([]);
+    // The triggers stamp calculated fields and measuredAt, so nothing is locked.
+    expect(functionsRole.config.fieldPermissions ?? []).toEqual([]);
     for (const permission of permissions) {
       expect(permission).toMatchObject({
         canReadObjectRecords: true,
@@ -261,6 +270,43 @@ describe('payments', () => {
           (permission) => permission.objectUniversalIdentifier,
         ),
       ).not.toContain(IDS.masterPayment.object);
+    },
+  );
+});
+
+describe('client payments', () => {
+  const paymentPermission = (role: RoleResult) =>
+    (role.config.objectPermissions ?? []).find(
+      (permission) =>
+        permission.objectUniversalIdentifier === IDS.orderPayment.object,
+    );
+
+  it('lets the manager record, change and remove payments', () => {
+    expect(paymentPermission(managerRole)).toMatchObject({
+      canReadObjectRecords: true,
+      canUpdateObjectRecords: true,
+      canSoftDeleteObjectRecords: true,
+      canDestroyObjectRecords: false,
+    });
+  });
+
+  it('lets the measurer record and read payments, not remove them', () => {
+    expect(paymentPermission(measurerRole)).toMatchObject({
+      canReadObjectRecords: true,
+      canUpdateObjectRecords: true,
+      canSoftDeleteObjectRecords: false,
+      canDestroyObjectRecords: false,
+    });
+  });
+
+  it('gives the workshop no access to payments', () => {
+    expect(paymentPermission(workshopRole)).toBeUndefined();
+  });
+
+  it.each([managerRole, measurerRole])(
+    'keeps «Оплачено» for the recalc to write',
+    (role) => {
+      expect(readOnlyFieldIds(role)).toContain(IDS.order.paid);
     },
   );
 });

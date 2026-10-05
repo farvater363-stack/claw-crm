@@ -1,15 +1,6 @@
-import { type OrderStatus } from 'src/constants/select-options';
+import { isReserving, isWrittenOff } from 'src/constants/order-status-sets';
 import { roundTo } from 'src/pricing/round';
 import { deterministicUuid } from 'src/utils/deterministic-uuid';
-
-export const RESERVING_STATUSES: OrderStatus[] = ['PRICE_APPROVAL'];
-const WRITTEN_OFF_STATUSES = new Set([
-  'PRODUCTION',
-  'QUALITY_CHECK',
-  'READY',
-  'INSTALLED',
-  'CLOSED',
-]);
 
 export type OrderMaterialLine = {
   id: string;
@@ -62,21 +53,16 @@ export const orderMaterialLineId = (orderId: string, materialId: string) =>
 export const writeOffMovementId = (lineId: string) =>
   deterministicUuid(`writeoff:${lineId}`);
 
-export const isWrittenOffStatus = (status: string | null) =>
-  status !== null && WRITTEN_OFF_STATUSES.has(status);
-
 export const isEnteringWrittenOff = ({
   status,
   previousStatus,
 }: {
   status: string | null;
   previousStatus: string | null;
-}) => isWrittenOffStatus(status) && !isWrittenOffStatus(previousStatus);
+}) => isWrittenOff(status) && !isWrittenOff(previousStatus);
 
 export const keepsOrderDemand = (status: string | null) =>
-  status !== null &&
-  (RESERVING_STATUSES.some((reserving) => reserving === status) ||
-    WRITTEN_OFF_STATUSES.has(status));
+  isReserving(status) || isWrittenOff(status);
 
 export const isEmptyOrderMaterialsPlan = (plan: OrderMaterialsPlan) =>
   Object.values(plan).every((entries) => entries.length === 0);
@@ -100,7 +86,7 @@ export const planOrderMaterials = ({
   const movementQuantityById = new Map(
     systemMovements.map((movement) => [movement.id, movement.quantity]),
   );
-  const writesOff = isWrittenOffStatus(status);
+  const writesOff = isWrittenOff(status);
   const writtenLines = lines.filter(
     (
       line,

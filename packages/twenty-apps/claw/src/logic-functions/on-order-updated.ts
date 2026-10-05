@@ -4,9 +4,14 @@ import {
   type ObjectRecordUpdateEvent,
 } from 'twenty-sdk/define';
 
+import { isInstalled } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
-import { readyAtOnStatusChange, todayInTashkent } from 'src/pricing/dates';
+import {
+  measuredAtOnStatusChange,
+  readyAtOnStatusChange,
+  todayInTashkent,
+} from 'src/pricing/dates';
 import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { orderNameToRestore } from 'src/recalc/assign-order-number';
 import { recalcOrder } from 'src/recalc/recalc-order';
@@ -16,6 +21,7 @@ type UpdatedOrder = {
   status: string | null;
   installedAt: string | null;
   readyAt: string | null;
+  measuredAt: string | null;
   name: string | null;
   number: number | null;
   clientPhone: string | null;
@@ -59,7 +65,7 @@ const handler = async (
 
   const installedAt =
     statusChanged &&
-    after.status === 'INSTALLED' &&
+    isInstalled(after.status ?? null) &&
     (after.installedAt ?? null) === null
       ? todayInTashkent()
       : null;
@@ -73,17 +79,25 @@ const handler = async (
       })
     : null;
 
+  const measuredAt = statusChanged
+    ? measuredAtOnStatusChange({
+        status: after.status ?? null,
+        measuredAt: after.measuredAt ?? null,
+        now: new Date(),
+      })
+    : null;
+
   // One mutation, so INSTALLED does not fire the trigger twice.
-  if (installedAt !== null || readyAt !== null) {
+  const stamps: Record<string, unknown> = {
+    ...(installedAt !== null && { installedAt }),
+    ...(readyAt !== null && { readyAt }),
+    ...(measuredAt !== null && { measuredAt }),
+  };
+
+  if (Object.keys(stamps).length > 0) {
     await client.mutation({
       updateOrder: {
-        __args: {
-          id: payload.recordId,
-          data: {
-            ...(installedAt !== null && { installedAt }),
-            ...(readyAt !== null && { readyAt }),
-          },
-        },
+        __args: { id: payload.recordId, data: stamps },
         id: true,
       },
     });
@@ -111,7 +125,8 @@ export default defineLogicFunction({
       'name',
       'clientPhone',
       'status',
-      'prepayment',
+      'discountKind',
+      'discountValue',
       'productionStartDate',
       'installationDeadline',
       'installedAt',
@@ -121,6 +136,10 @@ export default defineLogicFunction({
       'areaSquareMeters',
       'total',
       'costTotal',
+      // Recalcs of one order run unlocked, so a late one can write sums computed
+      // before a payment existed. Watching them makes that write recalc again.
+      'paid',
+      'balance',
     ],
   },
   handler,

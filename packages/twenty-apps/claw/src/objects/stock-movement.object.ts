@@ -7,9 +7,9 @@ import {
 } from 'twenty-sdk/define';
 
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
-import { FULL_MONEY_DISPLAY } from 'src/constants/money-display';
 import { STOCK_MOVEMENT_KIND_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
+import { money } from 'src/objects/money-field';
 
 const { stockMovement } = IDS;
 
@@ -72,15 +72,7 @@ export default defineObject({
       isNullable: true,
       universalSettings: FLOAT_2,
     },
-    {
-      universalIdentifier: stockMovement.unitPrice,
-      type: FieldType.CURRENCY,
-      name: 'unitPrice',
-      label: 'Цена за ед.',
-      icon: 'IconCurrency',
-      isNullable: true,
-      universalSettings: FULL_MONEY_DISPLAY,
-    },
+    money(stockMovement.unitPrice, 'unitPrice', 'Цена за ед.'),
     {
       universalIdentifier: stockMovement.date,
       type: FieldType.DATE,

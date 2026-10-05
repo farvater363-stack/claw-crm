@@ -125,7 +125,7 @@ export const syncOrderMaterials = async (
   if (!order) return false;
 
   const status = toText(order.status);
-  // Material state only matters from price approval on; skipping the grilles and norms
+  // Material state only matters from the measured step on; skipping the grilles and norms
   // before that keeps new orders from paging them and triggering a warehouse recalc.
   const demand = keepsOrderDemand(status)
     ? await loadDemand(

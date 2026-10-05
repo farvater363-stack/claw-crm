@@ -1,5 +1,6 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
+import { RESERVING_STATUSES } from 'src/constants/order-status-sets';
 import {
   type MaterialUnit,
   type OrderMaterialState,
@@ -118,14 +119,14 @@ export const loadWarehouseRecalcInput = async (
 
       return orderMaterials;
     }),
-    // Orders outside price approval only need reading while they still carry a state to clear.
+    // Orders that no longer reserve only need reading while they still carry a state to clear.
     fetchAllPages(async (after) => {
       const { orders } = await client.query({
         orders: {
           __args: {
             filter: {
               or: [
-                { status: { eq: 'PRICE_APPROVAL' } },
+                { status: { in: [...RESERVING_STATUSES] } },
                 { materialState: { is: 'NOT_NULL' } },
               ],
             },

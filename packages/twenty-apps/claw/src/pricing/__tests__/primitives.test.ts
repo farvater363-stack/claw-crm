@@ -8,6 +8,7 @@ import {
 import {
   addDays,
   computeDaysLate,
+  measuredAtOnStatusChange,
   readyAtOnStatusChange,
   todayInTashkent,
 } from 'src/pricing/dates';
@@ -130,14 +131,12 @@ describe('readyAtOnStatusChange', () => {
   const today = '2026-10-01';
 
   it.each([
-    ['READY', 'QUALITY_CHECK', null, today],
+    ['QUALITY_CHECK', 'PRODUCTION', null, today],
     ['INSTALLED', 'PRODUCTION', null, today],
-    ['CLOSED', 'PRODUCTION', null, today],
     ['INSTALLED', null, null, today],
-    ['INSTALLED', 'READY', null, null],
-    ['CLOSED', 'INSTALLED', null, null],
-    ['INSTALLED', 'CLOSED', null, null],
-    ['READY', 'PRODUCTION', '2026-09-20', null],
+    ['INSTALLED', 'QUALITY_CHECK', null, null],
+    ['QUALITY_CHECK', 'INSTALLED', null, null],
+    ['QUALITY_CHECK', 'PRODUCTION', '2026-09-20', null],
     ['PRODUCTION', 'QUALITY_CHECK', null, null],
     ['CANCELLED', 'PRODUCTION', null, null],
     [null, 'PRODUCTION', null, null],
@@ -147,6 +146,35 @@ describe('readyAtOnStatusChange', () => {
       expect(
         readyAtOnStatusChange({ status, previousStatus, readyAt, today }),
       ).toBe(expected);
+    },
+  );
+});
+
+describe('measuredAtOnStatusChange', () => {
+  const now = new Date('2026-10-05T09:30:00.000Z');
+
+  it('stamps the moment an order is measured for the first time', () => {
+    expect(
+      measuredAtOnStatusChange({ status: 'MEASURED', measuredAt: null, now }),
+    ).toBe('2026-10-05T09:30:00.000Z');
+  });
+
+  it('keeps the first moment when the status is corrected later', () => {
+    expect(
+      measuredAtOnStatusChange({
+        status: 'MEASURED',
+        measuredAt: '2026-10-01T05:00:00.000Z',
+        now,
+      }),
+    ).toBeNull();
+  });
+
+  it.each(['NEW', 'MEASUREMENT_SCHEDULED', 'PRODUCTION', null])(
+    'writes nothing for %s',
+    (status) => {
+      expect(
+        measuredAtOnStatusChange({ status, measuredAt: null, now }),
+      ).toBeNull();
     },
   );
 });

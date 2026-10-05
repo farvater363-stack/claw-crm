@@ -63,6 +63,8 @@ export type CurrencyInputProps = {
   autoFocus?: boolean;
   value: string;
   currencyCode: string;
+  // The only codes the picker offers; every currency when left out
+  allowedCurrencyCodes?: string[];
   onEnter: (newText: string) => void;
   onEscape: (newText: string) => void;
   onTab?: (newText: string) => void;
@@ -77,6 +79,7 @@ export const CurrencyInput = ({
   autoFocus,
   value,
   currencyCode,
+  allowedCurrencyCodes,
   placeholder,
   onEnter,
   onEscape,
@@ -133,6 +136,7 @@ export const CurrencyInput = ({
     <StyledContainer ref={wrapperRef}>
       <CurrencyPickerDropdownButton
         selectedCurrencyCode={currency?.value ?? ''}
+        allowedCurrencyCodes={allowedCurrencyCodes}
         onChange={handleCurrencyChange}
       />
       <StyledIcon>

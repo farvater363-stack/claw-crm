@@ -5,9 +5,15 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  ACCRUAL_METHOD_OPTIONS,
+  DISCOUNT_KIND_OPTIONS,
   materialUnitLabel,
   ORDER_MATERIAL_STATE_OPTIONS,
+  ORDER_STATUS_OPTIONS,
+  PAY_METHOD_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
   STOCK_MOVEMENT_KIND_OPTIONS,
+  WORKER_CATEGORY_OPTIONS,
 } from 'src/constants/select-options';
 
 const idByValue = (
@@ -32,6 +38,78 @@ describe('relabelled options keep the id of their first label', () => {
       SHORTAGE: undefined,
       NO_NORM: '7c5c1feb-5c5f-5d83-bfff-7985de022885',
     });
+  });
+
+  it('pins the status that became «Отправлено на установку», and only it', () => {
+    expect(idByValue(ORDER_STATUS_OPTIONS)).toEqual({
+      NEW: undefined,
+      MEASUREMENT_SCHEDULED: undefined,
+      MEASURED: undefined,
+      PRICE_APPROVAL: undefined,
+      PRODUCTION: undefined,
+      QUALITY_CHECK: '96aee4e3-71ce-5947-8df6-0cc4e80c8b2a',
+      READY: undefined,
+      INSTALLED: undefined,
+      CLOSED: undefined,
+      CANCELLED: undefined,
+    });
+    expect(
+      ORDER_STATUS_OPTIONS.find((option) => option.value === 'QUALITY_CHECK')
+        ?.label,
+    ).toBe('Отправлено на установку');
+  });
+});
+
+const labelByValue = (
+  options: ReadonlyArray<{ value: string; label: string }>,
+): Record<string, string> =>
+  Object.fromEntries(options.map((option) => [option.value, option.label]));
+
+describe('option lists of the money and pay model', () => {
+  it.each([
+    [
+      'payment methods',
+      PAYMENT_METHOD_OPTIONS,
+      { CASH: 'Наличные', CARD: 'Карта', TRANSFER: 'Перевод' },
+    ],
+    ['discount kinds', DISCOUNT_KIND_OPTIONS, { PERCENT: '%', AMOUNT: 'сум' }],
+    [
+      'worker categories',
+      WORKER_CATEGORY_OPTIONS,
+      {
+        MASTER: 'Мастер',
+        INSTALLER: 'Установщик',
+        MEASURER: 'Замерщик',
+        SALES: 'Продажник',
+      },
+    ],
+    [
+      'pay methods',
+      PAY_METHOD_OPTIONS,
+      {
+        FIXED: 'Фикса',
+        PER_SQUARE_METER: 'За м²',
+        PER_ORDER: 'За заказ',
+        PERCENT_OF_SALES: '% от продаж',
+        PER_MEASUREMENT: 'За замер',
+      },
+    ],
+    [
+      'accrual methods',
+      ACCRUAL_METHOD_OPTIONS,
+      {
+        FIXED: 'Фикса',
+        PER_SQUARE_METER: 'За м²',
+        PER_ORDER: 'За заказ',
+        PERCENT_OF_SALES: '% от продаж',
+        PER_MEASUREMENT: 'За замер',
+        BONUS: 'Премия',
+        PENALTY: 'Штраф',
+      },
+    ],
+  ])('%s are gray and worded as in the spec', (_, options, expected) => {
+    expect(labelByValue(options)).toEqual(expected);
+    expect(options.every((option) => option.color === 'gray')).toBe(true);
   });
 });
 
@@ -140,6 +218,8 @@ describe('every select option of every object keeps its id', () => {
         "order.deadlineState.DUE_TODAY": "0dd28c3b-18a7-5f3a-9cde-ad6102ff91a3",
         "order.deadlineState.ON_TIME": "bb148f29-497c-5202-b2ce-334169ebda4f",
         "order.deadlineState.OVERDUE": "6a7a0025-138f-5136-958a-9ff7c3df215f",
+        "order.discountKind.AMOUNT": "174ae085-2818-558d-a7f6-a3ea894dc361",
+        "order.discountKind.PERCENT": "5967281b-4dcb-5b9a-861b-6e109886906c",
         "order.district.ALMAZAR": "e0db67e9-897e-53bf-9993-9549648d31c4",
         "order.district.BEKTEMIR": "304a2dcb-55f8-5621-8024-60802eea61e9",
         "order.district.CHILANZAR": "aeef05df-b71f-533c-a792-361e24156e7b",
@@ -172,6 +252,9 @@ describe('every select option of every object keeps its id', () => {
         "order.status.PRODUCTION": "328ba57a-e0bd-5e2b-9efa-f29b3957e09c",
         "order.status.QUALITY_CHECK": "96aee4e3-71ce-5947-8df6-0cc4e80c8b2a",
         "order.status.READY": "0a8e1b2c-ba43-5537-90a3-199df4670212",
+        "orderPayment.method.CARD": "200a51f9-3ff9-54ed-b654-187fa6c0df86",
+        "orderPayment.method.CASH": "60529631-3fa3-5a83-a9c0-7cc2fd387317",
+        "orderPayment.method.TRANSFER": "aba49e83-d595-5b08-b727-78a71ecd8fac",
         "stockMovement.kind.RECEIPT": "f3a49374-82bc-5de5-bdeb-b177c8a7dabd",
         "stockMovement.kind.STOCKTAKE": "39c60125-a523-58d9-a592-bf57d41ec9cd",
         "stockMovement.kind.WRITE_OFF": "c4613eef-94a1-512e-87c6-deae83f82f51",
