@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { collectOrderNotes } from 'src/order-notes/order-notes';
+import {
+  collectOrderNotes,
+  collectOrderPhotos,
+} from 'src/order-notes/order-notes';
 
 describe('collectOrderNotes', () => {
   it('gathers every text about the order under the place it was typed', () => {
@@ -52,5 +55,38 @@ describe('collectOrderNotes', () => {
         stockMovements: [],
       }),
     ).toEqual([]);
+  });
+});
+
+describe('collectOrderPhotos', () => {
+  it('gathers the photos of every opening and of the finished work', () => {
+    expect(
+      collectOrderPhotos({
+        items: [
+          {
+            widthCm: 140,
+            heightCm: 150,
+            designName: 'Решётка 1',
+            photos: [{ url: 'https://files/a.jpg' }, { url: '' }, null],
+          },
+          { widthCm: 100, heightCm: 90, designName: null, photos: null },
+          {
+            widthCm: 80,
+            heightCm: null,
+            designName: null,
+            photos: [{ url: 'https://files/b.jpg' }],
+          },
+        ],
+        finishedPhotos: [{ url: 'https://files/done.jpg' }],
+      }),
+    ).toEqual([
+      { url: 'https://files/a.jpg', caption: 'Проём 1 · Решётка 1 · 140×150' },
+      { url: 'https://files/b.jpg', caption: 'Проём 3' },
+      { url: 'https://files/done.jpg', caption: 'Фото работы' },
+    ]);
+  });
+
+  it('is empty for an order without photos', () => {
+    expect(collectOrderPhotos({ items: [], finishedPhotos: null })).toEqual([]);
   });
 });
