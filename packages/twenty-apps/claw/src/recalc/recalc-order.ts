@@ -16,11 +16,12 @@ export const recalcOrder = async (
     entersWrittenOff?: boolean;
   } = {},
 ): Promise<void> => {
-  const input = await loadRecalcInput(client, orderId, {
+  const refresh = {
     refreshPriceItemIds: options.refreshPriceItemIds ?? [],
     refreshPriceExtraServiceLineIds:
       options.refreshPriceExtraServiceLineIds ?? [],
-  });
+  };
+  const input = await loadRecalcInput(client, orderId, refresh);
 
   if (input === null) {
     return;
@@ -31,7 +32,14 @@ export const recalcOrder = async (
   // Straight after the totals and the master's pay are stored, which is all the lines are built from:
   // nothing runs this again for an installed order, so a failure in the stock steps below must not leave it without pay lines.
   // ponytail: one more query per recalc; skip orders with no measurement and no lines if the nightly run nears the app's 500 requests a minute.
-  await syncOrderAccruals(client, orderId);
+  if (await syncOrderAccruals(client, orderId)) {
+    // The order's cost counts its pay lines, and those have just changed.
+    const withNewPay = await loadRecalcInput(client, orderId, refresh);
+
+    if (withNewPay !== null) {
+      await applyRecalcPlan(client, orderId, planOrderRecalc(withNewPay));
+    }
+  }
 
   if (
     await syncOrderMaterials(client, orderId, {

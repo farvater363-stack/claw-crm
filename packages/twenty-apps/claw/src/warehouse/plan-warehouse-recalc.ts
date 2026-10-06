@@ -20,6 +20,7 @@ export type WarehouseMaterial = {
   toBuy: number | null;
   stockState: StockState | null;
   lastPurchasePrice: number | null;
+  averagePrice: number | null;
   overrunPercent: number | null;
 };
 
@@ -171,6 +172,7 @@ export const planWarehouseRecalc = ({
   const materialById = new Map(materials.map((item) => [item.id, item]));
   const onHandByMaterialId = new Map<string, number>();
   const lastPriceByMaterialId = new Map<string, number>();
+  const averagePriceByMaterialId = new Map<string, number>();
   const writtenOffSinceRecount = new Map<string, number>();
   const recountCount = new Map<string, number>();
   const overrunByMaterialId = new Map<string, number | null>();
@@ -213,7 +215,20 @@ export const planWarehouseRecalc = ({
     }
 
     if (movement.kind === 'RECEIPT' && movement.unitPrice !== null) {
+      const average = averagePriceByMaterialId.get(material.id);
+      // A shelf counted below zero holds nothing to average with.
+      const held = Math.max(balance, 0);
+
       lastPriceByMaterialId.set(material.id, movement.unitPrice);
+      averagePriceByMaterialId.set(
+        material.id,
+        average === undefined || held + quantity <= 0
+          ? movement.unitPrice
+          : Math.round(
+              (held * average + quantity * movement.unitPrice) /
+                (held + quantity),
+            ),
+      );
     }
 
     movementEntries.push([
@@ -291,6 +306,7 @@ export const planWarehouseRecalc = ({
         {
           ...stockByMaterialId.get(material.id),
           lastPurchasePrice: lastPriceByMaterialId.get(material.id) ?? null,
+          averagePrice: averagePriceByMaterialId.get(material.id) ?? null,
           overrunPercent: overrunByMaterialId.get(material.id) ?? null,
         },
       ]),

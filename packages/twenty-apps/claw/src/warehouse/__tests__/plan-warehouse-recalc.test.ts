@@ -23,6 +23,7 @@ const material = (
   toBuy: null,
   stockState: null,
   lastPurchasePrice: null,
+  averagePrice: null,
   overrunPercent: null,
   ...overrides,
 });
@@ -269,6 +270,38 @@ describe('planWarehouseRecalc', () => {
     );
 
     expect(result.materialUpdates[0]?.update.lastPurchasePrice).toBe(10_000);
+  });
+
+  it('averages the purchase price over what is on the shelf', () => {
+    const result = plan(
+      [material()],
+      [
+        movement({ id: 'first', quantity: 100, unitPrice: 8_500, date: '2026-09-01' }),
+        movement({
+          id: 'used',
+          kind: 'WRITE_OFF',
+          quantity: -60,
+          date: '2026-09-10',
+        }),
+        // 40 left at 8 500 and 120 bought at 9 000
+        movement({ id: 'second', quantity: 120, unitPrice: 9_000, date: '2026-10-01' }),
+      ],
+    );
+
+    expect(result.materialUpdates[0]?.update.averagePrice).toBe(8_875);
+    expect(result.materialUpdates[0]?.update.lastPurchasePrice).toBe(9_000);
+  });
+
+  it('leaves the average alone on a receipt without a price', () => {
+    const result = plan(
+      [material()],
+      [
+        movement({ id: 'first', unitPrice: 8_500, date: '2026-09-01' }),
+        movement({ id: 'second', unitPrice: null, date: '2026-10-01' }),
+      ],
+    );
+
+    expect(result.materialUpdates[0]?.update.averagePrice).toBe(8_500);
   });
 
   it('uses reserved quantities for to-buy and state', () => {

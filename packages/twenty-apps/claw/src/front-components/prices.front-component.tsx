@@ -10,6 +10,7 @@ import {
   METAL_OPTIONS,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
+import { materialUnitPrice } from 'src/prices/material-cost';
 import {
   type BuildPriceSectionsInput,
   buildPriceSections,
@@ -21,7 +22,7 @@ import {
   UNIT_TEXT,
 } from 'src/prices/prices-screen';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
-import { formatMoney, formatWhole } from 'src/ui/format';
+import { formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
 import {
   Button,
   Columns,
@@ -32,34 +33,29 @@ import {
   Hint,
   InlineConfirm,
   Line,
+  PhotoTile,
   Row,
   Screen,
   Section,
   SelectInput,
   SkeletonRows,
   StatePill,
+  StaticRow,
   TextInput,
   Thumbnail,
   UndoBar,
   Wrap,
 } from 'src/ui/kit';
+import { SPACE } from 'src/ui/tokens';
 import { dropKey } from 'src/utils/drop-key';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
 import { isAccessError } from 'src/utils/is-access-error';
-
-type Costs = {
-  material: number | null;
-  work: number | null;
-  installation: number | null;
-};
 
 type Photo = { fileId: string; label: string; url: string | null };
 
 type PricesData = {
   sections: PriceSections;
   materials: { id: string; name: string; unitLabel: string }[];
-  // id of a grille or service -> the three cost numbers; absent for roles that cannot read costs
-  costsById: Map<string, Costs>;
   // What the sections are built from: an edit changes it and the rows, their
   // price text and their warnings are rebuilt
   source: BuildPriceSectionsInput;
@@ -107,14 +103,6 @@ const SECTIONS = [
   },
 ] as const;
 
-// A grille has three costs; a visor or a service has one, kept in `material`
-// so the total is the same sum for both.
-const COST_FIELDS = [
-  ['material', 'Материал', 'materialCostPerSquareMeter'],
-  ['work', 'Работа', 'manufacturingCostPerSquareMeter'],
-  ['installation', 'Установка', 'installationCostPerSquareMeter'],
-] as const;
-
 const UNIT_OPTIONS = EXTRA_SERVICE_UNIT_OPTIONS.map(({ value }) => ({
   value,
   label: UNIT_TEXT[value],
@@ -138,60 +126,37 @@ const toPhotos = (
       : [],
   );
 
-const loadCosts = async (client: CoreApiClient) => {
-  const costsById = new Map<string, Costs>();
-
+// Purchase prices are the owner's: any other role gets null and sees no cost.
+const loadMaterialPrices = async (client: CoreApiClient) => {
   try {
-    const designNodes = await fetchAllPages(async (after) => {
-      const { designs } = await client.query({
-        designs: {
+    const nodes = await fetchAllPages(async (after) => {
+      const { materials } = await client.query({
+        materials: {
           __args: { first: PAGE_SIZE, after },
           edges: {
-            node: {
-              id: true,
-              materialCostPerSquareMeter: MONEY,
-              manufacturingCostPerSquareMeter: MONEY,
-              installationCostPerSquareMeter: MONEY,
-            },
+            node: { id: true, averagePrice: MONEY, lastPurchasePrice: MONEY },
           },
           pageInfo: PAGE_INFO,
         },
       });
 
-      return designs;
-    });
-    const serviceNodes = await fetchAllPages(async (after) => {
-      const { extraServices } = await client.query({
-        extraServices: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, cost: MONEY } },
-          pageInfo: PAGE_INFO,
-        },
-      });
-
-      return extraServices;
+      return materials;
     });
 
-    for (const node of designNodes) {
-      costsById.set(node.id, {
-        material: fromCurrency(node.materialCostPerSquareMeter),
-        work: fromCurrency(node.manufacturingCostPerSquareMeter),
-        installation: fromCurrency(node.installationCostPerSquareMeter),
-      });
-    }
-
-    for (const node of serviceNodes) {
-      costsById.set(node.id, {
-        material: fromCurrency(node.cost),
-        work: null,
-        installation: null,
-      });
-    }
+    return new Map(
+      nodes.map((node) => [
+        node.id,
+        materialUnitPrice({
+          averagePrice: fromCurrency(node.averagePrice),
+          lastPurchasePrice: fromCurrency(node.lastPurchasePrice),
+        }),
+      ]),
+    );
   } catch (error) {
     if (!isAccessError(error)) throw error;
-  }
 
-  return costsById;
+    return null;
+  }
 };
 
 const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
@@ -258,11 +223,13 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
     return materials;
   });
 
+  const prices = await loadMaterialPrices(client);
   const materials = materialNodes
     .map((node) => ({
       id: node.id,
       name: node.name ?? '',
       unitLabel: materialUnitLabel(node.unit),
+      unitPrice: prices?.get(node.id) ?? null,
     }))
     .sort((left, right) =>
       left.name.localeCompare(right.name, 'ru', { numeric: true }),
@@ -293,12 +260,12 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
       quantityPerUnit: node.quantityPerUnit ?? null,
     })),
     materials,
+    canSeeCosts: prices !== null,
   };
 
   return {
     sections: buildPriceSections(source),
     materials,
-    costsById: await loadCosts(client),
     source,
     photosById,
   };
@@ -560,7 +527,6 @@ const Prices = () => {
 
       if (!created) throw new Error('the created row was not returned');
 
-      // Reloaded rather than patched in: the owner's costs come with it.
       setLoad(await loadState());
       setNewRowId(created.id);
       showRow(created.id);
@@ -820,8 +786,24 @@ const Prices = () => {
               }
             >
               {quantityField(line)}
+              {line.lineCost === null || line.unitPrice === null ? null : (
+                <Hint
+                  text={`${formatQuantity(line.quantity, line.unitLabel)} × ${formatMoney(line.unitPrice)} = ${formatMoney(line.lineCost)}`}
+                />
+              )}
+              {data.source.canSeeCosts && line.unitPrice === null ? (
+                <Hint
+                  tone="warning"
+                  text="Нет цены закупки: запишите закупку в «Складе»"
+                />
+              ) : null}
             </Line>
           ),
+        )}
+        {row.costText === null ? null : (
+          <Hint
+            text={`${row.costText} ${UNIT_TEXT[row.unit]}. Считается по закупкам в «Складе»`}
+          />
         )}
         {material === undefined ? (
           <Hint
@@ -883,55 +865,10 @@ const Prices = () => {
     );
   };
 
-  const renderCosts = (row: PriceRow, costs: Costs) => {
-    const costField = (
-      [field, , column]: (typeof COST_FIELDS)[number],
-      label: string,
-      suffix: string,
-    ) =>
-      moneyField(row, field, label, costs[field], suffix, async (value) => {
-        const amount = toCurrency(value);
-
-        await updateRow(row, { [column]: amount }, { cost: amount });
-        patchData(({ costsById }) => ({
-          costsById: new Map(costsById).set(row.id, {
-            ...(costsById.get(row.id) ?? costs),
-            [field]: value,
-          }),
-        }));
-      });
-
-    if (row.section !== 'GRILLE') {
-      return costField(
-        COST_FIELDS[0],
-        'Себестоимость',
-        `сум ${UNIT_TEXT[row.unit]}`,
-      );
-    }
-
-    const hasCost = COST_FIELDS.some(([field]) => costs[field] !== null);
-    const total = COST_FIELDS.reduce(
-      (sum, [field]) => sum + (costs[field] ?? 0),
-      0,
-    );
-
-    return (
-      <Group title="Себестоимость">
-        <Columns>
-          {COST_FIELDS.map((cost) => costField(cost, cost[1], 'сум'))}
-        </Columns>
-        {hasCost ? (
-          <Hint text={`Всего ${formatMoney(total)} ${UNIT_TEXT[row.unit]}`} />
-        ) : null}
-      </Group>
-    );
-  };
-
   const renderOpenRow = (row: PriceRow, data: PricesData) => {
     const nameKey = `${row.id}:name`;
     const choiceKey = `${row.id}:choice`;
     const photosKey = `${row.id}:photos`;
-    const costs = data.costsById.get(row.id);
     const photos = data.photosById.get(row.id) ?? [];
     const savePrice = async (value: number | null) => {
       const amount = toCurrency(value);
@@ -1053,7 +990,6 @@ const Prices = () => {
           </Columns>
         )}
         {renderComposition(row, data)}
-        {costs ? renderCosts(row, costs) : null}
         {confirmKey === row.id ? (
           <InlineConfirm
             question={`Убрать "${row.name}"?`}
@@ -1070,6 +1006,55 @@ const Prices = () => {
           </Wrap>
         )}
       </>
+    );
+  };
+
+  // Grilles are chosen by their look, so they are tiles. An open grille takes
+  // the place of the grid: under fifteen tiles its fields would be off screen.
+  const renderGrilleTiles = (data: PricesData) => {
+    const grilles = [...data.sections.grilles].sort(
+      (left, right) =>
+        Number(left.id === newRowId) - Number(right.id === newRowId),
+    );
+    const open = grilles.find((row) => row.id === openId);
+
+    return (
+      <StaticRow>
+        {open ? (
+          <>
+            <Wrap>
+              <Button variant="link" onClick={() => showRow(null)}>
+                <span aria-hidden>‹</span> Все решётки
+              </Button>
+            </Wrap>
+            {renderOpenRow(open, data)}
+          </>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+              gap: SPACE.md,
+            }}
+          >
+            {grilles.map((row) => (
+              <PhotoTile
+                key={row.id}
+                name={row.name}
+                photoUrl={row.photoUrl}
+                isSelected={false}
+                onSelect={() => showRow(row.id)}
+                caption={[row.priceText, row.costText, ...row.warnings]
+                  .filter((part) => part !== null)
+                  .join(' · ')}
+              />
+            ))}
+          </div>
+        )}
+        {grilles.map((row) => (
+          <Fragment key={row.id}>{failureNotes(row.id)}</Fragment>
+        ))}
+      </StaticRow>
     );
   };
 
@@ -1115,9 +1100,10 @@ const Prices = () => {
             </>
           }
         >
+          {section.key === 'grilles' ? renderGrilleTiles(data) : null}
           {/* A row just added stays next to the button that added it, not
               where its placeholder name would sort. */}
-          {[...data.sections[section.key]]
+          {[...(section.key === 'grilles' ? [] : data.sections[section.key])]
             .sort(
               (left, right) =>
                 Number(left.id === newRowId) - Number(right.id === newRowId),
@@ -1125,11 +1111,6 @@ const Prices = () => {
             .map((row) => (
               <Fragment key={row.id}>
                 <Row
-                  leading={
-                    row.section === 'GRILLE' ? (
-                      <Thumbnail photoUrl={row.photoUrl} />
-                    ) : undefined
-                  }
                   title={row.name}
                   value={row.priceText ?? undefined}
                   pill={

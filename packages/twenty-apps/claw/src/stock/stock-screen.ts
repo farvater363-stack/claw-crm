@@ -5,7 +5,7 @@ import {
   parsePositiveNumber,
 } from 'src/prices/prices-screen';
 import { roundTo } from 'src/pricing/round';
-import { formatDayMonth, formatQuantity } from 'src/ui/format';
+import { formatDayMonth, formatMoney, formatQuantity } from 'src/ui/format';
 
 export type StockMaterial = {
   id: string;
@@ -36,6 +36,33 @@ export type StockRow = {
   needs: StockNeed[];
   minimumStock: number;
   overuseNote: string | null;
+  // «нужно 96 м + запас 50 м»
+  needText: string;
+  // How much of what is needed and kept in reserve lies on the shelf, 0 to 1
+  level: number;
+};
+
+// Purchase prices by material id; empty for a role that does not see them
+export type StockPrices = Record<
+  string,
+  { last: number | null; average: number | null }
+>;
+
+export type BuyLine = {
+  id: string;
+  name: string;
+  quantity: number;
+  unitLabel: string;
+  lastPrice: number | null;
+  sum: number | null;
+};
+
+export type BuyList = {
+  lines: BuyLine[];
+  // By the last purchase prices; null when none of the lines has one
+  total: number | null;
+  // Plain text for the supplier: names and amounts, no money
+  copyText: string;
 };
 
 export type StockReceipt = {
@@ -66,6 +93,81 @@ export type StockMovementLine = {
 const QUANTITY_DECIMALS = 2;
 const OVERUSE_NOTE_FROM_PERCENT = 5;
 const STATE_ORDER = { BUY: 0, LOW: 1, OK: 2 } as const;
+
+const stockLevel = ({
+  onHand,
+  reserved,
+  minimumStock,
+}: Pick<StockMaterial, 'onHand' | 'reserved' | 'minimumStock'>): number => {
+  const wanted = (reserved ?? 0) + (minimumStock ?? 0);
+
+  return wanted <= 0
+    ? 1
+    : Math.min(1, Math.max(0, (onHand ?? 0) / wanted));
+};
+
+export const buildBuyList = (
+  materials: StockMaterial[],
+  prices: StockPrices,
+): BuyList => {
+  const lines = materials
+    .filter(
+      (material) =>
+        (material.stockState ?? 'OK') !== 'OK' && (material.toBuy ?? 0) > 0,
+    )
+    .sort(
+      (left, right) =>
+        STATE_ORDER[left.stockState ?? 'OK'] -
+          STATE_ORDER[right.stockState ?? 'OK'] ||
+        (left.name ?? '').localeCompare(right.name ?? '', 'ru', {
+          numeric: true,
+        }),
+    )
+    .map((material): BuyLine => {
+      const quantity = material.toBuy ?? 0;
+      const lastPrice = prices[material.id]?.last ?? null;
+
+      return {
+        id: material.id,
+        name: material.name ?? '',
+        quantity,
+        unitLabel: material.unitLabel,
+        lastPrice,
+        sum: lastPrice === null ? null : Math.round(quantity * lastPrice),
+      };
+    });
+  const sums = lines.flatMap((line) => (line.sum === null ? [] : [line.sum]));
+
+  return {
+    lines,
+    total:
+      sums.length === 0 ? null : sums.reduce((sum, value) => sum + value, 0),
+    copyText: lines
+      .map(
+        (line) => `${line.name} — ${formatQuantity(line.quantity, line.unitLabel)}`,
+      )
+      .join('\n'),
+  };
+};
+
+// What lies on the shelf, by the average price it was bought at. Null when no
+// material has a price.
+export const stockValue = (
+  materials: StockMaterial[],
+  prices: StockPrices,
+): number | null => {
+  const values = materials.flatMap((material) => {
+    const price = prices[material.id]?.average ?? prices[material.id]?.last;
+
+    return price === null || price === undefined
+      ? []
+      : [Math.max(material.onHand ?? 0, 0) * price];
+  });
+
+  return values.length === 0
+    ? null
+    : Math.round(values.reduce((sum, value) => sum + value, 0));
+};
 
 export const buildStockRows = (
   materials: StockMaterial[],
@@ -99,6 +201,15 @@ export const buildStockRows = (
                 },
           needs: needs.filter((need) => need.materialId === material.id),
           minimumStock: material.minimumStock ?? 0,
+          needText: [
+            `нужно ${formatQuantity(material.reserved ?? 0, material.unitLabel)}`,
+            ...((material.minimumStock ?? 0) > 0
+              ? [
+                  `запас ${formatQuantity(material.minimumStock ?? 0, material.unitLabel)}`,
+                ]
+              : []),
+          ].join(' + '),
+          level: stockLevel(material),
           overuseNote:
             material.overrunPercent !== null &&
             material.overrunPercent >= OVERUSE_NOTE_FROM_PERCENT
@@ -148,6 +259,54 @@ export const buildReceipt = ({
       date: today,
     },
   };
+};
+
+export type PurchaseDraft = Record<string, { quantity: string; price: string }>;
+
+// One trip to the supplier: every material with an amount typed is a purchase.
+export const buildPurchase = (
+  typed: PurchaseDraft,
+  today: string,
+):
+  | { ok: true; data: StockReceipt[] }
+  | { ok: false; errors: Record<string, string> } => {
+  const errors: Record<string, string> = {};
+  const data: StockReceipt[] = [];
+
+  for (const [materialId, { quantity, price }] of Object.entries(typed)) {
+    if (quantity.trim() === '') continue;
+
+    const receipt = buildReceipt({
+      materialId,
+      quantity,
+      unitPrice: price,
+      today,
+    });
+
+    if (receipt.ok) data.push(receipt.data);
+    else errors[materialId] = receipt.error;
+  }
+
+  return Object.keys(errors).length > 0
+    ? { ok: false, errors }
+    : { ok: true, data };
+};
+
+// The sum of the lines that can already be read as a purchase with a price.
+export const purchaseSummary = (typed: PurchaseDraft): string | null => {
+  const purchase = buildPurchase(typed, '');
+  const lines = purchase.ok ? purchase.data : [];
+
+  if (lines.length === 0) return null;
+
+  const total = lines.reduce(
+    (sum, line) => sum + line.quantity * (line.unitPrice ?? 0),
+    0,
+  );
+
+  return total > 0
+    ? `Всего ${formatMoney(Math.round(total))}`
+    : `Материалов в закупке: ${lines.length}`;
 };
 
 // An amount that may be zero: a counted stock, a minimum to keep.

@@ -20,11 +20,16 @@ export const applyWarehouseRecalcPlan = async (
   }
 
   for (const { id, update } of plan.materialUpdates) {
-    const { lastPurchasePrice, ...rest } = update;
-    const data =
-      lastPurchasePrice === undefined
-        ? rest
-        : { ...rest, lastPurchasePrice: toCurrency(lastPurchasePrice) };
+    const { lastPurchasePrice, averagePrice, ...rest } = update;
+    const data = {
+      ...rest,
+      ...(lastPurchasePrice !== undefined && {
+        lastPurchasePrice: toCurrency(lastPurchasePrice),
+      }),
+      ...(averagePrice !== undefined && {
+        averagePrice: toCurrency(averagePrice),
+      }),
+    };
 
     await client.mutation({
       updateMaterial: { __args: { id, data }, id: true },

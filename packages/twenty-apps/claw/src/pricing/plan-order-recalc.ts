@@ -97,6 +97,8 @@ export type RecalcInput = {
   master: MasterSnapshot | null;
   // Sum of the order's payments that are not deleted
   paymentsTotal: number;
+  // Sum of the pay lines already written for this order, every worker's
+  payTotal: number;
   today: string;
   refreshPriceItemIds: string[];
   refreshPriceExtraServiceLineIds: string[];
@@ -271,10 +273,12 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
       : null;
   const total =
     subtotal !== null && discount !== null ? subtotal - discount : null;
+  // Material by the composition and the purchase price, plus what the workers
+  // really earned on this order.
   const costTotal = hasLines
     ? sumTreatingNullAsZero(
         [...plannedItems, ...plannedLines].map((line) => line.lineCost),
-      )
+      ) + input.payTotal
     : order.costTotal;
 
   const margin =

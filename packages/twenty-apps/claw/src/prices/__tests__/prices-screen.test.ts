@@ -66,6 +66,51 @@ describe('buildPriceSections', () => {
     expect(plain(sections.services[0].priceText)).toBe('40,000 сум за заказ');
   });
 
+  it('costs a grille by its composition, for the owner only', () => {
+    const input = {
+      grilles: [
+        { id: 'a', name: 'Волна', metal: null, price: 450_000, photoUrl: null },
+      ],
+      services: [],
+      norms: [
+        {
+          id: 'n1',
+          designId: 'a',
+          extraServiceId: null,
+          materialId: 'rod',
+          quantityPerUnit: 9.5,
+        },
+        {
+          id: 'n2',
+          designId: 'a',
+          extraServiceId: null,
+          materialId: 'paint',
+          quantityPerUnit: 0.25,
+        },
+      ],
+      materials: [
+        { id: 'rod', name: 'Прут', unitLabel: 'м', unitPrice: 9_000 },
+        { id: 'paint', name: 'Краска', unitLabel: 'л', unitPrice: null },
+      ],
+    };
+
+    const [owner] = buildPriceSections({ ...input, canSeeCosts: true }).grilles;
+
+    expect(owner.composition.map((line) => line.lineCost)).toEqual([
+      85_500,
+      null,
+    ]);
+    expect(plain(owner.costText)).toBe(
+      'Материал 85,500 сум · остаётся 364,500 сум',
+    );
+    expect(owner.warnings).toEqual(['Нет цены закупки']);
+
+    const [manager] = buildPriceSections(input).grilles;
+
+    expect(manager.costText).toBeNull();
+    expect(manager.warnings).toEqual([]);
+  });
+
   it('warns about a missing price', () => {
     const { grilles } = buildPriceSections({
       grilles: [
@@ -158,6 +203,8 @@ describe('buildPriceSections', () => {
         materialName: 'Профиль',
         quantity: 4.5,
         unitLabel: 'м',
+        unitPrice: null,
+        lineCost: null,
       },
     ]);
   });

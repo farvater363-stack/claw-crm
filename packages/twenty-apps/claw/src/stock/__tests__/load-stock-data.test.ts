@@ -135,13 +135,27 @@ describe('loadStockData', () => {
     ).rejects.toThrow('Failed to fetch');
   });
 
-  it('does not ask about prices again when the answer is already known', async () => {
-    const { client, queries } = fakeClient({
-      priceError: new Error('Forbidden: no permission'),
+  it('does not ask about prices again once the role is known not to see them', async () => {
+    const { client, queries } = fakeClient();
+
+    expect((await loadStockData(client, false)).canSeePrice).toBe(false);
+    expect(JSON.stringify(queries)).not.toContain('lastPurchasePrice');
+  });
+
+  it('reads the last and the average purchase price of each material', async () => {
+    const { client } = fakeClient({
+      materials: [
+        {
+          ...MATERIAL,
+          lastPurchasePrice: { amountMicros: 9_000_000_000 },
+          averagePrice: { amountMicros: 8_875_000_000 },
+        },
+      ],
     });
 
-    expect((await loadStockData(client, true)).canSeePrice).toBe(true);
-    expect(JSON.stringify(queries)).not.toContain('lastPurchasePrice');
+    expect((await loadStockData(client)).prices).toEqual({
+      'material-1': { last: 9_000, average: 8_875 },
+    });
   });
 });
 

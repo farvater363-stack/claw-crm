@@ -49,6 +49,7 @@ export const loadWarehouseRecalcInput = async (
               toBuy: true,
               stockState: true,
               lastPurchasePrice: money,
+              averagePrice: money,
               overrunPercent: true,
             },
           },
@@ -161,6 +162,7 @@ export const loadWarehouseRecalcInput = async (
       toBuy: toNumber(node.toBuy),
       stockState: (node.stockState ?? null) as StockState | null,
       lastPurchasePrice: fromCurrency(node.lastPurchasePrice),
+      averagePrice: fromCurrency(node.averagePrice),
       overrunPercent: toNumber(node.overrunPercent),
     })),
     norms: norms.map((node) => ({

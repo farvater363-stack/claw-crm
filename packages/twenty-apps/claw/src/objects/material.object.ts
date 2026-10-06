@@ -78,6 +78,7 @@ export default defineObject({
       options: STOCK_STATE_OPTIONS,
     },
     money(material.lastPurchasePrice, 'lastPurchasePrice', 'Цена закупки'),
+    money(material.averagePrice, 'averagePrice', 'Средняя цена'),
     quantity(
       material.overrunPercent,
       'overrunPercent',
