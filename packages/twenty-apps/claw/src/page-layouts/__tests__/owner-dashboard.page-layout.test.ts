@@ -115,7 +115,7 @@ describe('owner dashboard layout', () => {
 });
 
 describe('«Сегодня»', () => {
-  it('reads as four tiles, two lists and the month', () => {
+  it('reads as four tiles, two lists, the month and who to call back', () => {
     expect(titlesOf(today)).toEqual([
       'Просрочены',
       'Должны нам',
@@ -125,7 +125,17 @@ describe('«Сегодня»', () => {
       'Ближайшие сроки',
       'Выручка за месяц',
       'Маржа за месяц',
+      'Перезвонить',
     ]);
+  });
+
+  it('lists clients to call back today or late from the call-backs view', () => {
+    expect(
+      configurationOf(byId(IDS.ownerDashboard.callBacksTableWidget)),
+    ).toMatchObject({
+      configurationType: 'RECORD_TABLE',
+      viewUniversalIdentifier: IDS.view.dashboardCallBacks,
+    });
   });
 
   it.each([

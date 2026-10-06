@@ -188,6 +188,10 @@ describe('every select option of every object keeps its id', () => {
     // passes again unchanged. Only a new option adds a line here.
     expect(await effectiveOptionIds()).toMatchInlineSnapshot(`
       {
+        "clientCall.result.AGREED": "8d07771f-9079-55d8-b031-66a6cb520884",
+        "clientCall.result.NO_ANSWER": "7a68ce76-fe4f-5ba0-b3fe-3a478c856cd3",
+        "clientCall.result.REACHED": "16bf04cb-8277-5a7d-898a-aae52b19318a",
+        "clientCall.result.REFUSED": "dcdd52d5-89a3-543e-8e1e-6261c3078541",
         "design.metal.PROFILE": "ec511866-64c9-579c-a27a-177fb7713c20",
         "design.metal.REBAR": "ccb5ceb7-9d32-54cf-a5da-1ec2b3dee3a8",
         "design.metal.ROD": "cc39eb8d-5e6a-56fe-9c29-493b51ff6d2c",

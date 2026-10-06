@@ -420,8 +420,9 @@ export const TextInput = ({
   placeholder,
   label,
 }: {
-  // `datetime-local` gives local wall time without a zone: «2026-10-12T14:00»
-  type?: 'text' | 'datetime-local';
+  // `datetime-local` gives local wall time without a zone: «2026-10-12T14:00»;
+  // `date` a calendar day: «2026-10-12»
+  type?: 'text' | 'date' | 'datetime-local';
   value: string;
   onChange: (value: string) => void;
   // The accessible name. Without it the name is all the text of the field

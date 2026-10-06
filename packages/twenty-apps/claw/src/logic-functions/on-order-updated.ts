@@ -4,6 +4,7 @@ import {
   type ObjectRecordUpdateEvent,
 } from 'twenty-sdk/define';
 
+import { syncOrderClient } from 'src/clients/sync-order-client';
 import { isInstalled } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
@@ -25,7 +26,12 @@ type UpdatedOrder = {
   name: string | null;
   number: number | null;
   clientPhone: string | null;
+  clientId: string | null;
+  cancelReason: string | null;
 };
+
+// Fields that matter to the client alone; the order's own sums do not move.
+const CLIENT_ONLY_FIELDS = ['clientId', 'cancelReason'];
 
 const handler = async (
   payload: DatabaseEventPayload<ObjectRecordUpdateEvent<UpdatedOrder>>,
@@ -103,13 +109,28 @@ const handler = async (
     });
   }
 
-  await recalcOrder(client, payload.recordId, {
-    entersWrittenOff:
-      statusChanged &&
-      isEnteringWrittenOff({
-        status: after.status ?? null,
-        previousStatus: before.status ?? null,
-      }),
+  if (updatedFields.some((field) => !CLIENT_ONLY_FIELDS.includes(field))) {
+    await recalcOrder(client, payload.recordId, {
+      entersWrittenOff:
+        statusChanged &&
+        isEnteringWrittenOff({
+          status: after.status ?? null,
+          previousStatus: before.status ?? null,
+        }),
+    });
+  }
+
+  await syncOrderClient(client, {
+    before: {
+      clientId: before.clientId ?? null,
+      status: before.status ?? null,
+      cancelReason: before.cancelReason ?? null,
+    },
+    after: {
+      clientId: after.clientId ?? null,
+      status: after.status ?? null,
+      cancelReason: after.cancelReason ?? null,
+    },
   });
 };
 
@@ -117,7 +138,7 @@ export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderUpdated,
   name: 'on-order-updated',
   description:
-    'Restores an emptied order name, normalizes the client phone, sets the installation date and recalculates the order',
+    'Restores an emptied order name, normalizes the client phone, sets the installation date, recalculates the order and its client',
   timeoutSeconds: 30,
   databaseEventTriggerSettings: {
     eventName: 'order.updated',
@@ -144,6 +165,8 @@ export default defineLogicFunction({
       // before a payment existed. Watching them makes that write recalc again.
       'paid',
       'balance',
+      'clientId',
+      'cancelReason',
     ],
   },
   handler,

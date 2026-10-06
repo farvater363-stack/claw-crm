@@ -115,6 +115,7 @@ export const IDS = {
     urgency: '29af3039-d76e-4223-a2ed-e3ab2b82b5cc',
     clientSignature: 'f1cded87-98a7-4feb-b091-ceeeab3615d0',
     paintColor: 'e0732eb6-bef7-4820-b13f-ebd1bab4e732',
+    calls: '76a4d8ba-77af-4583-9f1a-b4117a74f543',
     // Twenty's deterministic ids for the built-in fields of this app's order
     // object: uuid v5 of "fieldMetadata:<object id>:<field name>" in the
     // namespace of the application id. Never made up, never generated here.
@@ -248,6 +249,40 @@ export const IDS = {
   },
   person: {
     orders: '096afa4c-cf9a-49b7-a6b8-c84412d088a6',
+    clientStatus: '3fa55502-09d3-43d0-b5e4-655756a1a6d5',
+    ordersCount: '9d716a0d-d339-46fc-9744-fba563b0b91a',
+    totalSpent: 'fb0679d3-d6a5-407d-898c-4abe4986fe31',
+    owes: '72eaa48f-84fc-4027-8a82-548d94522080',
+    quoted: 'a07171fc-efc2-4981-bb90-c263e0b8e0b6',
+    firstOrderAt: '5f8787ad-1a39-4841-9a3d-e37b4e38be5d',
+    lastOrderAt: '4ed24b5b-1e76-4293-b384-969ac37a2a92',
+    lastInstalledAt: 'e72f1464-62fd-49d7-8441-f2c6b1a8e3fe',
+    refusalReason: 'ff773dcd-28fb-4c12-97ce-d1105f2c39aa',
+    callBackAt: 'af3149a5-6b94-42d2-a2da-c07c28cfbe78',
+    callBackReason: '72770c12-42ef-4c25-81e9-a85da7e1690e',
+    lastCallAt: '92a78786-0eb8-4227-8676-d6339c5a8674',
+    lastCallNote: '7cfeb8db-81b1-4b09-90f7-ded2c3ba289b',
+    source: 'e598fb2b-140b-40f5-a646-083d5b592273',
+    district: '161f1f86-ebbb-451e-9085-123ac00edc5c',
+    address: 'ed426339-13ba-4eb4-8b35-3e0e45f118c8',
+    telegram: '1126503d-265f-4a9a-b5da-d1307b10baa9',
+    canMessage: '290cb0e1-3065-4d1f-8e24-6b310a0a3c1f',
+    clientNote: 'da5459a8-ea31-4564-8a5d-09c25b7c3935',
+    referredBy: '04203be2-30e7-4b8e-b209-b8bd67dbedb2',
+    referrals: '6d67cab3-1647-49b5-85d9-e43a4a0bb0a1',
+    calls: '96b39293-bc51-459b-9b22-24a7faa2cf3a',
+  },
+  clientCall: {
+    object: '3c1cd9de-f77a-43b4-9907-8ceb0cb7168a',
+    name: 'c24a9f0f-3670-4489-a4bb-6687e4ebe4b8',
+    person: '25b9353f-8b0a-4ef0-9cd7-f045391bd0fe',
+    order: '2b91a594-c3c2-4cb2-9424-16569bb9c4a6',
+    result: 'dff71612-30f5-42c0-9556-fc65aa8208af',
+    note: '76208d8b-50ab-477d-92c7-626b053afd77',
+    nextCallAt: 'bbc3ec30-4972-4314-8855-5326877061e8',
+    // Twenty's deterministic ids for the built-in fields, as on the order.
+    createdAt: '7deeef74-5752-5691-8df8-c514c76614a2',
+    createdBy: 'df003db4-cd23-52b5-a788-855d82cf9235',
   },
   workspaceMember: {
     managedOrders: '427447e0-e729-4c68-b9dc-2472b67f071a',
@@ -282,6 +317,11 @@ export const IDS = {
     dashboardNearestDeadlines: '1cff4610-fa0f-4f00-a5ca-9df851b03407',
     dashboardOverrun: '25cbe306-0c48-4d04-a0ed-ef8cee407fd0',
     orderPaymentsTable: '9795c1d9-9fdb-4e6e-91a2-6da5e13c5ec6',
+    clients: 'ea5c6cfd-2c50-4fcd-a346-b0823f497b3f',
+    clientsOwe: '4c006629-190a-47ab-bb27-35c9827e885e',
+    clientsCanMessage: '6f7061db-f2dc-4824-a33d-3e92f885c30a',
+    clientCallsTable: 'bb0c7d74-5659-473e-8e8b-4f299a3132bb',
+    dashboardCallBacks: 'ad1d8c6e-f8bb-4ba7-97c0-0e77d683673e',
   },
   navigation: {
     orders: '0625f589-566d-41cd-8637-04a507db25d8', // Retired: «Все заказы» is the second view of «Заказы» and has no menu item; ids are never reused.
@@ -305,6 +345,25 @@ export const IDS = {
     prices: '5270c73e-d422-4d41-b0d4-1489b25265f5',
     stock: '3b354a86-2ee7-49b5-88aa-8164f323fb63',
     workshop: 'fb6b018a-7e6d-4375-93af-e20acb846878',
+    clients: 'dfea565c-135b-4d06-8320-8959c6283868',
+    callBacks: '67d31f32-c045-4ed3-a104-a3c4113d6cad',
+    marketing: 'e60fe15d-747c-4964-b83f-4405d2e94d2d',
+  },
+  clientPage: {
+    frontComponent: 'd8b23909-502b-45ac-8268-0e8a709534f5',
+    widget: '6a916733-12b0-4522-b01e-9d24c295d2a9',
+  },
+  callBacks: {
+    frontComponent: '0c6a5cc9-dfaf-47dd-8fbc-25bc88be4d8e',
+    pageLayout: '99dd5156-364d-42b2-9b2a-a71ebd3c461a',
+    pageLayoutTab: 'a84a456c-9a14-445a-b249-1ac3e5ee7f96',
+    pageLayoutWidget: '0129dfba-1816-4718-9f20-9e2045c0b34b',
+  },
+  marketing: {
+    frontComponent: '0a28cc55-3bda-40aa-901f-763974d2ac2f',
+    pageLayout: '722d4942-4182-4212-873b-f9c2d3fd7adf',
+    pageLayoutTab: 'f2a9cd5b-8449-4e27-a626-30dacb91b631',
+    pageLayoutWidget: 'de4c2fe1-aa0f-4e4a-9529-a17a79da83a2',
   },
   stock: {
     frontComponent: '0f9c4b6b-3d4d-4979-ba26-84ba1cc57c06',
@@ -354,6 +413,7 @@ export const IDS = {
     materialsBuyWidget: 'a5215eac-7c29-4eca-8ef5-b75525deda11',
     purchasePlanTableWidget: '3e5f6037-4815-468d-a38e-456926656f15',
     overrunTableWidget: 'dabc602c-9188-4ff9-a220-48f0ecba5dc7',
+    callBacksTableWidget: 'fa017b8f-68c2-439f-9136-0a060f0f5303',
   },
   measurerForm: {
     frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',
@@ -406,5 +466,10 @@ export const IDS = {
     onOrderPaymentDeleted: '29234af7-da1a-45ea-9962-d0e00f746ca3',
     onOrderPaymentRestored: '4bcfbe8c-6604-4aa7-abe5-3b68209ed466',
     onOrderPaymentDestroyed: 'f9f81c1f-cb43-4472-992b-dc1e8c087a0b',
+    onOrderDeleted: 'b6717296-3689-4a89-b9df-18e2bf034487',
+    onOrderRestored: 'fbf16ef9-afc2-4599-9215-89024c77f0bb',
+    onOrderDestroyed: '02d5bbe6-ec68-481b-a116-d4102e487c19',
+    onClientCallCreated: '70aa6c43-63b0-4a95-a964-9e07d4d7804c',
+    refreshClients: '632bf9fa-76a6-420f-9daa-d1503396fd4c',
   },
 } as const;

@@ -372,5 +372,15 @@ export default defineObject({
       relationTargetFieldMetadataUniversalIdentifier: IDS.stockMovement.order,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
+    {
+      universalIdentifier: IDS.order.calls,
+      type: FieldType.RELATION,
+      name: 'calls',
+      label: 'Звонки',
+      icon: 'IconPhoneCall',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.clientCall.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.clientCall.order,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
   ]),
 });
