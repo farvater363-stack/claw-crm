@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildBuyList,
+  buildPurchase,
   buildReceipt,
   buildRecount,
   buildStockRows,
   movementText,
   parseMinimumStock,
   parseStockAmount,
+  purchaseSummary,
   recountSummary,
   type StockMaterial,
+  stockValue,
 } from 'src/stock/stock-screen';
 
 const plain = (value: string) => value.replace(/\s/g, ' ');
@@ -353,5 +357,120 @@ describe('movementText', () => {
 
   it('leaves out a missing day', () => {
     expect(movementText({ ...movement, date: null }, 'м')).toBe('купил 60 м');
+  });
+});
+
+describe('the buy list', () => {
+  const materials = [
+    material({ id: 'ok', name: 'Труба', onHand: 180, stockState: 'OK' }),
+    material({
+      id: 'low',
+      name: 'Краска',
+      unitLabel: 'л',
+      onHand: 3,
+      stockState: 'LOW',
+      toBuy: 4.5,
+    }),
+    material({
+      id: 'buy',
+      name: 'Прут',
+      onHand: 40,
+      stockState: 'BUY',
+      toBuy: 106,
+    }),
+  ];
+  const prices = {
+    ok: { last: 14_000, average: 14_000 },
+    low: { last: 60_000, average: null },
+    buy: { last: 9_000, average: 8_875 },
+  };
+
+  it('lists what to buy with a sum by the last prices', () => {
+    const list = buildBuyList(materials, prices);
+
+    expect(list.lines.map((line) => [line.id, line.sum])).toEqual([
+      ['buy', 954_000],
+      ['low', 270_000],
+    ]);
+    expect(list.total).toBe(1_224_000);
+    expect(list.copyText.split('\n').map(plain)).toEqual([
+      'Прут — 106 м',
+      'Краска — 4,5 л',
+    ]);
+  });
+
+  it('has no sum for a role that sees no prices', () => {
+    expect(buildBuyList(materials, {}).total).toBeNull();
+  });
+
+  it('values the shelf by the average price, the last one without it', () => {
+    expect(stockValue(materials, prices)).toBe(
+      180 * 14_000 + 3 * 60_000 + 40 * 8_875,
+    );
+    expect(stockValue(materials, {})).toBeNull();
+  });
+
+  it('shows how full the shelf is against the need and the reserve', () => {
+    const [row] = buildStockRows(
+      [material({ onHand: 40, reserved: 96, minimumStock: 50 })],
+      [],
+    );
+
+    expect(row.level).toBeCloseTo(40 / 146);
+    expect(plain(row.needText)).toBe('нужно 96 м + запас 50 м');
+  });
+});
+
+describe('buildPurchase', () => {
+  it('turns every material with an amount into a purchase', () => {
+    expect(
+      buildPurchase(
+        {
+          rod: { quantity: '106', price: '9,000' },
+          paint: { quantity: '5', price: '' },
+          pipe: { quantity: '', price: '14000' },
+        },
+        '2026-10-06',
+      ),
+    ).toEqual({
+      ok: true,
+      data: [
+        {
+          kind: 'RECEIPT',
+          materialId: 'rod',
+          quantity: 106,
+          unitPrice: 9_000,
+          date: '2026-10-06',
+        },
+        {
+          kind: 'RECEIPT',
+          materialId: 'paint',
+          quantity: 5,
+          unitPrice: null,
+          date: '2026-10-06',
+        },
+      ],
+    });
+  });
+
+  it('points at the material whose amount cannot be read', () => {
+    const purchase = buildPurchase(
+      { rod: { quantity: 'много', price: '' } },
+      '2026-10-06',
+    );
+
+    expect(purchase.ok ? [] : Object.keys(purchase.errors)).toEqual(['rod']);
+  });
+
+  it('sums the purchase as it is typed', () => {
+    expect(
+      plain(
+        purchaseSummary({
+          rod: { quantity: '106', price: '9000' },
+          paint: { quantity: '5', price: '62000' },
+        }) ?? '',
+      ),
+    ).toBe('Всего 1,264,000 сум');
+    expect(purchaseSummary({})).toBeNull();
   });
 });

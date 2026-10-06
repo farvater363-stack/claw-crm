@@ -6,11 +6,12 @@ import {
   type MaterialUnit,
 } from 'src/constants/select-options';
 import { todayInTashkent } from 'src/pricing/dates';
-import { toCurrency } from 'src/recalc/money';
+import { fromCurrency, toCurrency } from 'src/recalc/money';
 import {
   type StockMaterial,
   type StockMovementLine,
   type StockNeed,
+  type StockPrices,
   type StockReceipt,
   type StockRecountEntry,
 } from 'src/stock/stock-screen';
@@ -22,6 +23,7 @@ export type StockData = {
   needs: StockNeed[];
   // Purchase prices are the owner's: other roles get no price field
   canSeePrice: boolean;
+  prices: StockPrices;
 };
 
 // Twenty caps a page at 200 records.
@@ -29,32 +31,50 @@ const PAGE_SIZE = 200;
 const LATEST_MOVEMENTS = 5;
 const LISTED_KINDS = ['RECEIPT', 'STOCKTAKE', 'WRITE_OFF'] as const;
 
-const canReadPurchasePrice = async (client: CoreApiClient) => {
+const MONEY = { amountMicros: true } as const;
+
+// Null for a role that may not read purchase prices.
+const loadPurchasePrices = async (
+  client: CoreApiClient,
+): Promise<StockPrices | null> => {
   try {
-    await client.query({
-      materials: {
-        __args: { first: 1 },
-        edges: {
-          node: { id: true, lastPurchasePrice: { amountMicros: true } },
+    const nodes = await fetchAllPages(async (after) => {
+      const { materials } = await client.query({
+        materials: {
+          __args: { first: PAGE_SIZE, after },
+          edges: {
+            node: { id: true, lastPurchasePrice: MONEY, averagePrice: MONEY },
+          },
+          pageInfo: PAGE_INFO,
         },
-      },
+      });
+
+      return materials;
     });
 
-    return true;
+    return Object.fromEntries(
+      nodes.map((node) => [
+        node.id,
+        {
+          last: fromCurrency(node.lastPurchasePrice),
+          average: fromCurrency(node.averagePrice),
+        },
+      ]),
+    );
   } catch (error) {
     if (!isAccessError(error)) throw error;
 
-    return false;
+    return null;
   }
 };
 
 export const loadStockData = async (
   client: CoreApiClient,
   // What an earlier load of this screen found: the role does not change
-  // between two reads, so only the first one asks
+  // between two reads, so one that may not read prices is not asked again
   knownCanSeePrice?: boolean,
 ): Promise<StockData> => {
-  const [materialNodes, lineNodes, canSeePrice] = await Promise.all([
+  const [materialNodes, lineNodes, prices] = await Promise.all([
     fetchAllPages(async (after) => {
       const { materials } = await client.query({
         materials: {
@@ -101,7 +121,7 @@ export const loadStockData = async (
 
       return orderMaterials;
     }),
-    knownCanSeePrice ?? canReadPurchasePrice(client),
+    knownCanSeePrice === false ? null : loadPurchasePrices(client),
   ]);
 
   return {
@@ -137,7 +157,8 @@ export const loadStockData = async (
       .sort((left, right) =>
         right.orderName.localeCompare(left.orderName, 'ru', { numeric: true }),
       ),
-    canSeePrice,
+    canSeePrice: prices !== null,
+    prices: prices ?? {},
   };
 };
 

@@ -920,6 +920,41 @@ export const StickyBar = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// How full something is, 0 to 1. The colour repeats the pill beside it, which
+// carries the word.
+export const LevelBar = ({
+  level,
+  tone,
+}: {
+  level: number;
+  tone: 'danger' | 'warning' | 'success';
+}) => {
+  const colors = usePalette();
+
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: 'block',
+        height: SPACE.sm,
+        borderRadius: SPACE.xs,
+        background: colors.panel,
+        border: `1px solid ${colors.border}`,
+        overflow: 'hidden',
+      }}
+    >
+      <span
+        style={{
+          display: 'block',
+          height: '100%',
+          width: `${Math.round(level * 100)}%`,
+          background: colors[tone],
+        }}
+      />
+    </span>
+  );
+};
+
 export const StaticRow = ({ children }: { children: ReactNode }) => {
   const colors = usePalette();
 
