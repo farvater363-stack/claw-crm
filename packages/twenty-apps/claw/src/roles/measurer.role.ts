@@ -53,6 +53,7 @@ export default defineRole({
       STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.note.universalIdentifier,
     ),
     readOnly(IDS.design.object),
+    readOnly(IDS.grilleKind.object),
     readOnly(IDS.extraService.object),
   ],
   fieldPermissions: [

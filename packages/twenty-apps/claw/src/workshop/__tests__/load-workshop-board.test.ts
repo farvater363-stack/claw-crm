@@ -70,7 +70,7 @@ const ITEMS = [
     photos: [{ url: 'https://files/opening.jpg' }, { url: '' }],
     design: {
       name: 'Решётка А',
-      metal: 'ROD',
+      grilleKind: { name: 'Прут' },
       photos: [{ url: 'https://files/design.jpg' }],
     },
   },
@@ -279,7 +279,11 @@ describe('loadWorkshopOrders', () => {
       areaSquareMeters: true,
       notes: true,
       photos: { url: true },
-      design: { name: true, metal: true, photos: { url: true } },
+      design: {
+        name: true,
+        grilleKind: { name: true },
+        photos: { url: true },
+      },
     });
     expect(selectionOf('orderExtraServices')).toEqual({
       id: true,
