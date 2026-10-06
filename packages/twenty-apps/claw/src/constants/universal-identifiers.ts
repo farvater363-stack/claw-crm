@@ -11,6 +11,7 @@ export const IDS = {
     priceListItems: '7cebff66-e19b-41d6-9f4c-986e101fb14d', // Retired: the price lives on the grille; ids are never reused.
     orderItems: '34b0d24e-ef9f-409f-a8b1-13f158b6387c',
     metal: '456a19db-edbf-4a8b-8451-3524533f7a8c',
+    workshopKind: '604df6ce-3e3c-4e83-b90b-ddcb9f8d73f6',
     pricePerSquareMeter: 'b6c9c031-3d5a-49a2-9a1d-a2e733fb13cd',
     materialCostPerSquareMeter: '3bf0b146-f2d1-4b18-b3d5-03ed971eb28b',
     manufacturingCostPerSquareMeter: 'a1802127-18bb-49d3-beff-503a6b0040dc',

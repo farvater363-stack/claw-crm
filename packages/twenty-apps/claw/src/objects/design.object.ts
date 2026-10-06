@@ -39,6 +39,16 @@ export default defineObject({
       isNullable: true,
       options: METAL_OPTIONS,
     },
+    // What the workshop calls this kind of grille. Free text, so the owner can
+    // add a kind of his own; `metal` above keeps only the three first kinds.
+    {
+      universalIdentifier: IDS.design.workshopKind,
+      type: FieldType.TEXT,
+      name: 'workshopKind',
+      label: 'Вид решётки для цеха',
+      icon: 'IconHammer',
+      isNullable: true,
+    },
     money(IDS.design.pricePerSquareMeter, 'pricePerSquareMeter', 'Цена за м²'),
     money(
       IDS.design.materialCostPerSquareMeter,

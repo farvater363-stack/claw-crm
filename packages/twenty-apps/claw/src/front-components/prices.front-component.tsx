@@ -7,7 +7,6 @@ import { uploadFile } from 'twenty-sdk/front-component';
 import {
   EXTRA_SERVICE_UNIT_OPTIONS,
   materialUnitLabel,
-  METAL_OPTIONS,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { materialUnitPrice } from 'src/prices/material-cost';
@@ -15,6 +14,8 @@ import {
   type BuildPriceSectionsInput,
   buildPriceSections,
   type CompositionLine,
+  grilleKindOptions,
+  metalOfKind,
   parseOptionalMoney,
   parsePositiveNumber,
   type PriceRow,
@@ -103,6 +104,9 @@ const SECTIONS = [
   },
 ] as const;
 
+// The select's entry that opens a field for a kind of one's own
+const OWN_KIND = '__own__';
+
 const UNIT_OPTIONS = EXTRA_SERVICE_UNIT_OPTIONS.map(({ value }) => ({
   value,
   label: UNIT_TEXT[value],
@@ -169,6 +173,7 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
             id: true,
             name: true,
             metal: true,
+            workshopKind: true,
             pricePerSquareMeter: MONEY,
             photos: PHOTO,
           },
@@ -242,6 +247,7 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
       id: node.id,
       name: node.name ?? null,
       metal: node.metal ?? null,
+      workshopKind: node.workshopKind ?? null,
       price: fromCurrency(node.pricePerSquareMeter),
       photoUrl: photosById.get(node.id)?.[0]?.url ?? null,
     })),
@@ -334,6 +340,8 @@ const Prices = () => {
     quantity: string;
   } | null>(null);
   const [newRowId, setNewRowId] = useState<string | null>(null);
+  // The grille whose kind is being typed in instead of picked
+  const [ownKindId, setOwnKindId] = useState<string | null>(null);
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
   const [failures, setFailures] = useState<
     Record<string, { scope: string; retry: () => void }>
@@ -363,7 +371,7 @@ const Prices = () => {
   const patchRow = (
     row: PriceRow,
     changes: Partial<
-      Pick<PriceRow, 'name' | 'price' | 'metal' | 'unit' | 'photoUrl'>
+      Pick<PriceRow, 'name' | 'price' | 'metal' | 'workshopKind' | 'unit' | 'photoUrl'>
     >,
   ) =>
     patchData(({ source }) => ({
@@ -409,6 +417,7 @@ const Prices = () => {
     setErrors({});
     setConfirmKey(null);
     setNewLine(null);
+    setOwnKindId(null);
   };
 
   // `scope` is where a failure is shown and `key` names the action: a failure
@@ -893,6 +902,17 @@ const Prices = () => {
         `${choiceKey}=${value}`,
       );
 
+    const saveKind = (kind: string) => {
+      const metal = metalOfKind(kind);
+
+      saveChoice(
+        kind,
+        { workshopKind: kind, ...(metal === null ? {} : { metal }) },
+        {},
+        { workshopKind: kind, ...(metal === null ? {} : { metal }) },
+      );
+    };
+
     return (
       <>
         <Field
@@ -935,24 +955,45 @@ const Prices = () => {
               isSaved={savedKey === choiceKey}
             >
               <SelectInput
-                value={row.metal ?? ''}
+                value={ownKindId === row.id ? OWN_KIND : (row.workshopKind ?? '')}
                 options={[
-                  ...(row.metal === null
+                  ...(row.workshopKind === null
                     ? [{ value: '', label: 'Не указан' }]
                     : []),
-                  ...METAL_OPTIONS,
+                  ...grilleKindOptions(data.sections.grilles).map((kind) => ({
+                    value: kind,
+                    label: kind,
+                  })),
+                  { value: OWN_KIND, label: 'Свой вариант…' },
                 ]}
                 onChange={(value) => {
-                  const metal = METAL_OPTIONS.find(
-                    (option) => option.value === value,
-                  )?.value;
+                  if (value === OWN_KIND) {
+                    setOwnKindId(row.id);
 
-                  if (metal !== undefined) {
-                    saveChoice(metal, { metal }, {}, { metal });
+                    return;
                   }
+
+                  setOwnKindId(null);
+                  if (value !== '') saveKind(value);
                 }}
               />
             </Field>
+            {ownKindId === row.id ? (
+              <Field label="Свой вид" error={errors[`${row.id}:kind`]}>
+                <TextInput
+                  value={drafts[`${row.id}:kind`] ?? ''}
+                  onChange={(value) => setDraft(`${row.id}:kind`, value)}
+                  onCommit={() => {
+                    const kind = (drafts[`${row.id}:kind`] ?? '').trim();
+
+                    // Left empty, the field goes away and the kind stays as it was.
+                    setOwnKindId(null);
+                    setDrafts((current) => dropKey(current, `${row.id}:kind`));
+                    if (kind !== '' && kind !== row.workshopKind) saveKind(kind);
+                  }}
+                />
+              </Field>
+            ) : null}
             <Hint text="Видно только на карточке заказа в «В работе». На склад и цену не влияет" />
             <Group title="Фото">
               <Wrap>

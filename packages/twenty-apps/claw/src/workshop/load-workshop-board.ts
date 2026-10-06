@@ -121,7 +121,7 @@ export const loadWorkshopOrders = async (
               areaSquareMeters: true,
               notes: true,
               photos: PHOTO,
-              design: { name: true, metal: true, photos: PHOTO },
+              design: { name: true, metal: true, workshopKind: true, photos: PHOTO },
             },
           },
           pageInfo: PAGE_INFO,
@@ -180,7 +180,10 @@ export const loadWorkshopOrders = async (
       .map((item) => ({
         id: item.id,
         designName: textOrNull(item.design?.name),
-        metalLabel: labelOf(METAL_OPTIONS, item.design?.metal),
+        // A grille saved before kinds were free text has only its metal.
+        metalLabel:
+          textOrNull(item.design?.workshopKind) ??
+          labelOf(METAL_OPTIONS, item.design?.metal),
         size: item.name ?? '',
         quantity: item.quantity ?? 1,
         areaSquareMeters: item.areaSquareMeters ?? null,

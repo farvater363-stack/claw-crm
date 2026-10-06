@@ -279,7 +279,7 @@ describe('loadWorkshopOrders', () => {
       areaSquareMeters: true,
       notes: true,
       photos: { url: true },
-      design: { name: true, metal: true, photos: { url: true } },
+      design: { name: true, metal: true, workshopKind: true, photos: { url: true } },
     });
     expect(selectionOf('orderExtraServices')).toEqual({
       id: true,
