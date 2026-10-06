@@ -11,15 +11,16 @@ import {
 import { IDS } from 'src/constants/universal-identifiers';
 import { materialUnitPrice } from 'src/prices/material-cost';
 import {
+  buildKindName,
   type BuildPriceSectionsInput,
   buildPriceSections,
   type CompositionLine,
-  grilleKindOptions,
-  metalOfKind,
+  type GrilleKind,
   parseOptionalMoney,
   parsePositiveNumber,
   type PriceRow,
   type PriceSections,
+  removeKindQuestion,
   UNIT_TEXT,
 } from 'src/prices/prices-screen';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
@@ -57,6 +58,8 @@ type Photo = { fileId: string; label: string; url: string | null };
 type PricesData = {
   sections: PriceSections;
   materials: { id: string; name: string; unitLabel: string }[];
+  // The owner's list for «Вид решётки для цеха», by name
+  kinds: GrilleKind[];
   // What the sections are built from: an edit changes it and the rows, their
   // price text and their warnings are rebuilt
   source: BuildPriceSectionsInput;
@@ -163,6 +166,9 @@ const loadMaterialPrices = async (client: CoreApiClient) => {
   }
 };
 
+const sortKinds = (kinds: GrilleKind[]): GrilleKind[] =>
+  [...kinds].sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+
 const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
   const designNodes = await fetchAllPages(async (after) => {
     const { designs } = await client.query({
@@ -173,7 +179,7 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
             id: true,
             name: true,
             metal: true,
-            workshopKind: true,
+            grilleKindId: true,
             pricePerSquareMeter: MONEY,
             photos: PHOTO,
           },
@@ -228,6 +234,17 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
     return materials;
   });
 
+  const kindNodes = await fetchAllPages(async (after) => {
+    const { grilleKinds } = await client.query({
+      grilleKinds: {
+        __args: { first: PAGE_SIZE, after },
+        edges: { node: { id: true, name: true } },
+        pageInfo: PAGE_INFO,
+      },
+    });
+
+    return grilleKinds;
+  });
   const prices = await loadMaterialPrices(client);
   const materials = materialNodes
     .map((node) => ({
@@ -247,7 +264,7 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
       id: node.id,
       name: node.name ?? null,
       metal: node.metal ?? null,
-      workshopKind: node.workshopKind ?? null,
+      kindId: node.grilleKindId ?? null,
       price: fromCurrency(node.pricePerSquareMeter),
       photoUrl: photosById.get(node.id)?.[0]?.url ?? null,
     })),
@@ -272,6 +289,9 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
   return {
     sections: buildPriceSections(source),
     materials,
+    kinds: sortKinds(
+      kindNodes.map((node) => ({ id: node.id, name: node.name ?? '' })),
+    ),
     source,
     photosById,
   };
@@ -342,6 +362,7 @@ const Prices = () => {
   const [newRowId, setNewRowId] = useState<string | null>(null);
   // The grille whose kind is being typed in instead of picked
   const [ownKindId, setOwnKindId] = useState<string | null>(null);
+  const [isEditingKinds, setIsEditingKinds] = useState(false);
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
   const [failures, setFailures] = useState<
     Record<string, { scope: string; retry: () => void }>
@@ -371,7 +392,7 @@ const Prices = () => {
   const patchRow = (
     row: PriceRow,
     changes: Partial<
-      Pick<PriceRow, 'name' | 'price' | 'metal' | 'workshopKind' | 'unit' | 'photoUrl'>
+      Pick<PriceRow, 'name' | 'price' | 'metal' | 'kindId' | 'unit' | 'photoUrl'>
     >,
   ) =>
     patchData(({ source }) => ({
@@ -418,6 +439,7 @@ const Prices = () => {
     setConfirmKey(null);
     setNewLine(null);
     setOwnKindId(null);
+    setIsEditingKinds(false);
   };
 
   // `scope` is where a failure is shown and `key` names the action: a failure
@@ -902,16 +924,179 @@ const Prices = () => {
         `${choiceKey}=${value}`,
       );
 
-    const saveKind = (kind: string) => {
-      const metal = metalOfKind(kind);
+    const ownKindKey = `${row.id}:kind`;
+    const linkKind = (kindId: string) =>
+      saveChoice(kindId, { grilleKindId: kindId }, {}, { kindId });
 
-      saveChoice(
-        kind,
-        { workshopKind: kind, ...(metal === null ? {} : { metal }) },
-        {},
-        { workshopKind: kind, ...(metal === null ? {} : { metal }) },
+    // A name already in the list is that kind: it is picked, not added twice.
+    const addOwnKind = (raw: string) => {
+      const existing = data.kinds.find(
+        (kind) => kind.name.toLowerCase() === raw.trim().toLowerCase(),
       );
+      const name = buildKindName(raw, existing ? [] : data.kinds);
+
+      if (!name.ok) return;
+
+      if (existing) {
+        if (existing.id !== row.kindId) linkKind(existing.id);
+
+        return;
+      }
+
+      void run(row.id, ownKindKey, async () => {
+        const client = new CoreApiClient();
+        const { createGrilleKind } = await client.mutation({
+          createGrilleKind: {
+            __args: { data: { name: name.value } },
+            id: true,
+          },
+        });
+
+        if (!createGrilleKind) throw new Error('the kind was not returned');
+
+        patchData(({ kinds }) => ({
+          kinds: sortKinds([
+            ...kinds,
+            { id: createGrilleKind.id, name: name.value },
+          ]),
+        }));
+        await updateRow(row, { grilleKindId: createGrilleKind.id }, {});
+        patchRow(row, { kindId: createGrilleKind.id });
+        showSaved(choiceKey);
+      });
     };
+
+    const renameKind = (kind: GrilleKind) => {
+      const key = `kind:${kind.id}`;
+      const draft = drafts[key];
+
+      // TextInput commits on every blur, typed in or not.
+      if (draft === undefined) return;
+
+      const name = buildKindName(draft, data.kinds, kind.id);
+
+      if (!name.ok) {
+        setErrors((current) => ({ ...current, [key]: name.error }));
+
+        return;
+      }
+
+      setErrors((current) => dropKey(current, key));
+
+      if (name.value === kind.name) {
+        setDrafts((current) => dropKey(current, key));
+
+        return;
+      }
+
+      void run(row.id, key, async () => {
+        await new CoreApiClient().mutation({
+          updateGrilleKind: {
+            __args: { id: kind.id, data: { name: name.value } },
+            id: true,
+          },
+        });
+        patchData(({ kinds }) => ({
+          kinds: sortKinds(
+            kinds.map((other) =>
+              other.id === kind.id ? { ...other, name: name.value } : other,
+            ),
+          ),
+        }));
+        setDrafts((current) =>
+          current[key] === draft ? dropKey(current, key) : current,
+        );
+        showSaved(key);
+      });
+    };
+
+    const grillesOfKind = (kind: GrilleKind) =>
+      data.sections.grilles.filter((grille) => grille.kindId === kind.id);
+
+    const removeKind = (kind: GrilleKind) => {
+      setConfirmKey(null);
+      void run(row.id, `removeKind:${kind.id}`, async () => {
+        const client = new CoreApiClient();
+
+        // Unlinked first: a grille must not keep pointing at a kind that is gone.
+        for (const grille of grillesOfKind(kind)) {
+          await client.mutation({
+            updateDesign: {
+              __args: { id: grille.id, data: { grilleKindId: null } },
+              id: true,
+            },
+          });
+        }
+
+        await client.mutation({
+          deleteGrilleKind: { __args: { id: kind.id }, id: true },
+        });
+        patchData(({ kinds, source }) => ({
+          kinds: kinds.filter((other) => other.id !== kind.id),
+          source: {
+            ...source,
+            grilles: source.grilles.map((grille) =>
+              grille.kindId === kind.id ? { ...grille, kindId: null } : grille,
+            ),
+          },
+        }));
+      });
+    };
+
+    const renderKindList = () => (
+      <Group title="Виды решёток">
+        {data.kinds.length === 0 ? (
+          <Hint text="Пока пусто. Выберите «Свой вариант…» выше, чтобы добавить первый вид" />
+        ) : null}
+        {data.kinds.map((kind) => {
+          const key = `kind:${kind.id}`;
+
+          return confirmKey === key ? (
+            <InlineConfirm
+              key={kind.id}
+              question={removeKindQuestion(
+                kind.name,
+                grillesOfKind(kind).length,
+              )}
+              confirmText="Убрать"
+              cancelText="Оставить"
+              onConfirm={() => removeKind(kind)}
+              onCancel={() => setConfirmKey(null)}
+            />
+          ) : (
+            <Line
+              key={kind.id}
+              action={
+                <Button
+                  label={`Убрать вид "${kind.name}"`}
+                  onClick={() => setConfirmKey(key)}
+                >
+                  ×
+                </Button>
+              }
+            >
+              <Field
+                isInline
+                label={`Вид "${kind.name}"`}
+                error={errors[key]}
+                isSaved={savedKey === key}
+              >
+                <TextInput
+                  value={drafts[key] ?? kind.name}
+                  onChange={(value) => setDraft(key, value)}
+                  onCommit={() => renameKind(kind)}
+                />
+              </Field>
+            </Line>
+          );
+        })}
+        <Wrap>
+          <Button variant="link" onClick={() => setIsEditingKinds(false)}>
+            Готово
+          </Button>
+        </Wrap>
+      </Group>
+    );
 
     return (
       <>
@@ -955,14 +1140,14 @@ const Prices = () => {
               isSaved={savedKey === choiceKey}
             >
               <SelectInput
-                value={ownKindId === row.id ? OWN_KIND : (row.workshopKind ?? '')}
+                value={ownKindId === row.id ? OWN_KIND : (row.kindId ?? '')}
                 options={[
-                  ...(row.workshopKind === null
+                  ...(row.kindId === null
                     ? [{ value: '', label: 'Не указан' }]
                     : []),
-                  ...grilleKindOptions(data.sections.grilles).map((kind) => ({
-                    value: kind,
-                    label: kind,
+                  ...data.kinds.map((kind) => ({
+                    value: kind.id,
+                    label: kind.name,
                   })),
                   { value: OWN_KIND, label: 'Свой вариант…' },
                 ]}
@@ -974,27 +1159,36 @@ const Prices = () => {
                   }
 
                   setOwnKindId(null);
-                  if (value !== '') saveKind(value);
+                  if (value !== '') linkKind(value);
                 }}
               />
             </Field>
             {ownKindId === row.id ? (
-              <Field label="Свой вид" error={errors[`${row.id}:kind`]}>
+              <Field label="Свой вид">
                 <TextInput
-                  value={drafts[`${row.id}:kind`] ?? ''}
-                  onChange={(value) => setDraft(`${row.id}:kind`, value)}
+                  value={drafts[ownKindKey] ?? ''}
+                  onChange={(value) => setDraft(ownKindKey, value)}
                   onCommit={() => {
-                    const kind = (drafts[`${row.id}:kind`] ?? '').trim();
+                    const typed = drafts[ownKindKey] ?? '';
 
                     // Left empty, the field goes away and the kind stays as it was.
                     setOwnKindId(null);
-                    setDrafts((current) => dropKey(current, `${row.id}:kind`));
-                    if (kind !== '' && kind !== row.workshopKind) saveKind(kind);
+                    setDrafts((current) => dropKey(current, ownKindKey));
+                    addOwnKind(typed);
                   }}
                 />
               </Field>
             ) : null}
             <Hint text="Видно только на карточке заказа в «В работе». На склад и цену не влияет" />
+            {isEditingKinds ? (
+              renderKindList()
+            ) : (
+              <Wrap>
+                <Button variant="link" onClick={() => setIsEditingKinds(true)}>
+                  Изменить список видов
+                </Button>
+              </Wrap>
+            )}
             <Group title="Фото">
               <Wrap>
                 {photos.map((photo, index) => (

@@ -11,7 +11,7 @@ export const IDS = {
     priceListItems: '7cebff66-e19b-41d6-9f4c-986e101fb14d', // Retired: the price lives on the grille; ids are never reused.
     orderItems: '34b0d24e-ef9f-409f-a8b1-13f158b6387c',
     metal: '456a19db-edbf-4a8b-8451-3524533f7a8c',
-    workshopKind: '604df6ce-3e3c-4e83-b90b-ddcb9f8d73f6',
+    grilleKind: '50541b0a-248c-47f2-afa0-531a7bae5c2f',
     pricePerSquareMeter: 'b6c9c031-3d5a-49a2-9a1d-a2e733fb13cd',
     materialCostPerSquareMeter: '3bf0b146-f2d1-4b18-b3d5-03ed971eb28b',
     manufacturingCostPerSquareMeter: 'a1802127-18bb-49d3-beff-503a6b0040dc',
@@ -166,6 +166,11 @@ export const IDS = {
     amount: '78959f73-5a65-4454-8a1e-f7d1f2fb6ca1',
     kind: 'c85d5ab4-90cd-44e4-81c1-b5576611d568',
     comment: '0402873b-1b1a-4189-8e3d-9e2e668388f5',
+  },
+  grilleKind: {
+    object: '8b193d5c-042c-4fee-8d12-ecb515dd6abd',
+    name: '62dea76f-c0b9-4106-a772-b728ce4b028b',
+    designs: 'b42c2131-8785-4615-a2b7-22ad93227243',
   },
   payRule: {
     object: '9c5371a4-dad6-4bbc-b95d-27c0ee47e6d0',

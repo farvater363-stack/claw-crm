@@ -4,7 +4,6 @@ import { WORKSHOP_STATUSES } from 'src/constants/order-status-sets';
 import {
   DISTRICT_OPTIONS,
   materialUnitLabel,
-  METAL_OPTIONS,
   type OrderStatus,
   PRODUCTION_STAGE_OPTIONS,
   type ProductionStage,
@@ -121,7 +120,7 @@ export const loadWorkshopOrders = async (
               areaSquareMeters: true,
               notes: true,
               photos: PHOTO,
-              design: { name: true, metal: true, workshopKind: true, photos: PHOTO },
+              design: { name: true, grilleKind: { name: true }, photos: PHOTO },
             },
           },
           pageInfo: PAGE_INFO,
@@ -180,10 +179,7 @@ export const loadWorkshopOrders = async (
       .map((item) => ({
         id: item.id,
         designName: textOrNull(item.design?.name),
-        // A grille saved before kinds were free text has only its metal.
-        metalLabel:
-          textOrNull(item.design?.workshopKind) ??
-          labelOf(METAL_OPTIONS, item.design?.metal),
+        metalLabel: textOrNull(item.design?.grilleKind?.name),
         size: item.name ?? '',
         quantity: item.quantity ?? 1,
         areaSquareMeters: item.areaSquareMeters ?? null,

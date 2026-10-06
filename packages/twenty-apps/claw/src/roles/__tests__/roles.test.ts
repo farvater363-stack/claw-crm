@@ -236,6 +236,8 @@ describe('workshop', () => {
         IDS.orderExtraService.object,
         IDS.master.object,
         IDS.design.object,
+        // The kind's name is on the workshop's order card.
+        IDS.grilleKind.object,
         IDS.material.object,
         IDS.orderMaterial.object,
       ].sort(),
@@ -373,6 +375,7 @@ describe('functions role', () => {
         IDS.orderMaterial.object,
         IDS.stockMovement.object,
         IDS.design.object,
+        IDS.grilleKind.object,
         IDS.extraService.object,
         IDS.materialNorm.object,
         IDS.payRule.object,

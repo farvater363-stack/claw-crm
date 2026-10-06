@@ -1,7 +1,6 @@
 import {
   type ExtraServiceKind,
   type ExtraServiceUnit,
-  METAL_OPTIONS,
 } from 'src/constants/select-options';
 import { parseDecimalInput } from 'src/measurer-form/measurer-form';
 import { computeMaterialCost } from 'src/prices/material-cost';
@@ -29,8 +28,8 @@ export type PriceRow = {
   priceText: string | null;
   photoUrl: string | null;
   metal: string | null;
-  // «Вид решётки для цеха» as shown: the typed kind, or the old metal's name
-  workshopKind: string | null;
+  // «Вид решётки для цеха»: the id of one of the owner's kinds
+  kindId: string | null;
   warnings: string[];
   composition: CompositionLine[];
   // «Материал 168,900 сум · остаётся 281,100 сум»; null for a role that does
@@ -49,7 +48,7 @@ export type BuildPriceSectionsInput = {
     id: string;
     name: string | null;
     metal: string | null;
-    workshopKind?: string | null;
+    kindId?: string | null;
     price: number | null;
     photoUrl: string | null;
   }[];
@@ -84,32 +83,35 @@ export const UNIT_TEXT: Record<PriceUnit, string> = {
   FIXED: 'за заказ',
 };
 
-// A grille saved before kinds were free text has only its metal.
-export const grilleKind = ({
-  workshopKind,
-  metal,
-}: {
-  workshopKind?: string | null;
-  metal: string | null;
-}): string | null =>
-  workshopKind?.trim() ||
-  METAL_OPTIONS.find((option) => option.value === metal)?.label ||
-  null;
+export type GrilleKind = { id: string; name: string };
 
-// The three first kinds and every kind typed since, for the next grille to pick.
-export const grilleKindOptions = (rows: Pick<PriceRow, 'workshopKind'>[]): string[] =>
-  [
-    ...new Set([
-      ...METAL_OPTIONS.map((option) => option.label),
-      ...rows.flatMap((row) =>
-        row.workshopKind === null ? [] : [row.workshopKind],
-      ),
-    ]),
-  ].sort((left, right) => left.localeCompare(right, 'ru'));
+// A kind's name as typed: not empty, and not a second kind of the same name.
+export const buildKindName = (
+  raw: string,
+  kinds: GrilleKind[],
+  ownId?: string,
+): { ok: true; value: string } | { ok: false; error: string } => {
+  const name = raw.trim();
 
-// The old select is kept in step while the kind is one of its three.
-export const metalOfKind = (kind: string) =>
-  METAL_OPTIONS.find((option) => option.label === kind)?.value ?? null;
+  if (name === '') return { ok: false, error: 'Введите название вида' };
+
+  return kinds.some(
+    (kind) =>
+      kind.id !== ownId && kind.name.toLowerCase() === name.toLowerCase(),
+  )
+    ? { ok: false, error: 'Такой вид уже есть' }
+    : { ok: true, value: name };
+};
+
+const GRILLES_WORD: Partial<Record<Intl.LDMLPluralRule, string>> = {
+  one: 'решётки',
+};
+
+// Removing a kind that grilles carry leaves them without one, so it is said first.
+export const removeKindQuestion = (name: string, usedBy: number): string =>
+  usedBy === 0
+    ? `Убрать вид "${name}"?`
+    : `Вид "${name}" стоит у ${usedBy} ${GRILLES_WORD[new Intl.PluralRules('ru').select(usedBy)] ?? 'решёток'}. У них вид станет пустым. Убрать?`;
 
 const byName = (left: PriceRow, right: PriceRow) =>
   left.name.localeCompare(right.name, 'ru', { numeric: true });
@@ -169,7 +171,7 @@ export const buildPriceSections = ({
       | 'unit'
       | 'photoUrl'
       | 'metal'
-      | 'workshopKind'
+      | 'kindId'
     >,
     composition: CompositionLine[],
   ): PriceRow => {
@@ -213,7 +215,7 @@ export const buildPriceSections = ({
         unit: service.unit ?? 'FIXED',
         photoUrl: null,
         metal: null,
-        workshopKind: null,
+        kindId: null,
       },
       compositionOf('extraServiceId', service.id),
     ),
@@ -231,7 +233,7 @@ export const buildPriceSections = ({
             unit: 'PER_SQUARE_METER',
             photoUrl: grille.photoUrl,
             metal: grille.metal,
-            workshopKind: grilleKind(grille),
+            kindId: grille.kindId ?? null,
           },
           compositionOf('designId', grille.id),
         ),

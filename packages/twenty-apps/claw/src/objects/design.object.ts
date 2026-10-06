@@ -1,4 +1,9 @@
-import { defineObject, FieldType, RelationType } from 'twenty-sdk/define';
+import {
+  defineObject,
+  FieldType,
+  OnDeleteAction,
+  RelationType,
+} from 'twenty-sdk/define';
 
 import { METAL_OPTIONS } from 'src/constants/select-options';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
@@ -39,15 +44,22 @@ export default defineObject({
       isNullable: true,
       options: METAL_OPTIONS,
     },
-    // What the workshop calls this kind of grille. Free text, so the owner can
-    // add a kind of his own; `metal` above keeps only the three first kinds.
+    // What the workshop calls this kind of grille, from the owner's own list.
+    // `metal` above is what it was before the list could be edited.
     {
-      universalIdentifier: IDS.design.workshopKind,
-      type: FieldType.TEXT,
-      name: 'workshopKind',
+      universalIdentifier: IDS.design.grilleKind,
+      type: FieldType.RELATION,
+      name: 'grilleKind',
       label: 'Вид решётки для цеха',
       icon: 'IconHammer',
       isNullable: true,
+      relationTargetObjectMetadataUniversalIdentifier: IDS.grilleKind.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.grilleKind.designs,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'grilleKindId',
+      },
     },
     money(IDS.design.pricePerSquareMeter, 'pricePerSquareMeter', 'Цена за м²'),
     money(

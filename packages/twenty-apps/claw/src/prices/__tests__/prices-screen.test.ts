@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildPriceSections,
-  grilleKind,
-  grilleKindOptions,
-  metalOfKind,
+  buildKindName,
+  removeKindQuestion,
   parseOptionalMoney,
   parsePositiveNumber,
 } from 'src/prices/prices-screen';
@@ -279,26 +278,32 @@ describe('input checks', () => {
   });
 });
 
-describe('the kind of a grille', () => {
-  it('is what was typed, or the name of the old metal', () => {
-    expect(grilleKind({ workshopKind: ' Труба ', metal: 'ROD' })).toBe('Труба');
-    expect(grilleKind({ workshopKind: null, metal: 'ROD' })).toBe('Прут');
-    expect(grilleKind({ workshopKind: '', metal: null })).toBeNull();
+describe('the list of grille kinds', () => {
+  const kinds = [
+    { id: 'rod', name: 'Прут' },
+    { id: 'pipe', name: 'Труба' },
+  ];
+
+  it('takes a new name trimmed and refuses an empty or a repeated one', () => {
+    expect(buildKindName(' Рельс ', kinds)).toEqual({ ok: true, value: 'Рельс' });
+    expect(buildKindName('  ', kinds).ok).toBe(false);
+    expect(buildKindName('труба', kinds)).toEqual({
+      ok: false,
+      error: 'Такой вид уже есть',
+    });
   });
 
-  it('offers the three first kinds and every kind typed since, once each', () => {
-    expect(
-      grilleKindOptions([
-        { workshopKind: 'Труба' },
-        { workshopKind: 'Прут' },
-        { workshopKind: null },
-        { workshopKind: 'Труба' },
-      ]),
-    ).toEqual(['Арматура', 'Профиль', 'Прут', 'Труба']);
+  it('lets a kind keep its own name when it is renamed', () => {
+    expect(buildKindName('Труба', kinds, 'pipe').ok).toBe(true);
   });
 
-  it('keeps the old metal for one of the three first kinds only', () => {
-    expect(metalOfKind('Профиль')).toBe('PROFILE');
-    expect(metalOfKind('Труба')).toBeNull();
+  it('warns before removing a kind that grilles carry', () => {
+    expect(removeKindQuestion('Труба', 0)).toBe('Убрать вид "Труба"?');
+    expect(removeKindQuestion('Труба', 1)).toBe(
+      'Вид "Труба" стоит у 1 решётки. У них вид станет пустым. Убрать?',
+    );
+    expect(removeKindQuestion('Труба', 3)).toBe(
+      'Вид "Труба" стоит у 3 решёток. У них вид станет пустым. Убрать?',
+    );
   });
 });
