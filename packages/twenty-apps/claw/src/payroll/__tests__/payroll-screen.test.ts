@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { type PayMethod, type WorkerCategory } from 'src/constants/select-options';
 import { type PayRule, type PayWork } from 'src/payroll/pay-rules';
+import { type PayrollRow } from 'src/payroll/compute-monthly-payroll';
 import {
   buildPayRule,
+  buildStatement,
+  payrollTotals,
+  signedWhole,
+  totalsSentence,
   buildWorker,
   canPayInMonth,
   carrySentence,
@@ -260,5 +265,72 @@ describe('storedAttempts', () => {
 
   it('names one row attempt and leaves the same form of another row open', () => {
     expect(storedAttempts({ 'worker-2:pay': 'id-1', 'worker-1:pay': 'id-2' }, ['id-2'])).toEqual(['worker-1:pay']);
+  });
+});
+
+describe('the month as a statement', () => {
+  const row = (overrides: Partial<PayrollRow> = {}): PayrollRow => ({
+    workerId: 'worker-3',
+    workerName: 'Рустам',
+    categories: ['MASTER'],
+    isActive: true,
+    earned: 708_000,
+    carriedOver: 400_000,
+    paidThisMonth: 500_000,
+    owed: 608_000,
+    lines: [
+      line({ id: 'b', earnedOn: '2026-10-12', basis: 11.5, rate: 40_000, amount: 460_000, name: '№1045 · Мастер' }),
+      line({ id: 'a', earnedOn: '2026-10-04', basis: 6.2, rate: 40_000, amount: 248_000, name: '№1042 · Мастер' }),
+    ],
+    payments: [{ id: 'p', masterId: 'worker-3', paidOn: '2026-10-05', amount: 500_000, kind: 'ADVANCE', comment: null }],
+    ...overrides,
+  });
+
+  it('lists what came over, each order by its day and each payment, adding up to what is owed', () => {
+    const statement = buildStatement(row());
+
+    expect(statement.map(({ text, amount }) => [plain(text), amount])).toEqual([
+      ['С прошлого месяца', 400_000],
+      ['№1042 · 6,2 м² × 40,000', 248_000],
+      ['№1045 · 11,5 м² × 40,000', 460_000],
+      ['5 октября · аванс', -500_000],
+    ]);
+    expect(statement.reduce((sum, { amount }) => sum + amount, 0)).toBe(row().owed);
+    expect(statement[1].orderId).toBe('order-1031');
+  });
+
+  it('words a fixed pay, a percent and a penalty', () => {
+    const statement = buildStatement(
+      row({
+        carriedOver: 0,
+        payments: [],
+        lines: [
+          line({ id: 'f', orderId: null, method: 'FIXED', work: null, amount: 3_000_000, name: 'Фикса' }),
+          line({ id: 's', method: 'PERCENT_OF_SALES', work: 'SALES', basis: 14_200_000, rate: 2, amount: 284_000, name: '№1045 · Продажи' }),
+          line({ id: 'x', method: 'PENALTY', amount: -20_000, name: '№1045 · Штраф' }),
+        ],
+      }),
+    );
+
+    expect(statement.map(({ text }) => plain(text))).toEqual([
+      'Фикса',
+      '№1045 · 2 % от 14,200,000',
+      '№1045 · штраф',
+    ]);
+  });
+
+  it('signs a sum the way a ledger does', () => {
+    expect(signedWhole(248_000)).toBe('+248,000');
+    expect(signedWhole(-500_000)).toBe('−500,000');
+  });
+
+  it('totals the month for everybody', () => {
+    const totals = payrollTotals([row(), row({ earned: 442_500, carriedOver: 0, paidThisMonth: 0, owed: 442_500 })]);
+
+    expect(totals).toMatchObject({ owed: 1_050_500, paid: 500_000, earned: 1_150_500, carriedOver: 400_000 });
+    expect(totals.paidShare).toBeCloseTo(500_000 / 1_550_500);
+    expect(plain(totalsSentence(totals))).toBe(
+      'Выплачено 500,000 из 1,550,500 · начислено за месяц 1,150,500 · с прошлого 400,000',
+    );
   });
 });

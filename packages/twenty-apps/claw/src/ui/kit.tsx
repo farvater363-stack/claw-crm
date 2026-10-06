@@ -920,6 +920,81 @@ export const StickyBar = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// Two or three views of one thing; the chosen one is outlined in the accent.
+export const Tabs = <TValue extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: TValue;
+  options: { value: TValue; label: string }[];
+  onChange: (value: TValue) => void;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.sm }}>
+      {options.map((option) => {
+        const isChosen = option.value === value;
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={isChosen}
+            onClick={() => onChange(option.value)}
+            style={{
+              minHeight: CONTROL_HEIGHT,
+              padding: `0 ${SPACE.lg}px`,
+              background: colors.surface,
+              border: `2px solid ${isChosen ? colors.accent : colors.border}`,
+              borderRadius: RADIUS.control,
+              color: isChosen ? colors.accent : colors.text,
+              font: 'inherit',
+              fontWeight: isChosen ? 600 : 400,
+              cursor: 'pointer',
+            }}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+// A line of a statement: what it is on the left, its sum on the right.
+export const AmountLine = ({
+  amount,
+  isTotal = false,
+  children,
+}: {
+  amount: string;
+  isTotal?: boolean;
+  children: ReactNode;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        gap: SPACE.md,
+        ...(isTotal && {
+          paddingTop: SPACE.sm,
+          borderTop: `1px solid ${colors.border}`,
+          fontWeight: 600,
+        }),
+      }}
+    >
+      <span style={{ minWidth: 0 }}>{children}</span>
+      <span style={{ ...TABULAR_NUMBERS, whiteSpace: 'nowrap' }}>{amount}</span>
+    </div>
+  );
+};
+
 // How full something is, 0 to 1. The colour repeats the pill beside it, which
 // carries the word.
 export const LevelBar = ({

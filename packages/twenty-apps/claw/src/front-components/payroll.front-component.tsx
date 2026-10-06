@@ -28,28 +28,28 @@ import { buildPaymentInput } from 'src/payroll/payment-draft';
 import { currentMonthInTashkent, formatMonthLabel, shiftMonth } from 'src/payroll/payroll-month';
 import {
   buildPayRule,
+  buildStatement,
   buildWorker,
   canPayInMonth,
-  carrySentence,
   CATEGORY_REQUIRED,
-  earnedHeading,
-  listMonthOrders,
   parsePenaltyPercent,
   payRuleLabel,
   payRuleSuffix,
   payRuleValue,
   payRuleValueLabel,
-  paymentText,
+  payrollTotals,
   payWorksOf,
   rowTitle,
+  signedWhole,
   skippedNote,
   storedAttempts,
-  summarizeEarned,
+  totalsSentence,
   withCategory,
 } from 'src/payroll/payroll-screen';
 import { todayInTashkent } from 'src/pricing/dates';
 import { formatMoney, formatWhole } from 'src/ui/format';
 import {
+  AmountLine,
   Button,
   Checkbox,
   Columns,
@@ -58,6 +58,7 @@ import {
   Field,
   Hint,
   InlineConfirm,
+  LevelBar,
   Line,
   Link,
   Row,
@@ -66,9 +67,11 @@ import {
   SelectInput,
   SkeletonRows,
   StaticRow,
+  Tabs,
   TextInput,
   Wrap,
 } from 'src/ui/kit';
+import { TYPE } from 'src/ui/tokens';
 import { dropKey } from 'src/utils/drop-key';
 import { isAccessError } from 'src/utils/is-access-error';
 import { randomUuid } from 'src/utils/random-uuid';
@@ -81,6 +84,8 @@ type LoadState =
 
 // The one form shown at a time; each has the screen's primary button.
 type Panel = 'pay' | 'rule' | 'worker';
+// An open worker shows the month or the terms of pay, never both.
+type Tab = 'month' | 'terms';
 type PayForm = { kind: MasterPaymentKind; amount: string; comment: string };
 type NewRule = { method: PayMethod; work: PayWork | null; value: string };
 type NewWorker = { name: string; categories: WorkerCategory[] };
@@ -94,6 +99,10 @@ const EMPTY_TEXT =
 const NEW_RULE: NewRule = { method: 'PER_SQUARE_METER', work: 'MASTER', value: '' };
 const NEW_WORKER: NewWorker = { name: '', categories: [] };
 const ADD_KEY = 'add';
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'month', label: 'Месяц' },
+  { value: 'terms', label: 'Условия' },
+];
 
 const readState = async (month: string): Promise<LoadState> => {
   try {
@@ -110,6 +119,7 @@ const Payroll = () => {
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
   const [openId, setOpenId] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
+  const [tab, setTab] = useState<Tab>('month');
   const [payForm, setPayForm] = useState<PayForm | null>(null);
   const [newRule, setNewRule] = useState<NewRule>(NEW_RULE);
   const [newWorker, setNewWorker] = useState<NewWorker>(NEW_WORKER);
@@ -316,6 +326,7 @@ const Payroll = () => {
     payments: data.payments,
   });
   const skipped = skippedNote(data.skipped);
+  const totals = payrollTotals(rows);
 
   // Closing a form drops what it held and what was said about it, and ends its
   // attempt: a create that failed may still have been stored, and the next
@@ -330,6 +341,7 @@ const Payroll = () => {
   // What is typed in a row belongs to that row; the new worker's form is not a row's.
   const showRow = (workerId: string | null) => {
     setOpenId(workerId);
+    setTab('month');
     setPanel((current) => (current === 'worker' ? current : null));
     setPayForm(null);
     setNewRule(NEW_RULE);
@@ -455,16 +467,22 @@ const Payroll = () => {
     );
   };
 
-  const openPay = (row: PayrollRow) => {
+  const openPay = (row: PayrollRow, kind: MasterPaymentKind = 'SETTLEMENT') => {
     const isSameRow = openId === row.workerId;
 
     if (!isSameRow) showRow(row.workerId);
 
-    // A sum already typed for this row is kept when the form is opened again.
-    if (!isSameRow || payForm === null) {
-      setPayForm({ kind: 'SETTLEMENT', amount: row.owed > 0 ? formatWhole(row.owed) : '', comment: '' });
+    // A sum already typed for this row is kept when the same form is opened again.
+    if (!isSameRow || payForm === null || payForm.kind !== kind) {
+      setPayForm({
+        kind,
+        // The whole debt for a settlement; an advance is whatever was agreed.
+        amount: kind === 'SETTLEMENT' && row.owed > 0 ? formatWhole(row.owed) : '',
+        comment: '',
+      });
     }
 
+    setTab('month');
     setPanel('pay');
   };
 
@@ -520,6 +538,7 @@ const Payroll = () => {
       setPanel(null);
       // Opened so the first pay rule can be added straight away.
       showRow(workerId);
+      setTab('terms');
     };
     void run(
       ADD_KEY,
@@ -708,7 +727,6 @@ const Payroll = () => {
 
   const renderOpenRow = (row: PayrollRow, worker: PayrollScreenWorker) => {
     const rules = data.rules.filter((rule) => rule.workerId === row.workerId);
-    const orders = listMonthOrders(row.lines);
     const categoriesKey = `${row.workerId}:categories`;
     const loginKey = `${row.workerId}:login`;
     const penaltyKey = `${row.workerId}:penalty`;
@@ -720,75 +738,97 @@ const Payroll = () => {
         .map((login) => ({ value: login.id, label: login.name })),
     ];
 
+    const canPay = canPayInMonth(month, currentMonthInTashkent());
+
     return (
       <>
-        {panel === 'pay' && payForm ? renderPayForm(row, payForm) : null}
-        <Hint text={`${earnedHeading(row.earned)}${row.lines.length > 0 ? ':' : ''}`} />
-        {summarizeEarned(row.lines).map((text) => (
-          <Hint key={text} text={text} />
-        ))}
-        <Hint text={carrySentence(row)} />
-        {orders.length > 0 ? (
-          <Wrap>
-            <span>Заказы месяца:</span>
-            {orders.map((order) => (
-              <Link key={order.orderId} href={`/object/order/${order.orderId}`}>
-                {order.text}
-              </Link>
-            ))}
-          </Wrap>
-        ) : null}
-        {row.payments.length > 0 ? <Hint text={`Выплаты: ${row.payments.map(paymentText).join(' · ')}`} /> : null}
-        <Wrap>
-          <Link href="/objects/masterPayments">
-            Все выплаты <span aria-hidden>›</span>
-          </Link>
-        </Wrap>
-        <Wrap>
-          <span>Кто:</span>
-          {WORKER_CATEGORY_OPTIONS.map((option) => (
-            <Checkbox
-              key={option.value}
-              label={option.label}
-              isChecked={worker.categories.includes(option.value)}
-              onChange={(isChecked) => toggleCategory(worker, option.value, isChecked)}
-            />
-          ))}
-        </Wrap>
-        {errors[categoriesKey] ? <Hint tone="danger" text={errors[categoriesKey]} /> : null}
-        <Field isInline label="Логин" isSaved={savedKey === loginKey}>
-          <SelectInput
-            label="Логин"
-            value={worker.loginId ?? ''}
-            options={loginOptions}
-            onChange={(value) => changeWorker(row.workerId, 'login', { loginId: value === '' ? null : value })}
-          />
-        </Field>
-        <span>Как платим:</span>
-        {rules.map((rule) => renderRule(rule, rules))}
-        {panel === 'rule' ? (
-          renderNewRule(row.workerId, rules)
-        ) : (
-          <Wrap>
-            <Button onClick={() => setPanel('rule')}>+ Добавить правило</Button>
-          </Wrap>
-        )}
-        <Field isInline label="Штраф" error={errors[penaltyKey]} isSaved={savedKey === penaltyKey}>
-          <TextInput
-            label="Штраф"
-            inputMode="decimal"
-            value={drafts[penaltyKey] ?? String(worker.penaltyPercentPerDay).replace('.', ',')}
-            suffix="% в день"
-            onChange={(value) => setDraft(penaltyKey, value)}
-            onCommit={() => commitPenalty(worker)}
-            onCancel={() => clearDraft(penaltyKey)}
-          />
-        </Field>
-        <Checkbox
-          label="Работает"
-          isChecked={worker.isActive}
-          onChange={(isActive) => changeWorker(row.workerId, 'active', { isActive })}
+        <Tabs
+          value={tab}
+          options={TABS}
+          onChange={(next) => {
+            setTab(next);
+            // A form belongs to its tab and is not carried to the other one.
+            if (panel === 'pay' || panel === 'rule') setPanel(null);
+          }}
         />
+        {tab === 'month' ? (
+          <>
+            {panel === 'pay' && payForm ? renderPayForm(row, payForm) : null}
+            {buildStatement(row).map((line) => (
+              <AmountLine key={line.key} amount={signedWhole(line.amount)}>
+                {line.orderId === null ? (
+                  line.text
+                ) : (
+                  <Link href={`/object/order/${line.orderId}`}>{line.text}</Link>
+                )}
+              </AmountLine>
+            ))}
+            <AmountLine isTotal amount={formatMoney(row.owed)}>
+              К выплате
+            </AmountLine>
+            {canPay && panel !== 'pay' ? (
+              <Wrap>
+                <Button variant="primary" isWideOnPhone onClick={() => openPay(row)}>
+                  {row.owed > 0 ? `Выплатить ${formatMoney(row.owed)}` : 'Выплатить'}
+                </Button>
+                <Button onClick={() => openPay(row, 'ADVANCE')}>Аванс</Button>
+              </Wrap>
+            ) : null}
+            <Wrap>
+              <Link href="/objects/masterPayments">
+                Все выплаты <span aria-hidden>›</span>
+              </Link>
+            </Wrap>
+          </>
+        ) : (
+          <>
+            <span>Как платим:</span>
+            {rules.map((rule) => renderRule(rule, rules))}
+            {panel === 'rule' ? (
+              renderNewRule(row.workerId, rules)
+            ) : (
+              <Wrap>
+                <Button onClick={() => setPanel('rule')}>+ Добавить правило</Button>
+              </Wrap>
+            )}
+            <Wrap>
+              <span>Кто:</span>
+              {WORKER_CATEGORY_OPTIONS.map((option) => (
+                <Checkbox
+                  key={option.value}
+                  label={option.label}
+                  isChecked={worker.categories.includes(option.value)}
+                  onChange={(isChecked) => toggleCategory(worker, option.value, isChecked)}
+                />
+              ))}
+            </Wrap>
+            {errors[categoriesKey] ? <Hint tone="danger" text={errors[categoriesKey]} /> : null}
+            <Field isInline label="Логин" isSaved={savedKey === loginKey}>
+              <SelectInput
+                label="Логин"
+                value={worker.loginId ?? ''}
+                options={loginOptions}
+                onChange={(value) => changeWorker(row.workerId, 'login', { loginId: value === '' ? null : value })}
+              />
+            </Field>
+            <Field isInline label="Штраф" error={errors[penaltyKey]} isSaved={savedKey === penaltyKey}>
+              <TextInput
+                label="Штраф"
+                inputMode="decimal"
+                value={drafts[penaltyKey] ?? String(worker.penaltyPercentPerDay).replace('.', ',')}
+                suffix="% в день"
+                onChange={(value) => setDraft(penaltyKey, value)}
+                onCommit={() => commitPenalty(worker)}
+                onCancel={() => clearDraft(penaltyKey)}
+              />
+            </Field>
+            <Checkbox
+              label="Работает"
+              isChecked={worker.isActive}
+              onChange={(isActive) => changeWorker(row.workerId, 'active', { isActive })}
+            />
+          </>
+        )}
       </>
     );
   };
@@ -883,6 +923,13 @@ const Payroll = () => {
 
   return (
     <Screen title="ЗП" action={switcher}>
+      <Section title="К выплате всем">
+        <StaticRow>
+          <span style={TYPE.keyNumber}>{formatMoney(totals.owed)}</span>
+          <LevelBar level={totals.paidShare} tone="success" />
+          <Hint text={totalsSentence(totals)} />
+        </StaticRow>
+      </Section>
       <Section
         title="Работники"
         footer={

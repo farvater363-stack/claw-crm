@@ -212,3 +212,84 @@ export const skippedNote = ({ payments, accruals }: { payments: number; accruals
 
   return parts.length > 0 ? parts.join('. ') : null;
 };
+
+export type StatementLine = {
+  key: string;
+  text: string;
+  // Signed: what was earned adds, what was paid takes away
+  amount: number;
+  orderId: string | null;
+};
+
+const accrualText = (line: AccrualLine): string => {
+  // A line's name starts with its order's number: «№1042 · Установщик · …»
+  const order = line.orderId === null ? null : line.name.split(' · ')[0];
+  const lead = (words: string) => [order, words].filter(Boolean).join(' · ');
+
+  if (line.method === 'FIXED') return 'Фикса';
+  if (line.method === 'BONUS') return lead('премия');
+  if (line.method === 'PENALTY') return lead('штраф');
+  if (line.method === 'PER_SQUARE_METER') {
+    return lead(`${formatQuantity(line.basis, 'м²')} × ${formatWhole(line.rate)}`);
+  }
+  if (line.method === 'PERCENT_OF_SALES') {
+    return lead(`${formatQuantity(line.rate, '%')} от ${formatWhole(line.basis)}`);
+  }
+
+  return lead(methodWords(line.method));
+};
+
+// A worker's month as a page of a ledger: what came over, each thing earned,
+// each payment. The lines add up to what is owed.
+export const buildStatement = ({
+  carriedOver,
+  lines,
+  payments,
+}: Pick<PayrollRow, 'carriedOver' | 'lines' | 'payments'>): StatementLine[] => [
+  ...(carriedOver === 0
+    ? []
+    : [{ key: 'carried', text: 'С прошлого месяца', amount: carriedOver, orderId: null }]),
+  ...[...lines]
+    .sort((left, right) => left.earnedOn.localeCompare(right.earnedOn) || left.name.localeCompare(right.name, 'ru', { numeric: true }))
+    .map((line) => ({ key: line.id, text: accrualText(line), amount: line.amount, orderId: line.orderId })),
+  ...[...payments]
+    .sort((left, right) => left.paidOn.localeCompare(right.paidOn))
+    .map((payment) => ({
+      key: payment.id,
+      text: [
+        formatDayMonth(payment.paidOn),
+        MASTER_PAYMENT_KIND_OPTIONS.find((option) => option.value === payment.kind)?.label.toLowerCase(),
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      amount: -payment.amount,
+      orderId: null,
+    })),
+];
+
+// A sum with its sign, as in a ledger: «+248,000», «−500,000».
+export const signedWhole = (amount: number): string =>
+  `${amount < 0 ? '−' : '+'}${formatWhole(Math.abs(amount))}`;
+
+export type PayrollTotals = { owed: number; paid: number; earned: number; carriedOver: number; paidShare: number };
+
+export const payrollTotals = (rows: PayrollRow[]): PayrollTotals => {
+  const sum = (pick: (row: PayrollRow) => number) => rows.reduce((total, row) => total + pick(row), 0);
+  const owed = sum((row) => row.owed);
+  const paid = sum((row) => row.paidThisMonth);
+
+  return {
+    owed,
+    paid,
+    earned: sum((row) => row.earned),
+    carriedOver: sum((row) => row.carriedOver),
+    paidShare: paid + owed > 0 ? Math.min(1, Math.max(0, paid / (paid + owed))) : 0,
+  };
+};
+
+export const totalsSentence = ({ paid, owed, earned, carriedOver }: PayrollTotals): string =>
+  [
+    `Выплачено ${formatWhole(paid)} из ${formatWhole(paid + owed)}`,
+    `начислено за месяц ${formatWhole(earned)}`,
+    ...(carriedOver === 0 ? [] : [`с прошлого ${formatWhole(carriedOver)}`]),
+  ].join(' · ');
