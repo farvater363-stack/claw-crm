@@ -28,6 +28,8 @@ export type PriceRow = {
   priceText: string | null;
   photoUrl: string | null;
   metal: string | null;
+  // «Вид решётки для цеха»: the id of one of the owner's kinds
+  kindId: string | null;
   warnings: string[];
   composition: CompositionLine[];
   // «Материал 168,900 сум · остаётся 281,100 сум»; null for a role that does
@@ -46,6 +48,7 @@ export type BuildPriceSectionsInput = {
     id: string;
     name: string | null;
     metal: string | null;
+    kindId?: string | null;
     price: number | null;
     photoUrl: string | null;
   }[];
@@ -79,6 +82,36 @@ export const UNIT_TEXT: Record<PriceUnit, string> = {
   PER_PIECE: 'за шт',
   FIXED: 'за заказ',
 };
+
+export type GrilleKind = { id: string; name: string };
+
+// A kind's name as typed: not empty, and not a second kind of the same name.
+export const buildKindName = (
+  raw: string,
+  kinds: GrilleKind[],
+  ownId?: string,
+): { ok: true; value: string } | { ok: false; error: string } => {
+  const name = raw.trim();
+
+  if (name === '') return { ok: false, error: 'Введите название вида' };
+
+  return kinds.some(
+    (kind) =>
+      kind.id !== ownId && kind.name.toLowerCase() === name.toLowerCase(),
+  )
+    ? { ok: false, error: 'Такой вид уже есть' }
+    : { ok: true, value: name };
+};
+
+const GRILLES_WORD: Partial<Record<Intl.LDMLPluralRule, string>> = {
+  one: 'решётки',
+};
+
+// Removing a kind that grilles carry leaves them without one, so it is said first.
+export const removeKindQuestion = (name: string, usedBy: number): string =>
+  usedBy === 0
+    ? `Убрать вид "${name}"?`
+    : `Вид "${name}" стоит у ${usedBy} ${GRILLES_WORD[new Intl.PluralRules('ru').select(usedBy)] ?? 'решёток'}. У них вид станет пустым. Убрать?`;
 
 const byName = (left: PriceRow, right: PriceRow) =>
   left.name.localeCompare(right.name, 'ru', { numeric: true });
@@ -131,7 +164,14 @@ export const buildPriceSections = ({
   const toRow = (
     base: Pick<
       PriceRow,
-      'id' | 'section' | 'name' | 'price' | 'unit' | 'photoUrl' | 'metal'
+      | 'id'
+      | 'section'
+      | 'name'
+      | 'price'
+      | 'unit'
+      | 'photoUrl'
+      | 'metal'
+      | 'kindId'
     >,
     composition: CompositionLine[],
   ): PriceRow => {
@@ -158,7 +198,7 @@ export const buildPriceSections = ({
         ...(base.section !== 'SERVICE' &&
         hasMaterials &&
         composition.length === 0
-          ? ['Не указано, из чего делается']
+          ? ['Не указаны материалы']
           : []),
         ...(canSeeCosts && !isComplete ? ['Нет цены закупки'] : []),
       ],
@@ -175,6 +215,7 @@ export const buildPriceSections = ({
         unit: service.unit ?? 'FIXED',
         photoUrl: null,
         metal: null,
+        kindId: null,
       },
       compositionOf('extraServiceId', service.id),
     ),
@@ -192,6 +233,7 @@ export const buildPriceSections = ({
             unit: 'PER_SQUARE_METER',
             photoUrl: grille.photoUrl,
             metal: grille.metal,
+            kindId: grille.kindId ?? null,
           },
           compositionOf('designId', grille.id),
         ),
