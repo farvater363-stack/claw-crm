@@ -761,7 +761,7 @@ const Prices = () => {
 
     return (
       <Group
-        title={`Из чего делается, на 1 ${UNIT_TEXT[row.unit].replace('за ', '')}`}
+        title={`Материалы на 1 ${UNIT_TEXT[row.unit].replace('за ', '')}`}
       >
         {row.composition.map((line) =>
           confirmKey === line.normId ? (
@@ -930,7 +930,10 @@ const Prices = () => {
               `сум ${UNIT_TEXT[row.unit]}`,
               savePrice,
             )}
-            <Field label="Металл" isSaved={savedKey === choiceKey}>
+            <Field
+              label="Вид решётки для цеха"
+              isSaved={savedKey === choiceKey}
+            >
               <SelectInput
                 value={row.metal ?? ''}
                 options={[
@@ -950,6 +953,7 @@ const Prices = () => {
                 }}
               />
             </Field>
+            <Hint text="Видно только на карточке заказа в «В работе». На склад и цену не влияет" />
             <Group title="Фото">
               <Wrap>
                 {photos.map((photo, index) => (

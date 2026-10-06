@@ -158,7 +158,7 @@ export const buildPriceSections = ({
         ...(base.section !== 'SERVICE' &&
         hasMaterials &&
         composition.length === 0
-          ? ['Не указано, из чего делается']
+          ? ['Не указаны материалы']
           : []),
         ...(canSeeCosts && !isComplete ? ['Нет цены закупки'] : []),
       ],

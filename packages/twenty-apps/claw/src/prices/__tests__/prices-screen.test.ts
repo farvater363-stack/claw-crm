@@ -149,7 +149,7 @@ describe('buildPriceSections', () => {
         norms: [],
         materials,
       }).grilles[0].warnings,
-    ).toEqual(['Не указано, из чего делается']);
+    ).toEqual(['Не указаны материалы']);
   });
 
   it('does not ask a plain service for a composition', () => {
