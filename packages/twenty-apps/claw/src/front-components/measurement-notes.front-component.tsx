@@ -7,23 +7,32 @@ import {
 } from 'twenty-sdk/front-component';
 
 import { IDS } from 'src/constants/universal-identifiers';
-import { collectOrderNotes, type OrderNote } from 'src/order-notes/order-notes';
+import {
+  collectOrderNotes,
+  collectOrderPhotos,
+  type OrderNote,
+  type OrderPhoto,
+} from 'src/order-notes/order-notes';
 import { PALETTE } from 'src/ui/tokens';
 
 const PAGE_SIZE = 200;
+const PHOTO_SIZE_PX = 120;
+const PHOTO = { url: true } as const;
+
+type OrderCardNotes = { notes: OrderNote[]; photos: OrderPhoto[] };
 
 // A role that cannot read one of the sources still sees the rest.
 const orEmpty = <TRow,>(rows: Promise<TRow[]>): Promise<TRow[]> =>
   rows.catch(() => []);
 
-const loadOrderNotes = async (orderId: string): Promise<OrderNote[]> => {
+const loadOrderNotes = async (orderId: string): Promise<OrderCardNotes> => {
   const client = new CoreApiClient();
   const ofOrder = { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE };
   const [{ orders, orderItems }, payments, stockMovements] = await Promise.all([
     client.query({
       orders: {
         __args: { filter: { id: { eq: orderId } }, first: 1 },
-        edges: { node: { comment: true } },
+        edges: { node: { comment: true, finishedPhotos: PHOTO } },
       },
       orderItems: {
         __args: { ...ofOrder, orderBy: [{ createdAt: 'AscNullsLast' }] },
@@ -33,6 +42,7 @@ const loadOrderNotes = async (orderId: string): Promise<OrderNote[]> => {
             widthCm: true,
             heightCm: true,
             notes: true,
+            photos: PHOTO,
             design: { name: true },
           },
         },
@@ -64,40 +74,49 @@ const loadOrderNotes = async (orderId: string): Promise<OrderNote[]> => {
     ),
   ]);
 
-  return collectOrderNotes({
-    orderComment: orders?.edges[0]?.node?.comment ?? null,
-    items: (orderItems?.edges ?? []).map(({ node }) => ({
-      id: node.id,
-      widthCm: node.widthCm ?? null,
-      heightCm: node.heightCm ?? null,
-      designName: node.design?.name ?? null,
-      notes: node.notes ?? null,
-    })),
-    payments: payments.map((payment) => ({
-      id: payment.id,
-      paidOn: payment.paidOn ?? null,
-      comment: payment.comment ?? null,
-    })),
-    stockMovements: stockMovements.map((movement) => ({
-      id: movement.id,
-      name: movement.name ?? null,
-      comment: movement.comment ?? null,
-    })),
-  });
+  const items = (orderItems?.edges ?? []).map(({ node }) => ({
+    id: node.id,
+    widthCm: node.widthCm ?? null,
+    heightCm: node.heightCm ?? null,
+    designName: node.design?.name ?? null,
+    notes: node.notes ?? null,
+    photos: node.photos ?? null,
+  }));
+
+  return {
+    photos: collectOrderPhotos({
+      items,
+      finishedPhotos: orders?.edges[0]?.node?.finishedPhotos ?? null,
+    }),
+    notes: collectOrderNotes({
+      orderComment: orders?.edges[0]?.node?.comment ?? null,
+      items,
+      payments: payments.map((payment) => ({
+        id: payment.id,
+        paidOn: payment.paidOn ?? null,
+        comment: payment.comment ?? null,
+      })),
+      stockMovements: stockMovements.map((movement) => ({
+        id: movement.id,
+        name: movement.name ?? null,
+        comment: movement.comment ?? null,
+      })),
+    }),
+  };
 };
 
 const MeasurementNotes = () => {
   const colors = PALETTE[useColorScheme()];
   const selectedRecordIds = useSelectedRecordIds();
   const orderId = selectedRecordIds.length === 1 ? selectedRecordIds[0] : null;
-  const [notes, setNotes] = useState<OrderNote[] | null>(null);
+  const [loaded, setLoaded] = useState<OrderCardNotes | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (orderId === null) return;
 
     loadOrderNotes(orderId)
-      .then(setNotes)
+      .then(setLoaded)
       .catch((error: unknown) =>
         setLoadError(error instanceof Error ? error.message : String(error)),
       );
@@ -113,48 +132,87 @@ const MeasurementNotes = () => {
   if (loadError !== null) {
     return (
       <p role="alert" style={{ ...text, color: colors.muted, margin: 0 }}>
-        Не удалось загрузить комментарии: {loadError}
+        Не удалось загрузить фото и комментарии: {loadError}
       </p>
     );
   }
 
-  if (notes === null) return null;
+  if (loaded === null) return null;
 
-  if (notes.length === 0) {
+  const { notes, photos } = loaded;
+
+  if (notes.length === 0 && photos.length === 0) {
     return (
       <p style={{ ...text, color: colors.muted, margin: 0 }}>
-        Комментариев и заметок по заказу нет
+        Фото, комментариев и заметок по заказу нет
       </p>
     );
   }
 
   return (
-    <div
-      style={{
-        ...text,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '8px',
-      }}
-    >
-      {notes.map((note, index) => (
+    <div style={{ ...text, display: 'grid', gap: '12px' }}>
+      {photos.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+          {photos.map((photo) => (
+            <a
+              key={photo.url}
+              href={photo.url}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                color: colors.muted,
+                display: 'grid',
+                gap: '4px',
+                textDecoration: 'none',
+                width: PHOTO_SIZE_PX,
+              }}
+            >
+              <img
+                src={photo.url}
+                alt={photo.caption}
+                style={{
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '8px',
+                  height: PHOTO_SIZE_PX,
+                  objectFit: 'cover',
+                  width: PHOTO_SIZE_PX,
+                }}
+              />
+              <span style={{ fontSize: '12px', lineHeight: 1.3 }}>
+                {photo.caption}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+      {notes.length > 0 && (
         <div
-          key={note.key}
           style={{
-            borderTop: index === 0 ? 'none' : `1px solid ${colors.border}`,
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '4px 12px',
-            padding: '8px 12px',
+            border: `1px solid ${colors.border}`,
+            borderRadius: '8px',
           }}
         >
-          <span style={{ color: colors.muted, minWidth: '160px' }}>
-            {note.source}
-          </span>
-          <span style={{ flex: '1 1 200px', whiteSpace: 'pre-line' }}>
-            {note.text}
-          </span>
+          {notes.map((note, index) => (
+            <div
+              key={note.key}
+              style={{
+                borderTop: index === 0 ? 'none' : `1px solid ${colors.border}`,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '4px 12px',
+                padding: '8px 12px',
+              }}
+            >
+              <span style={{ color: colors.muted, minWidth: '160px' }}>
+                {note.source}
+              </span>
+              <span style={{ flex: '1 1 200px', whiteSpace: 'pre-line' }}>
+                {note.text}
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 };
@@ -162,6 +220,6 @@ const MeasurementNotes = () => {
 export default defineFrontComponent({
   universalIdentifier: IDS.measurementNotes.frontComponent,
   name: 'measurement-notes',
-  description: 'Комментарии и заметки со всего заказа на его карточке',
+  description: 'Фото, комментарии и заметки со всего заказа на его карточке',
   component: MeasurementNotes,
 });

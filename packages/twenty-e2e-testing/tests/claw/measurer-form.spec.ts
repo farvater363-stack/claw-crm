@@ -515,6 +515,26 @@ test('measurer records a measurement from the tablet form', async ({
     await expect(
       page.getByText(orderName, { exact: true }).first(),
     ).toBeVisible({ timeout: 60_000 });
+
+    // The photo is kept on the opening; the order card shows it too. At
+    // tablet width the tab hides in a «Ещё» menu.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/object/order/${orderIds[0]}`);
+    await page
+      .getByText('Фото и заметки', { exact: true })
+      // The tab bar keeps a hidden copy of every tab to measure its width.
+      .filter({ visible: true })
+      .first()
+      .click({ timeout: 60_000 });
+    await expect(
+      page.getByRole('img', { name: /^Проём 1/ }).first(),
+    ).toBeVisible({ timeout: 60_000 });
+
+    if (process.env.CLAW_SCREENSHOT_DIR) {
+      await page.screenshot({
+        path: `${process.env.CLAW_SCREENSHOT_DIR}/order-card-photos.png`,
+      });
+    }
   } finally {
     await context.close();
   }

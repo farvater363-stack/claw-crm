@@ -231,6 +231,11 @@ const KanbanCard = ({
                 {card.name}
               </span>
               {card.isUrgent ? <UrgentTag /> : null}
+              {/* In this row, so a narrow column wraps the badge under the
+                  number instead of covering its last digits. */}
+              <span style={{ marginLeft: 'auto' }}>
+                <Badge tone={card.tone}>{card.badge}</Badge>
+              </span>
             </div>
             <span style={{ ...ELLIPSIS, ...TYPE.label, color: colors.muted }}>
               <strong style={{ color: colors.text, fontWeight: 600 }}>
@@ -238,9 +243,6 @@ const KanbanCard = ({
               </strong>
               {clientLine(card) === '' ? '' : ` · ${clientLine(card)}`}
             </span>
-          </div>
-          <div style={{ display: 'grid', justifyItems: 'end', gap: 2 }}>
-            <Badge tone={card.tone}>{card.badge}</Badge>
           </div>
         </div>
 
