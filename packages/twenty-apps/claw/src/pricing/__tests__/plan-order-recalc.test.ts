@@ -123,6 +123,7 @@ const input = (overrides: Partial<RecalcInput> = {}): RecalcInput => ({
   ],
   master: paidPerSquareMeter(10_000, 4),
   paymentsTotal: 0,
+  payTotal: 0,
   today: '2026-10-01',
   refreshPriceItemIds: [],
   refreshPriceExtraServiceLineIds: [],
@@ -130,6 +131,16 @@ const input = (overrides: Partial<RecalcInput> = {}): RecalcInput => ({
 });
 
 describe('planOrderRecalc', () => {
+  it('counts the pay written for the order in its cost', () => {
+    const plan = planOrderRecalc(input({ payTotal: 100_000 }));
+
+    expect(plan.orderUpdate).toMatchObject({
+      total: 768_000,
+      costTotal: 560_800,
+      margin: 207_200,
+    });
+  });
+
   it('prices an item from its grille and totals the order', () => {
     const plan = planOrderRecalc(input());
 

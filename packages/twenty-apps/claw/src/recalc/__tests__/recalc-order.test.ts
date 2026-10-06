@@ -33,3 +33,20 @@ it('writes the pay lines after the totals are stored, even when the materials st
     vi.mocked(syncOrderAccruals).mock.invocationCallOrder[0],
   );
 });
+
+it('stores the totals again once the pay lines have changed', async () => {
+  vi.mocked(applyRecalcPlan).mockClear();
+  vi.mocked(syncOrderMaterials).mockResolvedValue(false);
+  vi.mocked(syncOrderAccruals).mockResolvedValueOnce(true);
+
+  await recalcOrder(client, 'order-1');
+
+  expect(applyRecalcPlan).toHaveBeenCalledTimes(2);
+
+  vi.mocked(applyRecalcPlan).mockClear();
+  vi.mocked(syncOrderAccruals).mockResolvedValueOnce(false);
+
+  await recalcOrder(client, 'order-1');
+
+  expect(applyRecalcPlan).toHaveBeenCalledTimes(1);
+});

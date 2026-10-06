@@ -3,6 +3,7 @@ import {
   type ExtraServiceUnit,
 } from 'src/constants/select-options';
 import { parseDecimalInput } from 'src/measurer-form/measurer-form';
+import { computeMaterialCost } from 'src/prices/material-cost';
 import { formatMoney } from 'src/ui/format';
 
 export type PriceUnit = ExtraServiceUnit;
@@ -13,6 +14,9 @@ export type CompositionLine = {
   materialName: string;
   quantity: number;
   unitLabel: string;
+  // Purchase price of one unit and of this line; null without a purchase price
+  unitPrice: number | null;
+  lineCost: number | null;
 };
 
 export type PriceRow = {
@@ -26,6 +30,9 @@ export type PriceRow = {
   metal: string | null;
   warnings: string[];
   composition: CompositionLine[];
+  // «Материал 168,900 сум · остаётся 281,100 сум»; null for a role that does
+  // not see purchase prices and until a line has one
+  costText: string | null;
 };
 
 export type PriceSections = {
@@ -56,7 +63,14 @@ export type BuildPriceSectionsInput = {
     materialId: string | null;
     quantityPerUnit: number | null;
   }[];
-  materials: { id: string; name: string | null; unitLabel: string }[];
+  materials: {
+    id: string;
+    name: string | null;
+    unitLabel: string;
+    unitPrice?: number | null;
+  }[];
+  // Purchase prices are the owner's: without them no cost is shown or warned about
+  canSeeCosts?: boolean;
 };
 
 export const UNIT_TEXT: Record<PriceUnit, string> = {
@@ -74,6 +88,7 @@ export const buildPriceSections = ({
   services,
   norms,
   materials,
+  canSeeCosts = false,
 }: BuildPriceSectionsInput): PriceSections => {
   const materialById = new Map(
     materials.map((material) => [material.id, material]),
@@ -87,19 +102,30 @@ export const buildPriceSections = ({
           ? undefined
           : materialById.get(norm.materialId);
 
-      return norm[owner] === id &&
-        material !== undefined &&
-        norm.quantityPerUnit !== null
-        ? [
-            {
-              normId: norm.id,
-              materialId: material.id,
-              materialName: material.name ?? '',
-              quantity: norm.quantityPerUnit,
-              unitLabel: material.unitLabel,
-            },
-          ]
-        : [];
+      if (
+        norm[owner] !== id ||
+        material === undefined ||
+        norm.quantityPerUnit === null
+      ) {
+        return [];
+      }
+
+      const unitPrice = material.unitPrice ?? null;
+
+      return [
+        {
+          normId: norm.id,
+          materialId: material.id,
+          materialName: material.name ?? '',
+          quantity: norm.quantityPerUnit,
+          unitLabel: material.unitLabel,
+          unitPrice,
+          lineCost:
+            unitPrice === null
+              ? null
+              : Math.round(norm.quantityPerUnit * unitPrice),
+        },
+      ];
     });
 
   const toRow = (
@@ -108,20 +134,36 @@ export const buildPriceSections = ({
       'id' | 'section' | 'name' | 'price' | 'unit' | 'photoUrl' | 'metal'
     >,
     composition: CompositionLine[],
-  ): PriceRow => ({
-    ...base,
-    priceText:
-      base.price === null
-        ? null
-        : `${formatMoney(base.price)} ${UNIT_TEXT[base.unit]}`,
-    composition,
-    warnings: [
-      ...(base.price === null ? ['Укажите цену'] : []),
-      ...(base.section !== 'SERVICE' && hasMaterials && composition.length === 0
-        ? ['Не указано, из чего делается']
-        : []),
-    ],
-  });
+  ): PriceRow => {
+    const { cost, isComplete } = computeMaterialCost(composition);
+
+    return {
+      ...base,
+      priceText:
+        base.price === null
+          ? null
+          : `${formatMoney(base.price)} ${UNIT_TEXT[base.unit]}`,
+      composition,
+      costText:
+        !canSeeCosts || cost === null
+          ? null
+          : [
+              `Материал ${formatMoney(cost)}`,
+              ...(base.price === null
+                ? []
+                : [`остаётся ${formatMoney(base.price - cost)}`]),
+            ].join(' · '),
+      warnings: [
+        ...(base.price === null ? ['Укажите цену'] : []),
+        ...(base.section !== 'SERVICE' &&
+        hasMaterials &&
+        composition.length === 0
+          ? ['Не указано, из чего делается']
+          : []),
+        ...(canSeeCosts && !isComplete ? ['Нет цены закупки'] : []),
+      ],
+    };
+  };
 
   const serviceRows = services.map((service) =>
     toRow(

@@ -208,6 +208,7 @@ export const IDS = {
     toBuy: '2f6c8f60-1ca0-474d-9fb4-186143b7a0d4',
     stockState: 'ad9bda72-8947-4009-8270-a5de16f427ef',
     lastPurchasePrice: '49b55f27-c8a2-4814-9578-7ff54e13a52b',
+    averagePrice: 'c497c00f-7632-40e7-b25c-5eaba92e5d0a',
     norms: '4e2b5555-46ec-43cb-9cf3-f14331ca005a',
     movements: '63070c36-01c4-454c-b461-bdece708ecf0',
     orderMaterials: 'f0bed2fd-47c3-41a9-ae87-2e069725dd9d',

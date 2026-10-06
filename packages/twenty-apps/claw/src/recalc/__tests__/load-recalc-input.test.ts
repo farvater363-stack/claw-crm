@@ -19,6 +19,9 @@ const fakeClient = (
   {
     order = { id: 'order-1', status: 'MEASURED' } as Record<string, unknown>,
     accruals = [] as Record<string, unknown>[],
+    designs = [] as Record<string, unknown>[],
+    norms = [] as Record<string, unknown>[],
+    materials = [] as Record<string, unknown>[],
   } = {},
 ) => {
   const queries: Request[] = [];
@@ -31,8 +34,10 @@ const fakeClient = (
         payAccruals: page(accruals),
         orderItems: page([]),
         orderExtraServices: page([]),
-        designs: page([]),
+        designs: page(designs),
         extraServices: page([]),
+        materialNorms: page(norms),
+        materials: page(materials),
         orderPayments: page(payments),
       };
     },
@@ -47,6 +52,42 @@ const NO_REFRESH = {
 };
 
 describe('loadRecalcInput', () => {
+  it('costs a grille by its composition and the purchase prices', async () => {
+    const { client } = fakeClient([], {
+      designs: [{ id: 'grille-1', pricePerSquareMeter: uzs(450_000) }],
+      norms: [
+        { designId: 'grille-1', materialId: 'rod', quantityPerUnit: 9.5 },
+        { designId: 'grille-1', materialId: 'paint', quantityPerUnit: 0.25 },
+        { designId: 'grille-2', materialId: 'rod', quantityPerUnit: 100 },
+      ],
+      materials: [
+        // The average wins over the last price.
+        { id: 'rod', averagePrice: uzs(9_000), lastPurchasePrice: uzs(9_900) },
+        { id: 'paint', averagePrice: null, lastPurchasePrice: uzs(60_000) },
+      ],
+    });
+
+    const input = await loadRecalcInput(client, 'order-1', NO_REFRESH);
+
+    expect(input?.grilles).toEqual([
+      {
+        id: 'grille-1',
+        pricePerSquareMeter: 450_000,
+        costPerSquareMeter: 100_500,
+      },
+    ]);
+  });
+
+  it('sums the pay lines of the order', async () => {
+    const { client } = fakeClient([], {
+      accruals: [{ amount: uzs(248_000) }, { amount: uzs(155_000) }],
+    });
+
+    expect(
+      (await loadRecalcInput(client, 'order-1', NO_REFRESH))?.payTotal,
+    ).toBe(403_000);
+  });
+
   it('sums the payments of this order only', async () => {
     const { client, queries } = fakeClient([
       { amount: uzs(500_000) },

@@ -11,6 +11,7 @@ import {
   keptMasterRates,
   toPayRules,
 } from 'src/payroll/pay-records';
+import { materialCostByOwner } from 'src/prices/material-cost';
 import { todayInTashkent } from 'src/pricing/dates';
 import { type RecalcInput } from 'src/pricing/plan-order-recalc';
 import { fromCurrency } from 'src/recalc/money';
@@ -25,11 +26,6 @@ export const toNumber = (value: unknown): number | null =>
 
 const toDate = (value: unknown): string | null =>
   value === null || value === undefined ? null : String(value).slice(0, 10);
-
-const sumOfCosts = (...values: (number | null)[]): number | null =>
-  values.every((value) => value === null)
-    ? null
-    : values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 
 export const loadRecalcInput = async (
   client: CoreApiClient,
@@ -48,6 +44,8 @@ export const loadRecalcInput = async (
     orderPayments,
     payRules,
     payAccruals,
+    materialNorms,
+    materials,
   } = await client.query({
     orders: {
       __args: { filter: { id: { eq: orderId } }, first: 1 },
@@ -118,25 +116,43 @@ export const loadRecalcInput = async (
     designs: {
       __args: { first: PAGE_SIZE },
       edges: {
-        node: {
-          id: true,
-          pricePerSquareMeter: money,
-          materialCostPerSquareMeter: money,
-          manufacturingCostPerSquareMeter: money,
-          installationCostPerSquareMeter: money,
-        },
+        node: { id: true, pricePerSquareMeter: money },
       },
     },
     extraServices: {
       __args: { first: PAGE_SIZE },
+      edges: { node: { id: true, name: true, unit: true, price: money } },
+    },
+    // ponytail: the whole composition and material list in one page of 200 each; filter by the order's grilles and page when the price list outgrows it.
+    materialNorms: {
+      __args: { first: PAGE_SIZE },
       edges: {
-        node: { id: true, name: true, unit: true, price: money, cost: money },
+        node: {
+          designId: true,
+          extraServiceId: true,
+          materialId: true,
+          quantityPerUnit: true,
+        },
+      },
+    },
+    materials: {
+      __args: { first: PAGE_SIZE },
+      edges: {
+        node: { id: true, averagePrice: money, lastPurchasePrice: money },
       },
     },
     payRules: ALL_PAY_RULES_QUERY,
     payAccruals: {
       __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
-      edges: { node: { workerId: true, method: true, work: true, rate: true } },
+      edges: {
+        node: {
+          workerId: true,
+          method: true,
+          work: true,
+          rate: true,
+          amount: money,
+        },
+      },
     },
     // Deleted payments are left out by the API, so this is what was really paid.
     orderPayments: {
@@ -152,6 +168,23 @@ export const loadRecalcInput = async (
   }
 
   const masterId = order.masterId ?? null;
+  const norms = (materialNorms?.edges ?? []).map(({ node }) => ({
+    designId: node.designId ?? null,
+    extraServiceId: node.extraServiceId ?? null,
+    materialId: node.materialId ?? null,
+    quantityPerUnit: toNumber(node.quantityPerUnit),
+  }));
+  const pricedMaterials = (materials?.edges ?? []).map(({ node }) => ({
+    id: node.id,
+    averagePrice: fromCurrency(node.averagePrice),
+    lastPurchasePrice: fromCurrency(node.lastPurchasePrice),
+  }));
+  const grilleCosts = materialCostByOwner('designId', norms, pricedMaterials);
+  const serviceCosts = materialCostByOwner(
+    'extraServiceId',
+    norms,
+    pricedMaterials,
+  );
 
   return {
     order: {
@@ -200,6 +233,10 @@ export const loadRecalcInput = async (
       (sum, { node }) => sum + (fromCurrency(node.amount) ?? 0),
       0,
     ),
+    payTotal: (payAccruals?.edges ?? []).reduce(
+      (sum, { node }) => sum + (fromCurrency(node.amount) ?? 0),
+      0,
+    ),
     items: (orderItems?.edges ?? []).map(({ node }) => ({
       id: node.id,
       name: node.name ?? null,
@@ -227,18 +264,14 @@ export const loadRecalcInput = async (
     grilles: (designs?.edges ?? []).map(({ node }) => ({
       id: node.id,
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
-      costPerSquareMeter: sumOfCosts(
-        fromCurrency(node.materialCostPerSquareMeter),
-        fromCurrency(node.manufacturingCostPerSquareMeter),
-        fromCurrency(node.installationCostPerSquareMeter),
-      ),
+      costPerSquareMeter: grilleCosts.get(node.id) ?? null,
     })),
     extraServiceCatalog: (extraServices?.edges ?? []).map(({ node }) => ({
       id: node.id,
       name: node.name ?? '',
       unit: (node.unit ?? null) as ExtraServiceUnit | null,
       price: fromCurrency(node.price),
-      cost: fromCurrency(node.cost),
+      cost: serviceCosts.get(node.id) ?? null,
     })),
     today: todayInTashkent(),
     ...refresh,

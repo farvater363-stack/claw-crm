@@ -44,7 +44,10 @@ export const ADMIN_ONLY_FIELD_IDS_BY_OBJECT: Record<string, string[]> = {
     IDS.payAccrual.rate,
   ],
   [IDS.stockMovement.object]: [IDS.stockMovement.unitPrice],
-  [IDS.material.object]: [IDS.material.lastPurchasePrice],
+  [IDS.material.object]: [
+    IDS.material.lastPurchasePrice,
+    IDS.material.averagePrice,
+  ],
 };
 
 const ADMIN_ONLY_FIELD_IDS = new Set(

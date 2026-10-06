@@ -37,7 +37,7 @@ export const upsertAccrualLine = async (
 export const syncOrderAccruals = async (
   client: CoreApiClient,
   orderId: string,
-): Promise<void> => {
+): Promise<boolean> => {
   const { orders, payAccruals, payRules, masters } = await client.query({
     orders: {
       __args: { filter: { id: { eq: orderId } }, first: 1 },
@@ -71,7 +71,7 @@ export const syncOrderAccruals = async (
   });
   const order = orders?.edges[0]?.node;
 
-  if (!order) return;
+  if (!order) return false;
 
   const workers = (masters?.edges ?? []).map(({ node }) => node);
   const rules = toPayRules((payRules?.edges ?? []).map(({ node }) => node));
@@ -131,4 +131,6 @@ export const syncOrderAccruals = async (
   for (const id of plan.deleteIds) {
     await client.mutation({ deletePayAccrual: { __args: { id }, id: true } });
   }
+
+  return plan.upserts.length + plan.deleteIds.length > 0;
 };

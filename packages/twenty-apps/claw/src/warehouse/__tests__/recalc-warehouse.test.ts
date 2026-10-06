@@ -24,6 +24,7 @@ const material = (
   toBuy: null,
   stockState: null,
   lastPurchasePrice: null,
+  averagePrice: null,
   overrunPercent: null,
   ...overrides,
 });
