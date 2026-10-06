@@ -1009,8 +1009,8 @@ const Prices = () => {
     );
   };
 
-  // Grilles are chosen by their look, so they are tiles; the open one is
-  // edited under the grid.
+  // Grilles are chosen by their look, so they are tiles. An open grille takes
+  // the place of the grid: under fifteen tiles its fields would be off screen.
   const renderGrilleTiles = (data: PricesData) => {
     const grilles = [...data.sections.grilles].sort(
       (left, right) =>
@@ -1020,27 +1020,37 @@ const Prices = () => {
 
     return (
       <StaticRow>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-            gap: SPACE.md,
-          }}
-        >
-          {grilles.map((row) => (
-            <PhotoTile
-              key={row.id}
-              name={row.name}
-              photoUrl={row.photoUrl}
-              isSelected={openId === row.id}
-              onSelect={() => showRow(openId === row.id ? null : row.id)}
-              caption={[row.priceText, row.costText, ...row.warnings]
-                .filter((part) => part !== null)
-                .join(' · ')}
-            />
-          ))}
-        </div>
-        {open ? renderOpenRow(open, data) : null}
+        {open ? (
+          <>
+            <Wrap>
+              <Button variant="link" onClick={() => showRow(null)}>
+                <span aria-hidden>‹</span> Все решётки
+              </Button>
+            </Wrap>
+            {renderOpenRow(open, data)}
+          </>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+              gap: SPACE.md,
+            }}
+          >
+            {grilles.map((row) => (
+              <PhotoTile
+                key={row.id}
+                name={row.name}
+                photoUrl={row.photoUrl}
+                isSelected={false}
+                onSelect={() => showRow(row.id)}
+                caption={[row.priceText, row.costText, ...row.warnings]
+                  .filter((part) => part !== null)
+                  .join(' · ')}
+              />
+            ))}
+          </div>
+        )}
         {grilles.map((row) => (
           <Fragment key={row.id}>{failureNotes(row.id)}</Fragment>
         ))}

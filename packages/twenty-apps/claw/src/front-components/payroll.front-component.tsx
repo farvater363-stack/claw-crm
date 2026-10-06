@@ -31,6 +31,7 @@ import {
   buildStatement,
   buildWorker,
   canPayInMonth,
+  owedLine,
   CATEGORY_REQUIRED,
   parsePenaltyPercent,
   payRuleLabel,
@@ -763,8 +764,8 @@ const Payroll = () => {
                 )}
               </AmountLine>
             ))}
-            <AmountLine isTotal amount={formatMoney(row.owed)}>
-              К выплате
+            <AmountLine isTotal amount={owedLine(row.owed).amount}>
+              {owedLine(row.owed).label}
             </AmountLine>
             {canPay && panel !== 'pay' ? (
               <Wrap>
@@ -843,9 +844,10 @@ const Payroll = () => {
       <Row
         key={row.workerId}
         title={rowTitle(row)}
-        value={formatMoney(row.owed)}
+        value={row.owed < 0 ? `${owedLine(row.owed).label} ${owedLine(row.owed).amount}` : formatMoney(row.owed)}
         action={
-          canPayInMonth(month, currentMonthInTashkent()) ? (
+          // An open row has its own pay buttons under the statement.
+          !isOpen && canPayInMonth(month, currentMonthInTashkent()) ? (
             <Button onClick={() => openPay(row)}>Выплатить</Button>
           ) : undefined
         }

@@ -18,7 +18,7 @@ import {
 // Type only, as a whole statement: that module imports node:crypto, which must not reach a front component's bundle.
 import type { AccrualLine } from 'src/payroll/plan-order-accruals';
 import { parseOptionalMoney, parsePositiveNumber, PLAIN_DECIMAL } from 'src/prices/prices-screen';
-import { formatDayMonth, formatQuantity, formatWhole } from 'src/ui/format';
+import { formatDayMonth, formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
 
 type Result<TValue> = ({ ok: true } & TValue) | { ok: false; error: string };
 
@@ -275,7 +275,8 @@ export type PayrollTotals = { owed: number; paid: number; earned: number; carrie
 
 export const payrollTotals = (rows: PayrollRow[]): PayrollTotals => {
   const sum = (pick: (row: PayrollRow) => number) => rows.reduce((total, row) => total + pick(row), 0);
-  const owed = sum((row) => row.owed);
+  // A worker paid ahead is owed nothing; the advance does not shrink what the others are owed.
+  const owed = sum((row) => Math.max(row.owed, 0));
   const paid = sum((row) => row.paidThisMonth);
 
   return {
@@ -293,3 +294,9 @@ export const totalsSentence = ({ paid, owed, earned, carriedOver }: PayrollTotal
     `начислено за месяц ${formatWhole(earned)}`,
     ...(carriedOver === 0 ? [] : [`с прошлого ${formatWhole(carriedOver)}`]),
   ].join(' · ');
+
+// What is left of a worker's month: a debt to the worker, or what was paid ahead.
+export const owedLine = (owed: number): { label: string; amount: string } =>
+  owed < 0
+    ? { label: 'Выплачено вперёд', amount: formatMoney(-owed) }
+    : { label: 'К выплате', amount: formatMoney(owed) };

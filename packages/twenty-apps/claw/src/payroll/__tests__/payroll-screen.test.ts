@@ -6,6 +6,7 @@ import { type PayrollRow } from 'src/payroll/compute-monthly-payroll';
 import {
   buildPayRule,
   buildStatement,
+  owedLine,
   payrollTotals,
   signedWhole,
   totalsSentence,
@@ -317,6 +318,17 @@ describe('the month as a statement', () => {
       '№1045 · 2 % от 14,200,000',
       '№1045 · штраф',
     ]);
+  });
+
+  it('does not let one worker paid ahead shrink what the others are owed', () => {
+    const totals = payrollTotals([
+      row({ earned: 0, carriedOver: 0, paidThisMonth: 10_000, owed: -10_000 }),
+      row({ earned: 442_500, carriedOver: 0, paidThisMonth: 0, owed: 442_500 }),
+    ]);
+
+    expect(totals.owed).toBe(442_500);
+    expect(plain(owedLine(-10_000).label + ' ' + owedLine(-10_000).amount)).toBe('Выплачено вперёд 10,000 сум');
+    expect(owedLine(928_000).label).toBe('К выплате');
   });
 
   it('signs a sum the way a ledger does', () => {
