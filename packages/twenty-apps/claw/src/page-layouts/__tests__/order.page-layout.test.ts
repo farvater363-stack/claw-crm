@@ -31,6 +31,7 @@ describe('order page', () => {
   it('reads «Работа» from the header down to the materials', () => {
     expect(widgetsOf(ids.itemsTab).map((widget) => widget.title)).toEqual([
       'Что дальше',
+      'Схема',
       'Что делаем',
       'Козырьки и услуги',
       'Оплаты',
@@ -54,6 +55,7 @@ describe('order page', () => {
         ids.itemsTab,
         [
           IDS.orderHeader.orderPageWidget,
+          IDS.orderSketch.orderPageWidget,
           ids.itemsWidget,
           ids.extraServicesWidget,
           ids.paymentsWidget,

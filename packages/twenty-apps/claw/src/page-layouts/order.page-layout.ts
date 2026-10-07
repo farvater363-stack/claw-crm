@@ -50,7 +50,8 @@ export default definePageLayout({
       ],
     },
     // On the full page the first tab is pinned to the left column, so this tab
-    // is what the main area opens on: the next step, then what is being made.
+    // is what the main area opens on: the next step, the схема, then what is
+    // being made.
     {
       universalIdentifier: ids.itemsTab,
       title: 'Работа',
@@ -65,6 +66,15 @@ export default definePageLayout({
           configuration: {
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier: IDS.orderHeader.frontComponent,
+          },
+        },
+        {
+          universalIdentifier: IDS.orderSketch.orderPageWidget,
+          title: 'Схема',
+          type: 'FRONT_COMPONENT',
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier: IDS.orderSketch.frontComponent,
           },
         },
         table(
