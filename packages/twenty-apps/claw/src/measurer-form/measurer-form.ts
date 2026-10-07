@@ -2,6 +2,7 @@ import {
   type DiscountKind,
   DISTRICT_OPTIONS,
   type PaymentMethod,
+  type ProjectionKind,
   SOURCE_OPTIONS,
 } from 'src/constants/select-options';
 import { PLAIN_DECIMAL, parseOptionalMoney } from 'src/prices/prices-screen';
@@ -37,6 +38,7 @@ export type OpeningDraft = {
   designId: string;
   widthCm: string;
   heightCm: string;
+  projectionKind: ProjectionKind;
   projectionCm: string;
   quantity: string;
   notes: string;
@@ -77,6 +79,7 @@ export type OrderItemPayload = {
   designId: string | null;
   widthCm: number;
   heightCm: number;
+  projectionKind: ProjectionKind;
   projectionCm: number;
   quantity: number;
   notes: string | null;
@@ -130,7 +133,8 @@ export const createEmptyOpening = (
   designId: '',
   widthCm: '',
   heightCm: '',
-  projectionCm: '0',
+  projectionKind: 'NONE',
+  projectionCm: '',
   quantity: '1',
   notes: '',
   photos: [],
@@ -205,6 +209,7 @@ export const computeOpeningAreaSquareMeters = (
     widthCm,
     heightCm,
     projectionCm: parseDecimalInput(opening.projectionCm) ?? 0,
+    projectionKind: opening.projectionKind,
   });
 };
 
@@ -597,7 +602,10 @@ export const buildMeasurementPayload = (
     const label = `Проём ${index + 1}`;
     const widthCm = parseDecimalInput(opening.widthCm);
     const heightCm = parseDecimalInput(opening.heightCm);
-    const projectionCm = parseDecimalInput(opening.projectionCm) ?? 0;
+    const hasProjection = opening.projectionKind !== 'NONE';
+    const projectionCm = hasProjection
+      ? (parseDecimalInput(opening.projectionCm) ?? 0)
+      : 0;
     const quantity = parseDecimalInput(opening.quantity);
     const isVisorOnly = isVisorOnlyOpening(opening);
     const openingErrors: string[] = [];
@@ -607,8 +615,8 @@ export const buildMeasurementPayload = (
       (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0)
     ) {
       openingErrors.push(`${label}: укажите ширину и высоту больше 0`);
-    } else if (projectionCm < 0) {
-      openingErrors.push(`${label}: вылет не может быть отрицательным`);
+    } else if (!isVisorOnly && hasProjection && projectionCm <= 0) {
+      openingErrors.push(`${label}: укажите вынос в сантиметрах`);
     } else if (
       quantity === null ||
       !Number.isInteger(quantity) ||
@@ -647,6 +655,7 @@ export const buildMeasurementPayload = (
         designId: emptyToNull(opening.designId),
         widthCm,
         heightCm,
+        projectionKind: opening.projectionKind,
         projectionCm,
         quantity: quantity ?? 1,
         notes: emptyToNull(opening.notes),

@@ -5,6 +5,7 @@ import {
   type DeadlineState,
   type DiscountKind,
   type ExtraServiceUnit,
+  type ProjectionKind,
 } from 'src/constants/select-options';
 import {
   ALL_PAY_RULES_QUERY,
@@ -89,6 +90,7 @@ export const loadRecalcInput = async (
           widthCm: true,
           heightCm: true,
           projectionCm: true,
+          projectionKind: true,
           quantity: true,
           areaSquareMeters: true,
           pricePerSquareMeter: money,
@@ -244,6 +246,7 @@ export const loadRecalcInput = async (
       widthCm: toNumber(node.widthCm),
       heightCm: toNumber(node.heightCm),
       projectionCm: toNumber(node.projectionCm),
+      projectionKind: (node.projectionKind ?? null) as ProjectionKind | null,
       quantity: toNumber(node.quantity),
       areaSquareMeters: toNumber(node.areaSquareMeters),
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),

@@ -24,6 +24,8 @@ import {
   DISTRICT_OPTIONS,
   PAYMENT_METHOD_OPTIONS,
   type PaymentMethod,
+  PROJECTION_KIND_OPTIONS,
+  type ProjectionKind,
   SOURCE_OPTIONS,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -60,6 +62,7 @@ import {
   UZBEK_PHONE_PREFIX,
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
+import { formatItemSize } from 'src/pricing/compute-item-area';
 import { todayInTashkent } from 'src/pricing/dates';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
 import { formatMoney, formatQuantity } from 'src/ui/format';
@@ -978,7 +981,7 @@ const NewMeasurement = () => {
         items.push({
           id: createOrderItem.id,
           openingNumber,
-          label: `${item.widthCm}×${item.heightCm}${item.projectionCm > 0 ? `×${item.projectionCm}` : ''} см, ${item.quantity} шт`,
+          label: `${formatItemSize(item)} см, ${item.quantity} шт`,
           photoCount: 0,
         });
       } catch {
@@ -1261,6 +1264,24 @@ const NewMeasurement = () => {
       {control}
     </label>
   );
+
+  const numberField = (
+    opening: OpeningDraft,
+    key: 'widthCm' | 'heightCm' | 'projectionCm' | 'quantity',
+    label: string,
+    inputMode: 'decimal' | 'numeric' = 'decimal',
+  ) =>
+    field(
+      label,
+      <input
+        inputMode={inputMode}
+        style={styles.input}
+        value={opening[key]}
+        onChange={(event) =>
+          updateOpening(opening.key, { [key]: event.target.value })
+        }
+      />,
+    );
 
   const errorList = errors.length > 0 && (
     <div role="alert" style={styles.error}>
@@ -1679,27 +1700,29 @@ const NewMeasurement = () => {
                 />
               </div>
             </div>
-            {(
-              [
-                ['widthCm', 'Ширина, см', 'decimal'],
-                ['heightCm', 'Высота, см', 'decimal'],
-                ['projectionCm', 'Вылет, см', 'decimal'],
-                ['quantity', 'Количество', 'numeric'],
-              ] as const
-            ).map(([key, label, inputMode]) =>
-              field(
-                label,
-                <input
-                  key={key}
-                  inputMode={inputMode}
-                  style={styles.input}
-                  value={opening[key]}
-                  onChange={(event) =>
-                    updateOpening(opening.key, { [key]: event.target.value })
-                  }
-                />,
-              ),
+            {numberField(opening, 'widthCm', 'Ширина, см')}
+            {numberField(opening, 'heightCm', 'Высота, см')}
+            {field(
+              'Вынос',
+              <select
+                style={styles.input}
+                value={opening.projectionKind}
+                onChange={(event) =>
+                  updateOpening(opening.key, {
+                    projectionKind: event.target.value as ProjectionKind,
+                  })
+                }
+              >
+                {PROJECTION_KIND_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>,
             )}
+            {opening.projectionKind !== 'NONE' &&
+              numberField(opening, 'projectionCm', 'Вынос, см')}
+            {numberField(opening, 'quantity', 'Количество', 'numeric')}
             {hasSize && (
               <div style={styles.area}>
                 {quote === null

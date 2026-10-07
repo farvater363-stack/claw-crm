@@ -78,6 +78,16 @@ export const URGENCY_OPTIONS = toOptions([
 export type ProductionStage =
   (typeof PRODUCTION_STAGE_OPTIONS)[number]['value'];
 
+// Empty on an item measured before the choice existed: its вынос counts as
+// bottom and top, the only kind there was.
+export const PROJECTION_KIND_OPTIONS = toOptions([
+  ['NONE', 'Вынос не нужен', 'gray'],
+  ['BOTTOM', 'Вынос снизу', 'blue'],
+  ['BOTTOM_AND_TOP', 'Вынос снизу и сверху', 'purple'],
+] as const);
+
+export type ProjectionKind = (typeof PROJECTION_KIND_OPTIONS)[number]['value'];
+
 export const EXTRA_SERVICE_UNIT_OPTIONS = toOptions([
   ['FIXED', 'Фикс', 'gray'],
   ['PER_SQUARE_METER', 'За м²', 'blue'],

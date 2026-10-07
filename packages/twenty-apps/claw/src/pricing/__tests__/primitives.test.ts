@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
+import {
+  computeItemAreaSquareMeters,
+  formatItemSize,
+} from 'src/pricing/compute-item-area';
 import {
   addDays,
   computeDaysLate,
@@ -22,6 +25,38 @@ describe('computeItemAreaSquareMeters', () => {
         projectionCm: 30,
       }),
     ).toBe(3.84);
+  });
+
+  it('adds one end for a projection at the bottom alone', () => {
+    expect(
+      computeItemAreaSquareMeters({
+        widthCm: 140,
+        heightCm: 150,
+        projectionCm: 30,
+        projectionKind: 'BOTTOM',
+      }),
+    ).toBe(2.97);
+  });
+
+  it('ignores the centimetres when no projection is needed', () => {
+    expect(
+      computeItemAreaSquareMeters({
+        widthCm: 140,
+        heightCm: 150,
+        projectionCm: 30,
+        projectionKind: 'NONE',
+      }),
+    ).toBe(2.1);
+  });
+
+  it('names the size by its projection', () => {
+    const size = { widthCm: 140, heightCm: 150, projectionCm: 30 };
+
+    expect(formatItemSize(size)).toBe('140×150×30');
+    expect(formatItemSize({ ...size, projectionKind: 'BOTTOM' })).toBe(
+      '140×150×30 снизу',
+    );
+    expect(formatItemSize({ ...size, projectionKind: 'NONE' })).toBe('140×150');
   });
 
   it('is width times height for a flat grille', () => {

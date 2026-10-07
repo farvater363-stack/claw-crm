@@ -41,6 +41,7 @@ const item = (overrides: Partial<ItemSnapshot> = {}): ItemSnapshot => ({
   widthCm: 140,
   heightCm: 150,
   projectionCm: 30,
+  projectionKind: null,
   quantity: 2,
   areaSquareMeters: null,
   pricePerSquareMeter: null,
