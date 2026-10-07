@@ -1,13 +1,18 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
 import { normalizeUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
+import {
+  joinFullName,
+  type StoredFullName,
+  trimFullName,
+} from 'src/utils/full-name';
 
 export const linkClientByPhone = async (
   client: CoreApiClient,
   {
-    clientName,
+    clientFullName,
     clientPhone,
-  }: { clientName: string | null; clientPhone: string | null },
+  }: { clientFullName: StoredFullName; clientPhone: string | null },
 ): Promise<string | null> => {
   const nationalNumber = clientPhone ? normalizeUzbekPhone(clientPhone) : null;
 
@@ -35,7 +40,11 @@ export const linkClientByPhone = async (
     createPerson: {
       __args: {
         data: {
-          name: { firstName: clientName ?? nationalNumber, lastName: '' },
+          // A client without a name is found by the phone in lists.
+          name:
+            joinFullName(clientFullName) === null
+              ? { firstName: nationalNumber, lastName: '' }
+              : trimFullName(clientFullName),
           phones: {
             primaryPhoneNumber: nationalNumber,
             primaryPhoneCallingCode: '+998',

@@ -15,6 +15,11 @@ import {
 } from 'src/pricing/normalize-uzbek-phone';
 import { roundTo } from 'src/pricing/round';
 import { formatDayMonth } from 'src/ui/format';
+import {
+  type FullName,
+  joinFullName,
+  trimFullName,
+} from 'src/utils/full-name';
 
 type District = (typeof DISTRICT_OPTIONS)[number]['value'];
 type Source = (typeof SOURCE_OPTIONS)[number]['value'];
@@ -50,7 +55,8 @@ export type OpeningDraft = {
 };
 
 export type MeasurementDraft = {
-  clientName: string;
+  clientFirstName: string;
+  clientLastName: string;
   clientPhone: string;
   district: District | '';
   addressLine: string;
@@ -64,7 +70,7 @@ export type MeasurementDraft = {
 export type OrderPayload = {
   status: 'MEASURED';
   measurerId: string;
-  clientName: string | null;
+  clientFullName: FullName | null;
   clientPhone: string;
   district: District | null;
   addressLine: string | null;
@@ -248,6 +254,16 @@ export const computeOpeningsTotalAreaSquareMeters = (
 const emptyToNull = <TValue extends string>(
   value: TValue | '',
 ): TValue | null => (value.trim() === '' ? null : (value.trim() as TValue));
+
+// Without either part the name stays unwritten, like any other empty field.
+const toClientFullName = (draft: MeasurementDraft): FullName | null => {
+  const name = trimFullName({
+    firstName: draft.clientFirstName,
+    lastName: draft.clientLastName,
+  });
+
+  return joinFullName(name) === null ? null : name;
+};
 
 type GrillePrice = Pick<GrilleOption, 'id' | 'pricePerSquareMeter'>;
 
@@ -458,7 +474,7 @@ export const computePaymentPreview = (
 export type ScheduledOrder = {
   id: string;
   name: string;
-  clientName: string | null;
+  clientFullName: FullName;
   clientPhone: string | null;
   district: string | null;
   addressLine: string | null;
@@ -512,7 +528,7 @@ export const scheduledOrderLabel = (
 ): string =>
   [
     describeMeasurementTime(order.measurementDate, today),
-    order.clientName?.trim() || order.name,
+    joinFullName(order.clientFullName) ?? order.name,
     DISTRICT_OPTIONS.find((option) => option.value === order.district)?.label,
   ]
     .filter((part) => part !== null && part !== undefined && part !== '')
@@ -521,7 +537,8 @@ export const scheduledOrderLabel = (
 export const draftFromScheduledOrder = (
   order: ScheduledOrder,
 ): Partial<MeasurementDraft> => ({
-  clientName: order.clientName ?? '',
+  clientFirstName: order.clientFullName.firstName,
+  clientLastName: order.clientFullName.lastName,
   clientPhone: formatUzbekNationalPhone(order.clientPhone ?? ''),
   district: isDistrict(order.district) ? order.district : '',
   addressLine: order.addressLine ?? '',
@@ -712,7 +729,7 @@ export const buildMeasurementPayload = (
     order: {
       status: 'MEASURED',
       measurerId,
-      clientName: emptyToNull(draft.clientName),
+      clientFullName: toClientFullName(draft),
       clientPhone,
       district: emptyToNull(draft.district),
       addressLine: emptyToNull(draft.addressLine),

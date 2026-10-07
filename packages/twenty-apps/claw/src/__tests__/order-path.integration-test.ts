@@ -43,6 +43,8 @@ const FIXED_PAY = 2_000_000;
 // was killed or whose cleanup was refused.
 const PREFIX = 'Интеграция путь';
 const OWN_NAME = { like: `${PREFIX} %` };
+// People carry the prefix as their whole first name.
+const OWN_FULL_NAME = { firstName: { eq: PREFIX } };
 
 // The key allows 100 requests a minute and the cases spend most of them.
 const DESTROY_PAUSE = 1_000;
@@ -89,7 +91,11 @@ const createWorker = async (name: string, data: Record<string, unknown>) => {
   const { createMaster } = await client.mutation({
     createMaster: {
       __args: {
-        data: { name: `${PREFIX} ${name}`, isActive: true, ...data },
+        data: {
+          fullName: { firstName: PREFIX, lastName: name },
+          isActive: true,
+          ...data,
+        },
       },
       id: true,
     },
@@ -265,11 +271,14 @@ const removeOwnRows = async (): Promise<{
     await attempt(`find rows (deletedAt ${is})`, async () => {
       const { orders, masters, materials, designs } = await client.query({
         orders: {
-          __args: { filter: { clientName: OWN_NAME, deletedAt }, first: 50 },
+          __args: {
+            filter: { clientFullName: OWN_FULL_NAME, deletedAt },
+            first: 50,
+          },
           edges: { node: { id: true } },
         },
         masters: {
-          __args: { filter: { name: OWN_NAME, deletedAt }, first: 50 },
+          __args: { filter: { fullName: OWN_FULL_NAME, deletedAt }, first: 50 },
           edges: { node: { id: true, loginId: true } },
         },
         materials: {
@@ -564,7 +573,7 @@ describe('the order path', () => {
         __args: {
           data: {
             name: '',
-            clientName: `${PREFIX} клиент`,
+            clientFullName: { firstName: PREFIX, lastName: 'клиент' },
             soldById: sellerId,
             measurerId: freeMemberId,
             discountKind: 'PERCENT',

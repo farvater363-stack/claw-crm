@@ -94,7 +94,15 @@ export default defineObject({
       isNullable: true,
       options: CANCEL_REASON_OPTIONS,
     },
-    text(IDS.order.clientName, 'clientName', 'Имя', 'IconUser'),
+    text(IDS.order.clientName, 'clientName', 'Имя одной строкой (старое)', 'IconUser'),
+    {
+      universalIdentifier: IDS.order.clientFullName,
+      type: FieldType.FULL_NAME,
+      name: 'clientFullName',
+      label: 'Имя и фамилия',
+      icon: 'IconUser',
+      isNullable: true,
+    },
     text(IDS.order.clientPhone, 'clientPhone', 'Телефон', 'IconPhone'),
     {
       universalIdentifier: IDS.order.district,

@@ -12,7 +12,9 @@ import {
 import { ORDER_STATUS_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { VIEW_PART_IDS } from 'src/constants/view-part-identifiers';
-import { toViewFields } from 'src/utils/to-view-fields';
+import { toKeyedViewFields } from 'src/utils/to-view-fields';
+
+const fieldIds = VIEW_PART_IDS.myMeasurementsFields;
 
 export default defineView({
   universalIdentifier: IDS.view.myMeasurements,
@@ -29,26 +31,22 @@ export default defineView({
     position,
     isVisible: isStatusIn(MEASURER_BOARD_STATUSES, option.value),
   })),
-  fields: [
-    ...toViewFields(
-      [
-        IDS.order.name,
-        IDS.order.measurementDate,
-        IDS.order.clientName,
-        IDS.order.clientPhone,
-        IDS.order.district,
-        IDS.order.address,
-        IDS.order.floor,
-      ],
-      VIEW_PART_IDS.myMeasurementsFields,
-    ),
+  fields: toKeyedViewFields([
+    { field: IDS.order.name, viewField: fieldIds[0] },
+    { field: IDS.order.measurementDate, viewField: fieldIds[1] },
     {
-      universalIdentifier: VIEW_PART_IDS.myMeasurementsStatusField,
-      fieldMetadataUniversalIdentifier: IDS.order.status,
-      position: 7,
-      isVisible: true,
+      field: IDS.order.clientFullName,
+      viewField: VIEW_PART_IDS.myMeasurementsClientFullNameField,
     },
-  ],
+    { field: IDS.order.clientPhone, viewField: fieldIds[3] },
+    { field: IDS.order.district, viewField: fieldIds[4] },
+    { field: IDS.order.address, viewField: fieldIds[5] },
+    { field: IDS.order.floor, viewField: fieldIds[6] },
+    {
+      field: IDS.order.status,
+      viewField: VIEW_PART_IDS.myMeasurementsStatusField,
+    },
+  ]),
   filters: [
     {
       universalIdentifier: VIEW_PART_IDS.myMeasurementsFilterMeasurer,

@@ -25,8 +25,8 @@ export default defineView({
       size: 100,
     },
     {
-      field: IDS.order.clientName,
-      viewField: ids.nearestDeadlinesFields.clientName,
+      field: IDS.order.clientFullName,
+      viewField: ids.nearestDeadlinesFields.clientFullName,
       size: 180,
     },
     {

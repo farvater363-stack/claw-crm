@@ -29,7 +29,7 @@ const ORDER = {
   id: 'order-1',
   name: '№1042',
   status: 'MEASURED',
-  clientName: 'Клиент 1',
+  clientFullName: { firstName: 'Азиз', lastName: 'Рахимов' },
   clientPhone: '+998900000001',
   district: 'CHILANZAR',
   floor: 4,
@@ -43,11 +43,17 @@ const ORDER = {
   cancelReason: null,
 };
 
+const worker = (number: number, categories: string[] | null) => ({
+  id: `worker-${number}`,
+  fullName: { firstName: 'Работник', lastName: String(number) },
+  categories,
+});
+
 const WORKERS = [
-  { id: 'worker-1', name: 'Работник 1', categories: ['MASTER'] },
-  { id: 'worker-2', name: 'Работник 2', categories: ['INSTALLER', 'SALES'] },
-  { id: 'worker-3', name: 'Работник 3', categories: ['MASTER', 'INSTALLER'] },
-  { id: 'worker-4', name: 'Работник 4', categories: null },
+  worker(1, ['MASTER']),
+  worker(2, ['INSTALLER', 'SALES']),
+  worker(3, ['MASTER', 'INSTALLER']),
+  worker(4, null),
 ];
 
 const MEMBERS = [
@@ -94,7 +100,7 @@ describe('loadOrderHeader', () => {
       id: 'order-1',
       name: '№1042',
       status: 'MEASURED',
-      clientName: 'Клиент 1',
+      clientName: 'Азиз Рахимов',
       clientPhone: '+998900000001',
       districtLabel: 'Чиланзарский',
       floor: 4,

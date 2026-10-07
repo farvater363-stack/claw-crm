@@ -46,7 +46,7 @@ export default defineView({
   ],
   fields: toKeyedViewFields([
     ...section(groups.client, [
-      'clientName',
+      'clientFullName',
       'clientPhone',
       'district',
       'address',

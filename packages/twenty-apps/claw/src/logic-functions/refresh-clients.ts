@@ -21,14 +21,20 @@ const handler = async (): Promise<void> => {
         },
         first: BATCH_SIZE,
       },
-      edges: { node: { id: true, clientName: true, clientPhone: true } },
+      edges: {
+        node: {
+          id: true,
+          clientFullName: { firstName: true, lastName: true },
+          clientPhone: true,
+        },
+      },
     },
   });
 
   for (const { node } of orders?.edges ?? []) {
     try {
       const clientId = await linkClientByPhone(client, {
-        clientName: node.clientName ?? null,
+        clientFullName: node.clientFullName,
         clientPhone: node.clientPhone ?? null,
       });
 

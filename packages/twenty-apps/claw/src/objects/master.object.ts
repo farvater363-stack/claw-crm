@@ -13,14 +13,22 @@ export default defineObject({
   labelSingular: 'Работник',
   labelPlural: 'Работники',
   icon: 'IconHammer',
-  labelIdentifierFieldMetadataUniversalIdentifier: IDS.master.name,
+  labelIdentifierFieldMetadataUniversalIdentifier: IDS.master.fullName,
   fields: withoutAuditOfAdminOnlyFields([
     {
       universalIdentifier: IDS.master.name,
       type: FieldType.TEXT,
       name: 'name',
-      label: 'Имя',
+      label: 'Имя одной строкой (старое)',
       icon: 'IconUser',
+    },
+    {
+      universalIdentifier: IDS.master.fullName,
+      type: FieldType.FULL_NAME,
+      name: 'fullName',
+      label: 'Имя и фамилия',
+      icon: 'IconUser',
+      isNullable: true,
     },
     {
       universalIdentifier: IDS.master.phone,

@@ -202,13 +202,23 @@ describe('buildPayRule', () => {
 });
 
 describe('buildWorker and parsePenaltyPercent', () => {
-  it('takes a name and at least one category', () => {
-    expect(buildWorker({ name: ' Работник 2 ', categories: ['INSTALLER'] })).toEqual({
+  it('takes a first name, an optional last name and at least one category', () => {
+    expect(buildWorker({ firstName: ' Азиз ', lastName: ' Рахимов ', categories: ['INSTALLER'] })).toEqual({
       ok: true,
-      data: { name: 'Работник 2', categories: ['INSTALLER'] },
+      data: { fullName: { firstName: 'Азиз', lastName: 'Рахимов' }, categories: ['INSTALLER'] },
     });
-    expect(buildWorker({ name: ' ', categories: ['INSTALLER'] })).toEqual({ ok: false, error: 'Введите имя' });
-    expect(buildWorker({ name: 'Работник 2', categories: [] })).toEqual({ ok: false, error: 'Отметьте, кем работает' });
+    expect(buildWorker({ firstName: 'Азиз', lastName: '', categories: ['INSTALLER'] })).toEqual({
+      ok: true,
+      data: { fullName: { firstName: 'Азиз', lastName: '' }, categories: ['INSTALLER'] },
+    });
+    expect(buildWorker({ firstName: ' ', lastName: 'Рахимов', categories: ['INSTALLER'] })).toEqual({
+      ok: false,
+      error: 'Введите имя',
+    });
+    expect(buildWorker({ firstName: 'Азиз', lastName: '', categories: [] })).toEqual({
+      ok: false,
+      error: 'Отметьте, кем работает',
+    });
   });
 
   it.each([

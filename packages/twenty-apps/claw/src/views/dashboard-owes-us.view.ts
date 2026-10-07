@@ -15,8 +15,8 @@ export default defineView({
   fields: toKeyedViewFields([
     { field: IDS.order.name, viewField: ids.owesUsFields.name, size: 100 },
     {
-      field: IDS.order.clientName,
-      viewField: ids.owesUsFields.clientName,
+      field: IDS.order.clientFullName,
+      viewField: ids.owesUsFields.clientFullName,
       size: 180,
     },
     {

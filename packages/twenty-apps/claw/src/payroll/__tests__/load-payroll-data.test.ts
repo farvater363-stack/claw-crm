@@ -43,7 +43,7 @@ const PAYMENT: Node = {
 
 const WORKER: Node = {
   id: 'worker-2',
-  name: 'Работник 2',
+  fullName: { firstName: 'Работник', lastName: '2' },
   isActive: true,
   categories: ['INSTALLER'],
   loginId: null,
@@ -123,13 +123,13 @@ describe('loadPayrollData', () => {
       workers: [
         {
           id: 'worker-2',
-          name: 'Работник 2',
+          fullName: { firstName: 'Работник', lastName: '2' },
           isActive: true,
           categories: ['SALES', 'INSTALLER'],
           loginId: 'member-1',
           penaltyPercentPerDay: 0,
         },
-        { id: 'worker-1', name: 'Работник 1', isActive: false, categories: null, loginId: null, penaltyPercentPerDay: null },
+        { id: 'worker-1', fullName: { firstName: 'Работник', lastName: '1' }, isActive: false, categories: null, loginId: null, penaltyPercentPerDay: null },
       ],
       rules: [
         { id: 'r1', workerId: 'worker-2', method: 'PER_SQUARE_METER', work: 'INSTALLER', amount: micros(15_000), percent: null },
@@ -240,7 +240,10 @@ describe('writes', () => {
   it('creates a worker and a rule with upsert under the id of the attempt', async () => {
     const { client, mutations } = fakeClient();
 
-    await saveWorker(client, 'worker-1', { name: 'Работник 2', categories: ['INSTALLER'] });
+    await saveWorker(client, 'worker-1', {
+      fullName: { firstName: 'Работник', lastName: '2' },
+      categories: ['INSTALLER'],
+    });
     await savePayRule(client, {
       id: 'rule-1',
       workerId: 'worker-1',
@@ -253,7 +256,15 @@ describe('writes', () => {
     expect(mutations).toEqual([
       {
         createMaster: {
-          __args: { data: { id: 'worker-1', name: 'Работник 2', categories: ['INSTALLER'], isActive: true }, upsert: true },
+          __args: {
+            data: {
+              id: 'worker-1',
+              fullName: { firstName: 'Работник', lastName: '2' },
+              categories: ['INSTALLER'],
+              isActive: true,
+            },
+            upsert: true,
+          },
           id: true,
         },
       },

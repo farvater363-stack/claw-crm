@@ -22,7 +22,10 @@ export default defineView({
   kanbanAggregateOperationFieldMetadataUniversalIdentifier: IDS.order.total,
   fields: toKeyedViewFields([
     { field: IDS.order.name, viewField: ordersKanbanFields[0] },
-    { field: IDS.order.clientName, viewField: ordersKanbanFields[1] },
+    {
+      field: IDS.order.clientFullName,
+      viewField: ordersKanbanExtraFields.clientFullName,
+    },
     { field: IDS.order.total, viewField: ordersKanbanFields[3] },
     { field: IDS.order.master, viewField: ordersKanbanFields[5] },
     { field: IDS.order.installationDeadline, viewField: ordersKanbanFields[4] },

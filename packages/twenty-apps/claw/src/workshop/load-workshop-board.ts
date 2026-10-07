@@ -10,6 +10,7 @@ import {
 } from 'src/constants/select-options';
 import { nextStepOf, STEP_STATUS } from 'src/order-header/order-steps';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
+import { joinFullName } from 'src/utils/full-name';
 import {
   type WorkshopItem,
   type WorkshopMaterial,
@@ -30,6 +31,7 @@ const READY_STATUS =
   })?.nextStatus ?? null;
 
 const PHOTO = { url: true } as const;
+const NAME = { firstName: true, lastName: true } as const;
 
 type Photo = { url?: string | null } | null | undefined;
 
@@ -75,7 +77,7 @@ export const loadWorkshopOrders = async (
             productionStage: true,
             urgency: true,
             masterId: true,
-            clientName: true,
+            clientFullName: NAME,
             district: true,
             addressLine: true,
             floor: true,
@@ -85,8 +87,8 @@ export const loadWorkshopOrders = async (
             installationDeadline: true,
             areaSquareMeters: true,
             finishedPhotos: PHOTO,
-            master: { name: true },
-            installer: { name: true },
+            master: { fullName: NAME },
+            installer: { fullName: NAME },
           },
         },
         pageInfo: PAGE_INFO,
@@ -217,9 +219,9 @@ export const loadWorkshopOrders = async (
     stage: stageOf(node.productionStage),
     isUrgent: node.urgency === 'URGENT',
     masterId: node.masterId ?? null,
-    masterName: node.master?.name ?? null,
-    installerName: node.installer?.name ?? null,
-    clientName: textOrNull(node.clientName),
+    masterName: joinFullName(node.master?.fullName),
+    installerName: joinFullName(node.installer?.fullName),
+    clientName: joinFullName(node.clientFullName),
     districtLabel: labelOf(DISTRICT_OPTIONS, node.district),
     addressLine: textOrNull(node.addressLine),
     floor: node.floor ?? null,

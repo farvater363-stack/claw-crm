@@ -11,7 +11,7 @@ export const VIEW_PART_IDS = {
   },
   ordersKanbanFields: [
     '926742a4-05ca-4f18-8d6d-37f5b8520728',
-    'ffc0b6a4-fa12-4556-be27-592a4c95487d',
+    'ffc0b6a4-fa12-4556-be27-592a4c95487d', // Retired: the one-line client name left its view; ids are never reused.
     'cd5ab1b0-659b-4a64-820b-96ca612e806c', // Retired: the column left its view; ids are never reused.
     'b47d60f3-1695-430f-b2ec-07794034e281',
     '2847cf61-5314-40f0-aa90-d341e054c02d',
@@ -20,12 +20,13 @@ export const VIEW_PART_IDS = {
   myMeasurementsFields: [
     '227482a6-9f40-4bd0-a734-96b5c4375152',
     '0cfe9c52-3c73-44e2-840e-4c3b928d5a1b',
-    'b39ebe4d-6904-4fa9-9735-0f4ce2eb55d4',
+    'b39ebe4d-6904-4fa9-9735-0f4ce2eb55d4', // Retired: the one-line client name left its view; ids are never reused.
     '8c0d96c1-7c7d-41e1-a3e7-286e4fc8d57c',
     '06f73d66-3ee1-4f2f-8a0c-27175cfca03f',
     '57f43c2a-4956-419b-9653-a5736e1a5049',
     '61f01b33-c6cd-4eb0-a744-8de3741186ba',
   ],
+  myMeasurementsClientFullNameField: '9621fb12-9a81-4533-87e9-fc0cdaf41ac2',
   myMeasurementsFilterMeasurer: '754feec2-99de-4e8e-839c-b2cf8aaadc87',
   myMeasurementsFilterStatus: '82683b77-f420-428b-8ed5-c397ea46d93e',
   myMeasurementsSortDate: 'b131f1b6-0dd2-4c62-ba53-ab15f1318bb3',
@@ -75,7 +76,8 @@ export const VIEW_PART_IDS = {
     fields: {
       name: 'cd944afe-fb6b-4e38-871e-040261845e7a', // Retired: the column left its view; ids are never reused.
       status: '7d28695b-ea00-4ce5-8d3c-6c15811843e7',
-      clientName: '46d3e417-2340-4b2c-b336-b4e7d47464d8',
+      clientName: '46d3e417-2340-4b2c-b336-b4e7d47464d8', // Retired: the one-line client name left its view; ids are never reused.
+      clientFullName: '1f181c7e-5ba6-44b6-9f53-27bb85c64164',
       clientPhone: 'cb6831b9-6a85-4f6c-9ac6-166b3280c81b',
       district: '2158c653-f8bf-4b89-a3b6-607d167cfffc',
       address: '0ee35377-378b-4825-a6e1-d3898a0f8220',
@@ -193,12 +195,14 @@ export const VIEW_PART_IDS = {
     productionStage: 'e80a5929-1614-4852-b288-f2102beb10cc',
     isUrgent: 'bdda621a-fd2f-4015-b2ab-c4bd7cf27097', // Retired: «Срочно» is the select `urgency`; ids are never reused.
     urgency: '33dd0098-5d32-45fa-a601-d227cead8f35',
+    clientFullName: '16aafb97-47e4-4bd3-b2a4-aa96bd68d201',
   },
   productionDeadlineStateField: '754039b5-5524-48e2-9eb3-8d7fc013c1c6', // Retired: replaced by the «В работе» screen; ids are never reused.
   allOrdersFields: {
     name: '22746edd-7dfe-431b-b2a0-c1702ea00b28',
     status: 'c86ada91-d4bc-44ed-b99b-03a6e00c1417',
-    clientName: '415457d0-6416-42ad-b270-52cfd219705c',
+    // Retired: clientName 415457d0-6416-42ad-b270-52cfd219705c, the one-line client name; ids are never reused.
+    clientFullName: 'b8486ba1-704e-4412-b371-fe9b1dfa9ab9',
     clientPhone: '3165256f-e52b-4f39-ab71-0fa4133b6e5f',
     district: '5b12091c-3a1c-4fa7-910b-63a37b1f4a9a',
     measurementDate: '802b442d-6a42-4e05-98ac-7b1f1d2315e1',
@@ -220,7 +224,8 @@ export const VIEW_PART_IDS = {
     overdueFilter: 'abef92b8-90ea-42c6-8b1e-c4f80b286469',
     owesUsFields: {
       name: '0147ae62-8e4c-45f1-9294-32097263cb14',
-      clientName: 'e4707f69-ecaa-4670-bc5e-aef64c279ce4',
+      clientName: 'e4707f69-ecaa-4670-bc5e-aef64c279ce4', // Retired: the one-line client name left its view; ids are never reused.
+      clientFullName: 'f55d8486-3a2c-41e1-8e83-8596f2d8b875',
       clientPhone: '639a0257-1cd4-4eed-b11a-11a851920b51',
       total: '71878c61-b699-4483-8ddd-741d251c5db6',
       balance: '158898b9-6182-4978-b7e5-b22bc15a6499',
@@ -255,7 +260,8 @@ export const VIEW_PART_IDS = {
     overrunFilter: '0d277846-f550-4191-80d2-9edf21eb237b',
     nearestDeadlinesFields: {
       name: 'a472bc4b-6359-404c-8ba6-73468982f083',
-      clientName: '2e47ecfa-9b1e-4918-bde2-1ffef9231bda',
+      clientName: '2e47ecfa-9b1e-4918-bde2-1ffef9231bda', // Retired: the one-line client name left its view; ids are never reused.
+      clientFullName: 'b5bda2dc-57dd-4a8d-be9c-73a5fb4133b2',
       installationDeadline: '13bf8cbc-05dd-4b17-91a1-f8f5baa1e9eb',
       master: '6b2a0c59-811d-42e6-8b02-d3c0aae27193',
     },

@@ -10,6 +10,7 @@ import { shiftMonth } from 'src/payroll/payroll-month';
 import type { AccrualLine } from 'src/payroll/plan-order-accruals';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
+import { type FullName, joinFullName } from 'src/utils/full-name';
 
 export type PayrollScreenWorker = PayrollWorker & { loginId: string | null; penaltyPercentPerDay: number };
 
@@ -81,7 +82,7 @@ export const loadPayrollData = async (client: CoreApiClient, month: string): Pro
         masters: {
           __args: { first: PAGE_SIZE, after },
           edges: {
-            node: { id: true, name: true, isActive: true, categories: true, loginId: true, penaltyPercentPerDay: true },
+            node: { id: true, fullName: { firstName: true, lastName: true }, isActive: true, categories: true, loginId: true, penaltyPercentPerDay: true },
           },
           pageInfo: PAGE_INFO,
         },
@@ -140,7 +141,7 @@ export const loadPayrollData = async (client: CoreApiClient, month: string): Pro
 
       return {
         id: node.id,
-        name: node.name ?? null,
+        name: joinFullName(node.fullName),
         isActive: node.isActive !== false,
         categories: WORKER_CATEGORY_OPTIONS.map((option) => option.value).filter((value) => stored.includes(value)),
         loginId: node.loginId ?? null,
@@ -152,7 +153,7 @@ export const loadPayrollData = async (client: CoreApiClient, month: string): Pro
     payments,
     logins: memberNodes.map((node) => ({
       id: node.id,
-      name: [node.name?.firstName, node.name?.lastName].filter(Boolean).join(' ') || 'Без имени',
+      name: joinFullName(node.name) ?? 'Без имени',
     })),
     skipped: {
       payments: paymentNodes.length - payments.length,
@@ -166,7 +167,7 @@ export const loadPayrollData = async (client: CoreApiClient, month: string): Pro
 export const saveWorker = async (
   client: CoreApiClient,
   id: string,
-  data: { name: string; categories: WorkerCategory[] },
+  data: { fullName: FullName; categories: WorkerCategory[] },
 ): Promise<void> => {
   await client.mutation({
     createMaster: { __args: { data: { id, ...data, isActive: true }, upsert: true }, id: true },

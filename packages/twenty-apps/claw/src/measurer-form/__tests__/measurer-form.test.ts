@@ -54,7 +54,7 @@ const scheduled = (
 ): ScheduledOrder => ({
   id: 'order-1',
   name: '№1042',
-  clientName: 'Клиент 2',
+  clientFullName: { firstName: 'Бахтиёр', lastName: 'Каримов' },
   clientPhone: '+998901234567',
   district: 'CHILANZAR',
   addressLine: 'ул. Катартал, 5',
@@ -66,7 +66,8 @@ const scheduled = (
 });
 
 const draft = (overrides: Partial<MeasurementDraft>): MeasurementDraft => ({
-  clientName: 'Клиент 1',
+  clientFirstName: 'Азиз',
+  clientLastName: 'Рахимов',
   clientPhone: '90 123 45 67',
   district: 'CHILANZAR',
   addressLine: 'ул. Катартал, 5',
@@ -181,7 +182,7 @@ describe('buildMeasurementPayload', () => {
       order: {
         status: 'MEASURED',
         measurerId: 'member-1',
-        clientName: 'Клиент 1',
+        clientFullName: { firstName: 'Азиз', lastName: 'Рахимов' },
         clientPhone: '+998901234567',
         district: 'CHILANZAR',
         addressLine: 'ул. Катартал, 5',
@@ -772,18 +773,18 @@ describe('scheduled orders', () => {
 
   it('labels an order by its time in Tashkent, the client and the district', () => {
     expect(scheduledOrderLabel(scheduled(), '2026-10-05')).toBe(
-      'Сегодня 14:00 · Клиент 2 · Чиланзарский',
+      'Сегодня 14:00 · Бахтиёр Каримов · Чиланзарский',
     );
     expect(
       scheduledOrderLabel(
         scheduled({
-          clientName: 'Клиент 3',
+          clientFullName: { firstName: 'Дилноза', lastName: '' },
           district: null,
           measurementDate: '2026-10-06T11:30:00.000Z',
         }),
         '2026-10-05',
       ),
-    ).toBe('6 октября 16:30 · Клиент 3');
+    ).toBe('6 октября 16:30 · Дилноза');
   });
 
   it('counts the day in Tashkent, not in UTC', () => {
@@ -792,13 +793,17 @@ describe('scheduled orders', () => {
         scheduled({ measurementDate: '2026-10-05T20:30:00.000Z' }),
         '2026-10-06',
       ),
-    ).toBe('Сегодня 01:30 · Клиент 2 · Чиланзарский');
+    ).toBe('Сегодня 01:30 · Бахтиёр Каримов · Чиланзарский');
   });
 
   it('falls back to the order number when there is no client name or date', () => {
     expect(
       scheduledOrderLabel(
-        scheduled({ clientName: ' ', district: null, measurementDate: null }),
+        scheduled({
+          clientFullName: { firstName: ' ', lastName: '' },
+          district: null,
+          measurementDate: null,
+        }),
         '2026-10-05',
       ),
     ).toBe('№1042');
@@ -806,7 +811,8 @@ describe('scheduled orders', () => {
 
   it('fills the client block from the order', () => {
     expect(draftFromScheduledOrder(scheduled())).toEqual({
-      clientName: 'Клиент 2',
+      clientFirstName: 'Бахтиёр',
+      clientLastName: 'Каримов',
       clientPhone: '90 123 45 67',
       district: 'CHILANZAR',
       addressLine: 'ул. Катартал, 5',
@@ -823,7 +829,7 @@ describe('scheduled orders', () => {
     expect(
       draftFromScheduledOrder(
         scheduled({
-          clientName: null,
+          clientFullName: { firstName: '', lastName: '' },
           clientPhone: null,
           district: 'NOT_A_DISTRICT',
           addressLine: null,
@@ -834,7 +840,8 @@ describe('scheduled orders', () => {
         }),
       ),
     ).toEqual({
-      clientName: '',
+      clientFirstName: '',
+      clientLastName: '',
       clientPhone: '',
       district: '',
       addressLine: '',
@@ -980,7 +987,7 @@ describe('toOrderUpdateData', () => {
 
     expect(data).toMatchObject({
       status: 'MEASURED',
-      clientName: 'Клиент 1',
+      clientFullName: { firstName: 'Азиз', lastName: 'Рахимов' },
       clientPhone: '+998901234567',
       discountKind: 'PERCENT',
       discountValue: null,
@@ -988,6 +995,31 @@ describe('toOrderUpdateData', () => {
     expect(Object.keys(data)).not.toContain('measurerId');
     expect(Object.keys(data)).not.toContain('source');
     expect(Object.keys(data)).not.toContain('comment');
+  });
+
+  it('keeps the manager\'s client name when the form has none, and trims a typed one', () => {
+    const empty = buildMeasurementPayload(
+      draft({ clientFirstName: ' ', clientLastName: '' }),
+      'member-1',
+      context({ orderId: 'order-1' }),
+    );
+    const lastNameOnly = buildMeasurementPayload(
+      draft({ clientFirstName: '', clientLastName: ' Рахимов ' }),
+      'member-1',
+      context({ orderId: 'order-1' }),
+    );
+
+    if (!empty.isValid || !lastNameOnly.isValid) {
+      throw new Error('expected valid payloads');
+    }
+
+    expect(Object.keys(toOrderUpdateData(empty.order))).not.toContain(
+      'clientFullName',
+    );
+    expect(lastNameOnly.order.clientFullName).toEqual({
+      firstName: '',
+      lastName: 'Рахимов',
+    });
   });
 
   it('writes the typed discount kind and value together', () => {

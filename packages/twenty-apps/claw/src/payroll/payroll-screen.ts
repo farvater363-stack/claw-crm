@@ -19,6 +19,7 @@ import {
 import type { AccrualLine } from 'src/payroll/plan-order-accruals';
 import { parseOptionalMoney, parsePositiveNumber, PLAIN_DECIMAL } from 'src/prices/prices-screen';
 import { formatDayMonth, formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
+import { type FullName, trimFullName } from 'src/utils/full-name';
 
 type Result<TValue> = ({ ok: true } & TValue) | { ok: false; error: string };
 
@@ -168,16 +169,18 @@ export const buildPayRule = ({
 };
 
 export const buildWorker = ({
-  name,
+  firstName,
+  lastName,
   categories,
-}: {
-  name: string;
+}: FullName & {
   categories: WorkerCategory[];
-}): Result<{ data: { name: string; categories: WorkerCategory[] } }> => {
-  if (name.trim() === '') return { ok: false, error: 'Введите имя' };
+}): Result<{ data: { fullName: FullName; categories: WorkerCategory[] } }> => {
+  const fullName = trimFullName({ firstName, lastName });
+
+  if (fullName.firstName === '') return { ok: false, error: 'Введите имя' };
   if (categories.length === 0) return { ok: false, error: CATEGORY_REQUIRED };
 
-  return { ok: true, data: { name: name.trim(), categories } };
+  return { ok: true, data: { fullName, categories } };
 };
 
 export const parsePenaltyPercent = (raw: string): Result<{ value: number }> => {

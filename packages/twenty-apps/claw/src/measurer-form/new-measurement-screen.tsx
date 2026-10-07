@@ -106,6 +106,7 @@ import {
   TABULAR_NUMBERS,
   TYPE,
 } from 'src/ui/tokens';
+import { joinFullName, trimFullName } from 'src/utils/full-name';
 import { randomUuid } from 'src/utils/random-uuid';
 
 type SavedItem = {
@@ -164,8 +165,15 @@ const createOpening = () => createEmptyOpening(randomUuid(), randomUuid());
 let photoKeySequence = 0;
 const createPhotoKey = () => `photo-${photoKeySequence++}`;
 
+const draftClientName = (draft: MeasurementDraft): string | null =>
+  joinFullName({
+    firstName: draft.clientFirstName,
+    lastName: draft.clientLastName,
+  });
+
 const createEmptyDraft = (): MeasurementDraft => ({
-  clientName: '',
+  clientFirstName: '',
+  clientLastName: '',
   clientPhone: '',
   district: '',
   addressLine: '',
@@ -309,7 +317,7 @@ const loadScheduledOrders = async (
         node: {
           id: true,
           name: true,
-          clientName: true,
+          clientFullName: { firstName: true, lastName: true },
           clientPhone: true,
           district: true,
           addressLine: true,
@@ -326,7 +334,7 @@ const loadScheduledOrders = async (
     (orders?.edges ?? []).map(({ node }) => ({
       id: node.id,
       name: node.name ?? '',
-      clientName: node.clientName ?? null,
+      clientFullName: trimFullName(node.clientFullName),
       clientPhone: node.clientPhone ?? null,
       district: node.district ?? null,
       addressLine: node.addressLine ?? null,
@@ -820,7 +828,8 @@ export const NewMeasurement = () => {
   const preview = computePaymentPreview(draftTotal, payment);
   const today = todayInTashkent();
   const isDirty =
-    draft.clientName !== '' ||
+    draft.clientFirstName !== '' ||
+    draft.clientLastName !== '' ||
     draft.clientPhone !== '' ||
     draft.addressLine !== '' ||
     draft.comment !== '' ||
@@ -1203,8 +1212,8 @@ export const NewMeasurement = () => {
                 ...TABULAR_NUMBERS,
               }}
             >
-              {draft.clientName.trim() !== '' && (
-                <Fact label="Клиент" value={draft.clientName.trim()} />
+              {draftClientName(draft) !== null && (
+                <Fact label="Клиент" value={draftClientName(draft) ?? ''} />
               )}
               <Fact
                 label="Площадь"
@@ -1562,7 +1571,7 @@ export const NewMeasurement = () => {
             }}
           >
             <span style={TYPE.rowTitle}>
-              {draft.clientName.trim() || 'Клиент'}
+              {draftClientName(draft) ?? 'Клиент'}
             </span>
             {signature.length > 0 && (
               <span style={{ color: colors.success, fontWeight: 600 }}>
@@ -1626,7 +1635,7 @@ export const NewMeasurement = () => {
   const scheduledVisits = scheduledOrders.map((order) => ({
     id: order.id,
     when: describeMeasurementTime(order.measurementDate, today) ?? 'Без даты',
-    title: order.clientName?.trim() || order.name,
+    title: joinFullName(order.clientFullName) ?? order.name,
     detail:
       [findLabel(DISTRICT_OPTIONS, order.district ?? ''), order.addressLine]
         .filter((part) => part !== null && part !== '')
@@ -1654,7 +1663,7 @@ export const NewMeasurement = () => {
           }}
         >
           <div style={{ display: 'grid', minWidth: 0 }}>
-            <span style={TYPE.title}>{draft.clientName || 'Без имени'}</span>
+            <span style={TYPE.title}>{draftClientName(draft) ?? 'Без имени'}</span>
             <span style={{ ...TABULAR_NUMBERS, color: colors.muted }}>
               {draft.clientPhone === ''
                 ? 'Телефона нет'
@@ -1698,11 +1707,18 @@ export const NewMeasurement = () => {
             gap: SPACE.lg,
           }}
         >
-          <Field label="Имя клиента">
+          <Field label="Имя">
             <TextInput
-              label="Имя клиента"
-              value={draft.clientName}
-              onChange={(clientName) => updateDraft({ clientName })}
+              label="Имя"
+              value={draft.clientFirstName}
+              onChange={(clientFirstName) => updateDraft({ clientFirstName })}
+            />
+          </Field>
+          <Field label="Фамилия">
+            <TextInput
+              label="Фамилия"
+              value={draft.clientLastName}
+              onChange={(clientLastName) => updateDraft({ clientLastName })}
             />
           </Field>
           <Field label="Телефон">
@@ -2353,7 +2369,7 @@ export const NewMeasurement = () => {
       <div style={column(SPACE.xs)}>
         <SectionTitle title="Клиент" />
         <span style={TYPE.rowTitle}>
-          {draft.clientName.trim() || 'Новый клиент'}
+          {draftClientName(draft) ?? 'Новый клиент'}
         </span>
         <span style={{ ...TYPE.label, color: colors.muted }}>
           {[findLabel(DISTRICT_OPTIONS, draft.district), draft.addressLine]

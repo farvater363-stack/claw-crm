@@ -74,6 +74,7 @@ import {
 } from 'src/ui/kit';
 import { TYPE } from 'src/ui/tokens';
 import { dropKey } from 'src/utils/drop-key';
+import { EMPTY_FULL_NAME, type FullName } from 'src/utils/full-name';
 import { isAccessError } from 'src/utils/is-access-error';
 import { randomUuid } from 'src/utils/random-uuid';
 
@@ -89,7 +90,7 @@ type Panel = 'pay' | 'rule' | 'worker';
 type Tab = 'month' | 'terms';
 type PayForm = { kind: MasterPaymentKind; amount: string; comment: string };
 type NewRule = { method: PayMethod; work: PayWork | null; value: string };
-type NewWorker = { name: string; categories: WorkerCategory[] };
+type NewWorker = FullName & { categories: WorkerCategory[] };
 
 const SAVED_TICK_MS = 2_000;
 const NO_ACCESS = 'Доступно только владельцу';
@@ -98,7 +99,7 @@ const SAVE_FAILED = 'Не удалось сохранить. Проверьте 
 const EMPTY_TEXT =
   'Добавьте тех, кому платите: мастеров, установщиков, замерщиков. Приложение посчитает, сколько кому выплатить.';
 const NEW_RULE: NewRule = { method: 'PER_SQUARE_METER', work: 'MASTER', value: '' };
-const NEW_WORKER: NewWorker = { name: '', categories: [] };
+const NEW_WORKER: NewWorker = { ...EMPTY_FULL_NAME, categories: [] };
 const ADD_KEY = 'add';
 const TABS: { value: Tab; label: string }[] = [
   { value: 'month', label: 'Месяц' },
@@ -870,8 +871,17 @@ const Payroll = () => {
         <Field label="Имя" error={errors[ADD_KEY]}>
           <TextInput
             label="Имя"
-            value={newWorker.name}
-            onChange={(name) => setNewWorker({ ...newWorker, name })}
+            value={newWorker.firstName}
+            onChange={(firstName) => setNewWorker({ ...newWorker, firstName })}
+            onEnter={() => saveNewWorker(newWorker)}
+            onCancel={close}
+          />
+        </Field>
+        <Field label="Фамилия">
+          <TextInput
+            label="Фамилия"
+            value={newWorker.lastName}
+            onChange={(lastName) => setNewWorker({ ...newWorker, lastName })}
             onEnter={() => saveNewWorker(newWorker)}
             onCancel={close}
           />
