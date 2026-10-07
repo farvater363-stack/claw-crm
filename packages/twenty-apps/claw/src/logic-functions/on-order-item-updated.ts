@@ -44,6 +44,7 @@ export default defineLogicFunction({
       'widthCm',
       'heightCm',
       'projectionCm',
+      'projectionKind',
       'quantity',
       'pricePerSquareMeter',
       'costPerSquareMeter',

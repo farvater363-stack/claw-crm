@@ -77,6 +77,7 @@ const draft = (overrides: Partial<MeasurementDraft>): MeasurementDraft => ({
     opening({
       widthCm: '140',
       heightCm: '150',
+      projectionKind: 'BOTTOM_AND_TOP',
       projectionCm: '30',
       quantity: '2',
     }),
@@ -100,9 +101,29 @@ describe('opening area', () => {
   it('reuses the grille formula: 140×150×30 is 3.84 m²', () => {
     expect(
       computeOpeningAreaSquareMeters(
-        opening({ widthCm: '140', heightCm: '150', projectionCm: '30' }),
+        opening({
+          widthCm: '140',
+          heightCm: '150',
+          projectionKind: 'BOTTOM_AND_TOP',
+          projectionCm: '30',
+        }),
       ),
     ).toBe(3.84);
+  });
+
+  it('counts half the extra for a вынос at the bottom alone, none when it is not needed', () => {
+    const size = { widthCm: '140', heightCm: '150', projectionCm: '30' };
+
+    expect(
+      computeOpeningAreaSquareMeters(
+        opening({ ...size, projectionKind: 'BOTTOM' }),
+      ),
+    ).toBe(2.97);
+    expect(
+      computeOpeningAreaSquareMeters(
+        opening({ ...size, projectionKind: 'NONE' }),
+      ),
+    ).toBe(2.1);
   });
 
   it('has no area until width and height are positive', () => {
@@ -117,6 +138,7 @@ describe('opening area', () => {
         opening({
           widthCm: '140',
           heightCm: '150',
+          projectionKind: 'BOTTOM_AND_TOP',
           projectionCm: '30',
           quantity: '2',
         }),
@@ -141,6 +163,7 @@ describe('buildMeasurementPayload', () => {
             designId: 'design-1',
             widthCm: '140',
             heightCm: '150,5',
+            projectionKind: 'BOTTOM_AND_TOP',
             projectionCm: '30',
             quantity: '2',
             notes: ' угловое ',
@@ -174,6 +197,7 @@ describe('buildMeasurementPayload', () => {
           designId: 'design-1',
           widthCm: 140,
           heightCm: 150.5,
+          projectionKind: 'BOTTOM_AND_TOP',
           projectionCm: 30,
           quantity: 2,
           notes: 'угловое',
@@ -212,6 +236,37 @@ describe('buildMeasurementPayload', () => {
     expect(result).toEqual({
       isValid: false,
       errors: ['Проём 2: укажите ширину и высоту больше 0'],
+    });
+  });
+
+  it('asks for the centimetres of a вынос that was chosen, and saves none as 0', () => {
+    const size = { widthCm: '140', heightCm: '150' };
+    const build = (openingDraft: OpeningDraft) =>
+      buildMeasurementPayload(
+        draft({ openings: [openingDraft] }),
+        'member-1',
+        context(),
+      );
+
+    expect(build(opening({ ...size, projectionKind: 'BOTTOM' }))).toEqual({
+      isValid: false,
+      errors: ['Проём 1: укажите вынос в сантиметрах'],
+    });
+
+    const bottom = build(
+      opening({ ...size, projectionKind: 'BOTTOM', projectionCm: '30' }),
+    );
+    const none = build(
+      opening({ ...size, projectionKind: 'NONE', projectionCm: '30' }),
+    );
+
+    expect(bottom.isValid && bottom.items[0]).toMatchObject({
+      projectionKind: 'BOTTOM',
+      projectionCm: 30,
+    });
+    expect(none.isValid && none.items[0]).toMatchObject({
+      projectionKind: 'NONE',
+      projectionCm: 0,
     });
   });
 

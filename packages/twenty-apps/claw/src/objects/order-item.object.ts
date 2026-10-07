@@ -7,6 +7,7 @@ import {
 } from 'twenty-sdk/define';
 
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
+import { PROJECTION_KIND_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
 
@@ -43,7 +44,16 @@ export default defineObject({
     centimeters(IDS.orderItem.widthCm, 'widthCm', 'Ширина, см'),
     centimeters(IDS.orderItem.heightCm, 'heightCm', 'Высота, см'),
     {
-      ...centimeters(IDS.orderItem.projectionCm, 'projectionCm', 'Вылет, см'),
+      universalIdentifier: IDS.orderItem.projectionKind,
+      type: FieldType.SELECT,
+      name: 'projectionKind',
+      label: 'Вынос',
+      icon: 'IconRuler2',
+      isNullable: true,
+      options: PROJECTION_KIND_OPTIONS,
+    },
+    {
+      ...centimeters(IDS.orderItem.projectionCm, 'projectionCm', 'Вынос, см'),
       defaultValue: 0,
     },
     {

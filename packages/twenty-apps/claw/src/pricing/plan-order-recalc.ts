@@ -2,6 +2,7 @@ import {
   type DeadlineState,
   type DiscountKind,
   type ExtraServiceUnit,
+  type ProjectionKind,
 } from 'src/constants/select-options';
 import {
   applyLatePenalty,
@@ -11,7 +12,10 @@ import {
 } from 'src/payroll/pay-rules';
 import { computeDeadlineState } from 'src/pricing/compute-deadline-state';
 import { computeDiscount } from 'src/pricing/compute-discount';
-import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
+import {
+  computeItemAreaSquareMeters,
+  formatItemSize,
+} from 'src/pricing/compute-item-area';
 import { addDays, computeDaysLate } from 'src/pricing/dates';
 import { roundTo } from 'src/pricing/round';
 
@@ -28,6 +32,7 @@ export type ItemSnapshot = {
   widthCm: number | null;
   heightCm: number | null;
   projectionCm: number | null;
+  projectionKind: ProjectionKind | null;
   quantity: number | null;
   areaSquareMeters: number | null;
   pricePerSquareMeter: number | null;
@@ -141,21 +146,16 @@ const planItem = (
   shouldRefreshPrice: boolean,
 ): ItemSnapshot => {
   const hasDimensions = item.widthCm !== null && item.heightCm !== null;
-  const projectionCm = item.projectionCm ?? 0;
+  const size = {
+    widthCm: item.widthCm as number,
+    heightCm: item.heightCm as number,
+    projectionCm: item.projectionCm ?? 0,
+    projectionKind: item.projectionKind,
+  };
   const areaSquareMeters = hasDimensions
-    ? computeItemAreaSquareMeters({
-        widthCm: item.widthCm as number,
-        heightCm: item.heightCm as number,
-        projectionCm,
-      })
+    ? computeItemAreaSquareMeters(size)
     : null;
-  const name = hasDimensions
-    ? [
-        item.widthCm,
-        item.heightCm,
-        ...(projectionCm > 0 ? [projectionCm] : []),
-      ].join('×')
-    : item.name;
+  const name = hasDimensions ? formatItemSize(size) : item.name;
 
   const entry = grilles.find((grille) => grille.id === item.designId) ?? null;
   const pricePerSquareMeter =

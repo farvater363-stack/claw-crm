@@ -135,6 +135,7 @@ export const IDS = {
     widthCm: 'abaa7141-7102-4792-b4c8-cb96cb2dc87d',
     heightCm: '8de09a33-6105-4653-8493-e7ae5c8535ff',
     projectionCm: '1c159580-363d-4e63-a42f-266b0a1996fa',
+    projectionKind: 'c856db57-be0e-4ec2-a244-c7e8daa1a9b7',
     quantity: '3439ef21-bb5e-422c-b2f9-e5a31a29ad5b',
     areaSquareMeters: '0ee36a02-398d-46b5-bbef-b4d8e1a8625f',
     pricePerSquareMeter: 'c9f5e081-a633-474d-9caf-49cfb826c911',
