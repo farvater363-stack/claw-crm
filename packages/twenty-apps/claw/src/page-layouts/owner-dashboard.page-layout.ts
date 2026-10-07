@@ -4,6 +4,7 @@ import {
   ObjectRecordGroupByDateGranularity,
   PageLayoutTabLayoutMode,
   type PageLayoutWidgetGridPosition,
+  STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
 } from 'twenty-sdk/define';
 
 import { IDS } from 'src/constants/universal-identifiers';
@@ -174,6 +175,18 @@ export default definePageLayout({
             numberFormat: 'FULL',
             filter: READY_THIS_MONTH,
             ...CHART_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.callBacksTableWidget,
+          title: 'Перезвонить',
+          type: 'RECORD_TABLE',
+          objectUniversalIdentifier:
+            STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
+          position: grid(10, 0, 6, 12),
+          configuration: {
+            configurationType: 'RECORD_TABLE',
+            viewUniversalIdentifier: IDS.view.dashboardCallBacks,
           },
         },
       ],

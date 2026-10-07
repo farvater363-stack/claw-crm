@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import callBacks from 'src/navigation-menu-items/call-backs.navigation-menu-item';
+import clients from 'src/navigation-menu-items/clients.navigation-menu-item';
+import marketing from 'src/navigation-menu-items/marketing.navigation-menu-item';
 import myMeasurements from 'src/navigation-menu-items/my-measurements.navigation-menu-item';
 import newMeasurement from 'src/navigation-menu-items/new-measurement.navigation-menu-item';
 import orders from 'src/navigation-menu-items/orders-kanban.navigation-menu-item';
@@ -38,6 +41,9 @@ const MENU = [
   { label: 'Склад', item: stock, requires: IDS.stockMovement.object },
   { label: 'Цены', item: prices, requires: IDS.materialNorm.object },
   { label: 'ЗП', item: payroll, requires: IDS.masterPayment.object },
+  { label: 'Клиенты', item: clients, requires: IDS.clientCall.object },
+  { label: 'Перезвоны', item: callBacks, requires: IDS.clientCall.object },
+  { label: 'Маркетинг', item: marketing, requires: IDS.clientCall.object },
 ];
 
 const menuOf = (role: { config: typeof managerRole.config }) => {
@@ -51,12 +57,15 @@ const menuOf = (role: { config: typeof managerRole.config }) => {
 };
 
 describe('menu', () => {
-  it('has these seven items and no other', () => {
+  it('has these ten items and no other', () => {
     expect(
       readdirSync(join(__dirname, '..'))
         .filter((file) => file.endsWith('.navigation-menu-item.ts'))
         .sort(),
     ).toEqual([
+      'call-backs.navigation-menu-item.ts',
+      'clients.navigation-menu-item.ts',
+      'marketing.navigation-menu-item.ts',
       'my-measurements.navigation-menu-item.ts',
       'new-measurement.navigation-menu-item.ts',
       'orders-kanban.navigation-menu-item.ts',
@@ -70,7 +79,7 @@ describe('menu', () => {
   it('orders them as the spec does, after the dashboard item and off position zero', () => {
     const positions = MENU.map(({ item }) => item.config.position);
 
-    expect(positions).toEqual([-1, 1, 2, 3, 4, 5, 6]);
+    expect(positions).toEqual([-1, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(positions[0]).toBeGreaterThan(DASHBOARD_ITEM_POSITION);
   });
 
@@ -89,7 +98,11 @@ describe('menu', () => {
       'Склад',
       'Цены',
       'ЗП',
+      undefined,
+      'Перезвоны',
+      'Маркетинг',
     ]);
+    expect(clients.config.viewUniversalIdentifier).toBe(IDS.view.clients);
     expect(orders.config.viewUniversalIdentifier).toBe(IDS.view.ordersKanban);
     expect(myMeasurements.config.viewUniversalIdentifier).toBe(
       IDS.view.myMeasurements,
@@ -102,7 +115,17 @@ describe('menu', () => {
     [
       'the manager',
       managerRole,
-      ['Заказы', 'В работе', 'Новый замер', 'Мои замеры', 'Склад', 'Цены'],
+      [
+        'Заказы',
+        'В работе',
+        'Новый замер',
+        'Мои замеры',
+        'Склад',
+        'Цены',
+        'Клиенты',
+        'Перезвоны',
+        'Маркетинг',
+      ],
     ],
   ])('shows %s the menu of the spec, first item first', (_, role, labels) => {
     expect(menuOf(role)).toEqual(labels);

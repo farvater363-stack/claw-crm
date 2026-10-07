@@ -4,6 +4,7 @@ import {
   type ObjectRecordCreateEvent,
 } from 'twenty-sdk/define';
 
+import { syncOrderClient } from 'src/clients/sync-order-client';
 import { IDS } from 'src/constants/universal-identifiers';
 import { measuredAtOnStatusChange } from 'src/pricing/dates';
 import { assignOrderNumber } from 'src/recalc/assign-order-number';
@@ -23,6 +24,7 @@ type CreatedOrder = {
   clientPhone: string | null;
   status: string | null;
   measuredAt: string | null;
+  cancelReason: string | null;
 };
 
 const handler = async (
@@ -87,13 +89,22 @@ const handler = async (
       previousStatus: null,
     }),
   });
+
+  await syncOrderClient(client, {
+    before: null,
+    after: {
+      clientId: (data.clientId as string | undefined) ?? order.clientId ?? null,
+      status: order.status ?? null,
+      cancelReason: order.cancelReason ?? null,
+    },
+  });
 };
 
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderCreated,
   name: 'on-order-created',
   description:
-    'Numbers a new order, links the client by phone, records who sold it and calculates totals',
+    "Numbers a new order, links the client by phone, records who sold it, calculates totals and the client's next call",
   timeoutSeconds: 30,
   databaseEventTriggerSettings: { eventName: 'order.created' },
   handler,

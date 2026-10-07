@@ -64,14 +64,17 @@ export default defineRole({
     readOnly(IDS.orderMaterial.object),
     readWrite(IDS.materialNorm.object),
     readUpdate(IDS.stockMovement.object),
+    readWrite(IDS.clientCall.object),
   ],
   fieldPermissions: [
     ...ADMIN_ONLY_FIELD_PERMISSIONS,
     ...CALCULATED_FIELD_PERMISSIONS,
   ],
-  // Without these, uploads to photo fields are rejected and Download is hidden.
+  // Without these, uploads to photo fields are rejected and Download is hidden;
+  // the export makes the phone lists for mailings.
   permissionFlagUniversalIdentifiers: [
     SystemPermissionFlag.UPLOAD_FILE,
     SystemPermissionFlag.DOWNLOAD_FILE,
+    SystemPermissionFlag.EXPORT_CSV,
   ],
 });

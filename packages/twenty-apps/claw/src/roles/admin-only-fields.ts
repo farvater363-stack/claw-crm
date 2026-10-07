@@ -1,4 +1,7 @@
-import { type defineRole } from 'twenty-sdk/define';
+import {
+  type defineRole,
+  STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
+} from 'twenty-sdk/define';
 
 import { ADMIN_ONLY_FIELD_IDS_BY_OBJECT } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -73,4 +76,21 @@ export const CALCULATED_FIELD_PERMISSIONS: FieldPermission[] = [
     IDS.material.stockState,
     IDS.material.overrunPercent,
   ]),
+  // Counted from the client's orders and calls.
+  ...readOnly(
+    STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
+    [
+      IDS.person.clientStatus,
+      IDS.person.ordersCount,
+      IDS.person.totalSpent,
+      IDS.person.owes,
+      IDS.person.quoted,
+      IDS.person.firstOrderAt,
+      IDS.person.lastOrderAt,
+      IDS.person.lastInstalledAt,
+      IDS.person.refusalReason,
+      IDS.person.lastCallAt,
+      IDS.person.lastCallNote,
+    ],
+  ),
 ];

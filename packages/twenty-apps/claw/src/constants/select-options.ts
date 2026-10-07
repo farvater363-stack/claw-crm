@@ -111,6 +111,35 @@ export const CANCEL_REASON_OPTIONS = toOptions([
   ['OTHER', 'Другое', 'gray'],
 ] as const);
 
+// Set from the client's orders, never by hand.
+export const CLIENT_STATUS_OPTIONS = toOptions([
+  ['NEW', 'Новый', 'gray'],
+  ['THINKING', 'Думает', 'yellow'],
+  ['BOUGHT', 'Купил', 'green'],
+  ['REPEAT', 'Повторный', 'purple'],
+  ['REFUSED', 'Отказ', 'red'],
+] as const);
+
+export type ClientStatus = (typeof CLIENT_STATUS_OPTIONS)[number]['value'];
+
+export const CALL_BACK_REASON_OPTIONS = toOptions([
+  ['AFTER_MEASUREMENT', 'Думает после замера', 'yellow'],
+  ['AFTER_INSTALLATION', 'Как всё прошло', 'green'],
+  ['UNREACHABLE', 'Не дозвонились', 'orange'],
+  ['AGREED', 'Договорились созвониться', 'blue'],
+] as const);
+
+export type CallBackReason = (typeof CALL_BACK_REASON_OPTIONS)[number]['value'];
+
+export const CALL_RESULT_OPTIONS = toOptions([
+  ['REACHED', 'Поговорили', 'blue'],
+  ['NO_ANSWER', 'Не ответил', 'orange'],
+  ['AGREED', 'Согласен', 'green'],
+  ['REFUSED', 'Отказ', 'red'],
+] as const);
+
+export type CallResult = (typeof CALL_RESULT_OPTIONS)[number]['value'];
+
 export const MASTER_PAYMENT_KIND_OPTIONS = toOptions([
   ['ADVANCE', 'Аванс', 'yellow'],
   ['SETTLEMENT', 'Расчёт', 'green'],

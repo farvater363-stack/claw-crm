@@ -19,6 +19,19 @@ export const READY_AT_STATUSES: readonly OrderStatus[] = [
   'INSTALLED',
 ];
 
+// The client agreed and the order went to the workshop: a sale.
+export const SOLD_STATUSES: readonly OrderStatus[] = [
+  'PRODUCTION',
+  'QUALITY_CHECK',
+  'INSTALLED',
+];
+
+// Booked but not yet measured.
+export const LEAD_STATUSES: readonly OrderStatus[] = [
+  'NEW',
+  'MEASUREMENT_SCHEDULED',
+];
+
 export const STATUSES_WITHOUT_DEADLINE: readonly OrderStatus[] = [
   'QUALITY_CHECK',
   'INSTALLED',
@@ -82,6 +95,12 @@ export const isInProduction = (status: string | null): boolean =>
 
 export const isSentToInstallation = (status: string | null): boolean =>
   status === 'QUALITY_CHECK';
+
+export const isSold = (status: string | null): boolean =>
+  isStatusIn(SOLD_STATUSES, status);
+
+export const isCancelled = (status: string | null): boolean =>
+  status === 'CANCELLED';
 
 export const isInstalled = (status: string | null): boolean =>
   status === 'INSTALLED';
