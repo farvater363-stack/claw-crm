@@ -11,6 +11,7 @@ import {
 import { IDS } from 'src/constants/universal-identifiers';
 import { STEP_STATUS, type StepWrite } from 'src/order-header/order-steps';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
+import { joinFullName, type StoredFullName } from 'src/utils/full-name';
 import { isAccessError } from 'src/utils/is-access-error';
 
 export type Choice = { value: string; label: string };
@@ -48,7 +49,7 @@ const MONEY = { amountMicros: true } as const;
 
 type Worker = {
   id: string;
-  name?: string | null;
+  fullName?: StoredFullName;
   categories?: readonly (WorkerCategory | undefined)[] | null;
 };
 
@@ -60,10 +61,16 @@ const loadActiveWorkers = async (client: CoreApiClient): Promise<Worker[]> => {
       masters: {
         __args: {
           filter: { isActive: { eq: true } },
-          orderBy: [{ name: 'AscNullsLast' }],
+          orderBy: [{ fullName: { firstName: 'AscNullsLast' } }],
           first: PAGE_SIZE,
         },
-        edges: { node: { id: true, name: true, categories: true } },
+        edges: {
+          node: {
+            id: true,
+            fullName: { firstName: true, lastName: true },
+            categories: true,
+          },
+        },
       },
     });
 
@@ -78,7 +85,10 @@ const loadActiveWorkers = async (client: CoreApiClient): Promise<Worker[]> => {
 const workersOf = (workers: Worker[], category: WorkerCategory): Choice[] =>
   workers
     .filter((worker) => (worker.categories ?? []).includes(category))
-    .map((worker) => ({ value: worker.id, label: worker.name ?? '' }));
+    .map((worker) => ({
+      value: worker.id,
+      label: joinFullName(worker.fullName) ?? '',
+    }));
 
 export const loadOrderHeader = async (
   client: CoreApiClient,
@@ -93,7 +103,7 @@ export const loadOrderHeader = async (
             id: true,
             name: true,
             status: true,
-            clientName: true,
+            clientFullName: { firstName: true, lastName: true },
             clientPhone: true,
             district: true,
             floor: true,
@@ -127,7 +137,7 @@ export const loadOrderHeader = async (
       id: node.id,
       name: node.name ?? '',
       status: node.status ?? null,
-      clientName: node.clientName ?? null,
+      clientName: joinFullName(node.clientFullName),
       clientPhone: node.clientPhone ?? null,
       districtLabel:
         DISTRICT_OPTIONS.find((option) => option.value === node.district)
@@ -146,9 +156,7 @@ export const loadOrderHeader = async (
     installers: workersOf(workers, 'INSTALLER'),
     measurers: (workspaceMembers?.edges ?? []).map(({ node: member }) => ({
       value: member.id,
-      label: [member.name?.firstName, member.name?.lastName]
-        .filter(Boolean)
-        .join(' '),
+      label: joinFullName(member.name) ?? '',
     })),
   };
 };

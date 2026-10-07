@@ -12,6 +12,7 @@ import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { findWorkerIdByLogin } from 'src/recalc/find-worker-by-login';
 import { linkClientByPhone } from 'src/recalc/link-client-by-phone';
 import { recalcOrder } from 'src/recalc/recalc-order';
+import { type StoredFullName } from 'src/utils/full-name';
 import { isEnteringWrittenOff } from 'src/warehouse/plan-order-materials';
 
 type CreatedOrder = {
@@ -20,7 +21,7 @@ type CreatedOrder = {
   clientId: string | null;
   measurerId: string | null;
   soldById: string | null;
-  clientName: string | null;
+  clientFullName: StoredFullName;
   clientPhone: string | null;
   status: string | null;
   measuredAt: string | null;
@@ -68,7 +69,7 @@ const handler = async (
 
   if ((order.clientId ?? null) === null) {
     const clientId = await linkClientByPhone(client, {
-      clientName: order.clientName ?? null,
+      clientFullName: order.clientFullName,
       clientPhone: order.clientPhone ?? null,
     });
 

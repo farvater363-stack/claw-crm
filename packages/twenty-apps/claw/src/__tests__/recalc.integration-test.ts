@@ -98,7 +98,7 @@ const createOrder = async (data: { clientPhone?: string }) => {
       __args: {
         data: {
           name: '',
-          clientName: 'Тест',
+          clientFullName: { firstName: 'Тест', lastName: '' },
           clientPhone: data.clientPhone,
         },
       },

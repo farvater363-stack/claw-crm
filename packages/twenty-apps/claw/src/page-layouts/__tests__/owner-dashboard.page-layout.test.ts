@@ -286,7 +286,7 @@ describe('«Сегодня»', () => {
       ),
     ).toEqual([
       IDS.order.name,
-      IDS.order.clientName,
+      IDS.order.clientFullName,
       IDS.order.installationDeadline,
       IDS.order.master,
     ]);

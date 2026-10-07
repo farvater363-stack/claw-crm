@@ -90,7 +90,7 @@ describe('«Заказы»', () => {
   it('shows eight fields on a card, the workshop stage and «Срочно» last', () => {
     expect(fieldIds(true)).toEqual([
       IDS.order.name,
-      IDS.order.clientName,
+      IDS.order.clientFullName,
       IDS.order.total,
       IDS.order.master,
       IDS.order.installationDeadline,

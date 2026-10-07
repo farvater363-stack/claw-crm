@@ -152,7 +152,7 @@ describe('order fields', () => {
 
   it('shows the client from the name to the comment', () => {
     expect(visibleIn(ids.groups.client)).toEqual([
-      IDS.order.clientName,
+      IDS.order.clientFullName,
       IDS.order.clientPhone,
       IDS.order.district,
       IDS.order.address,

@@ -43,7 +43,8 @@ export const IDS = {
   },
   master: {
     object: 'fe130af4-1d8b-48e0-b9ff-b8257e80af63',
-    name: '0d398032-9bb5-4d5c-9e4f-84a953008bae',
+    name: '0d398032-9bb5-4d5c-9e4f-84a953008bae', // Being retired: the one-line name until scripts/split-names.py copies it into fullName.
+    fullName: 'c7703389-5ec8-490f-986c-24a0631fb8bb',
     phone: '3ecd1fec-b8d4-4020-a2e3-f8dba117fa2c',
     isActive: '74f3f8ec-6425-4884-baf9-dbf797f7372c',
     ratePerSquareMeter: '5977ce99-14c6-4a4b-b83b-17eae59305ec', // Retired: a worker's rate is a pay rule; ids are never reused.
@@ -61,7 +62,8 @@ export const IDS = {
     object: '8ab9a340-059c-4dd3-a96f-a8a83a5f3c32',
     name: 'ee04357f-7eac-405d-a44a-2cedbe0da6fa',
     number: 'b0fcc3ed-e390-45e6-983d-69ef253598cd',
-    clientName: '4ff38cf1-36f9-4b4e-a0ae-4c15e6d20e2a',
+    clientName: '4ff38cf1-36f9-4b4e-a0ae-4c15e6d20e2a', // Being retired: the one-line name until scripts/split-names.py copies it into clientFullName.
+    clientFullName: '04f18e2f-e327-4dec-9695-ee810320ad22',
     clientPhone: '56c77bd0-02c0-47f7-b1b8-27a470ea8f14',
     source: '3f1e5c63-1bb6-4a2e-8093-9f370de56dc4',
     district: '885ec9ff-e356-484e-9763-79d0644978e5',

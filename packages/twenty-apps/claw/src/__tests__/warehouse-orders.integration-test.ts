@@ -161,7 +161,12 @@ describe('order material lifecycle', () => {
 
     const { createOrder } = await client.mutation({
       createOrder: {
-        __args: { data: { name: '', clientName: 'Тест склад' } },
+        __args: {
+          data: {
+            name: '',
+            clientFullName: { firstName: 'Тест', lastName: 'склад' },
+          },
+        },
         id: true,
       },
     });
