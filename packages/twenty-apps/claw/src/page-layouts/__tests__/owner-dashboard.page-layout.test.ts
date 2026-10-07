@@ -115,7 +115,7 @@ describe('owner dashboard layout', () => {
 });
 
 describe('«Сегодня»', () => {
-  it('reads as four tiles, two lists, the month and who to call back', () => {
+  it('reads as four tiles, two lists, the month taken and built, and who to call back', () => {
     expect(titlesOf(today)).toEqual([
       'Просрочены',
       'Должны нам',
@@ -123,6 +123,8 @@ describe('«Сегодня»', () => {
       'Купить',
       'Купить',
       'Ближайшие сроки',
+      'Принято заказов за месяц',
+      'Получено за месяц',
       'Выручка за месяц',
       'Маржа за месяц',
       'Перезвонить',
@@ -208,6 +210,53 @@ describe('«Сегодня»', () => {
         configurationType: 'AGGREGATE_CHART',
         aggregateFieldMetadataUniversalIdentifier: fieldId,
         aggregateOperation: operation,
+        numberFormat: 'FULL',
+      });
+      expect(filtersOf(widget)).toEqual(filters);
+    },
+  );
+
+  it.each([
+    [
+      IDS.ownerDashboard.acceptedThisMonthWidget,
+      IDS.order.object,
+      IDS.order.total,
+      [
+        {
+          fieldMetadataUniversalIdentifier: IDS.order.createdAt,
+          operand: 'IS_RELATIVE',
+          value: 'THIS_1_MONTH;;Asia/Tashkent;;',
+        },
+        {
+          fieldMetadataUniversalIdentifier: IDS.order.status,
+          operand: 'IS_NOT',
+          value: '["CANCELLED"]',
+        },
+      ],
+    ],
+    [
+      IDS.ownerDashboard.receivedThisMonthWidget,
+      IDS.orderPayment.object,
+      IDS.orderPayment.amount,
+      [
+        {
+          fieldMetadataUniversalIdentifier: IDS.orderPayment.paidOn,
+          operand: 'IS_RELATIVE',
+          value: 'THIS_1_MONTH;;Asia/Tashkent;;',
+        },
+      ],
+    ],
+  ])(
+    'sums the month of %s whether or not the orders are ready',
+    (widgetId, objectId, fieldId, filters) => {
+      const widget = byId(widgetId);
+
+      expect(widgetsOf(today)).toContain(widget);
+      expect(widget.objectUniversalIdentifier).toBe(objectId);
+      expect(configurationOf(widget)).toMatchObject({
+        configurationType: 'AGGREGATE_CHART',
+        aggregateFieldMetadataUniversalIdentifier: fieldId,
+        aggregateOperation: 'SUM',
         numberFormat: 'FULL',
       });
       expect(filtersOf(widget)).toEqual(filters);
@@ -321,7 +370,7 @@ describe('«Аналитика»', () => {
       );
     });
 
-    expect(moneyKpis).toHaveLength(3);
+    expect(moneyKpis).toHaveLength(4);
     expect(
       moneyKpis.every(
         (widget) => configurationOf(widget).numberFormat === 'FULL',

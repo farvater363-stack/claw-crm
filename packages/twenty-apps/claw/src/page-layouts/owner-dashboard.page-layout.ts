@@ -9,6 +9,7 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 import {
+  ACCEPTED_THIS_MONTH,
   CANCELLED_IN_LAST_TWELVE_MONTHS,
   CHART_DEFAULTS,
   type ChartFilter,
@@ -19,6 +20,7 @@ import {
   OVERDUE_ORDERS,
   READY_IN_LAST_TWELVE_MONTHS,
   READY_THIS_MONTH,
+  RECEIVED_THIS_MONTH,
 } from 'src/page-layouts/owner-dashboard-filters';
 
 const grid = (
@@ -148,11 +150,41 @@ export default definePageLayout({
           },
         },
         {
+          universalIdentifier: IDS.ownerDashboard.acceptedThisMonthWidget,
+          title: 'Принято заказов за месяц',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.order.object,
+          position: grid(8, 0, 2, 6),
+          configuration: {
+            configurationType: 'AGGREGATE_CHART',
+            aggregateFieldMetadataUniversalIdentifier: IDS.order.total,
+            aggregateOperation: AggregateOperations.SUM,
+            numberFormat: 'FULL',
+            filter: ACCEPTED_THIS_MONTH,
+            ...CHART_DEFAULTS,
+          },
+        },
+        {
+          universalIdentifier: IDS.ownerDashboard.receivedThisMonthWidget,
+          title: 'Получено за месяц',
+          type: 'GRAPH',
+          objectUniversalIdentifier: IDS.orderPayment.object,
+          position: grid(8, 6, 2, 6),
+          configuration: {
+            configurationType: 'AGGREGATE_CHART',
+            aggregateFieldMetadataUniversalIdentifier: IDS.orderPayment.amount,
+            aggregateOperation: AggregateOperations.SUM,
+            numberFormat: 'FULL',
+            filter: RECEIVED_THIS_MONTH,
+            ...CHART_DEFAULTS,
+          },
+        },
+        {
           universalIdentifier: IDS.ownerDashboard.revenueThisMonthWidget,
           title: 'Выручка за месяц',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(8, 0, 2, 6),
+          position: grid(10, 0, 2, 6),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.order.total,
@@ -167,7 +199,7 @@ export default definePageLayout({
           title: 'Маржа за месяц',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(8, 6, 2, 6),
+          position: grid(10, 6, 2, 6),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.order.margin,
@@ -183,7 +215,7 @@ export default definePageLayout({
           type: 'RECORD_TABLE',
           objectUniversalIdentifier:
             STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
-          position: grid(10, 0, 6, 12),
+          position: grid(12, 0, 6, 12),
           configuration: {
             configurationType: 'RECORD_TABLE',
             viewUniversalIdentifier: IDS.view.dashboardCallBacks,

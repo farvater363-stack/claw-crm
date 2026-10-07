@@ -55,6 +55,29 @@ export const READY_THIS_MONTH: ChartFilter = {
   ],
 };
 
+// Orders taken this month, ready or not: the ready-date numbers stay empty
+// until the first order of the month is built.
+export const ACCEPTED_THIS_MONTH: ChartFilter = {
+  recordFilters: [
+    {
+      fieldMetadataUniversalIdentifier: IDS.order.createdAt,
+      operand: 'IS_RELATIVE',
+      value: relative('THIS_1_MONTH'),
+    },
+    NOT_CANCELLED,
+  ],
+};
+
+export const RECEIVED_THIS_MONTH: ChartFilter = {
+  recordFilters: [
+    {
+      fieldMetadataUniversalIdentifier: IDS.orderPayment.paidOn,
+      operand: 'IS_RELATIVE',
+      value: relative('THIS_1_MONTH'),
+    },
+  ],
+};
+
 // Twenty's PAST_n_MONTH stops before the current month, so «last 12 months»
 // is the past 11 months or this one.
 const inLastTwelveMonths = (
