@@ -6,6 +6,7 @@ import {
 
 import { syncOrderClient } from 'src/clients/sync-order-client';
 import { IDS } from 'src/constants/universal-identifiers';
+import { deletePaymentsOfOrder } from 'src/payments/follow-order';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 
 type DeletedOrder = {
@@ -18,6 +19,9 @@ const handler = async (
   payload: DatabaseEventPayload<ObjectRecordDeleteEvent<DeletedOrder>>,
 ): Promise<void> => {
   const order = payload.properties.before;
+  const client = createRecalcClient();
+
+  await deletePaymentsOfOrder(client, payload.recordId);
 
   if (!order?.clientId) return;
 
@@ -28,14 +32,14 @@ const handler = async (
     cancelReason: order.cancelReason ?? null,
   };
 
-  await syncOrderClient(createRecalcClient(), { before: side, after: side });
+  await syncOrderClient(client, { before: side, after: side });
 };
 
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderDeleted,
   name: 'on-order-deleted',
   description:
-    "Recalculates the client's totals after one of their orders is deleted",
+    "Deletes the payments of a deleted order and recalculates its client's totals",
   timeoutSeconds: 30,
   databaseEventTriggerSettings: { eventName: 'order.deleted' },
   handler,
