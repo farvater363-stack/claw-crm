@@ -43,6 +43,8 @@ export type OpeningDraft = {
   quantity: string;
   notes: string;
   photos: OpeningPhoto[];
+  // «Нужен» is chosen before the visor itself, which is picked from a list
+  isVisorWanted: boolean;
   visorServiceId: string;
   visorLengthCm: string;
 };
@@ -106,6 +108,7 @@ export type VisorOption = { id: string; name: string; price: number | null };
 export type GrilleOption = {
   id: string;
   name: string;
+  kindName: string | null;
   photoUrl: string | null;
   pricePerSquareMeter: number | null;
 };
@@ -138,8 +141,23 @@ export const createEmptyOpening = (
   quantity: '1',
   notes: '',
   photos: [],
+  isVisorWanted: false,
   visorServiceId: '',
   visorLengthCm: '',
+});
+
+// A neighbouring window of the same build: sizes, grille and visor carry
+// over, its own notes and photos do not.
+export const copyOpening = (
+  opening: OpeningDraft,
+  key: string,
+  visorKey: string,
+): OpeningDraft => ({
+  ...opening,
+  key,
+  visorKey,
+  notes: '',
+  photos: [],
 });
 
 export const takePhotosWithinLimit = <TPhoto>(
@@ -475,7 +493,7 @@ const isDistrict = (value: string | null): value is District =>
 const isSource = (value: string | null): value is Source =>
   SOURCE_OPTIONS.some((option) => option.value === value);
 
-const describeMeasurementTime = (
+export const describeMeasurementTime = (
   measurementDate: string | null,
   today: string,
 ): string | null => {
@@ -626,6 +644,10 @@ export const buildMeasurementPayload = (
     }
 
     const visorRunningMeters = computeVisorRunningMeters(opening);
+
+    if (opening.isVisorWanted && opening.visorServiceId === '') {
+      openingErrors.push(`${label}: выберите козырёк`);
+    }
 
     if (opening.visorServiceId !== '' && visorRunningMeters === null) {
       openingErrors.push(

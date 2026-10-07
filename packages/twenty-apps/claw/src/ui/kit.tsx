@@ -416,6 +416,8 @@ export const TextInput = ({
   inputMode = 'text',
   type = 'text',
   isMoney = false,
+  isLarge = false,
+  prefix,
   suffix,
   placeholder,
   label,
@@ -439,6 +441,9 @@ export const TextInput = ({
   // A whole sum: thousands get their commas when the field is left. Regrouping
   // on every key would scramble the digits: the caret keeps its index here.
   isMoney?: boolean;
+  // A size typed on site, read at arm's length
+  isLarge?: boolean;
+  prefix?: string;
   suffix?: string;
   placeholder?: string;
 }) => {
@@ -451,7 +456,7 @@ export const TextInput = ({
         display: 'flex',
         alignItems: 'center',
         gap: SPACE.sm,
-        minHeight: CONTROL_HEIGHT,
+        minHeight: isLarge ? CONTROL_HEIGHT + SPACE.md : CONTROL_HEIGHT,
         padding: `0 ${SPACE.md}px`,
         border: `1px solid ${colors.border}`,
         borderRadius: RADIUS.control,
@@ -460,6 +465,13 @@ export const TextInput = ({
         outline: isFocused ? `2px solid ${colors.accent}` : 'none',
       }}
     >
+      {prefix ? (
+        <span
+          style={{ flex: 'none', whiteSpace: 'nowrap', color: colors.muted }}
+        >
+          {prefix}
+        </span>
+      ) : null}
       <input
         type={type}
         aria-label={label}
@@ -493,7 +505,7 @@ export const TextInput = ({
           background: 'transparent',
           color: colors.text,
           font: 'inherit',
-          ...TYPE.body,
+          ...(isLarge ? TYPE.keyNumber : TYPE.body),
           ...(inputMode === 'text' ? {} : TABULAR_NUMBERS),
         }}
       />
