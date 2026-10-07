@@ -434,6 +434,10 @@ export const IDS = {
     frontComponent: '74aa9d07-1296-4578-a9e4-a623002c5b4b',
     orderPageWidget: '4102beab-e8d1-4e1a-a324-982bf1a35ed3',
   },
+  orderSketch: {
+    frontComponent: 'e35c1fc1-98b1-4d5c-b0ba-95138d42cf16',
+    orderPageWidget: 'e48b0832-e6fd-41bc-8bb0-4897e1095836',
+  },
   orderHeader: {
     frontComponent: 'f085c652-a22d-4954-94b6-0c381d443efb',
     orderPageWidget: 'a075d6e9-7538-4a50-81b5-db059ce66ee1',

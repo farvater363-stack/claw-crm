@@ -605,15 +605,28 @@ export const OpeningSketch = ({
           strokeWidth="3"
         />
       )}
+      {/* Two short lines: «вынос 100 см» on one runs off the right edge. */}
       <text
-        x={wall + 6}
-        y={bottom + 18}
+        x={wall + 12}
+        y={bottom + 16}
         textAnchor="middle"
         fontSize="11"
         fill={colors.muted}
       >
-        {hasProjection ? `вынос ${projectionCm}` : 'сбоку'}
+        {hasProjection ? 'вынос' : 'сбоку'}
       </text>
+      {hasProjection ? (
+        <text
+          x={wall + 12}
+          y={bottom + 29}
+          textAnchor="middle"
+          fontSize="11"
+          fontWeight="600"
+          fill={colors.text}
+        >
+          {`${projectionCm} см`}
+        </text>
+      ) : null}
     </svg>
   );
 };
