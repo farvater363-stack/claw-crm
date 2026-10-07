@@ -420,6 +420,8 @@ export const IDS = {
     purchasePlanTableWidget: '3e5f6037-4815-468d-a38e-456926656f15',
     overrunTableWidget: 'dabc602c-9188-4ff9-a220-48f0ecba5dc7',
     callBacksTableWidget: 'fa017b8f-68c2-439f-9136-0a060f0f5303',
+    acceptedThisMonthWidget: '3e063551-153e-4d3f-b0c6-4c73f1ea1d54',
+    receivedThisMonthWidget: '6b075c69-383b-4b3b-94f5-42d3e0b9fb15',
   },
   measurerForm: {
     frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',
