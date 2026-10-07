@@ -9,6 +9,7 @@ import {
   computeOpeningsTotalAreaSquareMeters,
   computePaymentPreview,
   computeOpeningVisorTotal,
+  copyOpening,
   createEmptyOpening,
   describePhotoUploadFailure,
   draftFromScheduledOrder,
@@ -505,6 +506,18 @@ describe('visor', () => {
         'Проём 1: заметки и фото сохраняются только с размерами проёма. Укажите ширину и высоту.',
       ],
     });
+  });
+
+  it('asks which visor once «Нужен» is chosen without one', () => {
+    expect(
+      buildMeasurementPayload(
+        draft({
+          openings: [opening({ ...sized, isVisorWanted: true })],
+        }),
+        'member-1',
+        context(),
+      ),
+    ).toEqual({ isValid: false, errors: ['Проём 1: выберите козырёк'] });
   });
 
   it('requires a length in centimetres once a visor is chosen', () => {
@@ -1012,6 +1025,34 @@ describe('toOrderUpdateData', () => {
     expect(toOrderUpdateData(result.order)).toMatchObject({
       discountKind: 'AMOUNT',
       discountValue: null,
+    });
+  });
+});
+
+describe('copyOpening', () => {
+  it('keeps the sizes, grille and visor under new ids, without notes or photos', () => {
+    const source = opening({
+      designId: 'design-1',
+      widthCm: '140',
+      heightCm: '150',
+      projectionKind: 'BOTTOM',
+      projectionCm: '30',
+      quantity: '2',
+      notes: 'Замок справа',
+      photos: [
+        { key: 'photo-1', file: new File([], 'a.jpg'), thumbnailUrl: null },
+      ],
+      isVisorWanted: true,
+      visorServiceId: 'visor-1',
+      visorLengthCm: '160',
+    });
+
+    expect(copyOpening(source, 'copy', 'copy-visor')).toEqual({
+      ...source,
+      key: 'copy',
+      visorKey: 'copy-visor',
+      notes: '',
+      photos: [],
     });
   });
 });
