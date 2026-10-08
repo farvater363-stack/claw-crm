@@ -88,7 +88,13 @@ type LoadState =
   | { status: 'error'; text: string }
   | { status: 'ready'; data: TodayData };
 
-type PlanFilter = 'all' | 'late' | 'owing' | 'calls';
+// Element ids on the host page, so they carry the app's prefix.
+const ANCHORS = {
+  late: 'claw-today-late',
+  owing: 'claw-today-owing',
+  calls: 'claw-today-calls',
+  buy: 'claw-today-buy',
+} as const;
 
 type PaymentDraft = {
   orderId: string;
@@ -253,19 +259,14 @@ const PaymentSheet = ({
 const DayPlan = ({
   view,
   today,
-  filter,
-  onFilter,
   onCall,
   onPay,
 }: {
   view: TodayView;
   today: string;
-  filter: PlanFilter;
-  onFilter: (filter: PlanFilter) => void;
   onCall: (client: ClientCard) => void;
   onPay: (order: DashboardOrder) => void;
 }) => {
-  const shows = (group: PlanFilter) => filter === 'all' || filter === group;
   const hasVisits = view.visits.length + view.missedVisits.length > 0;
   const isEmpty =
     !hasVisits &&
@@ -275,23 +276,13 @@ const DayPlan = ({
     view.owing.length === 0;
 
   return (
-    <Card
-      title="План на день"
-      subtitle={
-        filter === 'all' ? 'Всё, что ждёт сегодня' : 'Показана одна группа'
-      }
-      action={
-        filter === 'all' ? undefined : (
-          <TextButton onClick={() => onFilter('all')}>Показать всё</TextButton>
-        )
-      }
-    >
+    <Card title="План на день" subtitle="Всё, что ждёт сегодня">
       <div>
         {isEmpty ? (
           <QuietLine text="Сегодня всё спокойно: замеров, звонков и долгов нет." />
         ) : null}
 
-        {shows('all') && hasVisits ? (
+        {hasVisits ? (
           <>
             <GroupTitle>Замеры</GroupTitle>
             {view.visits.map((order) => (
@@ -332,7 +323,7 @@ const DayPlan = ({
           </>
         ) : null}
 
-        {shows('all') && view.awaitingInstall.length > 0 ? (
+        {view.awaitingInstall.length > 0 ? (
           <>
             <GroupTitle>Ждут установки</GroupTitle>
             {view.awaitingInstall.map((order) => (
@@ -360,9 +351,9 @@ const DayPlan = ({
           </>
         ) : null}
 
-        {shows('calls') && view.calls.length > 0 ? (
+        {view.calls.length > 0 ? (
           <>
-            <GroupTitle>Перезвонить</GroupTitle>
+            <GroupTitle id={ANCHORS.calls}>Перезвонить</GroupTitle>
             {view.calls.map((client) => (
               <PlanRow
                 key={client.id}
@@ -388,9 +379,9 @@ const DayPlan = ({
           </>
         ) : null}
 
-        {shows('late') && view.late.length > 0 ? (
+        {view.late.length > 0 ? (
           <>
-            <GroupTitle>Просрочены</GroupTitle>
+            <GroupTitle id={ANCHORS.late}>Просрочены</GroupTitle>
             {view.late.map(({ order, daysLate }) => (
               <PlanRow
                 key={order.id}
@@ -417,9 +408,9 @@ const DayPlan = ({
           </>
         ) : null}
 
-        {shows('owing') && view.owing.length > 0 ? (
+        {view.owing.length > 0 ? (
           <>
-            <GroupTitle>Должны после установки</GroupTitle>
+            <GroupTitle id={ANCHORS.owing}>Должны после установки</GroupTitle>
             {view.owing.map(({ order, daysSinceInstall }) => (
               <PlanRow
                 key={order.id}
@@ -453,7 +444,6 @@ export const TodayScreen = () => {
   const { ref, width } = useElementWidth();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [pageIds, setPageIds] = useState<PageIds>({});
-  const [filter, setFilter] = useState<PlanFilter>('all');
   const [callClient, setCallClient] = useState<ClientCard | null>(null);
   const [payment, setPayment] = useState<PaymentDraft | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -539,8 +529,6 @@ export const TodayScreen = () => {
     .sort((left, right) =>
       right.name.localeCompare(left.name, 'ru', { numeric: true }),
     );
-  const toggleFilter = (next: PlanFilter) =>
-    setFilter((current) => (current === next ? 'all' : next));
 
   const openPayment = (order: DashboardOrder | null) => {
     paymentAttemptId.current = null;
@@ -687,8 +675,7 @@ export const TodayScreen = () => {
                 'заказа просрочены',
                 'заказов просрочены',
               )}
-              isPressed={filter === 'late'}
-              onClick={() => toggleFilter('late')}
+              anchor={ANCHORS.late}
             />
           ) : null}
           {view.owing.length > 0 ? (
@@ -696,8 +683,7 @@ export const TodayScreen = () => {
               accent="warning"
               count={view.owing.length}
               text={`должны ${formatWhole(view.owingTotal)}`}
-              isPressed={filter === 'owing'}
-              onClick={() => toggleFilter('owing')}
+              anchor={ANCHORS.owing}
             />
           ) : null}
           {data.buyLines.length > 0 ? (
@@ -705,7 +691,7 @@ export const TodayScreen = () => {
               accent="warning"
               count={data.buyLines.length}
               text="купить на склад"
-              onClick={() => openPage('stock')}
+              anchor={ANCHORS.buy}
             />
           ) : null}
           {view.calls.length > 0 ? (
@@ -713,8 +699,7 @@ export const TodayScreen = () => {
               accent="urgent"
               count={view.calls.length}
               text="перезвонить"
-              isPressed={filter === 'calls'}
-              onClick={() => toggleFilter('calls')}
+              anchor={ANCHORS.calls}
             />
           ) : null}
         </ChipRow>
@@ -734,9 +719,7 @@ export const TodayScreen = () => {
                 ? 'никто не должен'
                 : `${countWord(view.owing.length, 'клиент', 'клиента', 'клиентов')} после установки`
             }
-            onClick={
-              view.owing.length > 0 ? () => toggleFilter('owing') : undefined
-            }
+            anchor={view.owing.length > 0 ? ANCHORS.owing : undefined}
           />
           <KpiTile
             label="В цеху"
@@ -766,9 +749,7 @@ export const TodayScreen = () => {
                 ? 'все в срок'
                 : `самый давний на ${latest} дн`
             }
-            onClick={
-              view.late.length > 0 ? () => toggleFilter('late') : undefined
-            }
+            anchor={view.late.length > 0 ? ANCHORS.late : undefined}
           />
         </TileGrid>
 
@@ -778,8 +759,6 @@ export const TodayScreen = () => {
             <DayPlan
               view={view}
               today={data.today}
-              filter={filter}
-              onFilter={setFilter}
               onCall={setCallClient}
               onPay={openPayment}
             />
@@ -872,6 +851,7 @@ export const TodayScreen = () => {
               </Card>
 
               <Card
+                id={ANCHORS.buy}
                 title="Купить"
                 action={
                   pageIds.stock !== undefined ? (

@@ -70,29 +70,25 @@ export const TwoColumns = ({
   </div>
 );
 
-// What needs attention, as round chips. A pressed chip narrows the day's
-// list to its rows.
+// What needs attention, as round chips. Each one jumps to its rows: a plain
+// fragment link, because the sandbox cannot scroll the host page itself.
 export const AttentionChip = ({
   accent,
   count,
   text,
-  isPressed,
-  onClick,
+  anchor,
 }: {
   accent: Accent;
   count: number;
   text: string;
-  isPressed?: boolean;
-  onClick: () => void;
+  anchor: string;
 }) => {
   const colors = usePalette();
   const { color, background } = accentColors(colors, accent);
 
   return (
-    <button
-      type="button"
-      aria-pressed={isPressed}
-      onClick={onClick}
+    <a
+      href={`#${anchor}`}
       style={{
         flex: '0 0 auto',
         display: 'inline-flex',
@@ -100,13 +96,14 @@ export const AttentionChip = ({
         gap: SPACE.sm,
         minHeight: CONTROL_HEIGHT - SPACE.sm,
         padding: `0 ${SPACE.lg}px 0 ${SPACE.sm}px`,
-        border: `2px solid ${isPressed ? color : 'transparent'}`,
+        boxSizing: 'border-box',
         borderRadius: 999,
         background,
         color,
         font: 'inherit',
         ...TYPE.label,
         fontWeight: 600,
+        textDecoration: 'none',
         cursor: 'pointer',
         whiteSpace: 'nowrap',
       }}
@@ -130,7 +127,7 @@ export const AttentionChip = ({
         {count}
       </span>
       {text}
-    </button>
+    </a>
   );
 };
 
@@ -203,12 +200,15 @@ export const KpiTile = ({
   hint,
   tone = 'plain',
   onClick,
+  anchor,
 }: {
   label: string;
   value: string;
   hint?: string;
   tone?: ValueTone;
   onClick?: () => void;
+  // Jumps to these rows on the same screen instead of calling onClick
+  anchor?: string;
 }) => {
   const colors = usePalette();
   const isCompact = useIsCompact();
@@ -232,6 +232,21 @@ export const KpiTile = ({
       ) : null}
     </>
   );
+
+  if (anchor !== undefined) {
+    return (
+      <a
+        href={`#${anchor}`}
+        style={{
+          ...tileStyle(colors, isCompact),
+          textDecoration: 'none',
+          cursor: 'pointer',
+        }}
+      >
+        {body}
+      </a>
+    );
+  }
 
   return onClick ? (
     <button
@@ -360,11 +375,13 @@ export const TrendTile = ({
 
 // A card: title and its link or button on one line, then the content.
 export const Card = ({
+  id,
   title,
   subtitle,
   action,
   children,
 }: {
+  id?: string;
   title: string;
   subtitle?: string;
   action?: ReactNode;
@@ -375,10 +392,12 @@ export const Card = ({
 
   return (
     <section
+      id={id}
       style={{
         display: 'grid',
         gap: SPACE.md,
         minWidth: 0,
+        scrollMarginTop: SPACE.lg,
         marginBottom: SPACE.lg,
         padding: isCompact ? SPACE.md : SPACE.lg,
         background: colors.surface,
@@ -501,12 +520,20 @@ export const Tag = ({ accent, text }: { accent: Accent; text: string }) => {
   );
 };
 
-export const GroupTitle = ({ children }: { children: ReactNode }) => {
+export const GroupTitle = ({
+  id,
+  children,
+}: {
+  id?: string;
+  children: ReactNode;
+}) => {
   const colors = usePalette();
 
   return (
     <div
+      id={id}
       style={{
+        scrollMarginTop: SPACE.lg,
         ...LABEL_CAPS,
         color: colors.muted,
         padding: `${SPACE.md}px 0 ${SPACE.xs}px`,
