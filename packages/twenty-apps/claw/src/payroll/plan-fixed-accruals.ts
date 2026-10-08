@@ -60,6 +60,7 @@ export const planFixedAccruals = ({
         rate: sum,
         amount: sum,
         name: `Фикса · ${formatMonthLabel(month)}`,
+        part: null,
       },
     ];
   });

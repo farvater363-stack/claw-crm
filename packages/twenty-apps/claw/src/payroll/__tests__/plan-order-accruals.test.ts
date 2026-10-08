@@ -1,12 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeMasterBasePay, type PayRule } from 'src/payroll/pay-rules';
+import {
+  computeMasterBasePay,
+  masterRuleRate,
+  type PayRule,
+} from 'src/payroll/pay-rules';
 import {
   accrualId,
   type AccrualLine,
   type OrderForAccruals,
   planOrderAccruals,
 } from 'src/payroll/plan-order-accruals';
+import {
+  EMPTY_WORKSHOP_CATALOG,
+  NO_KEPT_RATES,
+  planSquareMeterParts,
+  type WorkshopCatalog,
+} from 'src/payroll/workshop-pay';
 
 // toLocaleString groups thousands with a no-break space
 const plain = (value: string) => value.replace(/\s/g, ' ');
@@ -27,6 +37,7 @@ const order = (
   masterPenalty: null,
   installedOn: '2026-10-12',
   measuredOn: null,
+  items: [],
   ...overrides,
 });
 
@@ -47,6 +58,21 @@ const MEASURE_RULE = rule({
   work: 'MEASURER',
   amount: 50_000,
 });
+
+// What the recalc stores on an order with no lines: its area at the master's rule.
+const orderPay = (rules: PayRule[], areaSquareMeters: number | null) =>
+  computeMasterBasePay({
+    rules,
+    keptRates: [],
+    squareMeterParts: planSquareMeterParts({
+      catalog: EMPTY_WORKSHOP_CATALOG,
+      masterId: 'worker-3',
+      items: [],
+      orderAreaSquareMeters: areaSquareMeters,
+      ruleRate: masterRuleRate(rules),
+      kept: NO_KEPT_RATES,
+    }),
+  });
 
 const plan = (
   overrides: Partial<OrderForAccruals>,
@@ -400,11 +426,7 @@ describe('planOrderAccruals', () => {
 
     it('writes no line for a master paid per m², as the order shows no pay for him', () => {
       expect(
-        computeMasterBasePay({
-          rules: MASTER_RULES,
-          keptRates: [],
-          areaSquareMeters: null,
-        }),
+        orderPay(MASTER_RULES, null),
       ).toBeNull();
       expect(plan({ ...master, areaSquareMeters: null }, MASTER_RULES)).toEqual(
         { upserts: [], deleteIds: [] },
@@ -463,11 +485,7 @@ describe('planOrderAccruals', () => {
       { masterId: 'worker-3', masterBonus: 100_000, masterPenalty: 12_000 },
       rules,
     );
-    const basePay = computeMasterBasePay({
-      rules,
-      keptRates: [],
-      areaSquareMeters: 3.84,
-    });
+    const basePay = orderPay(rules, 3.84);
 
     expect(basePay).toBe(196_000);
     expect(upserts.reduce((sum, line) => sum + line.amount, 0)).toBe(
@@ -485,5 +503,127 @@ describe('planOrderAccruals', () => {
 
     expect(upserts).toHaveLength(1);
     expect(upserts[0]).toMatchObject({ rate: 0, amount: 0 });
+  });
+
+  describe('by «Ставки цеха»', () => {
+    const CATALOG: WorkshopCatalog = {
+      kinds: [
+        { id: 'simple', name: 'Простая' },
+        { id: 'forged', name: 'Кованая' },
+      ],
+      designs: [
+        { id: 'classic', name: 'Классик', grilleKindId: 'simple' },
+        { id: 'vine', name: 'Лоза', grilleKindId: 'forged' },
+        { id: 'leaf', name: 'Лист', grilleKindId: 'forged' },
+        { id: 'loose', name: 'Сота', grilleKindId: null },
+      ],
+      rates: [
+        { id: 'r1', grilleKindId: 'simple', designId: null, workerId: null, rate: 25_000 },
+        { id: 'r2', grilleKindId: 'forged', designId: null, workerId: null, rate: 50_000 },
+        { id: 'r3', grilleKindId: 'forged', designId: null, workerId: 'worker-3', rate: 55_000 },
+        { id: 'r4', grilleKindId: null, designId: 'vine', workerId: null, rate: 65_000 },
+        { id: 'r5', grilleKindId: null, designId: null, workerId: null, rate: 30_000 },
+      ],
+    };
+    const ITEMS = [
+      { designId: 'vine', areaSquareMeters: 2.1, quantity: 1 },
+      { designId: 'classic', areaSquareMeters: 1.8, quantity: 2 },
+      { designId: 'leaf', areaSquareMeters: 1.5, quantity: 1 },
+      { designId: 'loose', areaSquareMeters: 1, quantity: 1 },
+    ];
+    const MASTER_RULE = rule({ id: 'm', workerId: 'worker-3', work: 'MASTER', amount: 20_000 });
+    const planByKind = (
+      overrides: Partial<OrderForAccruals> = {},
+      existing: AccrualLine[] = [],
+      catalog = CATALOG,
+    ) =>
+      planOrderAccruals({
+        order: order({ masterId: 'worker-3', items: ITEMS, ...overrides }),
+        rules: [MASTER_RULE],
+        existing,
+        catalog,
+      });
+
+    it("pays each проём at its grille's row, the master's own cell first", () => {
+      const { upserts } = planByKind();
+
+      expect(
+        upserts.map((line) => [line.part, line.basis, line.rate, line.amount]),
+      ).toEqual([
+        ['design:vine', 2.1, 65_000, 136_500],
+        ['kind:simple', 3.6, 25_000, 90_000],
+        ['kind:forged', 1.5, 55_000, 82_500],
+        ['none', 1, 30_000, 30_000],
+      ]);
+      expect(new Set(upserts.map((line) => line.id)).size).toBe(4);
+      expect(plain(upserts[0].name)).toBe('№1042 · Мастер · «Лоза» 2,1 м² × 65,000');
+    });
+
+    it('pays by the old rule what the table has no rate for', () => {
+      const { upserts } = planByKind({}, [], {
+        ...CATALOG,
+        rates: CATALOG.rates.filter((rate) => rate.id === 'r1'),
+      });
+
+      expect(
+        upserts.map((line) => [line.part, line.basis, line.rate]),
+      ).toEqual([
+        ['rule', 4.6, 20_000],
+        ['kind:simple', 3.6, 25_000],
+      ]);
+    });
+
+    it('keeps the rates written at the installation when the table changes', () => {
+      const written = planByKind().upserts;
+      const raised = {
+        ...CATALOG,
+        rates: CATALOG.rates.map((rate) => ({ ...rate, rate: rate.rate * 2 })),
+      };
+
+      expect(planByKind({}, written, raised)).toEqual({
+        upserts: [],
+        deleteIds: [],
+      });
+    });
+
+    it('keeps paying an order installed before the table the old way', () => {
+      const legacy = plan({ masterId: 'worker-3' }, [MASTER_RULE]).upserts.map(
+        (line) => ({ ...line, part: null }),
+      );
+      const legacyLine = {
+        ...legacy[0],
+        id: accrualId({
+          orderId: 'order-1',
+          workerId: 'worker-3',
+          method: 'PER_SQUARE_METER',
+          work: 'MASTER',
+        }),
+        name: '№1042 · Мастер · 3,84 м² × 20,000',
+      };
+
+      expect(planByKind({}, [legacyLine])).toEqual({
+        upserts: [],
+        deleteIds: [],
+      });
+    });
+
+    it("adds up to the pay the order shows", () => {
+      const { upserts } = planByKind();
+
+      expect(upserts.reduce((sum, line) => sum + line.amount, 0)).toBe(
+        computeMasterBasePay({
+          rules: [MASTER_RULE],
+          keptRates: [],
+          squareMeterParts: planSquareMeterParts({
+            catalog: CATALOG,
+            masterId: 'worker-3',
+            items: ITEMS,
+            orderAreaSquareMeters: 6.4,
+            ruleRate: 20_000,
+            kept: NO_KEPT_RATES,
+          }),
+        }),
+      );
+    });
   });
 });

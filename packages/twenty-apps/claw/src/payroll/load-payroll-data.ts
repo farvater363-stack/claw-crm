@@ -9,6 +9,8 @@ import { shiftMonth } from 'src/payroll/payroll-month';
 // Type only, as a whole statement: that module imports node:crypto, which must not reach a front component's bundle.
 import type { AccrualLine } from 'src/payroll/plan-order-accruals';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
+import { type WorkshopCatalog } from 'src/payroll/workshop-pay';
+import { loadWorkshopCatalog } from 'src/payroll/workshop-rates-data';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
 import { type FullName, joinFullName } from 'src/utils/full-name';
 
@@ -23,6 +25,8 @@ export type PayrollData = {
   logins: { id: string; name: string }[];
   // Records in no sum because their worker, date or amount is missing
   skipped: { payments: number; accruals: number };
+  // «Ставки цеха», and the grilles and kinds its rows name
+  catalog: WorkshopCatalog;
 };
 
 export type WorkerChange = Partial<{
@@ -44,7 +48,7 @@ export const loadPayrollData = async (client: CoreApiClient, month: string): Pro
   const firstDayAfter = `${shiftMonth(month, 1)}-01`;
   // "Before a day" does not match an empty date, and a record never read could not be reported as left out.
   const isUndated = { is: 'NULL' as const };
-  const [paymentNodes, accrualNodes, workerNodes, ruleNodes, memberNodes] = await Promise.all([
+  const [paymentNodes, accrualNodes, workerNodes, ruleNodes, memberNodes, catalog] = await Promise.all([
     fetchAllPages(async (after) => {
       const { masterPayments } = await client.query({
         masterPayments: {
@@ -108,6 +112,7 @@ export const loadPayrollData = async (client: CoreApiClient, month: string): Pro
 
       return workspaceMembers;
     }),
+    loadWorkshopCatalog(client),
   ]);
 
   // A soft-deleted order is not returned, so a line that names an order and gets none belongs to a deleted order.
@@ -159,6 +164,7 @@ export const loadPayrollData = async (client: CoreApiClient, month: string): Pro
       payments: paymentNodes.length - payments.length,
       accruals: liveAccrualNodes.length - accruals.length,
     },
+    catalog,
   };
 };
 

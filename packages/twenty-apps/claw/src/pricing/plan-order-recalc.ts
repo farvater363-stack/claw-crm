@@ -8,8 +8,15 @@ import {
   applyLatePenalty,
   computeMasterBasePay,
   type KeptRate,
+  masterRuleRate,
   type PayRule,
 } from 'src/payroll/pay-rules';
+import {
+  EMPTY_WORKSHOP_CATALOG,
+  type KeptSquareMeterRates,
+  planSquareMeterParts,
+  type WorkshopCatalog,
+} from 'src/payroll/workshop-pay';
 import { computeDeadlineState } from 'src/pricing/compute-deadline-state';
 import { computeDiscount } from 'src/pricing/compute-discount';
 import {
@@ -91,6 +98,12 @@ export type MasterSnapshot = {
   rules: PayRule[];
   // The rates already written on this order's accrual lines; they win over the rules
   keptRates: KeptRate[];
+  // «Ставки цеха» and the rates per m² kept on this order's lines, by row
+  workshop?: {
+    masterId: string;
+    catalog: WorkshopCatalog;
+    kept: KeptSquareMeterRates;
+  };
 };
 
 export type RecalcInput = {
@@ -225,6 +238,28 @@ const planExtraServiceLine = (
   };
 };
 
+const planMasterSquareMeterParts = (
+  master: MasterSnapshot,
+  items: ItemSnapshot[],
+  areaSquareMeters: number | null,
+) => {
+  const keptSquareMeterRate = master.keptRates.find(
+    (rate) => rate.method === 'PER_SQUARE_METER',
+  )?.rate;
+
+  return planSquareMeterParts({
+    catalog: master.workshop?.catalog ?? EMPTY_WORKSHOP_CATALOG,
+    masterId: master.workshop?.masterId ?? '',
+    items,
+    orderAreaSquareMeters: areaSquareMeters,
+    ruleRate: masterRuleRate(master.rules),
+    kept: master.workshop?.kept ?? {
+      legacyRate: keptSquareMeterRate ?? null,
+      byPart: new Map(),
+    },
+  });
+};
+
 const sumTreatingNullAsZero = (values: (number | null)[]): number =>
   values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 
@@ -297,7 +332,11 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
       ? computeMasterBasePay({
           rules: input.master.rules,
           keptRates: input.master.keptRates,
-          areaSquareMeters,
+          squareMeterParts: planMasterSquareMeterParts(
+            input.master,
+            hasLines ? plannedItems : [],
+            areaSquareMeters,
+          ),
         })
       : null;
   const masterPayCalculated =

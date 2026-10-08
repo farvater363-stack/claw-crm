@@ -2,10 +2,18 @@ import { isInstalled } from 'src/constants/order-status-sets';
 import { type AccrualMethod } from 'src/constants/select-options';
 import {
   isAreaMissingForRates,
+  masterRuleRate,
   type PayRule,
   type PayWork,
   workLabel,
 } from 'src/payroll/pay-rules';
+import {
+  EMPTY_WORKSHOP_CATALOG,
+  keptSquareMeterRates,
+  planSquareMeterParts,
+  type WorkshopCatalog,
+  type WorkshopItem,
+} from 'src/payroll/workshop-pay';
 import { formatQuantity, formatWhole } from 'src/ui/format';
 import { deterministicUuid } from 'src/utils/deterministic-uuid';
 
@@ -20,6 +28,8 @@ export type AccrualLine = {
   rate: number;
   amount: number;
   name: string;
+  // The row of «Ставки цеха» a workshop line per m² was paid by
+  part: string | null;
 };
 
 export type OrderForAccruals = {
@@ -36,6 +46,7 @@ export type OrderForAccruals = {
   masterPenalty: number | null;
   installedOn: string | null;
   measuredOn: string | null;
+  items: WorkshopItem[];
 };
 
 export type AccrualPlan = { upserts: AccrualLine[]; deleteIds: string[] };
@@ -43,7 +54,7 @@ export type AccrualPlan = { upserts: AccrualLine[]; deleteIds: string[] };
 type Draft = Pick<
   AccrualLine,
   'workerId' | 'earnedOn' | 'method' | 'work' | 'basis' | 'rate'
->;
+> & { part?: string; label?: string };
 type Rate = { method: AccrualMethod; rate: number };
 
 const ORDER_METHODS: readonly AccrualMethod[] = [
@@ -60,6 +71,7 @@ const COMPARED_KEYS = [
   'rate',
   'amount',
   'name',
+  'part',
 ] as const;
 
 // A NaN never equals itself, so a line holding one would be rewritten on every run.
@@ -67,18 +79,23 @@ const finiteOrZero = (value: number | null): number =>
   value !== null && Number.isFinite(value) ? value : 0;
 
 // A line is written with upsert under this id, so running the plan again can never add a second one.
+// A workshop line per m² has one line per row of «Ставки цеха», told apart by its part.
 export const accrualId = ({
   orderId,
   workerId,
   method,
   work,
+  part,
 }: {
   orderId: string;
   workerId: string;
   method: AccrualMethod;
   work: PayWork | null;
+  part?: string;
 }): string =>
-  deterministicUuid(`accrual:${orderId}:${workerId}:${method}:${work ?? ''}`);
+  deterministicUuid(
+    `accrual:${orderId}:${workerId}:${method}:${work ?? ''}${part ? `:${part}` : ''}`,
+  );
 
 const amountOf = ({ method, basis, rate }: Draft): number => {
   if (method === 'PERCENT_OF_SALES') return Math.round((basis * rate) / 100);
@@ -107,14 +124,16 @@ export const planOrderAccruals = ({
   order,
   rules,
   existing,
+  catalog = EMPTY_WORKSHOP_CATALOG,
 }: {
   order: OrderForAccruals;
   rules: PayRule[];
   existing: AccrualLine[];
+  catalog?: WorkshopCatalog;
 }): AccrualPlan => {
   const due = new Map<string, AccrualLine>();
 
-  const add = (input: Draft) => {
+  const add = ({ part, label, ...input }: Draft) => {
     const draft = {
       ...input,
       basis: finiteOrZero(input.basis),
@@ -125,6 +144,7 @@ export const planOrderAccruals = ({
       workerId: draft.workerId,
       method: draft.method,
       work: draft.work,
+      part,
     });
 
     // Two rules of one method for one work would share the id; the first one counts.
@@ -135,7 +155,8 @@ export const planOrderAccruals = ({
       id,
       orderId: order.id,
       amount: amountOf(draft),
-      name: `${order.name} · ${workLabel(draft.work)} · ${detailOf(draft)}`,
+      name: `${order.name} · ${workLabel(draft.work)} · ${[label, detailOf(draft)].filter(Boolean).join(' ')}`,
+      part: part || null,
     });
   };
 
@@ -188,10 +209,47 @@ export const planOrderAccruals = ({
 
       const rates = ratesOf(workerId, work, ORDER_METHODS);
 
-      if (isAreaMissingForRates(order.areaSquareMeters, rates)) {
-        isMasterPayUnknown ||= work === 'MASTER';
+      // Цех is paid per m² by the grille of each проём, so its lines come from «Ставки цеха».
+      if (work === 'MASTER') {
+        const parts = planSquareMeterParts({
+          catalog,
+          masterId: workerId,
+          items: order.items,
+          orderAreaSquareMeters: order.areaSquareMeters,
+          ruleRate: masterRuleRate(
+            rules.filter((rule) => rule.workerId === workerId),
+          ),
+          kept: keptSquareMeterRates(existing, workerId),
+        });
+
+        if (parts === null) {
+          isMasterPayUnknown = true;
+          continue;
+        }
+
+        for (const { part, label, basis, rate } of parts) {
+          add({
+            workerId,
+            earnedOn: installedOn,
+            method: 'PER_SQUARE_METER',
+            work,
+            basis,
+            rate,
+            part,
+            label,
+          });
+        }
+
+        for (const { method, rate } of rates) {
+          if (method !== 'PER_ORDER') continue;
+
+          add({ workerId, earnedOn: installedOn, method, work, basis: 1, rate });
+        }
+
         continue;
       }
+
+      if (isAreaMissingForRates(order.areaSquareMeters, rates)) continue;
 
       for (const { method, rate } of rates) {
         const basis =

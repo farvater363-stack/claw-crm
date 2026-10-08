@@ -69,6 +69,9 @@ const fakeClient = ({
         masters: page(workers),
         payRules: page(rules),
         workspaceMembers: page(members),
+        workshopRates: page([]),
+        designs: page([]),
+        grilleKinds: page([]),
       };
     },
     mutation: async (request: Request) => {
@@ -165,6 +168,7 @@ describe('loadPayrollData', () => {
           rate: 15_000,
           amount: 57_600,
           name: '№1042',
+          part: null,
         },
       ],
       payments: [{ id: 'pay-1', masterId: 'worker-2', paidOn: '2026-10-05', amount: 300_000, kind: 'ADVANCE', comment: null }],
@@ -173,6 +177,7 @@ describe('loadPayrollData', () => {
         { id: 'member-2', name: 'Без имени' },
       ],
       skipped: { payments: 0, accruals: 0 },
+      catalog: { rates: [], designs: [], kinds: [] },
     });
   });
 

@@ -4,6 +4,10 @@ import {
   WORKER_CATEGORY_OPTIONS,
 } from 'src/constants/select-options';
 import { formatMoney, formatQuantity } from 'src/ui/format';
+import {
+  type SquareMeterPart,
+  squareMeterPartsPay,
+} from 'src/payroll/workshop-pay';
 
 export type PayWork = WorkerCategory;
 
@@ -88,29 +92,34 @@ export const isAreaMissingForRates = (
   areaSquareMeters === null &&
   rates.some((rate) => rate.method === 'PER_SQUARE_METER');
 
-// Each part is rounded by itself, as each accrual line is, so the master's
-// lines for an order add up to the pay shown on the order.
+// The master's own rule per m², from before «Ставки цеха»: what a grille the
+// table has no rate for is paid by.
+export const masterRuleRate = (rules: PayRule[]): number | null =>
+  masterRatesOf(rules).find((rate) => rate.method === 'PER_SQUARE_METER')
+    ?.rate ?? null;
+
+// Per m² by the parts, per order by the rate kept on the order's lines or else
+// the rule, as the accrual lines do, so the lines add up to the pay shown on the order.
 export const computeMasterBasePay = ({
   rules,
   keptRates,
-  areaSquareMeters,
+  squareMeterParts,
 }: {
   rules: PayRule[];
   keptRates: KeptRate[];
-  areaSquareMeters: number | null;
+  squareMeterParts: SquareMeterPart[] | null;
 }): number | null => {
-  const rates = keptRates.length > 0 ? keptRates : masterRatesOf(rules);
+  if (squareMeterParts === null) return null;
 
-  if (isAreaMissingForRates(areaSquareMeters, rates)) return null;
+  const perOrder = (keptRates.length > 0 ? keptRates : masterRatesOf(rules))
+    .filter((rate) => rate.method === 'PER_ORDER')
+    .reduce((sum, { rate }) => {
+      const part = Math.round(rate);
 
-  return rates.reduce((sum, { method, rate }) => {
-    const part = Math.round(
-      method === 'PER_SQUARE_METER' ? (areaSquareMeters ?? 0) * rate : rate,
-    );
+      return sum + (Number.isFinite(part) ? part : 0);
+    }, 0);
 
-    // A NaN never equals itself, so the recalc would rewrite the pay on every run.
-    return sum + (Number.isFinite(part) ? part : 0);
-  }, 0);
+  return squareMeterPartsPay(squareMeterParts) + perOrder;
 };
 
 export const applyLatePenalty = ({

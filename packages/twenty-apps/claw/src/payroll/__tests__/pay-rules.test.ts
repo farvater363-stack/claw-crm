@@ -6,9 +6,15 @@ import {
   computeMasterBasePay,
   describePayRule,
   isAllowedPayRulePair,
+  type KeptRate,
+  masterRuleRate,
   type PayRule,
   type PayWork,
 } from 'src/payroll/pay-rules';
+import {
+  EMPTY_WORKSHOP_CATALOG,
+  planSquareMeterParts,
+} from 'src/payroll/workshop-pay';
 
 // toLocaleString groups thousands with a no-break space
 const plain = (value: string) => value.replace(/\s/g, ' ');
@@ -98,9 +104,37 @@ describe('describePayRule', () => {
 });
 
 describe('computeMasterBasePay', () => {
+  // As the recalc counts an order with no lines: its stored area at the rule or the kept rate.
+  const basePay = ({
+    rules,
+    keptRates,
+    areaSquareMeters,
+  }: {
+    rules: PayRule[];
+    keptRates: KeptRate[];
+    areaSquareMeters: number | null;
+  }) =>
+    computeMasterBasePay({
+      rules,
+      keptRates,
+      squareMeterParts: planSquareMeterParts({
+        catalog: EMPTY_WORKSHOP_CATALOG,
+        masterId: 'worker-3',
+        items: [],
+        orderAreaSquareMeters: areaSquareMeters,
+        ruleRate: masterRuleRate(rules),
+        kept: {
+          legacyRate:
+            keptRates.find((rate) => rate.method === 'PER_SQUARE_METER')
+              ?.rate ?? null,
+          byPart: new Map(),
+        },
+      }),
+    });
+
   it('pays the area at the per-m² rule', () => {
     expect(
-      computeMasterBasePay({
+      basePay({
         rules: [rule({})],
         keptRates: [],
         areaSquareMeters: 48.2,
@@ -115,7 +149,7 @@ describe('computeMasterBasePay', () => {
     ];
 
     expect(
-      computeMasterBasePay({ rules, keptRates: [], areaSquareMeters: 10 }),
+      basePay({ rules, keptRates: [], areaSquareMeters: 10 }),
     ).toBe(350_000);
   });
 
@@ -126,7 +160,7 @@ describe('computeMasterBasePay', () => {
     ];
 
     expect(
-      computeMasterBasePay({ rules, keptRates: [], areaSquareMeters: 10 }),
+      basePay({ rules, keptRates: [], areaSquareMeters: 10 }),
     ).toBe(0);
   });
 
@@ -134,13 +168,13 @@ describe('computeMasterBasePay', () => {
     const rules = [rule({}), rule({ id: 'second', amount: 40_000 })];
 
     expect(
-      computeMasterBasePay({ rules, keptRates: [], areaSquareMeters: 10 }),
+      basePay({ rules, keptRates: [], areaSquareMeters: 10 }),
     ).toBe(250_000);
   });
 
   it('uses the kept rates in place of the rules', () => {
     expect(
-      computeMasterBasePay({
+      basePay({
         rules: [
           rule({}),
           rule({ id: 'per-order', method: 'PER_ORDER', amount: 100_000 }),
@@ -153,14 +187,14 @@ describe('computeMasterBasePay', () => {
 
   it('is unknown while a per-m² rate has no area, and known for a per-order rate alone', () => {
     expect(
-      computeMasterBasePay({
+      basePay({
         rules: [rule({})],
         keptRates: [],
         areaSquareMeters: null,
       }),
     ).toBeNull();
     expect(
-      computeMasterBasePay({
+      basePay({
         rules: [rule({ method: 'PER_ORDER', amount: 100_000 })],
         keptRates: [],
         areaSquareMeters: null,
@@ -177,21 +211,21 @@ describe('computeMasterBasePay', () => {
       ];
 
       expect(
-        computeMasterBasePay({ rules, keptRates: [], areaSquareMeters: 10 }),
+        basePay({ rules, keptRates: [], areaSquareMeters: 10 }),
       ).toBe(100_000);
     },
   );
 
   it('pays nothing, and never NaN, for a kept rate or an area that is not a number', () => {
     expect(
-      computeMasterBasePay({
+      basePay({
         rules: [],
         keptRates: [{ method: 'PER_SQUARE_METER', rate: Number.NaN }],
         areaSquareMeters: 10,
       }),
     ).toBe(0);
     expect(
-      computeMasterBasePay({
+      basePay({
         rules: [rule({})],
         keptRates: [],
         areaSquareMeters: Number.NaN,

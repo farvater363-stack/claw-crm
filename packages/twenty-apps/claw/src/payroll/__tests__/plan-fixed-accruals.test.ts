@@ -43,6 +43,7 @@ describe('planFixedAccruals', () => {
         rate: 2_000_000,
         amount: 2_000_000,
         name: 'Фикса · Октябрь 2026',
+        part: null,
       },
     ]);
   });

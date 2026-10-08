@@ -119,7 +119,7 @@ describe('toAccrualLine', () => {
   };
 
   it('reads a stored line', () => {
-    expect(toAccrualLine(line)).toEqual({ ...line, amount: 57_600 });
+    expect(toAccrualLine(line)).toEqual({ ...line, amount: 57_600, part: null });
   });
 
   it('reads a fixed monthly line, which has no order and no work', () => {

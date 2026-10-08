@@ -26,6 +26,7 @@ const line = (overrides: Partial<AccrualLine> = {}): AccrualLine => ({
   rate: 10_000,
   amount: 100_000,
   name: '№1001',
+  part: null,
   ...overrides,
 });
 

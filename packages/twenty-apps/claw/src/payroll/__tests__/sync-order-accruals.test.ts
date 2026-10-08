@@ -80,6 +80,10 @@ const fakeClient = ({
         payAccruals: page(accruals),
         payRules: page(rules),
         masters: page(workers),
+        orderItems: page([]),
+        workshopRates: page([]),
+        designs: page([]),
+        grilleKinds: page([]),
       };
     },
     mutation: async (request: Mutation) => {
@@ -123,6 +127,7 @@ describe('syncOrderAccruals', () => {
               rate: 15_000,
               amount: uzs(57_600),
               name: expect.any(String),
+              part: null,
             },
             upsert: true,
           },
@@ -143,6 +148,7 @@ describe('syncOrderAccruals', () => {
               rate: 50_000,
               amount: uzs(50_000),
               name: expect.any(String),
+              part: null,
             },
             upsert: true,
           },
