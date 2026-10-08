@@ -1022,13 +1022,11 @@ export const Sheet = ({
           height: '100cqh',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'flex-end',
           alignItems: 'center',
-          paddingBottom: onWideScreen('10cqh'),
-          boxSizing: 'border-box',
           pointerEvents: 'none',
         }}
       >
+        <div style={{ flex: 1 }} />
         <div
           role="dialog"
           aria-modal="true"
@@ -1087,6 +1085,10 @@ export const Sheet = ({
             </div>
           ) : null}
         </div>
+        {/* Shares the free height with the spacer above on a wide screen, so
+            the dialog sits in the middle; no height on a phone, so the sheet
+            rests on the bottom edge. */}
+        <div style={{ flex: 1, maxHeight: onWideScreen('100cqh') }} />
       </div>
     </div>
   );
