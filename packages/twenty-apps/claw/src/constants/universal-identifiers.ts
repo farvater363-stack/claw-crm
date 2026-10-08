@@ -59,6 +59,8 @@ export const IDS = {
     installedOrders: '4ec04dfd-df67-428d-b241-c047263a9701',
     soldOrders: '8bab1af9-4545-4a1a-843c-979545ccc978',
     workshopRates: 'cc60274b-4786-4d5c-bb19-63fb565a4d8d',
+    receivedPayments: 'e752a1ef-4477-482e-93c3-e7af1b46049f',
+    moneyEntries: 'c4045807-3e80-4934-bbd8-be57458358af',
   },
   order: {
     object: '8ab9a340-059c-4dd3-a96f-a8a83a5f3c32',
@@ -130,6 +132,7 @@ export const IDS = {
     createdBy: '7f83d639-f609-580e-98c2-ed0612164118',
     updatedBy: '284e5262-be11-5752-8941-bad728697e1a',
     position: '316052eb-83a7-58b4-9e4b-3dffb6a83263',
+    moneyEntries: '15523df6-5421-4f8b-a38e-6b93597bde74',
   },
   orderItem: {
     object: 'c54a858f-68e0-4901-b5ca-78baedeceb83',
@@ -172,6 +175,7 @@ export const IDS = {
     amount: '78959f73-5a65-4454-8a1e-f7d1f2fb6ca1',
     kind: 'c85d5ab4-90cd-44e4-81c1-b5576611d568',
     comment: '0402873b-1b1a-4189-8e3d-9e2e668388f5',
+    wallet: '1c1fd391-db0d-4253-91b5-74cfd31b50d9',
   },
   grilleKind: {
     object: '8b193d5c-042c-4fee-8d12-ecb515dd6abd',
@@ -217,6 +221,7 @@ export const IDS = {
     method: '794454d4-5234-452b-8942-55702be471a9',
     paidOn: '3922184d-85f9-4e49-b952-267ac6d060b7',
     comment: 'c6567b46-bf55-4d67-81c4-1ef3cf2f612d',
+    receivedBy: '7593d7bf-765b-4175-9c97-92f4eac109b9',
   },
   material: {
     object: '22ed336d-302e-48aa-ba6b-eabc47b8f016',
@@ -288,6 +293,21 @@ export const IDS = {
     receiptPhotos: '5375c46e-12d6-43e8-a68e-d938838d1422',
     supplier: 'e78d1688-d1b5-4526-a8f5-9b8a4cc1f279',
     purchase: '82003802-5091-4655-a379-b00a3f4430ee',
+    category: '50f4f8b8-f57d-4d3a-bb3d-e8b5fcd45af1',
+    worker: '4451eb55-bf02-4f49-b657-b64dcd09fde5',
+    order: '4a7289e1-2f65-4d78-8e84-7751533e9dd7',
+    recurringExpense: 'd36556f5-2d46-4a41-a6ba-79194293696c',
+    countedAmount: 'a18a1d91-8037-400f-81f5-639b4352a7d3',
+  },
+  recurringExpense: {
+    object: 'b3d6a6d3-b316-414b-b2b7-34ff2f35ac8c',
+    name: 'dcfed173-9ae2-468d-aff0-0ec4348a8587',
+    amount: '4276b7b2-0c8e-4f4f-b4a5-e21d97d2ee28',
+    dayOfMonth: '6a24c9f0-ef27-43a5-b224-113d39506933',
+    wallet: '763b14a2-4a3f-4b82-9773-1bed8fb06c5e',
+    category: '0dad0d0e-8443-4337-93e7-47f6e460d629',
+    isActive: 'adbfb4a1-8990-4b63-b06c-6d2253a5358b',
+    moneyEntries: '54b928a4-39d7-4452-8eac-35b0850c74fa',
   },
   orderMaterial: {
     object: '84943a7e-8291-4581-ab63-52f77e8ce599',
@@ -401,6 +421,7 @@ export const IDS = {
     clients: 'dfea565c-135b-4d06-8320-8959c6283868',
     callBacks: '67d31f32-c045-4ed3-a104-a3c4113d6cad',
     marketing: 'e60fe15d-747c-4964-b83f-4405d2e94d2d',
+    money: '3fd6adde-3a8e-4ba9-9596-69288f953993',
   },
   clientPage: {
     frontComponent: 'd8b23909-502b-45ac-8268-0e8a709534f5',
@@ -423,6 +444,15 @@ export const IDS = {
     pageLayout: 'b974efe9-eeb3-42fc-80cf-4cf5b8716369',
     pageLayoutTab: '2e51f3b0-0c05-4c9c-8124-7f7cfc82ba11',
     pageLayoutWidget: '1ae69cea-ca09-4026-9485-a7d21fd758ed',
+  },
+  money: {
+    frontComponent: '15906078-cd08-4485-a852-765ca2421985',
+    pageLayout: '9ae6bbd9-daab-4fd6-857c-43ae93eb2377',
+    pageLayoutTab: 'ae233cf3-a2d0-413d-bbd6-afe29326edcd',
+    pageLayoutWidget: '74f2ecb2-8942-4628-8af5-48743c4c0a5a',
+  },
+  moneyToday: {
+    frontComponent: 'a62767e6-e477-4777-9448-56f474bdbb1e', // Retired: the block is part of the «Сегодня» screen; ids are never reused.
   },
   prices: {
     frontComponent: '2896e143-b42d-49d0-9e0a-be492ad9aa8b',
@@ -475,6 +505,7 @@ export const IDS = {
     callBacksTableWidget: 'fa017b8f-68c2-439f-9136-0a060f0f5303',
     acceptedThisMonthWidget: '3e063551-153e-4d3f-b0c6-4c73f1ea1d54',
     receivedThisMonthWidget: '6b075c69-383b-4b3b-94f5-42d3e0b9fb15',
+    moneyTodayWidget: '44cb5c1b-a961-45ce-9ef6-914b195c9296',
   },
   measurerForm: {
     frontComponent: 'fdeb42b9-c6ff-4bfb-91af-ec40cf0b8d76',

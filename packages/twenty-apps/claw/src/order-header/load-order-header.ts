@@ -41,6 +41,9 @@ export type OrderHeaderData = {
   masters: Choice[];
   installers: Choice[];
   measurers: Choice[];
+  // Who may have taken a client's cash; empty for a role that cannot read
+  // workers
+  workers: Choice[];
 };
 
 // Twenty caps a page at 200 records; a shop has far fewer workers and logins.
@@ -158,6 +161,10 @@ export const loadOrderHeader = async (
       value: member.id,
       label: joinFullName(member.name) ?? '',
     })),
+    workers: workers.map((worker) => ({
+      value: worker.id,
+      label: joinFullName(worker.fullName) ?? '',
+    })),
   };
 };
 
@@ -219,12 +226,21 @@ export const acceptPayment = async (
     method: PaymentMethod;
     comment: string;
     paidOn: string;
+    // The worker who took the cash, when it did not reach the business yet
+    receivedById?: string | null;
   },
 ): Promise<void> => {
+  const { receivedById, ...fields } = payment;
+
   await client.mutation({
     createOrderPayment: {
       __args: {
-        data: { id, ...payment, amount: toCurrency(payment.amount) },
+        data: {
+          id,
+          ...fields,
+          amount: toCurrency(payment.amount),
+          ...(receivedById ? { receivedById } : {}),
+        },
         upsert: true,
       },
       id: true,

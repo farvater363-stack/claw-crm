@@ -6,12 +6,12 @@ import {
 import { IDS } from 'src/constants/universal-identifiers';
 
 export default defineNavigationMenuItem({
-  universalIdentifier: IDS.navigation.today,
-  name: 'Сегодня',
-  icon: 'IconLayoutDashboard',
-  position: -2,
+  universalIdentifier: IDS.navigation.money,
+  name: 'Деньги',
+  icon: 'IconWallet',
+  position: 10,
   type: NavigationMenuItemType.PAGE_LAYOUT,
-  pageLayoutUniversalIdentifier: IDS.ownerDashboard.pageLayout,
-  // Money and profit for the owner only; no other role reads money entries.
+  pageLayoutUniversalIdentifier: IDS.money.pageLayout,
+  // No role but the owner reads money entries, so only the owner gets the item.
   targetObjectUniversalIdentifier: IDS.moneyEntry.object,
 });

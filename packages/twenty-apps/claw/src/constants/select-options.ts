@@ -244,6 +244,28 @@ export const MONEY_ENTRY_KIND_OPTIONS = toOptions([
 
 export type MoneyEntryKind = (typeof MONEY_ENTRY_KIND_OPTIONS)[number]['value'];
 
+// What a расход went on, as the chips of «Записать» show them.
+export const EXPENSE_CATEGORY_OPTIONS = toOptions([
+  ['RENT', 'Аренда', 'blue'],
+  ['FUEL', 'Бензин', 'orange'],
+  ['ADVERTISING', 'Реклама', 'pink'],
+  ['UTILITIES', 'Свет и газ', 'yellow'],
+  ['TOOLS', 'Инструмент', 'gray'],
+  ['SALARY', 'Оклад', 'green'],
+  ['TAX', 'Налог', 'red'],
+  ['FOOD', 'Еда', 'turquoise'],
+  ['OTHER', 'Другое', 'gray'],
+] as const);
+
+export type ExpenseCategory =
+  (typeof EXPENSE_CATEGORY_OPTIONS)[number]['value'];
+
+export const expenseCategoryLabel = (
+  category: string | null | undefined,
+): string =>
+  EXPENSE_CATEGORY_OPTIONS.find((option) => option.value === category)
+    ?.label ?? 'Другое';
+
 export const DISCOUNT_KIND_OPTIONS = toOptions([
   ['PERCENT', '%', 'gray'],
   ['AMOUNT', 'сум', 'gray'],

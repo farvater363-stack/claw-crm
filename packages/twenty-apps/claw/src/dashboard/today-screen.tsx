@@ -48,6 +48,14 @@ import {
   type TodayView,
 } from 'src/dashboard/today';
 import { useElementWidth } from 'src/measurer-form/measurer-form-ui';
+import {
+  buildRecord,
+  emptyRecord,
+  type RecordDraft,
+} from 'src/money/money-forms';
+import { RecordSheet } from 'src/money/money-sheets';
+import { MoneyToday } from 'src/money/money-today';
+import { recordMoneyEntry } from 'src/money/record-money-entry';
 import { acceptPayment } from 'src/order-header/load-order-header';
 import { buildPayment } from 'src/order-header/order-steps';
 import { todayInTashkent } from 'src/pricing/dates';
@@ -452,6 +460,15 @@ export const TodayScreen = () => {
   const [isPaying, setIsPaying] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const paymentAttemptId = useRef<string | null>(null);
+  const [expense, setExpense] = useState<{
+    draft: RecordDraft;
+    errors: Record<string, string>;
+  } | null>(null);
+  const [expensePhotos, setExpensePhotos] = useState<File[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [expenseFailed, setExpenseFailed] = useState(false);
+  const [moneyVersion, setMoneyVersion] = useState(0);
+  const expenseAttemptId = useRef<string | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (isQuiet = false) => {
@@ -583,6 +600,44 @@ export const TodayScreen = () => {
     }
   };
 
+  const openExpense = () => {
+    expenseAttemptId.current = null;
+    setExpensePhotos([]);
+    setExpenseFailed(false);
+    setExpense({ draft: emptyRecord(todayInTashkent()), errors: {} });
+  };
+
+  const saveExpense = async (draft: RecordDraft) => {
+    if (isRecording) return;
+
+    const built = buildRecord(draft);
+
+    setExpense({ draft, errors: built.ok ? {} : built.errors });
+
+    if (!built.ok) return;
+
+    expenseAttemptId.current ??= randomUuid();
+    setIsRecording(true);
+    setExpenseFailed(false);
+
+    try {
+      await recordMoneyEntry(
+        expenseAttemptId.current,
+        built.data,
+        expensePhotos,
+      );
+      setExpense(null);
+      setNotice(
+        `${built.data.name}: ${formatMoney(built.data.amount)} записано.`,
+      );
+      setMoneyVersion((version) => version + 1);
+    } catch {
+      setExpenseFailed(true);
+    } finally {
+      setIsRecording(false);
+    }
+  };
+
   const latest = view.late[0]?.daysLate;
 
   return (
@@ -610,6 +665,7 @@ export const TodayScreen = () => {
                 </Button>
               ) : null}
               <Button onClick={() => openPayment(null)}>+ Оплата</Button>
+              <Button onClick={openExpense}>− Расход</Button>
             </>
           }
         />
@@ -687,7 +743,12 @@ export const TodayScreen = () => {
             value={`${view.inWorkshop.count} · ${view.inWorkshop.area.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} м²`}
             hint={
               view.inWorkshop.urgent > 0
-                ? `${view.inWorkshop.urgent} срочных`
+                ? countWord(
+                    view.inWorkshop.urgent,
+                    'срочный',
+                    'срочных',
+                    'срочных',
+                  )
                 : 'срочных нет'
             }
             onClick={
@@ -725,6 +786,18 @@ export const TodayScreen = () => {
           }
           right={
             <>
+              <Card
+                title="Деньги сегодня"
+                action={
+                  pageIds.money !== undefined ? (
+                    <TextButton onClick={() => openPage('money')}>
+                      Деньги
+                    </TextButton>
+                  ) : undefined
+                }
+              >
+                <MoneyToday key={moneyVersion} />
+              </Card>
               <Card
                 title="Заказы по этапам"
                 action={
@@ -880,6 +953,35 @@ export const TodayScreen = () => {
               onCancel={() => setCallClient(null)}
             />
           </Sheet>
+        ) : null}
+
+        {expense !== null ? (
+          <RecordSheet
+            draft={expense.draft}
+            errors={expense.errors}
+            orders={data.orders
+              .filter((order) => order.status !== 'CANCELLED')
+              .map((order) => ({ id: order.id, name: order.name }))}
+            photoNames={expensePhotos.map((photo) => photo.name)}
+            isSaving={isRecording}
+            failure={
+              expenseFailed ? (
+                <ErrorNote
+                  text={SAVE_FAILED}
+                  onRetry={() => void saveExpense(expense.draft)}
+                />
+              ) : undefined
+            }
+            onChange={(draft) => {
+              if (isRecording) return;
+              // A changed form is another attempt: its retry must not overwrite the last one.
+              expenseAttemptId.current = null;
+              setExpense({ draft, errors: expense.errors });
+            }}
+            onPickPhotos={setExpensePhotos}
+            onSave={() => void saveExpense(expense.draft)}
+            onClose={() => setExpense(null)}
+          />
         ) : null}
 
         {payment !== null ? (

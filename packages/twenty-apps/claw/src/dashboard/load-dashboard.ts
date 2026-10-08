@@ -79,7 +79,8 @@ export type PageIds = Partial<
     | 'workshop'
     | 'payroll'
     | 'callBacks'
-    | 'marketing',
+    | 'marketing'
+    | 'money',
     string
   >
 >;
@@ -443,6 +444,7 @@ const PAGE_IDENTIFIERS: Record<keyof PageIds, string> = {
   payroll: IDS.payroll.pageLayout,
   callBacks: IDS.callBacks.pageLayout,
   marketing: IDS.marketing.pageLayout,
+  money: IDS.money.pageLayout,
 };
 
 // A standalone page is opened by the id its layout has in this workspace,

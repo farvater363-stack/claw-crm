@@ -74,12 +74,13 @@ type Draft = StepDraft & {
   amount: string;
   method: PaymentMethod;
   comment: string;
+  receivedById: string;
   cancelReason: string;
 };
 
 const EMPTY_FIELDS = {
   step: { measurerId: '', measurementDate: '', masterId: '', installerId: '' },
-  payment: { amount: '', method: 'CASH', comment: '' },
+  payment: { amount: '', method: 'CASH', comment: '', receivedById: '' },
   cancel: { cancelReason: '' },
 } as const satisfies Record<Kind, Partial<Draft>>;
 
@@ -410,6 +411,10 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
       return acceptPayment(new CoreApiClient(), id, {
         orderId: order.id,
         ...built.data,
+        receivedById:
+          draft.method === 'CASH' && draft.receivedById !== ''
+            ? draft.receivedById
+            : null,
       });
     });
   };
@@ -588,6 +593,16 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
                 />
               </Field>
             </Columns>
+            {draft.method === 'CASH' && data.workers.length > 0 ? (
+              <Field label="Кто принял деньги">
+                <SelectInput
+                  label="Кто принял деньги"
+                  value={draft.receivedById}
+                  options={withEmpty('Сразу в кассу', data.workers)}
+                  onChange={(receivedById) => change({ receivedById })}
+                />
+              </Field>
+            ) : null}
             <Field label="Комментарий к оплате">
               <TextInput
                 label="Комментарий к оплате"

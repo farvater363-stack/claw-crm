@@ -274,6 +274,7 @@ export const VIEW_PART_IDS = {
       method: 'b33adfca-f122-447a-8979-6dbcba0aa9de',
       amount: 'dd1bf818-e1ac-496d-841a-39ddc2bc6daf',
       comment: '494da42b-6d36-4ca3-b181-b710fd13119f',
+      receivedBy: 'f505a030-f901-4c8c-8b22-fee7a10447e2',
     },
     tableFilter: '31b0b602-6169-409d-b194-d601f5bc3413',
   },

@@ -7,6 +7,7 @@ import { IDS } from 'src/constants/universal-identifiers';
 import callBacks from 'src/navigation-menu-items/call-backs.navigation-menu-item';
 import clients from 'src/navigation-menu-items/clients.navigation-menu-item';
 import marketing from 'src/navigation-menu-items/marketing.navigation-menu-item';
+import money from 'src/navigation-menu-items/money.navigation-menu-item';
 import myMeasurements from 'src/navigation-menu-items/my-measurements.navigation-menu-item';
 import newMeasurement from 'src/navigation-menu-items/new-measurement.navigation-menu-item';
 import orders from 'src/navigation-menu-items/orders-kanban.navigation-menu-item';
@@ -23,7 +24,7 @@ import workshopRole from 'src/roles/workshop.role';
 // item cannot work without, so each role gets the screens it works in.
 
 const MENU = [
-  { label: 'Сегодня', item: today, requires: IDS.masterPayment.object },
+  { label: 'Сегодня', item: today, requires: IDS.moneyEntry.object },
   { label: 'Заказы', item: orders, requires: IDS.stockMovement.object },
   { label: 'В работе', item: workshop, requires: IDS.master.object },
   {
@@ -42,6 +43,7 @@ const MENU = [
   { label: 'Клиенты', item: clients, requires: IDS.clientCall.object },
   { label: 'Перезвоны', item: callBacks, requires: IDS.clientCall.object },
   { label: 'Маркетинг', item: marketing, requires: IDS.clientCall.object },
+  { label: 'Деньги', item: money, requires: IDS.moneyEntry.object },
 ];
 
 const menuOf = (role: { config: typeof managerRole.config }) => {
@@ -55,7 +57,7 @@ const menuOf = (role: { config: typeof managerRole.config }) => {
 };
 
 describe('menu', () => {
-  it('has these eleven items and no other', () => {
+  it('has these twelve items and no other', () => {
     expect(
       readdirSync(join(__dirname, '..'))
         .filter((file) => file.endsWith('.navigation-menu-item.ts'))
@@ -64,6 +66,7 @@ describe('menu', () => {
       'call-backs.navigation-menu-item.ts',
       'clients.navigation-menu-item.ts',
       'marketing.navigation-menu-item.ts',
+      'money.navigation-menu-item.ts',
       'my-measurements.navigation-menu-item.ts',
       'new-measurement.navigation-menu-item.ts',
       'orders-kanban.navigation-menu-item.ts',
@@ -77,7 +80,7 @@ describe('menu', () => {
 
   it('orders them as the spec does, off position zero', () => {
     expect(MENU.map(({ item }) => item.config.position)).toEqual([
-      -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+      -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
     ]);
   });
 
@@ -100,6 +103,7 @@ describe('menu', () => {
       undefined,
       'Перезвоны',
       'Маркетинг',
+      'Деньги',
     ]);
     expect(clients.config.viewUniversalIdentifier).toBe(IDS.view.clients);
     expect(orders.config.viewUniversalIdentifier).toBe(IDS.view.ordersKanban);
