@@ -1,7 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { defineFrontComponent } from 'twenty-sdk/define';
-import { uploadFile } from 'twenty-sdk/front-component';
 
 import {
   type ExpenseCategory,
@@ -10,9 +9,7 @@ import {
 import { IDS } from 'src/constants/universal-identifiers';
 import { useElementWidth } from 'src/measurer-form/measurer-form-ui';
 import {
-  attachReceiptPhotos,
   createMoneyEntry,
-  fetchReceiptPhotosFieldId,
   loadMoneyBooks,
   loadReadyOrders,
   type MoneyBooks,
@@ -66,6 +63,7 @@ import {
   WarningNote,
   WeeklyChart,
 } from 'src/money/money-views';
+import { recordMoneyEntry } from 'src/money/record-money-entry';
 import { todayInTashkent } from 'src/pricing/dates';
 import { loadStockBooks, type StockBooks } from 'src/stock/load-stock-books';
 import {
@@ -156,9 +154,7 @@ const loadState = async (): Promise<LoadState> => {
   } catch (error) {
     console.error(error);
 
-    return isAccessError(error)
-      ? { status: 'forbidden' }
-      : { status: 'error' };
+    return isAccessError(error) ? { status: 'forbidden' } : { status: 'error' };
   }
 };
 
@@ -453,32 +449,8 @@ const Money = () => {
 
     if (!built.ok) return;
 
-    const picked = photos.filter((file) => file.type.startsWith('image/'));
-
     void run('record', async () => {
-      const client = new CoreApiClient();
-      const entryId = attemptId('record:entry');
-
-      await createMoneyEntry(client, entryId, built.data);
-
-      if (picked.length > 0) {
-        const fieldMetadataId = await fetchReceiptPhotosFieldId();
-        const uploaded: { fileId: string; label: string }[] = [];
-
-        for (const image of picked) {
-          const result = await uploadFile(image, {
-            fieldMetadataId,
-            fileName: image.name,
-          });
-
-          if (result.status !== 'uploaded') throw new Error(result.reason);
-
-          uploaded.push({ fileId: result.file.fileId, label: image.name });
-        }
-
-        await attachReceiptPhotos(client, entryId, uploaded);
-      }
-
+      await recordMoneyEntry(attemptId('record:entry'), built.data, photos);
       setTab('cash');
       await finishSave('record', built.data.date);
     });
@@ -622,8 +594,7 @@ const Money = () => {
                 <StatTiles
                   tiles={[
                     ...(['CASH', 'CARD', 'ACCOUNT'] as const).map((wallet) => {
-                      const recount =
-                        wallet === 'CASH' ? cashRecount : null;
+                      const recount = wallet === 'CASH' ? cashRecount : null;
 
                       return {
                         label: WALLET_TITLES[wallet],
@@ -700,7 +671,11 @@ const Money = () => {
         right={
           <Panel title="Движение денег" subtitle="все записи за месяц">
             <Inside>
-              <Tabs value={filter} options={LEDGER_FILTERS} onChange={setFilter} />
+              <Tabs
+                value={filter}
+                options={LEDGER_FILTERS}
+                onChange={setFilter}
+              />
               {days.length === 0 ? (
                 <MutedNote text="В этом месяце записей нет" />
               ) : (
@@ -932,8 +907,7 @@ const Money = () => {
                             dayOfMonth: String(item.dayOfMonth ?? ''),
                             wallet: item.wallet ?? 'CASH',
                             category: (item.category ?? '') as
-                              | ExpenseCategory
-                              | '',
+                              ExpenseCategory | '',
                           },
                         })
                       }
@@ -1100,9 +1074,7 @@ const Money = () => {
         onChange={(draft) => {
           if (isLocked) return;
 
-          const holder = holders.find(
-            (one) => one.workerId === draft.workerId,
-          );
+          const holder = holders.find((one) => one.workerId === draft.workerId);
 
           setSheet({
             ...sheet,

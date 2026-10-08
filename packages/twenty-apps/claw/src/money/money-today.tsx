@@ -1,8 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
-import { defineFrontComponent } from 'twenty-sdk/define';
 
-import { IDS } from 'src/constants/universal-identifiers';
 import {
   createMoneyEntry,
   loadMoneyBooks,
@@ -37,7 +35,10 @@ type LoadState =
 
 const loadState = async (): Promise<LoadState> => {
   try {
-    return { status: 'ready', books: await loadMoneyBooks(new CoreApiClient()) };
+    return {
+      status: 'ready',
+      books: await loadMoneyBooks(new CoreApiClient()),
+    };
   } catch (error) {
     console.error(error);
 
@@ -88,7 +89,7 @@ const Line = ({
 };
 
 // «Сегодня»: what has to be paid now, and who still holds client cash.
-const MoneyToday = () => {
+export const MoneyToday = () => {
   const colors = usePalette();
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -143,7 +144,7 @@ const MoneyToday = () => {
   };
 
   return (
-    <div style={{ padding: SPACE.lg, color: colors.text, ...TYPE.body }}>
+    <div style={{ color: colors.text, ...TYPE.body }}>
       {due.length === 0 && holders.length === 0 ? (
         <Hint text="Сегодня платить ничего не нужно, все деньги сданы." />
       ) : null}
@@ -206,10 +207,3 @@ const MoneyToday = () => {
     </div>
   );
 };
-
-export default defineFrontComponent({
-  universalIdentifier: IDS.moneyToday.frontComponent,
-  name: 'money-today',
-  description: 'Сегодня: постоянные расходы к оплате и деньги у работников',
-  component: MoneyToday,
-});

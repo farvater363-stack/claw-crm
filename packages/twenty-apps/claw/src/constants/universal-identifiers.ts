@@ -416,6 +416,7 @@ export const IDS = {
     warehouseNorms: '335e4eeb-d9e1-4369-abb5-b2049d93b425', // Retired: replaced by the stock screen; ids are never reused.
     prices: '5270c73e-d422-4d41-b0d4-1489b25265f5',
     stock: '3b354a86-2ee7-49b5-88aa-8164f323fb63',
+    today: 'cff01bc4-5648-4515-930a-6a577a73d4ae',
     workshop: 'fb6b018a-7e6d-4375-93af-e20acb846878',
     clients: 'dfea565c-135b-4d06-8320-8959c6283868',
     callBacks: '67d31f32-c045-4ed3-a104-a3c4113d6cad',
@@ -451,7 +452,7 @@ export const IDS = {
     pageLayoutWidget: '74f2ecb2-8942-4628-8af5-48743c4c0a5a',
   },
   moneyToday: {
-    frontComponent: 'a62767e6-e477-4777-9448-56f474bdbb1e',
+    frontComponent: 'a62767e6-e477-4777-9448-56f474bdbb1e', // Retired: the block is part of the «Сегодня» screen; ids are never reused.
   },
   prices: {
     frontComponent: '2896e143-b42d-49d0-9e0a-be492ad9aa8b',
@@ -469,6 +470,12 @@ export const IDS = {
     pageLayout: '260281fc-4390-42d0-90f7-91afdeacd969',
     pageLayoutTab: 'a6c9f937-a218-47db-8286-ee395627fcb8',
     todayTab: '2b9046b4-3d83-4ac7-87fe-f4ec446b79ed',
+    todayFrontComponent: '706c3991-ca13-43ce-8abf-db7415304d7f',
+    todayWidget: '2deecea6-7bd4-4605-886f-0e60bd8cdac2',
+    analyticsFrontComponent: 'f2372dcb-9934-443b-8904-251c5ff1e9bb',
+    analyticsWidget: '2c015205-38ec-46a1-b2a0-526c56b49bb8',
+    // Retired below, up to the end of this block: the chart and table widgets
+    // gave way to the two screens above; ids are never reused.
     overdueCountWidget: '7872722e-099e-4700-8a77-ef6f1e320784',
     owesUsSumWidget: '10c733c9-de1a-406a-83a6-eca54676510c',
     inProductionCountWidget: '96f32a4d-58d4-4fed-9153-27f1674e9ace',
