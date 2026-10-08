@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import {
   createMaterial,
   createStockMovement,
-  loadLatestMovements,
   loadStockData,
   updateMinimumStock,
 } from 'src/stock/load-stock-data';
@@ -159,127 +158,7 @@ describe('loadStockData', () => {
   });
 });
 
-describe('loadLatestMovements', () => {
-  it('asks for the five latest purchases, recounts and write-offs of one material', async () => {
-    const { client, queries } = fakeClient();
-
-    await loadLatestMovements(client, 'material-1');
-
-    expect(queries[0].stockMovements.__args).toEqual({
-      filter: {
-        materialId: { eq: 'material-1' },
-        kind: { in: ['RECEIPT', 'STOCKTAKE', 'WRITE_OFF'] },
-      },
-      orderBy: [{ date: 'DescNullsLast' }, { createdAt: 'DescNullsLast' }],
-      first: 5,
-    });
-  });
-
-  it('reads a recount as the counted amount and a write-off with its order', async () => {
-    const { client } = fakeClient({
-      movements: [
-        {
-          id: 'a',
-          kind: 'STOCKTAKE',
-          quantity: -2,
-          countedQuantity: 55,
-          date: '2026-10-03',
-          order: null,
-        },
-        {
-          id: 'b',
-          kind: 'WRITE_OFF',
-          quantity: -23,
-          countedQuantity: null,
-          date: null,
-          createdAt: '2026-10-01T08:00:00.000Z',
-          order: { name: '№1031' },
-        },
-      ],
-    });
-
-    expect(await loadLatestMovements(client, 'material-1')).toEqual([
-      {
-        id: 'a',
-        kind: 'STOCKTAKE',
-        quantity: 55,
-        date: '2026-10-03',
-        orderName: null,
-      },
-      {
-        id: 'b',
-        kind: 'WRITE_OFF',
-        quantity: -23,
-        date: '2026-10-01',
-        orderName: '№1031',
-      },
-    ]);
-  });
-});
-
 describe('stock writes', () => {
-  it('records a purchase with its price', async () => {
-    const { client, mutations } = fakeClient();
-
-    await createStockMovement(client, 'attempt-1', {
-      kind: 'RECEIPT',
-      materialId: 'material-1',
-      quantity: 60,
-      unitPrice: 1000,
-      date: '2026-10-04',
-    });
-
-    expect(mutations).toEqual([
-      {
-        createStockMovement: {
-          __args: {
-            data: {
-              id: 'attempt-1',
-              kind: 'RECEIPT',
-              materialId: 'material-1',
-              quantity: 60,
-              unitPrice: { amountMicros: 1_000_000_000, currencyCode: 'UZS' },
-              date: '2026-10-04',
-            },
-            upsert: true,
-          },
-          id: true,
-        },
-      },
-    ]);
-  });
-
-  // A role that cannot see prices may not write one either, not even an empty one.
-  it('sends no price with a purchase that has none', async () => {
-    const { client, mutations } = fakeClient();
-
-    await createStockMovement(client, 'attempt-1', {
-      kind: 'RECEIPT',
-      materialId: 'material-1',
-      quantity: 60,
-      unitPrice: null,
-      date: '2026-10-04',
-    });
-
-    expect(mutations).toEqual([
-      {
-        createStockMovement: {
-          __args: {
-            data: {
-              id: 'attempt-1',
-              kind: 'RECEIPT',
-              materialId: 'material-1',
-              quantity: 60,
-              date: '2026-10-04',
-            },
-            upsert: true,
-          },
-          id: true,
-        },
-      },
-    ]);
-  });
-
   it('records a recount as the counted amount', async () => {
     const { client, mutations } = fakeClient();
 

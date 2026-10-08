@@ -933,6 +933,139 @@ export const StickyBar = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// Wider than this the panel floats as a dialog; narrower it is a sheet along
+// the bottom edge, where a thumb reaches it.
+const SHEET_DIALOG_FROM_WIDTH = 640;
+const SHEET_MAX_WIDTH = 560;
+// The same switch as Button's isWideOnPhone, on the viewport: 0 on a phone,
+// the full amount on a wide screen.
+const onWideScreen = (value: string) =>
+  `clamp(0px, (100vw - ${SHEET_DIALOG_FROM_WIDTH}px) * 999, ${value})`;
+
+// A form opened from a button. The screen stays underneath; a tap beside the
+// panel, «×» or Escape closes it unless a save is on its way.
+export const Sheet = ({
+  title,
+  isBusy = false,
+  onClose,
+  footer,
+  children,
+}: {
+  title: string;
+  isBusy?: boolean;
+  onClose: () => void;
+  // The form's save button and its note, kept in view under the fields
+  footer?: ReactNode;
+  children: ReactNode;
+}) => {
+  const colors = usePalette();
+  const close = () => {
+    if (!isBusy) onClose();
+  };
+
+  return (
+    <div
+      role="presentation"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') close();
+      }}
+      // The widget wrapper has will-change: transform, which traps a fixed
+      // overlay inside it; the panel sticks to the page's scroll area (cqh).
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '100%',
+        minHeight: '100cqh',
+        zIndex: 1000,
+      }}
+    >
+      <div
+        role="presentation"
+        // A sibling of the panel, not its parent: stopPropagation in a front
+        // component never reaches the host's event.
+        onClick={close}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.45)',
+        }}
+      />
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          height: '100cqh',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          paddingBottom: onWideScreen('10cqh'),
+          boxSizing: 'border-box',
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          style={{
+            pointerEvents: 'auto',
+            width: '100%',
+            maxWidth: SHEET_MAX_WIDTH,
+            maxHeight: '85cqh',
+            display: 'flex',
+            flexDirection: 'column',
+            background: colors.surface,
+            color: colors.text,
+            borderRadius: `${RADIUS.card + SPACE.xs}px ${RADIUS.card + SPACE.xs}px ${onWideScreen(`${RADIUS.card + SPACE.xs}px`)} ${onWideScreen(`${RADIUS.card + SPACE.xs}px`)}`,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+            ...TYPE.body,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: SPACE.md,
+              padding: `${SPACE.lg}px ${SPACE.lg}px ${SPACE.md}px`,
+            }}
+          >
+            <h3 style={{ margin: 0, ...TYPE.rowTitle }}>{title}</h3>
+            <Button label="Закрыть" onClick={close}>
+              ×
+            </Button>
+          </div>
+          <div
+            style={{
+              ...SHRINKABLE_GRID,
+              gap: SPACE.md,
+              overflowY: 'auto',
+              padding: `0 ${SPACE.lg}px ${SPACE.lg}px`,
+            }}
+          >
+            {children}
+          </div>
+          {footer ? (
+            <div
+              style={{
+                ...SHRINKABLE_GRID,
+                gap: SPACE.sm,
+                padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.lg}px`,
+                borderTop: `1px solid ${colors.border}`,
+              }}
+            >
+              {footer}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Two or three views of one thing; the chosen one is outlined in the accent.
 export const Tabs = <TValue extends string>({
   value,

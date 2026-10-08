@@ -1,42 +1,80 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
+import { MetadataApiClient } from 'twenty-client-sdk/metadata';
 import { defineFrontComponent } from 'twenty-sdk/define';
+import { uploadFile } from 'twenty-sdk/front-component';
 
-import {
-  MATERIAL_UNIT_OPTIONS,
-  materialUnitLabel,
-  type MaterialUnit,
-} from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { todayInTashkent } from 'src/pricing/dates';
 import {
+  attachInvoicePhotos,
+  createPurchase,
+  createPurchaseLine,
+  createStockOut,
+  createSupplier,
+  createSupplierPayment,
+  loadStockBooks,
+  type StockBooks,
+} from 'src/stock/load-stock-books';
+import {
   createMaterial,
   createStockMovement,
-  loadLatestMovements,
   loadStockData,
   type StockData,
   updateMinimumStock,
 } from 'src/stock/load-stock-data';
 import {
+  buildDebtPayment,
+  buildPurchaseEntry,
+  buildStockOut,
+  type DebtPaymentDraft,
+  type PurchaseDraft,
+  purchaseName,
+  type StockOutDraft,
+} from 'src/stock/stock-forms';
+import {
+  buildStockMonthReport,
+  summarizePurchases,
+  summarizeSuppliers,
+  valueStockMovements,
+} from 'src/stock/stock-ledger';
+import {
   buildBuyList,
-  buildPurchase,
-  buildReceipt,
   buildRecount,
   buildStockRows,
   type BuyList,
-  movementText,
   parseMinimumStock,
-  type PurchaseDraft,
-  purchaseSummary,
   recountSummary,
-  type StockMovementLine,
   type StockRow,
   stockValue,
 } from 'src/stock/stock-screen';
-import { formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
 import {
+  DebtPaymentSheet,
+  type NewMaterialDraft,
+  NewMaterialSheet,
+  PurchaseSheet,
+  RecountSheet,
+  StockOutSheet,
+} from 'src/stock/stock-sheets';
+import {
+  buildOutEntries,
+  historyLineText,
+  monthLabel,
+  OUT_FILTERS,
+  type OutFilter,
+  purchaseLinesText,
+  purchaseList,
+  shiftMonth,
+} from 'src/stock/stock-views';
+import {
+  formatDayMonth,
+  formatMoney,
+  formatQuantity,
+  formatWhole,
+} from 'src/ui/format';
+import {
+  AmountLine,
   Button,
-  Columns,
   EmptyState,
   ErrorNote,
   Field,
@@ -46,11 +84,10 @@ import {
   Row,
   Screen,
   Section,
-  SelectInput,
   SkeletonRows,
   StatePill,
   StaticRow,
-  StickyBar,
+  Tabs,
   TextInput,
   Wrap,
 } from 'src/ui/kit';
@@ -59,33 +96,37 @@ import { dropKey } from 'src/utils/drop-key';
 import { isAccessError } from 'src/utils/is-access-error';
 import { randomUuid } from 'src/utils/random-uuid';
 
+type Ready = { data: StockData; books: StockBooks };
+
 type LoadState =
   | { status: 'loading' }
   | { status: 'forbidden' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; data: StockData };
+  | ({ status: 'ready' } & Ready);
 
-type Mode =
-  | { kind: 'list' }
-  | {
-      kind: 'recount';
-      typed: Record<string, string>;
-      errors: Record<string, string>;
-    }
-  | {
-      kind: 'purchase';
-      typed: PurchaseDraft;
-      errors: Record<string, string>;
-    };
+type Tab = 'stock' | 'in' | 'out' | 'report';
 
-type NewMaterial = { name: string; unit: MaterialUnit; minimumStock: string };
+type Errors = Record<string, string>;
+
+type OpenSheet =
+  | { kind: 'purchase'; draft: PurchaseDraft; errors: Errors }
+  | { kind: 'out'; draft: StockOutDraft; errors: Errors }
+  | { kind: 'recount'; typed: Record<string, string>; errors: Errors }
+  | { kind: 'material'; draft: NewMaterialDraft; errors: Errors }
+  | { kind: 'debt'; draft: DebtPaymentDraft; errors: Errors };
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'stock', label: 'Остатки' },
+  { value: 'in', label: 'Приход' },
+  { value: 'out', label: 'Расход' },
+  { value: 'report', label: 'Отчёт за месяц' },
+];
 
 const SAVED_TICK_MS = 2_000;
 // The server recomputes the stock after a save. The list is read again when
 // that is usually done, and once more for a slow run.
 const SETTLE_REFETCH_MS = [2_000, 6_000];
-// Keeps an empty line as tall as a line of text
-const NO_BREAK_SPACE = String.fromCharCode(160);
+const HISTORY_LINES = 5;
 const UNNAMED = 'Без названия';
 const SAVE_FAILED =
   'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
@@ -96,14 +137,19 @@ const NO_ACCESS = 'Склад ведут владелец и менеджер';
 const COPY_FAILED = 'Не удалось скопировать. Выделите список и скопируйте его';
 const EMPTY_TEXT =
   'Добавьте то, что покупаете для работы: профиль, прут, краску. Приложение будет считать, сколько нужно на заказы.';
-const NEW_MATERIAL: NewMaterial = { name: '', unit: 'METER', minimumStock: '' };
+const NEW_MATERIAL: NewMaterialDraft = {
+  name: '',
+  unit: 'METER',
+  minimumStock: '',
+};
 
 const loadState = async (knownCanSeePrice?: boolean): Promise<LoadState> => {
   try {
-    return {
-      status: 'ready',
-      data: await loadStockData(new CoreApiClient(), knownCanSeePrice),
-    };
+    const client = new CoreApiClient();
+    const data = await loadStockData(client, knownCanSeePrice);
+    const books = await loadStockBooks(client, data.canSeePrice);
+
+    return { status: 'ready', data, books };
   } catch (error) {
     console.error(error);
 
@@ -113,18 +159,39 @@ const loadState = async (knownCanSeePrice?: boolean): Promise<LoadState> => {
   }
 };
 
+// uploadFile needs this workspace's id for purchase.invoicePhotos, which
+// differs from the universalIdentifier the app declares.
+const fetchInvoicePhotosFieldId = async (): Promise<string> => {
+  const { objects } = await new MetadataApiClient().query({
+    objects: {
+      __args: {
+        paging: { first: 1 },
+        filter: { universalIdentifier: { eq: IDS.purchase.object } },
+      },
+      edges: { node: { fieldsList: { id: true, universalIdentifier: true } } },
+    },
+  });
+  const fieldMetadataId = objects.edges[0]?.node.fieldsList?.find(
+    (field) => field.universalIdentifier === IDS.purchase.invoicePhotos,
+  )?.id;
+
+  if (!fieldMetadataId) throw new Error('purchase.invoicePhotos not found');
+
+  return fieldMetadataId;
+};
+
 const Stock = () => {
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
-  const [mode, setMode] = useState<Mode>({ kind: 'list' });
+  const [tab, setTab] = useState<Tab>('stock');
+  const [month, setMonth] = useState(() => todayInTashkent().slice(0, 7));
+  const [outFilter, setOutFilter] = useState<OutFilter>('all');
+  const [sheet, setSheet] = useState<OpenSheet | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Errors>({});
   const [savedKey, setSavedKey] = useState<string | null>(null);
-  const [newMaterial, setNewMaterial] = useState<NewMaterial | null>(null);
   const [copyNote, setCopyNote] = useState<string | null>(null);
-  const [movementsById, setMovementsById] = useState<
-    Record<string, StockMovementLine[]>
-  >({});
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
   const [failures, setFailures] = useState<
     Record<string, { isDenied: boolean; retry: () => void }>
@@ -142,6 +209,7 @@ const Stock = () => {
   const startedReads = useRef(0);
   const shownRead = useRef(0);
   const settleCount = useRef(0);
+  const lineCount = useRef(0);
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
 
   useEffect(() => {
@@ -161,9 +229,6 @@ const Stock = () => {
     timers.current.add(timer);
   };
 
-  const setDraft = (key: string, value: string) =>
-    setDrafts((current) => ({ ...current, [key]: value }));
-
   const showSaved = (key: string) => {
     setSavedKey(key);
     later(
@@ -171,15 +236,6 @@ const Stock = () => {
       SAVED_TICK_MS,
     );
   };
-
-  const showMovements = (materialId: string) =>
-    void loadLatestMovements(new CoreApiClient(), materialId)
-      .then((lines) =>
-        setMovementsById((current) => ({ ...current, [materialId]: lines })),
-      )
-      // «Вся история» still leads to the movements, so a failed read only
-      // leaves «Последнее» out.
-      .catch((error) => console.error(error));
 
   // A request whose answer was lost may already be stored. Each attempt at a
   // create keeps one id from the press until it goes through, so its retry
@@ -190,30 +246,19 @@ const Stock = () => {
     return attemptIds.current[key];
   };
 
-  const endAttempt = (key: string) => {
-    attemptIds.current = dropKey(attemptIds.current, key);
-  };
-
-  // One thing is open at a time, a row or the new material form: what is
-  // typed and the errors under it belong to that one thing. A purchase or a
-  // new material that has not gone through keeps its fields: «Повторить»
-  // sends what they hold.
-  const showRow = (rowId: string | null) => {
-    setOpenId(rowId);
-    setDrafts((current) =>
-      Object.fromEntries(
-        Object.entries(current).filter(
-          ([key]) =>
-            attemptIds.current[
-              key.replace(/:(quantity|price)$/, ':receipt')
-            ] !== undefined,
-        ),
+  // A form left or saved is not the attempt the next one continues.
+  const forgetAttempts = (prefix: string) => {
+    attemptIds.current = Object.fromEntries(
+      Object.entries(attemptIds.current).filter(
+        ([key]) => !key.startsWith(prefix),
       ),
     );
-    setErrors({});
+  };
 
-    if (attemptIds.current.add === undefined) setNewMaterial(null);
-    if (rowId !== null) showMovements(rowId);
+  const newLineKey = () => {
+    lineCount.current += 1;
+
+    return `line-${lineCount.current}`;
   };
 
   // A failure stays under its place until the same action is run again. A
@@ -362,52 +407,371 @@ const Stock = () => {
     );
   }
 
-  const { data } = load;
+  const { data, books } = load;
+  const canSeeMoney = data.canSeePrice;
+  const canPaySuppliers = books.payments !== null;
   const shownMaterials = data.materials.map((material) => {
     const onHand = settling[material.id]?.onHand ?? null;
 
     return onHand === null ? material : { ...material, onHand };
   });
+  const materialsByName = [...shownMaterials].sort((left, right) =>
+    (left.name ?? '').localeCompare(right.name ?? '', 'ru', { numeric: true }),
+  );
   const onHandById = new Map(
     shownMaterials.map((material) => [material.id, material.onHand ?? 0]),
   );
   const rows = buildStockRows(shownMaterials, data.needs);
   const buyList = buildBuyList(shownMaterials, data.prices);
   const shelfValue = stockValue(shownMaterials, data.prices);
+  const valued = valueStockMovements(books.movements);
+  const payments = books.payments ?? [];
+  const purchases = summarizePurchases({
+    purchases: books.purchases,
+    suppliers: books.suppliers,
+    valued,
+    payments,
+  });
+  const suppliers = summarizeSuppliers({
+    suppliers: books.suppliers,
+    purchases,
+    payments,
+  });
+  const debts = suppliers.filter((supplier) => supplier.debt > 0);
+  const totalDebt = debts.reduce((sum, supplier) => sum + supplier.debt, 0);
+  const today = todayInTashkent();
+  const unitOf = (materialId: string) =>
+    shownMaterials.find((material) => material.id === materialId)?.unitLabel ??
+    '';
+  const nameOf = (materialId: string) =>
+    shownMaterials.find((material) => material.id === materialId)?.name ||
+    UNNAMED;
 
-  const addReceipt = (row: StockRow) => {
-    const key = `${row.id}:receipt`;
-    const receipt = buildReceipt({
-      materialId: row.id,
-      quantity: drafts[`${row.id}:quantity`] ?? '',
-      unitPrice: drafts[`${row.id}:price`] ?? '',
-      today: todayInTashkent(),
+  const closeSheet = () => {
+    if (sheet === null) return;
+
+    // A save on its way cannot be called back, so it is not left half seen.
+    if (inFlight.current.has(sheet.kind)) return;
+
+    setFailures((current) => dropKey(current, sheet.kind));
+    forgetAttempts(`${sheet.kind}:`);
+    setSheet(null);
+    setPhotos([]);
+  };
+
+  const openPurchase = (
+    lines: { materialId: string; quantity: string; price: string }[],
+  ) => {
+    forgetAttempts('purchase:');
+    setPhotos([]);
+    setSheet({
+      kind: 'purchase',
+      errors: {},
+      draft: {
+        supplierId: '',
+        newSupplierName: '',
+        date: today,
+        lines: (lines.length > 0
+          ? lines
+          : [{ materialId: '', quantity: '', price: '' }]
+        ).map((line) => ({ ...line, key: newLineKey() })),
+        payment: 'ALL',
+        paidAmount: '',
+        wallet: 'CASH',
+        comment: '',
+      },
     });
+  };
 
-    if (!receipt.ok) {
-      // «Повторить» under a closed row: the error is shown inside the row.
-      if (openId !== row.id) showRow(row.id);
+  // Opens with what the list says to buy, at the last prices: the usual trip
+  // needs only the numbers that differ corrected.
+  const openPurchaseFromList = (list: BuyList) =>
+    openPurchase(
+      list.lines.map((line) => ({
+        materialId: line.id,
+        quantity: String(line.quantity).replace('.', ','),
+        price: line.lastPrice === null ? '' : formatWhole(line.lastPrice),
+      })),
+    );
 
-      setErrors((current) => ({ ...current, [key]: receipt.error }));
+  const openOut = (materialId = '') => {
+    forgetAttempts('out:');
+    setSheet({
+      kind: 'out',
+      errors: {},
+      draft: {
+        kind: 'SCRAP',
+        orderId: '',
+        materialId,
+        quantity: '',
+        date: today,
+        comment: '',
+      },
+    });
+  };
+
+  const openDebt = (supplierId = '') => {
+    forgetAttempts('debt:');
+
+    const debt = debts.find((supplier) => supplier.id === supplierId)?.debt;
+
+    setSheet({
+      kind: 'debt',
+      errors: {},
+      draft: {
+        supplierId,
+        amount: debt === undefined ? '' : formatWhole(debt),
+        wallet: 'CASH',
+        date: today,
+        comment: '',
+      },
+    });
+  };
+
+  const savePurchase = (draft: PurchaseDraft) => {
+    const entry = buildPurchaseEntry(draft, canSeeMoney);
+
+    if (!entry.ok) {
+      setSheet({ kind: 'purchase', draft, errors: entry.errors });
 
       return;
     }
 
-    setErrors((current) => dropKey(current, key));
-    void run(key, async () => {
-      await createStockMovement(
-        new CoreApiClient(),
-        attemptId(key),
-        receipt.data,
-      );
-      endAttempt(key);
-      setDrafts((current) =>
-        dropKey(dropKey(current, `${row.id}:quantity`), `${row.id}:price`),
-      );
-      settle({
-        [row.id]: (onHandById.get(row.id) ?? 0) + receipt.data.quantity,
+    setSheet({ kind: 'purchase', draft, errors: {} });
+
+    const { data: purchase } = entry;
+    const picked = photos;
+
+    void run('purchase', async () => {
+      const client = new CoreApiClient();
+      const supplierId =
+        purchase.newSupplierName === null
+          ? purchase.supplierId
+          : attemptId('purchase:supplier');
+
+      if (purchase.newSupplierName !== null && supplierId !== null) {
+        await createSupplier(client, supplierId, purchase.newSupplierName);
+      }
+
+      const supplierName =
+        purchase.newSupplierName ??
+        books.suppliers.find((supplier) => supplier.id === supplierId)?.name ??
+        null;
+      const purchaseId = attemptId('purchase:record');
+
+      await createPurchase(client, purchaseId, {
+        name: purchaseName(purchase.date, supplierName),
+        date: purchase.date,
+        supplierId,
+        comment: purchase.comment,
       });
-      showMovements(row.id);
+
+      for (const [index, line] of purchase.lines.entries()) {
+        await createPurchaseLine(
+          client,
+          attemptId(`purchase:line:${index}`),
+          { id: purchaseId, date: purchase.date },
+          line,
+        );
+      }
+
+      if (purchase.payment !== null) {
+        await createSupplierPayment(client, attemptId('purchase:payment'), {
+          name: `Оплата поставщику${supplierName ? ` · ${supplierName}` : ''}`,
+          amount: purchase.payment.amount,
+          wallet: purchase.payment.wallet,
+          date: purchase.date,
+          supplierId,
+          purchaseId,
+          comment: null,
+        });
+      }
+
+      const images = picked.filter((file) => file.type.startsWith('image/'));
+
+      if (images.length > 0) {
+        const fieldMetadataId = await fetchInvoicePhotosFieldId();
+        const uploaded: { fileId: string; label: string }[] = [];
+
+        for (const image of images) {
+          const result = await uploadFile(image, {
+            fieldMetadataId,
+            fileName: image.name,
+          });
+
+          if (result.status !== 'uploaded') throw new Error(result.reason);
+
+          uploaded.push({ fileId: result.file.fileId, label: image.name });
+        }
+
+        await attachInvoicePhotos(client, purchaseId, uploaded);
+      }
+
+      forgetAttempts('purchase:');
+      setSheet(null);
+      setPhotos([]);
+      setTab('in');
+      setMonth(purchase.date.slice(0, 7));
+      settle(
+        Object.fromEntries(
+          purchase.lines.map((line) => [
+            line.materialId,
+            (onHandById.get(line.materialId) ?? 0) +
+              purchase.lines
+                .filter((other) => other.materialId === line.materialId)
+                .reduce((sum, other) => sum + other.quantity, 0),
+          ]),
+        ),
+      );
+    });
+  };
+
+  const saveOut = (draft: StockOutDraft) => {
+    const entry = buildStockOut(
+      draft,
+      draft.materialId === '' ? null : (onHandById.get(draft.materialId) ?? 0),
+    );
+
+    if (!entry.ok) {
+      setSheet({ kind: 'out', draft, errors: entry.errors });
+
+      return;
+    }
+
+    setSheet({ kind: 'out', draft, errors: {} });
+    void run('out', async () => {
+      await createStockOut(
+        new CoreApiClient(),
+        attemptId('out:record'),
+        entry.data,
+      );
+      forgetAttempts('out:');
+      setSheet(null);
+      setTab('out');
+      setMonth(entry.data.date.slice(0, 7));
+      settle({
+        [entry.data.materialId]:
+          (onHandById.get(entry.data.materialId) ?? 0) - entry.data.quantity,
+      });
+    });
+  };
+
+  const saveRecount = (typed: Record<string, string>) => {
+    const recount = buildRecount(typed, today);
+
+    if (!recount.ok) {
+      setSheet({ kind: 'recount', typed, errors: recount.errors });
+
+      return;
+    }
+
+    // Nothing typed is nothing to save.
+    if (recount.data.length === 0) {
+      closeSheet();
+
+      return;
+    }
+
+    void run('recount', async () => {
+      const counted: Record<string, number> = {};
+
+      try {
+        for (const entry of recount.data) {
+          const entryKey = `recount:${entry.materialId}`;
+
+          await createStockMovement(
+            new CoreApiClient(),
+            attemptId(entryKey),
+            entry,
+          );
+          forgetAttempts(entryKey);
+          counted[entry.materialId] = entry.countedQuantity;
+          // A saved amount leaves the form, so whatever is sent next (the
+          // retry after a failure) cannot count the material again: a second
+          // recount of it would wipe its overuse figure.
+          setSheet((current) =>
+            current?.kind === 'recount'
+              ? { ...current, typed: dropKey(current.typed, entry.materialId) }
+              : current,
+          );
+        }
+
+        setSheet(null);
+      } finally {
+        if (Object.keys(counted).length > 0) settle(counted);
+      }
+    });
+  };
+
+  const saveMaterial = (draft: NewMaterialDraft) => {
+    const name = draft.name.trim();
+    const minimumStock = parseMinimumStock(draft.minimumStock);
+    const sheetErrors: Errors = {
+      ...(name === '' ? { name: 'Введите название' } : {}),
+      ...(minimumStock.ok ? {} : { minimumStock: minimumStock.error }),
+    };
+
+    setSheet({ kind: 'material', draft, errors: sheetErrors });
+
+    if (name === '' || !minimumStock.ok) return;
+
+    void run('material', async () => {
+      const materialId = attemptId('material:record');
+
+      await createMaterial(new CoreApiClient(), materialId, {
+        name,
+        unit: draft.unit,
+        minimumStock: minimumStock.value,
+      });
+      forgetAttempts('material:');
+
+      const next = await readList();
+
+      if (next !== null) setLoad(next);
+
+      setSheet(null);
+      setTab('stock');
+      setOpenId(materialId);
+    });
+  };
+
+  const saveDebt = (draft: DebtPaymentDraft) => {
+    const debt =
+      debts.find((supplier) => supplier.id === draft.supplierId)?.debt ?? 0;
+    const entry = buildDebtPayment(draft, debt);
+
+    if (!entry.ok) {
+      setSheet({ kind: 'debt', draft, errors: entry.errors });
+
+      return;
+    }
+
+    setSheet({ kind: 'debt', draft, errors: {} });
+
+    const supplierName =
+      books.suppliers.find((supplier) => supplier.id === entry.data.supplierId)
+        ?.name ?? null;
+
+    void run('debt', async () => {
+      await createSupplierPayment(
+        new CoreApiClient(),
+        attemptId('debt:record'),
+        {
+          name: `Оплата поставщику${supplierName ? ` · ${supplierName}` : ''}`,
+          amount: entry.data.amount,
+          wallet: entry.data.wallet,
+          date: entry.data.date,
+          supplierId: entry.data.supplierId,
+          purchaseId: null,
+          comment: entry.data.comment,
+        },
+      );
+      forgetAttempts('debt:');
+      setSheet(null);
+
+      const next = await readList();
+
+      if (next !== null) setLoad(next);
     });
   };
 
@@ -441,7 +805,7 @@ const Stock = () => {
       setLoad((current) =>
         current.status === 'ready'
           ? {
-              status: 'ready',
+              ...current,
               data: {
                 ...current.data,
                 materials: current.data.materials.map((material) =>
@@ -461,95 +825,6 @@ const Stock = () => {
     });
   };
 
-  const leaveForm = (key: 'recount' | 'purchase') => {
-    // A save on its way cannot be called back, so it is not left half seen.
-    if (inFlight.current.has(key)) return;
-
-    setMode({ kind: 'list' });
-    setFailures((current) => dropKey(current, key));
-  };
-  const leaveRecount = () => leaveForm('recount');
-  const leavePurchase = () => leaveForm('purchase');
-
-  // A form left unfinished is not the attempt the next one continues.
-  const forgetAttempts = (prefix: string) => {
-    attemptIds.current = Object.fromEntries(
-      Object.entries(attemptIds.current).filter(
-        ([key]) => !key.startsWith(prefix),
-      ),
-    );
-  };
-
-  // Opens with what the list says to buy, at the last prices: the usual trip
-  // needs only the numbers that differ corrected.
-  const startPurchase = (list: BuyList) => {
-    showRow(null);
-    forgetAttempts('purchase:');
-    setMode({
-      kind: 'purchase',
-      typed: Object.fromEntries(
-        list.lines.map((line) => [
-          line.id,
-          {
-            quantity: String(line.quantity).replace('.', ','),
-            price: line.lastPrice === null ? '' : formatWhole(line.lastPrice),
-          },
-        ]),
-      ),
-      errors: {},
-    });
-  };
-
-  const savePurchase = (typed: PurchaseDraft) => {
-    const purchase = buildPurchase(typed, todayInTashkent());
-
-    if (!purchase.ok) {
-      setMode({ kind: 'purchase', typed, errors: purchase.errors });
-
-      return;
-    }
-
-    // Nothing typed is nothing to save.
-    if (purchase.data.length === 0) {
-      leavePurchase();
-
-      return;
-    }
-
-    void run('purchase', async () => {
-      const bought: Record<string, number> = {};
-
-      try {
-        for (const receipt of purchase.data) {
-          const entryKey = `purchase:${receipt.materialId}`;
-
-          await createStockMovement(
-            new CoreApiClient(),
-            attemptId(entryKey),
-            receipt,
-          );
-          endAttempt(entryKey);
-          bought[receipt.materialId] =
-            (onHandById.get(receipt.materialId) ?? 0) + receipt.quantity;
-          // A saved line leaves the form, so the retry after a failure cannot
-          // record it a second time.
-          setMode((current) =>
-            current.kind === 'purchase'
-              ? {
-                  ...current,
-                  typed: dropKey(current.typed, receipt.materialId),
-                }
-              : current,
-          );
-        }
-
-        setMode({ kind: 'list' });
-      } finally {
-        if (Object.keys(bought).length > 0) settle(bought);
-      }
-    });
-  };
-
   const copyBuyList = (list: BuyList) => {
     const copied = () => {
       setCopyNote('Скопировано');
@@ -563,106 +838,6 @@ const Stock = () => {
     } catch {
       setCopyNote(COPY_FAILED);
     }
-  };
-
-  const startRecount = () => {
-    showRow(null);
-    forgetAttempts('recount:');
-    setMode({ kind: 'recount', typed: {}, errors: {} });
-  };
-
-  const saveRecount = (typed: Record<string, string>) => {
-    const recount = buildRecount(typed, todayInTashkent());
-
-    if (!recount.ok) {
-      setMode({ kind: 'recount', typed, errors: recount.errors });
-
-      return;
-    }
-
-    // Nothing typed is nothing to save.
-    if (recount.data.length === 0) {
-      leaveRecount();
-
-      return;
-    }
-
-    void run('recount', async () => {
-      const counted: Record<string, number> = {};
-
-      try {
-        for (const entry of recount.data) {
-          const entryKey = `recount:${entry.materialId}`;
-
-          await createStockMovement(
-            new CoreApiClient(),
-            attemptId(entryKey),
-            entry,
-          );
-          endAttempt(entryKey);
-          counted[entry.materialId] = entry.countedQuantity;
-          // A saved amount leaves the form, so whatever is sent next (the
-          // retry after a failure) cannot count the material again: a second
-          // recount of it would wipe its overuse figure.
-          setMode((current) =>
-            current.kind === 'recount'
-              ? { ...current, typed: dropKey(current.typed, entry.materialId) }
-              : current,
-          );
-        }
-
-        setMode({ kind: 'list' });
-      } finally {
-        if (Object.keys(counted).length > 0) settle(counted);
-      }
-    });
-  };
-
-  const closeNewMaterial = () => {
-    setNewMaterial(null);
-    setErrors({});
-    setFailures((current) => dropKey(current, 'add'));
-    // A form opened later is another material: it must not overwrite the one
-    // a lost request of this form may have stored.
-    endAttempt('add');
-  };
-
-  const addMaterial = () => {
-    if (newMaterial === null) {
-      showRow(null);
-      setNewMaterial(NEW_MATERIAL);
-
-      return;
-    }
-
-    const name = newMaterial.name.trim();
-    const minimumStock = parseMinimumStock(newMaterial.minimumStock);
-
-    setErrors({
-      ...(name === '' ? { 'add:name': 'Введите название' } : {}),
-      ...(minimumStock.ok ? {} : { 'add:minimumStock': minimumStock.error }),
-    });
-
-    if (name === '' || !minimumStock.ok) return;
-
-    void run('add', async () => {
-      const materialId = attemptId('add');
-
-      await createMaterial(new CoreApiClient(), materialId, {
-        name,
-        unit: newMaterial.unit,
-        minimumStock: minimumStock.value,
-      });
-      endAttempt('add');
-
-      const next = await readList();
-
-      if (next !== null) setLoad(next);
-
-      // Opened so the first purchase can be typed straight away.
-      showRow(materialId);
-      settle({ [materialId]: null });
-    });
   };
 
   const priceNote = (row: StockRow): string | null => {
@@ -679,54 +854,34 @@ const Stock = () => {
   };
 
   const renderOpenRow = (row: StockRow) => {
-    const receiptKey = `${row.id}:receipt`;
     const minimumKey = `${row.id}:minimumStock`;
-    const close = () => showRow(null);
-    const lines = movementsById[row.id] ?? [];
-    const receiptField = (
-      field: 'quantity' | 'price',
-      label: string,
-      suffix: string,
-    ) => (
-      <Field key={field} label={label}>
-        {/* No onCommit: leaving a field must not record the purchase. */}
-        <TextInput
-          label={label}
-          inputMode={field === 'price' ? 'numeric' : 'decimal'}
-          isMoney={field === 'price'}
-          value={drafts[`${row.id}:${field}`] ?? ''}
-          suffix={suffix}
-          onChange={(value) => {
-            setDraft(`${row.id}:${field}`, value);
-            setErrors((current) => dropKey(current, receiptKey));
-          }}
-          onEnter={() => addReceipt(row)}
-          onCancel={close}
-        />
-      </Field>
-    );
+    const history = valued
+      .filter((movement) => movement.materialId === row.id)
+      .slice(-HISTORY_LINES)
+      .reverse();
 
     return (
       <>
-        <Columns>
-          {[
-            receiptField('quantity', 'Купил', row.unitLabel),
-            ...(data.canSeePrice
-              ? [receiptField('price', 'Цена', `сум за ${row.unitLabel}`)]
-              : []),
-          ]}
-        </Columns>
-        {errors[receiptKey] ? (
-          <Hint tone="danger" text={errors[receiptKey]} />
-        ) : null}
         <Wrap>
           <Button
             variant="primary"
-            isBusy={busyKeys.includes(receiptKey)}
-            onClick={() => addReceipt(row)}
+            onClick={() =>
+              openPurchase([
+                {
+                  materialId: row.id,
+                  quantity: '',
+                  price:
+                    data.prices[row.id]?.last === null ||
+                    data.prices[row.id]?.last === undefined
+                      ? ''
+                      : formatWhole(data.prices[row.id]?.last ?? 0),
+                },
+              ])
+            }
           >
-            Добавить
+            + Приход
           </Button>
+          <Button onClick={() => openOut(row.id)}>− Расход</Button>
         </Wrap>
         {row.needs.length > 0 ? (
           <Wrap>
@@ -751,7 +906,9 @@ const Stock = () => {
               drafts[minimumKey] ?? String(row.minimumStock).replace('.', ',')
             }
             suffix={row.unitLabel}
-            onChange={(value) => setDraft(minimumKey, value)}
+            onChange={(value) =>
+              setDrafts((current) => ({ ...current, [minimumKey]: value }))
+            }
             onCommit={() => commitMinimumStock(row)}
             // Escape takes the typed value back and leaves the row open:
             // closing it would blur the field and save what was cancelled.
@@ -765,15 +922,18 @@ const Stock = () => {
           <Hint tone="warning" text={row.overuseNote} />
         ) : null}
         {priceNote(row) ? <Hint text={priceNote(row) ?? ''} /> : null}
-        {lines.length > 0 ? <span>История:</span> : null}
-        {lines.map((line) => (
-          <Hint key={line.id} text={movementText(line, row.unitLabel)} />
+        {history.length > 0 ? <span>История:</span> : null}
+        {history.map((movement) => (
+          <Hint
+            key={movement.id}
+            text={historyLineText(
+              movement,
+              row.unitLabel,
+              books.orderNames,
+              formatDayMonth,
+            )}
+          />
         ))}
-        <Wrap>
-          <Link href="/objects/stockMovements">
-            Вся история <span aria-hidden>›</span>
-          </Link>
-        </Wrap>
       </>
     );
   };
@@ -799,262 +959,63 @@ const Stock = () => {
             )
           }
           isOpen={isOpen}
-          onToggle={() => showRow(isOpen ? null : row.id)}
+          onToggle={() => {
+            setOpenId(isOpen ? null : row.id);
+            setErrors({});
+          }}
         >
           {isOpen ? renderOpenRow(row) : null}
         </Row>
         {/* Outside the row, so a save that fails after the row was closed is
             still seen. */}
-        {failureNote(`${row.id}:receipt`, () => addReceipt(row))}
         {failureNote(`${row.id}:minimumStock`)}
       </Fragment>
     );
   };
 
-  const renderRecountRow = (
-    row: StockRow,
-    recount: Extract<Mode, { kind: 'recount' }>,
-  ) => (
-    <StaticRow key={row.id}>
-      <Field
-        isInline
-        label={row.name || UNNAMED}
-        error={recount.errors[row.id]}
+  const monthPicker = (
+    <Wrap>
+      <Button
+        label="Прошлый месяц"
+        onClick={() => setMonth(shiftMonth(month, -1))}
       >
-        <TextInput
-          label={row.name || UNNAMED}
-          inputMode="decimal"
-          value={recount.typed[row.id] ?? ''}
-          // The unit stands in the field already, so only the number is shown.
-          placeholder={formatQuantity(onHandById.get(row.id) ?? 0, '').trim()}
-          suffix={row.unitLabel}
-          onChange={(value) => {
-            // The amounts being saved were read at the press: a change typed
-            // during the save would be dropped with the old number recorded.
-            if (inFlight.current.has('recount')) return;
-
-            setMode((current) =>
-              current.kind === 'recount'
-                ? {
-                    kind: 'recount',
-                    typed: { ...current.typed, [row.id]: value },
-                    errors: dropKey(current.errors, row.id),
-                  }
-                : current,
-            );
-          }}
-          onEnter={() => saveRecount(recount.typed)}
-          onCancel={leaveRecount}
-        />
-      </Field>
-    </StaticRow>
+        ‹
+      </Button>
+      <span style={{ fontWeight: 600 }}>{monthLabel(month)}</span>
+      <Button
+        label="Следующий месяц"
+        onClick={() => setMonth(shiftMonth(month, 1))}
+      >
+        ›
+      </Button>
+    </Wrap>
   );
 
-  const renderNewMaterial = (form: NewMaterial) => (
-    <StaticRow>
-      <Columns>
-        <Field label="Название" error={errors['add:name']}>
-          <TextInput
-            label="Название"
-            value={form.name}
-            onChange={(name) => setNewMaterial({ ...form, name })}
-            onEnter={addMaterial}
-            onCancel={closeNewMaterial}
-          />
-        </Field>
-        <Field label="Единица">
-          <SelectInput
-            label="Единица"
-            value={form.unit}
-            options={MATERIAL_UNIT_OPTIONS}
-            onChange={(value) =>
-              setNewMaterial({
-                ...form,
-                unit:
-                  MATERIAL_UNIT_OPTIONS.find((option) => option.value === value)
-                    ?.value ?? form.unit,
-              })
-            }
-          />
-        </Field>
-        <Field label="Запас не меньше" error={errors['add:minimumStock']}>
-          <TextInput
-            label="Запас не меньше"
-            inputMode="decimal"
-            value={form.minimumStock}
-            suffix={materialUnitLabel(form.unit)}
-            onChange={(minimumStock) =>
-              setNewMaterial({ ...form, minimumStock })
-            }
-            onEnter={addMaterial}
-            onCancel={closeNewMaterial}
-          />
-        </Field>
-      </Columns>
-    </StaticRow>
-  );
-
-  if (rows.length === 0 && newMaterial === null) {
-    return (
-      <Screen title="Склад">
-        <EmptyState
-          text={EMPTY_TEXT}
-          actionText="Добавить материал"
-          onAction={addMaterial}
-        />
-      </Screen>
-    );
-  }
-
-  const unsettledNote =
-    unsettledToken === null ? null : (
-      <ErrorNote
-        text={LOAD_FAILED}
-        onRetry={() => void readAgain(unsettledToken, true)}
-      />
-    );
-
-  if (mode.kind === 'purchase') {
-    const isSaving = busyKeys.includes('purchase');
-    const typeIn = (
-      materialId: string,
-      field: 'quantity' | 'price',
-      value: string,
-    ) => {
-      // The amounts being saved were read at the press: a change typed during
-      // the save would be dropped with the old number recorded.
-      if (inFlight.current.has('purchase')) return;
-
-      setMode((current) =>
-        current.kind === 'purchase'
-          ? {
-              kind: 'purchase',
-              typed: {
-                ...current.typed,
-                [materialId]: {
-                  ...(current.typed[materialId] ?? { quantity: '', price: '' }),
-                  [field]: value,
-                },
-              },
-              errors: dropKey(current.errors, materialId),
-            }
-          : current,
-      );
-    };
-
-    return (
-      <Screen title="Склад">
-        <StickyBar>
-          <Hint text={purchaseSummary(mode.typed) ?? NO_BREAK_SPACE} />
-          <Wrap>
-            <Button
-              variant="primary"
-              isWideOnPhone
-              isBusy={isSaving}
-              onClick={() => savePurchase(mode.typed)}
-            >
-              Сохранить закупку
-            </Button>
-            {isSaving ? null : (
-              <Button variant="link" onClick={leavePurchase}>
-                Отмена
-              </Button>
+  const renderStockTab = () => (
+    <>
+      {canSeeMoney ? (
+        <Section title="Итого">
+          <StaticRow>
+            {shelfValue === null ? null : (
+              <AmountLine amount={formatMoney(shelfValue)}>
+                На складе на сумму
+              </AmountLine>
             )}
-          </Wrap>
-          {failureNote('purchase', () => savePurchase(mode.typed))}
-        </StickyBar>
-        {unsettledNote}
-        <Section title="Что купили">
-          {rows.map((row) => (
-            <StaticRow key={row.id}>
-              <span style={{ fontWeight: 600 }}>{row.name || UNNAMED}</span>
-              <Columns>
-                {[
-                  <Field key="quantity" label="Купил">
-                    <TextInput
-                      label={`${row.name || UNNAMED}: купил`}
-                      inputMode="decimal"
-                      value={mode.typed[row.id]?.quantity ?? ''}
-                      suffix={row.unitLabel}
-                      onChange={(value) => typeIn(row.id, 'quantity', value)}
-                      onEnter={() => savePurchase(mode.typed)}
-                      onCancel={leavePurchase}
-                    />
-                  </Field>,
-                  ...(data.canSeePrice
-                    ? [
-                        <Field key="price" label="Цена">
-                          <TextInput
-                            label={`${row.name || UNNAMED}: цена`}
-                            inputMode="numeric"
-                            isMoney
-                            value={mode.typed[row.id]?.price ?? ''}
-                            suffix={`сум за ${row.unitLabel}`}
-                            onChange={(value) => typeIn(row.id, 'price', value)}
-                            onEnter={() => savePurchase(mode.typed)}
-                            onCancel={leavePurchase}
-                          />
-                        </Field>,
-                      ]
-                    : []),
-                ]}
-              </Columns>
-              {mode.errors[row.id] ? (
-                <Hint tone="danger" text={mode.errors[row.id]} />
-              ) : null}
-            </StaticRow>
-          ))}
+            {canPaySuppliers ? (
+              <AmountLine amount={formatMoney(totalDebt)}>
+                Должны поставщикам
+              </AmountLine>
+            ) : null}
+            {canPaySuppliers && totalDebt > 0 ? (
+              <Wrap>
+                <Button onClick={() => openDebt(debts[0]?.id ?? '')}>
+                  Отдать долг
+                </Button>
+              </Wrap>
+            ) : null}
+          </StaticRow>
         </Section>
-      </Screen>
-    );
-  }
-
-  if (mode.kind === 'recount') {
-    const isSaving = busyKeys.includes('recount');
-
-    return (
-      <Screen title="Склад">
-        <StickyBar>
-          {/* The line keeps its place while empty, so the list does not jump
-              under the finger at the first digit. */}
-          <Hint text={recountSummary(mode.typed) ?? NO_BREAK_SPACE} />
-          <Wrap>
-            <Button
-              variant="primary"
-              isWideOnPhone
-              isBusy={isSaving}
-              onClick={() => saveRecount(mode.typed)}
-            >
-              Сохранить пересчёт
-            </Button>
-            {isSaving ? null : (
-              <Button variant="link" onClick={leaveRecount}>
-                Отмена
-              </Button>
-            )}
-          </Wrap>
-          {/* The retry sends what the fields hold now, not what they held
-              when the save failed. */}
-          {failureNote('recount', () => saveRecount(mode.typed))}
-        </StickyBar>
-        {unsettledNote}
-        <Section title="Материалы">
-          {rows.map((row) => renderRecountRow(row, mode))}
-        </Section>
-      </Screen>
-    );
-  }
-
-  return (
-    <Screen
-      title="Склад"
-      action={
-        rows.length > 0 ? (
-          <Button onClick={startRecount}>Пересчитать склад</Button>
-        ) : undefined
-      }
-    >
-      {unsettledNote}
+      ) : null}
       {buyList.lines.length > 0 ? (
         <Section title="Купить сегодня">
           {buyList.total === null ? null : (
@@ -1080,9 +1041,9 @@ const Stock = () => {
               <Button
                 variant="primary"
                 isWideOnPhone
-                onClick={() => startPurchase(buyList)}
+                onClick={() => openPurchaseFromList(buyList)}
               >
-                Записать закупку
+                Записать приход
               </Button>
               <Button onClick={() => copyBuyList(buyList)}>
                 Скопировать список
@@ -1095,34 +1056,484 @@ const Stock = () => {
       <Section
         title="Материалы"
         footer={
-          <>
-            {failureNote('add', addMaterial)}
-            <Wrap>
-              <Button isBusy={busyKeys.includes('add')} onClick={addMaterial}>
-                + Добавить материал
-              </Button>
-              {buyList.lines.length > 0 ? null : (
-                <Button onClick={() => startPurchase(buyList)}>
-                  Записать закупку
-                </Button>
-              )}
-              {newMaterial === null ? null : (
-                <Button variant="link" onClick={closeNewMaterial}>
-                  Отмена
-                </Button>
-              )}
-            </Wrap>
-          </>
+          <Wrap>
+            <Button
+              onClick={() => {
+                forgetAttempts('material:');
+                setSheet({ kind: 'material', draft: NEW_MATERIAL, errors: {} });
+              }}
+            >
+              + Материал
+            </Button>
+          </Wrap>
         }
       >
         {rows.map(renderListRow)}
-        {newMaterial === null ? null : renderNewMaterial(newMaterial)}
-        {shelfValue === null ? null : (
-          <StaticRow>
-            <Hint text={`На складе материала на ${formatMoney(shelfValue)}`} />
-          </StaticRow>
-        )}
       </Section>
+    </>
+  );
+
+  const renderInTab = () => {
+    const list = purchaseList(purchases, valued, month);
+    const monthTotal = list.reduce(
+      (sum, purchase) => sum + (purchase.total ?? 0),
+      0,
+    );
+
+    return (
+      <>
+        {monthPicker}
+        <div style={{ height: SPACE.lg }} />
+        <Section title={`Приходы за ${monthLabel(month).toLowerCase()}`}>
+          {canSeeMoney && list.length > 0 ? (
+            <StaticRow>
+              <AmountLine amount={formatMoney(monthTotal)}>
+                {`Всего, приходов: ${list.length}`}
+              </AmountLine>
+            </StaticRow>
+          ) : null}
+          {list.length === 0 ? (
+            <StaticRow>
+              <Hint text="В этом месяце приходов нет" />
+            </StaticRow>
+          ) : null}
+          {list.map((purchase) => {
+            const isOpen = openId === purchase.id;
+            const linesText = purchaseLinesText(
+              purchase,
+              shownMaterials,
+              formatWhole,
+            );
+
+            return (
+              <Row
+                key={purchase.id}
+                title={`${formatDayMonth(purchase.date)} · ${purchase.supplierName ?? (purchase.isLoose ? nameOf(purchase.lines[0]?.materialId ?? '') : 'Без поставщика')}`}
+                value={
+                  canSeeMoney && purchase.total !== null
+                    ? formatMoney(purchase.total)
+                    : undefined
+                }
+                pill={
+                  !canPaySuppliers ||
+                  purchase.isLoose ? undefined : purchase.debt > 0 ? (
+                    <StatePill
+                      tone="warning"
+                      text={`Долг ${formatMoney(purchase.debt)}`}
+                    />
+                  ) : purchase.total !== null ? (
+                    <StatePill tone="success" text="Оплачено" />
+                  ) : undefined
+                }
+                isOpen={isOpen}
+                onToggle={() => setOpenId(isOpen ? null : purchase.id)}
+              >
+                {isOpen ? (
+                  <>
+                    <span>{linesText}</span>
+                    {purchase.comment ? <Hint text={purchase.comment} /> : null}
+                    {canPaySuppliers &&
+                    !purchase.isLoose &&
+                    purchase.paid > 0 ? (
+                      <Hint text={`Оплачено ${formatMoney(purchase.paid)}`} />
+                    ) : null}
+                    {(books.invoicePhotoCounts[purchase.id] ?? 0) > 0 ? (
+                      <Link href={`/object/purchase/${purchase.id}`}>
+                        Фото накладной <span aria-hidden>›</span>
+                      </Link>
+                    ) : null}
+                    {canPaySuppliers &&
+                    purchase.debt > 0 &&
+                    purchase.supplierId ? (
+                      <Wrap>
+                        <Button
+                          onClick={() => openDebt(purchase.supplierId ?? '')}
+                        >
+                          Отдать долг
+                        </Button>
+                      </Wrap>
+                    ) : null}
+                  </>
+                ) : (
+                  <Hint text={linesText} />
+                )}
+              </Row>
+            );
+          })}
+        </Section>
+        {suppliers.length > 0 ? (
+          <Section title="Поставщики">
+            {suppliers.map((supplier) => (
+              <StaticRow key={supplier.id}>
+                <Wrap>
+                  <span style={{ flex: 1, fontWeight: 600 }}>
+                    {supplier.name}
+                  </span>
+                  {canPaySuppliers ? (
+                    supplier.debt > 0 ? (
+                      <>
+                        <StatePill
+                          tone="warning"
+                          text={`Долг ${formatMoney(supplier.debt)}`}
+                        />
+                        <Button onClick={() => openDebt(supplier.id)}>
+                          Отдать долг
+                        </Button>
+                      </>
+                    ) : (
+                      <StatePill tone="success" text="Долга нет" />
+                    )
+                  ) : null}
+                </Wrap>
+                <Hint
+                  text={`Приходов: ${supplier.purchaseCount}${canSeeMoney ? ` на ${formatMoney(supplier.purchased)}` : ''}`}
+                />
+              </StaticRow>
+            ))}
+          </Section>
+        ) : null}
+      </>
+    );
+  };
+
+  const renderOutTab = () => {
+    const entries = buildOutEntries({
+      valued,
+      month,
+      filter: outFilter,
+      materials: shownMaterials,
+      orderNames: books.orderNames,
+    });
+    const total = entries.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
+
+    return (
+      <>
+        {monthPicker}
+        <div style={{ height: SPACE.md }} />
+        <Tabs value={outFilter} options={OUT_FILTERS} onChange={setOutFilter} />
+        <div style={{ height: SPACE.lg }} />
+        <Section title={`Расходы за ${monthLabel(month).toLowerCase()}`}>
+          {canSeeMoney && entries.length > 0 ? (
+            <StaticRow>
+              <AmountLine amount={formatMoney(total)}>
+                Всего за месяц
+              </AmountLine>
+            </StaticRow>
+          ) : null}
+          {entries.length === 0 ? (
+            <StaticRow>
+              <Hint text="Ничего не ушло" />
+            </StaticRow>
+          ) : null}
+          {entries.map((entry) => (
+            <StaticRow key={entry.key}>
+              <Wrap>
+                <span style={{ flex: 1, fontWeight: 600 }}>
+                  {`${formatDayMonth(entry.date)} · `}
+                  {entry.orderId === null ? (
+                    entry.title
+                  ) : (
+                    <Link href={`/object/order/${entry.orderId}`}>
+                      {entry.title}
+                    </Link>
+                  )}
+                </span>
+                {canSeeMoney && entry.value !== null ? (
+                  <span>{formatMoney(entry.value)}</span>
+                ) : null}
+              </Wrap>
+              <span>{entry.lines}</span>
+              {entry.note ? (
+                <Hint
+                  tone={entry.isOveruse ? 'warning' : 'neutral'}
+                  text={entry.note}
+                />
+              ) : null}
+            </StaticRow>
+          ))}
+        </Section>
+      </>
+    );
+  };
+
+  const renderReportTab = () => {
+    const report = buildStockMonthReport(valued, month);
+    const money = (value: number) => formatMoney(value);
+    const lines: [string, number, boolean?][] = [
+      [`Было на 1 число`, report.opening],
+      [`Приход: ${report.receiptCount}`, report.received],
+      [`Ушло на заказы: ${report.orderCount}`, -report.toOrders],
+      ...(report.overuse > 0
+        ? ([[`  из них сверх нормы`, -report.overuse]] as [string, number][])
+        : []),
+      ['Брак', -report.scrap],
+      ['Отходы', -report.waste],
+      [
+        report.recount < 0
+          ? 'Недостача при пересчёте'
+          : 'Излишек при пересчёте',
+        report.recount,
+      ],
+      ['Для цеха', -report.workshopUse],
+      ['Вернул поставщику', -report.returned],
+      ['Другое', -report.otherOut],
+    ];
+
+    return (
+      <>
+        {monthPicker}
+        <div style={{ height: SPACE.lg }} />
+        {canSeeMoney ? (
+          <Section title="Движение склада в деньгах">
+            <StaticRow>
+              {lines
+                .filter(([, value], index) => index < 3 || value !== 0)
+                .map(([label, value]) => (
+                  <AmountLine
+                    key={label}
+                    amount={`${value > 0 && label !== 'Было на 1 число' ? '+' : ''}${money(value)}`}
+                  >
+                    {label}
+                  </AmountLine>
+                ))}
+              <AmountLine amount={money(report.closing)} isTotal>
+                Осталось на конец месяца
+              </AmountLine>
+              {report.losses > 0 && report.toOrders > 0 ? (
+                <Hint
+                  tone="warning"
+                  text={`Потери ${formatMoney(report.losses)}: ${Math.round((report.losses / report.toOrders) * 100)}% от того, что ушло на заказы`}
+                />
+              ) : null}
+              {report.hasUnpriced ? (
+                <Hint text="У части материала нет цены закупки: он посчитан как 0." />
+              ) : null}
+            </StaticRow>
+          </Section>
+        ) : null}
+        <Section title="По материалам">
+          {report.materials.length === 0 ? (
+            <StaticRow>
+              <Hint text="Движений нет" />
+            </StaticRow>
+          ) : null}
+          {report.materials.map((line) => {
+            const unit = unitOf(line.materialId);
+            const amount = (value: number) => formatQuantity(value, unit);
+
+            return (
+              <StaticRow key={line.materialId}>
+                <span style={{ fontWeight: 600 }}>
+                  {nameOf(line.materialId)}
+                </span>
+                <Hint
+                  text={[
+                    `Было ${amount(line.opening)}`,
+                    `пришло ${amount(line.received)}`,
+                    `на заказы ${amount(line.toOrders)}`,
+                    ...(line.lost !== 0 ? [`потери ${amount(line.lost)}`] : []),
+                    ...(line.other !== 0
+                      ? [`другое ${amount(line.other)}`]
+                      : []),
+                    `осталось ${amount(line.closing)}`,
+                  ].join(' · ')}
+                />
+              </StaticRow>
+            );
+          })}
+        </Section>
+      </>
+    );
+  };
+
+  const renderSheet = () => {
+    if (sheet === null) return null;
+
+    if (sheet.kind === 'purchase') {
+      return (
+        <PurchaseSheet
+          draft={sheet.draft}
+          errors={sheet.errors}
+          materials={materialsByName}
+          suppliers={books.suppliers}
+          canSeeMoney={canSeeMoney}
+          isSaving={busyKeys.includes('purchase')}
+          failure={failureNote('purchase', () => savePurchase(sheet.draft))}
+          photoNames={photos.map((photo) => photo.name)}
+          newLineKey={newLineKey}
+          onChange={(draft) => {
+            // What is being saved was read at the press.
+            if (inFlight.current.has('purchase')) return;
+
+            setSheet({ kind: 'purchase', draft, errors: sheet.errors });
+          }}
+          onPickPhotos={(files) => setPhotos(files)}
+          onSave={() => savePurchase(sheet.draft)}
+          onClose={closeSheet}
+        />
+      );
+    }
+
+    if (sheet.kind === 'out') {
+      const price =
+        data.prices[sheet.draft.materialId]?.average ??
+        data.prices[sheet.draft.materialId]?.last ??
+        null;
+      const quantity = Number(sheet.draft.quantity.replace(',', '.'));
+
+      return (
+        <StockOutSheet
+          draft={sheet.draft}
+          errors={sheet.errors}
+          materials={materialsByName}
+          orders={books.orders}
+          estimate={
+            canSeeMoney && price !== null && quantity > 0
+              ? `≈ ${formatMoney(Math.round(quantity * price))}`
+              : null
+          }
+          isSaving={busyKeys.includes('out')}
+          failure={failureNote('out', () => saveOut(sheet.draft))}
+          onChange={(draft) => {
+            if (inFlight.current.has('out')) return;
+
+            setSheet({ kind: 'out', draft, errors: sheet.errors });
+          }}
+          onSave={() => saveOut(sheet.draft)}
+          onClose={closeSheet}
+        />
+      );
+    }
+
+    if (sheet.kind === 'recount') {
+      return (
+        <RecountSheet
+          materials={materialsByName}
+          typed={sheet.typed}
+          errors={sheet.errors}
+          summary={recountSummary(sheet.typed)}
+          isSaving={busyKeys.includes('recount')}
+          failure={failureNote('recount', () => saveRecount(sheet.typed))}
+          onType={(materialId, value) => {
+            // The amounts being saved were read at the press: a change typed
+            // during the save would be dropped with the old number recorded.
+            if (inFlight.current.has('recount')) return;
+
+            setSheet({
+              kind: 'recount',
+              typed: { ...sheet.typed, [materialId]: value },
+              errors: dropKey(sheet.errors, materialId),
+            });
+          }}
+          onSave={() => saveRecount(sheet.typed)}
+          onClose={closeSheet}
+        />
+      );
+    }
+
+    if (sheet.kind === 'material') {
+      return (
+        <NewMaterialSheet
+          draft={sheet.draft}
+          errors={sheet.errors}
+          isSaving={busyKeys.includes('material')}
+          failure={failureNote('material', () => saveMaterial(sheet.draft))}
+          onChange={(draft) =>
+            setSheet({ kind: 'material', draft, errors: sheet.errors })
+          }
+          onSave={() => saveMaterial(sheet.draft)}
+          onClose={closeSheet}
+        />
+      );
+    }
+
+    return (
+      <DebtPaymentSheet
+        draft={sheet.draft}
+        errors={sheet.errors}
+        debts={debts}
+        isSaving={busyKeys.includes('debt')}
+        failure={failureNote('debt', () => saveDebt(sheet.draft))}
+        onChange={(draft) => {
+          if (inFlight.current.has('debt')) return;
+
+          const debt = debts.find(
+            (supplier) => supplier.id === draft.supplierId,
+          )?.debt;
+
+          setSheet({
+            kind: 'debt',
+            // Picking another supplier offers that supplier's whole debt.
+            draft:
+              draft.supplierId !== sheet.draft.supplierId && debt !== undefined
+                ? { ...draft, amount: formatWhole(debt) }
+                : draft,
+            errors: sheet.errors,
+          });
+        }}
+        onSave={() => saveDebt(sheet.draft)}
+        onClose={closeSheet}
+      />
+    );
+  };
+
+  if (rows.length === 0 && sheet === null) {
+    return (
+      <Screen title="Склад">
+        <EmptyState
+          text={EMPTY_TEXT}
+          actionText="Добавить материал"
+          onAction={() =>
+            setSheet({ kind: 'material', draft: NEW_MATERIAL, errors: {} })
+          }
+        />
+      </Screen>
+    );
+  }
+
+  const unsettledNote =
+    unsettledToken === null ? null : (
+      <ErrorNote
+        text={LOAD_FAILED}
+        onRetry={() => void readAgain(unsettledToken, true)}
+      />
+    );
+
+  return (
+    <Screen
+      title="Склад"
+      action={
+        <Wrap>
+          <Button variant="primary" onClick={() => openPurchase([])}>
+            + Приход
+          </Button>
+          <Button onClick={() => openOut()}>− Расход</Button>
+          <Button
+            onClick={() => {
+              forgetAttempts('recount:');
+              setSheet({ kind: 'recount', typed: {}, errors: {} });
+            }}
+          >
+            Пересчитать
+          </Button>
+        </Wrap>
+      }
+    >
+      {unsettledNote}
+      <Tabs
+        value={tab}
+        options={TABS}
+        onChange={(next) => {
+          setTab(next);
+          setOpenId(null);
+        }}
+      />
+      <div style={{ height: SPACE.lg }} />
+      {tab === 'stock' ? renderStockTab() : null}
+      {tab === 'in' ? renderInTab() : null}
+      {tab === 'out' ? renderOutTab() : null}
+      {tab === 'report' ? renderReportTab() : null}
+      {renderSheet()}
     </Screen>
   );
 };
@@ -1130,6 +1541,6 @@ const Stock = () => {
 export default defineFrontComponent({
   universalIdentifier: IDS.stock.frontComponent,
   name: 'warehouse',
-  description: 'Склад: что есть, что нужно на заказы, что купить',
+  description: 'Склад: остатки, приход, расход и отчёт за месяц',
   component: Stock,
 });

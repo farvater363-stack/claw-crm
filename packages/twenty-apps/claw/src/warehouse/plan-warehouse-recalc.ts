@@ -147,12 +147,18 @@ const toUpdates = <TRecord extends { id: string }>(
     return Object.keys(update).length > 0 ? [{ id: record.id, update }] : [];
   });
 
-const effectiveDate = (movement: WarehouseMovement) =>
+export const effectiveDate = (
+  movement: Pick<WarehouseMovement, 'date' | 'createdAt'>,
+) =>
   movement.date ?? todayInTashkent(new Date(movement.createdAt));
 
 // A stocktake counts what physically lay there on its date, so a receipt dated
 // earlier but typed in later is already inside the count.
-const inStockOrder = (movements: WarehouseMovement[]) =>
+export const inStockOrder = <
+  TMovement extends Pick<WarehouseMovement, 'date' | 'createdAt'>,
+>(
+  movements: TMovement[],
+) =>
   [...movements].sort(
     (left, right) =>
       effectiveDate(left).localeCompare(effectiveDate(right)) ||
