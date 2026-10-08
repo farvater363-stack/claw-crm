@@ -83,6 +83,20 @@ export default definePageLayout({
           IDS.order.items,
           IDS.view.orderItemsTable,
         ),
+        {
+          universalIdentifier: IDS.workshopPay.orderPageWidget,
+          title: 'Оплата цеха',
+          type: 'FRONT_COMPONENT',
+          // Pay is the owner's: only a role that may read the order's cost
+          // gets the field at all, so the others never see this block.
+          conditionalDisplay: {
+            '!!': [{ var: 'selectedRecords.0.costTotal.currencyCode' }],
+          },
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier: IDS.workshopPay.frontComponent,
+          },
+        },
         table(
           ids.extraServicesWidget,
           'Козырьки и услуги',

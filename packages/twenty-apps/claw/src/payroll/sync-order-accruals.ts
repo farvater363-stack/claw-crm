@@ -11,6 +11,7 @@ import {
   type AccrualLine,
   planOrderAccruals,
 } from 'src/payroll/plan-order-accruals';
+import { toWorkshopCatalog, WORKSHOP_CATALOG_QUERY } from 'src/payroll/workshop-records';
 import { todayInTashkent } from 'src/pricing/dates';
 import { toNumber } from 'src/recalc/load-recalc-input';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
@@ -38,7 +39,16 @@ export const syncOrderAccruals = async (
   client: CoreApiClient,
   orderId: string,
 ): Promise<boolean> => {
-  const { orders, payAccruals, payRules, masters } = await client.query({
+  const {
+    orders,
+    orderItems,
+    payAccruals,
+    payRules,
+    masters,
+    workshopRates,
+    designs,
+    grilleKinds,
+  } = await client.query({
     orders: {
       __args: { filter: { id: { eq: orderId } }, first: 1 },
       edges: {
@@ -59,10 +69,17 @@ export const syncOrderAccruals = async (
         },
       },
     },
+    orderItems: {
+      __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
+      edges: {
+        node: { designId: true, areaSquareMeters: true, quantity: true },
+      },
+    },
     payAccruals: {
       __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
       edges: { node: ACCRUAL_SELECTION },
     },
+    ...WORKSHOP_CATALOG_QUERY,
     payRules: ALL_PAY_RULES_QUERY,
     masters: {
       __args: { first: PAGE_SIZE },
@@ -119,9 +136,15 @@ export const syncOrderAccruals = async (
       measuredOn: order.measuredAt
         ? todayInTashkent(new Date(order.measuredAt))
         : null,
+      items: (orderItems?.edges ?? []).map(({ node }) => ({
+        designId: node.designId ?? null,
+        areaSquareMeters: toNumber(node.areaSquareMeters),
+        quantity: toNumber(node.quantity),
+      })),
     },
     rules,
     existing,
+    catalog: toWorkshopCatalog({ workshopRates, designs, grilleKinds }),
   });
 
   for (const line of plan.upserts) {

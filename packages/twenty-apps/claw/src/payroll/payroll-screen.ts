@@ -18,6 +18,16 @@ import {
 // Type only, as a whole statement: that module imports node:crypto, which must not reach a front component's bundle.
 import type { AccrualLine } from 'src/payroll/plan-order-accruals';
 import { parseOptionalMoney, parsePositiveNumber, PLAIN_DECIMAL } from 'src/prices/prices-screen';
+import {
+  designPart,
+  kindPart,
+  NO_KIND_LABEL,
+  isOwnRate,
+  NO_KIND_PART,
+  RULE_PART,
+  type WorkshopCatalog,
+} from 'src/payroll/workshop-pay';
+import { roundTo } from 'src/pricing/round';
 import { formatDayMonth, formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
 import { type FullName, trimFullName } from 'src/utils/full-name';
 
@@ -233,7 +243,10 @@ const accrualText = (line: AccrualLine): string => {
   if (line.method === 'BONUS') return lead('премия');
   if (line.method === 'PENALTY') return lead('штраф');
   if (line.method === 'PER_SQUARE_METER') {
-    return lead(`${formatQuantity(line.basis, 'м²')} × ${formatWhole(line.rate)}`);
+    // A workshop line by «Ставки цеха» names its row: «№1042 · Мастер · Кованая 2,1 м² × 50,000»
+    const byRow = line.part === null ? '' : line.name.split(' · ').slice(2).join(' · ');
+
+    return lead(byRow || `${formatQuantity(line.basis, 'м²')} × ${formatWhole(line.rate)}`);
   }
   if (line.method === 'PERCENT_OF_SALES') {
     return lead(`${formatQuantity(line.rate, '%')} от ${formatWhole(line.basis)}`);
@@ -303,3 +316,54 @@ export const owedLine = (owed: number): { label: string; amount: string } =>
   owed < 0
     ? { label: 'Выплачено вперёд', amount: formatMoney(-owed) }
     : { label: 'К выплате', amount: formatMoney(owed) };
+
+export type SquareMeterSummaryRow = {
+  key: string;
+  label: string;
+  isOwn: boolean;
+  basis: number;
+  rate: number;
+  amount: number;
+};
+
+// A workshop master's month per row of «Ставки цеха»: how many m² of which kind, at what rate.
+export const squareMeterSummary = (
+  lines: AccrualLine[],
+  catalog: WorkshopCatalog,
+  workerId: string,
+): SquareMeterSummaryRow[] => {
+  const groups = new Map<string, SquareMeterSummaryRow>();
+
+  for (const line of lines) {
+    if (line.work !== 'MASTER' || line.method !== 'PER_SQUARE_METER') continue;
+
+    const key = `${line.part ?? ''}:${line.rate}`;
+    const known = groups.get(key);
+
+    groups.set(key, {
+      key,
+      label: partLabel(line.part, catalog),
+      isOwn: isOwnRate(catalog, workerId, line.part, line.rate),
+      basis: roundTo((known?.basis ?? 0) + line.basis, 2),
+      rate: line.rate,
+      amount: (known?.amount ?? 0) + line.amount,
+    });
+  }
+
+  return [...groups.values()].sort((left, right) => right.rate - left.rate);
+};
+
+export const partLabel = (part: string | null, catalog: WorkshopCatalog): string => {
+  if (part === NO_KIND_PART) return NO_KIND_LABEL;
+  if (part === RULE_PART) return 'Старая ставка мастера';
+  if (part?.startsWith('kind:')) {
+    return catalog.kinds.find((kind) => kindPart(kind.id) === part)?.name || 'Удалённый вид';
+  }
+  if (part?.startsWith('design:')) {
+    const design = catalog.designs.find((entry) => designPart(entry.id) === part);
+
+    return design === undefined ? 'Удалённая решётка' : `«${design.name}»`;
+  }
+
+  return 'За м²';
+};

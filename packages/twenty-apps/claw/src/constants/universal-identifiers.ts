@@ -17,6 +17,7 @@ export const IDS = {
     manufacturingCostPerSquareMeter: 'a1802127-18bb-49d3-beff-503a6b0040dc',
     installationCostPerSquareMeter: 'a635bad0-c224-492b-ad57-e93dc788affb',
     norms: '9f651b17-f028-4f0c-8473-57493bc3ed45',
+    workshopRates: 'c0bc0180-6ef1-40f6-957d-dc2f11f7cd4a',
   },
   // Retired: the price list object is gone, price and composition live on the grille; ids are never reused.
   priceListItem: {
@@ -57,6 +58,7 @@ export const IDS = {
     accruals: 'f9962500-134f-4221-b785-7ae629025c1c',
     installedOrders: '4ec04dfd-df67-428d-b241-c047263a9701',
     soldOrders: '8bab1af9-4545-4a1a-843c-979545ccc978',
+    workshopRates: 'cc60274b-4786-4d5c-bb19-63fb565a4d8d',
   },
   order: {
     object: '8ab9a340-059c-4dd3-a96f-a8a83a5f3c32',
@@ -175,6 +177,15 @@ export const IDS = {
     object: '8b193d5c-042c-4fee-8d12-ecb515dd6abd',
     name: '62dea76f-c0b9-4106-a772-b728ce4b028b',
     designs: 'b42c2131-8785-4615-a2b7-22ad93227243',
+    workshopRates: 'e0cbafc4-7e6c-47b4-a58f-b524b451e827',
+  },
+  workshopRate: {
+    object: 'b0d9ba8b-fa02-467d-b945-b462f8e49096',
+    name: 'ec001b9c-d491-43c7-b233-d34e3588d1f6',
+    rate: '79403e68-9212-46bf-9835-7d9788220f7e',
+    grilleKind: '37f03491-bee7-4907-98a9-3a7b50c57ecd',
+    design: '1b4e2b5b-d51a-499f-a2b4-8fca180a6e5c',
+    worker: 'c87c73d1-1484-4fdd-81da-30877d93411d',
   },
   payRule: {
     object: '9c5371a4-dad6-4bbc-b95d-27c0ee47e6d0',
@@ -196,6 +207,7 @@ export const IDS = {
     amount: 'ebb50e71-de29-4bfc-b853-c39d9616812e',
     basis: '4ca97a70-c309-4bce-abc4-182ec27bb29c',
     rate: 'cc14b44c-d16e-466f-a3cb-99d7f7eb719d',
+    part: 'df710c93-ce9e-4f45-bc27-882b5764a498',
   },
   orderPayment: {
     object: '2b534971-112d-42b7-9551-cca9c18e0e20',
@@ -466,6 +478,10 @@ export const IDS = {
   measurementNotes: {
     frontComponent: '74aa9d07-1296-4578-a9e4-a623002c5b4b',
     orderPageWidget: '4102beab-e8d1-4e1a-a324-982bf1a35ed3',
+  },
+  workshopPay: {
+    frontComponent: '009d5ad2-d1a0-4e10-bb06-6205bd20c859',
+    orderPageWidget: 'ccc42504-c524-4558-91d9-22a2fee519d1',
   },
   orderSketch: {
     frontComponent: 'e35c1fc1-98b1-4d5c-b0ba-95138d42cf16',

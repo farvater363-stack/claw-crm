@@ -94,6 +94,7 @@ export const ACCRUAL_SELECTION = {
   rate: true,
   amount: { amountMicros: true },
   name: true,
+  part: true,
 } as const;
 
 type AccrualNode = {
@@ -107,6 +108,7 @@ type AccrualNode = {
   rate?: number | null;
   amount?: Money;
   name?: string | null;
+  part?: string | null;
 };
 
 // A NaN never equals itself, so a stored one would make the sync rewrite the line on every run.
@@ -132,5 +134,6 @@ export const toAccrualLine = (node: AccrualNode): AccrualLine | null => {
     rate: finiteOrZero(node.rate),
     amount: fromCurrency(node.amount) ?? 0,
     name: node.name ?? '',
+    part: node.part || null,
   };
 };

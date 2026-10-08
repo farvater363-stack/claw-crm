@@ -9,6 +9,7 @@ import {
   owedLine,
   payrollTotals,
   signedWhole,
+  squareMeterSummary,
   totalsSentence,
   buildWorker,
   canPayInMonth,
@@ -44,6 +45,7 @@ const line = (overrides: Partial<AccrualLine> = {}): AccrualLine => ({
   rate: 25_000,
   amount: 310_000,
   name: '№1031 · Мастер · 12,4 м² × 25,000',
+  part: null,
   ...overrides,
 });
 
@@ -330,6 +332,20 @@ describe('the month as a statement', () => {
     ]);
   });
 
+  it('names the row of «Ставки цеха» a workshop line was paid by', () => {
+    const statement = buildStatement(
+      row({
+        carriedOver: 0,
+        payments: [],
+        lines: [
+          line({ id: 'k', basis: 2.1, rate: 50_000, amount: 105_000, name: '№1042 · Мастер · Кованая 2,1 м² × 50,000', part: 'kind:forged' }),
+        ],
+      }),
+    );
+
+    expect(statement.map(({ text }) => plain(text))).toEqual(['№1042 · Кованая 2,1 м² × 50,000']);
+  });
+
   it('does not let one worker paid ahead shrink what the others are owed', () => {
     const totals = payrollTotals([
       row({ earned: 0, carriedOver: 0, paidThisMonth: 10_000, owed: -10_000 }),
@@ -354,5 +370,48 @@ describe('the month as a statement', () => {
     expect(plain(totalsSentence(totals))).toBe(
       'Выплачено 500,000 из 1,550,500 · начислено за месяц 1,150,500 · с прошлого 400,000',
     );
+  });
+});
+
+describe('squareMeterSummary', () => {
+  const catalog = {
+    kinds: [{ id: 'forged', name: 'Кованая' }],
+    designs: [{ id: 'sun', name: 'Солнце', grilleKindId: 'forged' }],
+    rates: [
+      { id: 'r1', grilleKindId: 'forged', designId: null, workerId: 'master-1', rate: 55_000 },
+    ],
+  };
+  const line = (part: string | null, basis: number, rate: number, work: PayWork = 'MASTER') => ({
+    id: `${part}-${basis}`,
+    workerId: 'master-1',
+    orderId: 'order-1',
+    earnedOn: '2026-10-12',
+    method: 'PER_SQUARE_METER' as const,
+    work,
+    basis,
+    rate,
+    amount: Math.round(basis * rate),
+    name: '№1042',
+    part,
+  });
+
+  it("groups a master's m² by row and rate, the dearest first", () => {
+    expect(
+      squareMeterSummary(
+        [
+          line('kind:forged', 2.1, 55_000),
+          line('kind:forged', 1.4, 55_000),
+          line('design:sun', 3, 80_000),
+          line(null, 2, 40_000),
+          line(null, 3.84, 15_000, 'INSTALLER'),
+        ],
+        catalog,
+        'master-1',
+      ),
+    ).toEqual([
+      { key: 'design:sun:80000', label: '«Солнце»', isOwn: false, basis: 3, rate: 80_000, amount: 240_000 },
+      { key: 'kind:forged:55000', label: 'Кованая', isOwn: true, basis: 3.5, rate: 55_000, amount: 192_500 },
+      { key: ':40000', label: 'За м²', isOwn: false, basis: 2, rate: 40_000, amount: 80_000 },
+    ]);
   });
 });

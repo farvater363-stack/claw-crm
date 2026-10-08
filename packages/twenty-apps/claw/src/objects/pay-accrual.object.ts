@@ -79,6 +79,17 @@ export default defineObject({
     decimal(payAccrual.basis, 'basis', 'Количество'),
     decimal(payAccrual.rate, 'rate', 'Ставка'),
     money(payAccrual.amount, 'amount', 'Сумма', NOT_AUDIT_LOGGED),
+    // Which row of «Ставки цеха» a workshop line was paid by: «kind:…»,
+    // «design:…», «none» or «rule». Empty on lines written before that table.
+    {
+      universalIdentifier: payAccrual.part,
+      type: FieldType.TEXT,
+      name: 'part',
+      label: 'Строка ставки',
+      icon: 'IconTag',
+      isNullable: true,
+      ...NOT_AUDIT_LOGGED,
+    },
     {
       universalIdentifier: payAccrual.worker,
       type: FieldType.RELATION,

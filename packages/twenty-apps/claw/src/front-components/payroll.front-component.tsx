@@ -25,6 +25,7 @@ import {
 } from 'src/payroll/load-payroll-data';
 import { type PayRule, type PayWork } from 'src/payroll/pay-rules';
 import { buildPaymentInput } from 'src/payroll/payment-draft';
+import { SquareMeterSummaryTable, WorkshopRatesTab } from 'src/payroll/workshop-rates-tab';
 import { currentMonthInTashkent, formatMonthLabel, shiftMonth } from 'src/payroll/payroll-month';
 import {
   buildPayRule,
@@ -43,6 +44,7 @@ import {
   rowTitle,
   signedWhole,
   skippedNote,
+  squareMeterSummary,
   storedAttempts,
   totalsSentence,
   withCategory,
@@ -69,10 +71,11 @@ import {
   SkeletonRows,
   StaticRow,
   Tabs,
+  TabStrip,
   TextInput,
   Wrap,
 } from 'src/ui/kit';
-import { TYPE } from 'src/ui/tokens';
+import { SPACE, TYPE } from 'src/ui/tokens';
 import { dropKey } from 'src/utils/drop-key';
 import { EMPTY_FULL_NAME, type FullName } from 'src/utils/full-name';
 import { isAccessError } from 'src/utils/is-access-error';
@@ -88,6 +91,7 @@ type LoadState =
 type Panel = 'pay' | 'rule' | 'worker';
 // An open worker shows the month or the terms of pay, never both.
 type Tab = 'month' | 'terms';
+type ScreenTab = 'workers' | 'rates';
 type PayForm = { kind: MasterPaymentKind; amount: string; comment: string };
 type NewRule = { method: PayMethod; work: PayWork | null; value: string };
 type NewWorker = FullName & { categories: WorkerCategory[] };
@@ -105,6 +109,12 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'month', label: 'Месяц' },
   { value: 'terms', label: 'Условия' },
 ];
+const SCREEN_TABS: { value: ScreenTab; label: string }[] = [
+  { value: 'workers', label: 'Работники' },
+  { value: 'rates', label: 'Ставки цеха' },
+];
+// Wide enough for the rates table with a few masters, as on Склад.
+const RATES_MAX_WIDTH = 1080;
 
 const readState = async (month: string): Promise<LoadState> => {
   try {
@@ -122,6 +132,7 @@ const Payroll = () => {
   const [openId, setOpenId] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
   const [tab, setTab] = useState<Tab>('month');
+  const [screenTab, setScreenTab] = useState<ScreenTab>('workers');
   const [payForm, setPayForm] = useState<PayForm | null>(null);
   const [newRule, setNewRule] = useState<NewRule>(NEW_RULE);
   const [newWorker, setNewWorker] = useState<NewWorker>(NEW_WORKER);
@@ -756,6 +767,7 @@ const Payroll = () => {
         {tab === 'month' ? (
           <>
             {panel === 'pay' && payForm ? renderPayForm(row, payForm) : null}
+            <SquareMeterSummaryTable rows={squareMeterSummary(row.lines, data.catalog, row.workerId)} />
             {buildStatement(row).map((line) => (
               <AmountLine key={line.key} amount={signedWhole(line.amount)}>
                 {line.orderId === null ? (
@@ -916,9 +928,33 @@ const Payroll = () => {
     );
   };
 
+  const screenTabs = (
+    <>
+      <TabStrip value={screenTab} options={SCREEN_TABS} onChange={setScreenTab} />
+      <div style={{ height: SPACE.lg }} />
+    </>
+  );
+
+  if (screenTab === 'rates') {
+    return (
+      <Screen title="ЗП" action={switcher} maxWidth={RATES_MAX_WIDTH}>
+        {screenTabs}
+        <WorkshopRatesTab
+          month={month}
+          monthLabel={formatMonthLabel(month)}
+          catalog={data.catalog}
+          workers={workers}
+          accruals={data.accruals}
+          onChanged={() => read(shownMonth.current, true)}
+        />
+      </Screen>
+    );
+  }
+
   if (rows.length === 0 && panel !== 'worker') {
     return (
       <Screen title="ЗП" action={switcher}>
+        {screenTabs}
         <EmptyState text={EMPTY_TEXT} actionText="Добавить работника" onAction={() => setPanel('worker')} />
       </Screen>
     );
@@ -935,6 +971,7 @@ const Payroll = () => {
 
   return (
     <Screen title="ЗП" action={switcher}>
+      {screenTabs}
       <Section title="К выплате всем">
         <StaticRow>
           <span style={TYPE.keyNumber}>{formatMoney(totals.owed)}</span>

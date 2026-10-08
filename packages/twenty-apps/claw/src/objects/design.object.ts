@@ -97,5 +97,16 @@ export default defineObject({
       relationTargetFieldMetadataUniversalIdentifier: IDS.orderItem.design,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
+    {
+      universalIdentifier: IDS.design.workshopRates,
+      type: FieldType.RELATION,
+      name: 'workshopRates',
+      label: 'Ставки цеха',
+      icon: 'IconCoins',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.workshopRate.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.workshopRate.design,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+      isAuditLogged: false,
+    },
   ]),
 });

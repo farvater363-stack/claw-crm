@@ -12,6 +12,11 @@ import {
   keptMasterRates,
   toPayRules,
 } from 'src/payroll/pay-records';
+import { keptSquareMeterRates } from 'src/payroll/workshop-pay';
+import {
+  toWorkshopCatalog,
+  WORKSHOP_CATALOG_QUERY,
+} from 'src/payroll/workshop-records';
 import { materialCostByOwner } from 'src/prices/material-cost';
 import { todayInTashkent } from 'src/pricing/dates';
 import { type RecalcInput } from 'src/pricing/plan-order-recalc';
@@ -47,6 +52,8 @@ export const loadRecalcInput = async (
     payAccruals,
     materialNorms,
     materials,
+    workshopRates,
+    grilleKinds,
   } = await client.query({
     orders: {
       __args: { filter: { id: { eq: orderId } }, first: 1 },
@@ -118,9 +125,16 @@ export const loadRecalcInput = async (
     designs: {
       __args: { first: PAGE_SIZE },
       edges: {
-        node: { id: true, pricePerSquareMeter: money },
+        node: {
+          id: true,
+          name: true,
+          grilleKindId: true,
+          pricePerSquareMeter: money,
+        },
       },
     },
+    workshopRates: WORKSHOP_CATALOG_QUERY.workshopRates,
+    grilleKinds: WORKSHOP_CATALOG_QUERY.grilleKinds,
     extraServices: {
       __args: { first: PAGE_SIZE },
       edges: { node: { id: true, name: true, unit: true, price: money } },
@@ -153,6 +167,7 @@ export const loadRecalcInput = async (
           work: true,
           rate: true,
           amount: money,
+          part: true,
         },
       },
     },
@@ -170,6 +185,8 @@ export const loadRecalcInput = async (
   }
 
   const masterId = order.masterId ?? null;
+  const isOrderInstalled = isInstalled(order.status ?? null);
+  const accrualNodes = (payAccruals?.edges ?? []).map(({ node }) => node);
   const norms = (materialNorms?.edges ?? []).map(({ node }) => ({
     designId: node.designId ?? null,
     extraServiceId: node.extraServiceId ?? null,
@@ -223,12 +240,17 @@ export const loadRecalcInput = async (
             ).filter((rule) => rule.workerId === masterId),
             // The lines of an order that is not installed are about to be removed;
             // their rates must not stay in the pay stored on the order.
-            keptRates: isInstalled(order.status ?? null)
-              ? keptMasterRates(
-                  (payAccruals?.edges ?? []).map(({ node }) => node),
-                  masterId,
-                )
+            keptRates: isOrderInstalled
+              ? keptMasterRates(accrualNodes, masterId)
               : [],
+            workshop: {
+              masterId,
+              catalog: toWorkshopCatalog({ workshopRates, designs, grilleKinds }),
+              kept: keptSquareMeterRates(
+                isOrderInstalled ? accrualNodes : [],
+                masterId,
+              ),
+            },
           }
         : null,
     paymentsTotal: (orderPayments?.edges ?? []).reduce(
