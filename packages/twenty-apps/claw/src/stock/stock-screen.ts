@@ -26,6 +26,7 @@ export type StockRow = {
   id: string;
   name: string;
   unitLabel: string;
+  onHand: number;
   onHandText: string;
   reservedText: string;
   pill: { tone: 'danger' | 'warning' | 'success'; text: string };
@@ -79,9 +80,7 @@ const stockLevel = ({
 }: Pick<StockMaterial, 'onHand' | 'reserved' | 'minimumStock'>): number => {
   const wanted = (reserved ?? 0) + (minimumStock ?? 0);
 
-  return wanted <= 0
-    ? 1
-    : Math.min(1, Math.max(0, (onHand ?? 0) / wanted));
+  return wanted <= 0 ? 1 : Math.min(1, Math.max(0, (onHand ?? 0) / wanted));
 };
 
 export const buildBuyList = (
@@ -122,7 +121,8 @@ export const buildBuyList = (
       sums.length === 0 ? null : sums.reduce((sum, value) => sum + value, 0),
     copyText: lines
       .map(
-        (line) => `${line.name} — ${formatQuantity(line.quantity, line.unitLabel)}`,
+        (line) =>
+          `${line.name} — ${formatQuantity(line.quantity, line.unitLabel)}`,
       )
       .join('\n'),
   };
@@ -162,6 +162,7 @@ export const buildStockRows = (
           id: material.id,
           name: material.name ?? '',
           unitLabel: material.unitLabel,
+          onHand: material.onHand ?? 0,
           onHandText: formatQuantity(material.onHand ?? 0, material.unitLabel),
           reservedText: formatQuantity(
             material.reserved ?? 0,

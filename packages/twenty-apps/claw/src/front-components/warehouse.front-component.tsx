@@ -5,6 +5,7 @@ import { defineFrontComponent } from 'twenty-sdk/define';
 import { uploadFile } from 'twenty-sdk/front-component';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import { useElementWidth } from 'src/measurer-form/measurer-form-ui';
 import { todayInTashkent } from 'src/pricing/dates';
 import {
   attachInvoicePhotos,
@@ -49,6 +50,10 @@ import {
   stockValue,
 } from 'src/stock/stock-screen';
 import {
+  MATERIALS_TABLE_MIN_WIDTH,
+  MaterialsTable,
+} from 'src/stock/materials-table';
+import {
   DebtPaymentSheet,
   type NewMaterialDraft,
   NewMaterialSheet,
@@ -79,19 +84,22 @@ import {
   ErrorNote,
   Field,
   Hint,
+  InfoCards,
   LevelBar,
   Link,
+  Panel,
   Row,
   Screen,
-  Section,
   SkeletonRows,
   StatePill,
+  StatTiles,
   StaticRow,
+  TabStrip,
   Tabs,
   TextInput,
   Wrap,
 } from 'src/ui/kit';
-import { SPACE, TYPE } from 'src/ui/tokens';
+import { SPACE } from 'src/ui/tokens';
 import { dropKey } from 'src/utils/drop-key';
 import { isAccessError } from 'src/utils/is-access-error';
 import { randomUuid } from 'src/utils/random-uuid';
@@ -122,6 +130,8 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'report', label: 'Отчёт за месяц' },
 ];
 
+// Wide enough for the materials table beside nothing else, as in the mockup.
+const SCREEN_MAX_WIDTH = 1080;
 const SAVED_TICK_MS = 2_000;
 // The server recomputes the stock after a save. The list is read again when
 // that is usually done, and once more for a slow run.
@@ -137,6 +147,20 @@ const NO_ACCESS = 'Склад ведут владелец и менеджер';
 const COPY_FAILED = 'Не удалось скопировать. Выделите список и скопируйте его';
 const EMPTY_TEXT =
   'Добавьте то, что покупаете для работы: профиль, прут, краску. Приложение будет считать, сколько нужно на заказы.';
+const MONEY_LINKS = [
+  {
+    title: 'Приход',
+    text: 'Купили материал. Оплата поставщику записывается как расход денег, а долг виден у поставщика.',
+  },
+  {
+    title: 'Расход на заказ',
+    text: 'Материал ушёл в цех по составу решётки. Его цена ложится в себестоимость заказа.',
+  },
+  {
+    title: 'Брак, отходы, недостача',
+    text: 'Материал пропал без заказа. Это отдельный убыток: видно, сколько теряем за месяц.',
+  },
+];
 const NEW_MATERIAL: NewMaterialDraft = {
   name: '',
   unit: 'METER',
@@ -183,6 +207,7 @@ const fetchInvoicePhotosFieldId = async (): Promise<string> => {
 const Stock = () => {
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
   const [tab, setTab] = useState<Tab>('stock');
+  const { ref: widthRef, width } = useElementWidth();
   const [month, setMonth] = useState(() => todayInTashkent().slice(0, 7));
   const [outFilter, setOutFilter] = useState<OutFilter>('all');
   const [sheet, setSheet] = useState<OpenSheet | null>(null);
@@ -991,40 +1016,59 @@ const Stock = () => {
     </Wrap>
   );
 
+  const materialButtons = (
+    <Wrap>
+      <Button variant="primary" onClick={() => openPurchase([])}>
+        + Приход
+      </Button>
+      <Button onClick={() => openOut()}>− Расход</Button>
+      <Button
+        onClick={() => {
+          forgetAttempts('recount:');
+          setSheet({ kind: 'recount', typed: {}, errors: {} });
+        }}
+      >
+        Пересчитать
+      </Button>
+      <Button
+        onClick={() => {
+          forgetAttempts('material:');
+          setSheet({ kind: 'material', draft: NEW_MATERIAL, errors: {} });
+        }}
+      >
+        + Материал
+      </Button>
+    </Wrap>
+  );
+
   const renderStockTab = () => (
     <>
-      {canSeeMoney ? (
-        <Section title="Итого">
-          <StaticRow>
-            {shelfValue === null ? null : (
-              <AmountLine amount={formatMoney(shelfValue)}>
-                На складе на сумму
-              </AmountLine>
-            )}
-            {canPaySuppliers ? (
-              <AmountLine amount={formatMoney(totalDebt)}>
-                Должны поставщикам
-              </AmountLine>
-            ) : null}
-            {canPaySuppliers && totalDebt > 0 ? (
+      {buyList.lines.length > 0 ? (
+        <Panel
+          title="Купить сегодня"
+          subtitle={
+            buyList.total === null
+              ? undefined
+              : `≈ ${formatMoney(buyList.total)}`
+          }
+          footer={
+            <>
               <Wrap>
-                <Button onClick={() => openDebt(debts[0]?.id ?? '')}>
-                  Отдать долг
+                <Button
+                  variant="primary"
+                  isWideOnPhone
+                  onClick={() => openPurchaseFromList(buyList)}
+                >
+                  Записать приход
+                </Button>
+                <Button onClick={() => copyBuyList(buyList)}>
+                  Скопировать список
                 </Button>
               </Wrap>
-            ) : null}
-          </StaticRow>
-        </Section>
-      ) : null}
-      {buyList.lines.length > 0 ? (
-        <Section title="Купить сегодня">
-          {buyList.total === null ? null : (
-            <StaticRow>
-              <span style={TYPE.keyNumber}>
-                {`≈ ${formatMoney(buyList.total)}`}
-              </span>
-            </StaticRow>
-          )}
+              {copyNote === null ? null : <Hint text={copyNote} />}
+            </>
+          }
+        >
           {buyList.lines.map((line) => (
             <StaticRow key={line.id}>
               <Wrap>
@@ -1036,40 +1080,44 @@ const Stock = () => {
               </Wrap>
             </StaticRow>
           ))}
-          <StaticRow>
-            <Wrap>
-              <Button
-                variant="primary"
-                isWideOnPhone
-                onClick={() => openPurchaseFromList(buyList)}
-              >
-                Записать приход
-              </Button>
-              <Button onClick={() => copyBuyList(buyList)}>
-                Скопировать список
-              </Button>
-            </Wrap>
-            {copyNote === null ? null : <Hint text={copyNote} />}
-          </StaticRow>
-        </Section>
+        </Panel>
       ) : null}
-      <Section
-        title="Материалы"
+      <Panel
+        title="Что лежит на складе"
+        action={materialButtons}
         footer={
-          <Wrap>
-            <Button
-              onClick={() => {
-                forgetAttempts('material:');
-                setSheet({ kind: 'material', draft: NEW_MATERIAL, errors: {} });
-              }}
-            >
-              + Материал
-            </Button>
-          </Wrap>
+          <Hint text="Нажмите на материал: там его история, приход, расход и запас." />
         }
       >
-        {rows.map(renderListRow)}
-      </Section>
+        {width >= MATERIALS_TABLE_MIN_WIDTH ? (
+          <MaterialsTable
+            rows={rows}
+            prices={data.prices}
+            canSeeMoney={canSeeMoney}
+            openId={openId}
+            settlingIds={Object.keys(settling)}
+            onToggle={(rowId) => {
+              setOpenId(openId === rowId ? null : rowId);
+              setErrors({});
+            }}
+            renderOpen={(row) => (
+              <>
+                {renderOpenRow(row)}
+                {failureNote(`${row.id}:minimumStock`)}
+              </>
+            )}
+          />
+        ) : (
+          rows.map(renderListRow)
+        )}
+      </Panel>
+      {canSeeMoney ? (
+        <Panel title="Как склад связан с деньгами">
+          <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px` }}>
+            <InfoCards cards={MONEY_LINKS} />
+          </div>
+        </Panel>
+      ) : null}
     </>
   );
 
@@ -1082,16 +1130,19 @@ const Stock = () => {
 
     return (
       <>
-        {monthPicker}
-        <div style={{ height: SPACE.lg }} />
-        <Section title={`Приходы за ${monthLabel(month).toLowerCase()}`}>
-          {canSeeMoney && list.length > 0 ? (
-            <StaticRow>
-              <AmountLine amount={formatMoney(monthTotal)}>
-                {`Всего, приходов: ${list.length}`}
-              </AmountLine>
-            </StaticRow>
-          ) : null}
+        <Panel
+          title={`Приходы за ${monthLabel(month).toLowerCase()}`}
+          subtitle={
+            canSeeMoney && list.length > 0
+              ? `всего ${formatMoney(monthTotal)}, приходов: ${list.length}`
+              : undefined
+          }
+          action={
+            <Button variant="primary" onClick={() => openPurchase([])}>
+              + Новый приход
+            </Button>
+          }
+        >
           {list.length === 0 ? (
             <StaticRow>
               <Hint text="В этом месяце приходов нет" />
@@ -1108,7 +1159,12 @@ const Stock = () => {
             return (
               <Row
                 key={purchase.id}
-                title={`${formatDayMonth(purchase.date)} · ${purchase.supplierName ?? (purchase.isLoose ? nameOf(purchase.lines[0]?.materialId ?? '') : 'Без поставщика')}`}
+                title={
+                  <>
+                    {`${formatDayMonth(purchase.date)} · ${purchase.supplierName ?? (purchase.isLoose ? nameOf(purchase.lines[0]?.materialId ?? '') : 'Без поставщика')}`}
+                    {isOpen ? null : <Hint isSmall text={linesText} />}
+                  </>
+                }
                 value={
                   canSeeMoney && purchase.total !== null
                     ? formatMoney(purchase.total)
@@ -1154,15 +1210,13 @@ const Stock = () => {
                       </Wrap>
                     ) : null}
                   </>
-                ) : (
-                  <Hint text={linesText} />
-                )}
+                ) : null}
               </Row>
             );
           })}
-        </Section>
+        </Panel>
         {suppliers.length > 0 ? (
-          <Section title="Поставщики">
+          <Panel title="Поставщики">
             {suppliers.map((supplier) => (
               <StaticRow key={supplier.id}>
                 <Wrap>
@@ -1190,7 +1244,7 @@ const Stock = () => {
                 />
               </StaticRow>
             ))}
-          </Section>
+          </Panel>
         ) : null}
       </>
     );
@@ -1208,18 +1262,26 @@ const Stock = () => {
 
     return (
       <>
-        {monthPicker}
-        <div style={{ height: SPACE.md }} />
-        <Tabs value={outFilter} options={OUT_FILTERS} onChange={setOutFilter} />
-        <div style={{ height: SPACE.lg }} />
-        <Section title={`Расходы за ${monthLabel(month).toLowerCase()}`}>
-          {canSeeMoney && entries.length > 0 ? (
-            <StaticRow>
-              <AmountLine amount={formatMoney(total)}>
-                Всего за месяц
-              </AmountLine>
-            </StaticRow>
-          ) : null}
+        <Panel
+          title={`Расходы за ${monthLabel(month).toLowerCase()}`}
+          subtitle={
+            canSeeMoney && entries.length > 0
+              ? `всего ${formatMoney(total)}`
+              : undefined
+          }
+          action={
+            <Button variant="primary" onClick={() => openOut()}>
+              + Записать расход
+            </Button>
+          }
+        >
+          <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px` }}>
+            <Tabs
+              value={outFilter}
+              options={OUT_FILTERS}
+              onChange={setOutFilter}
+            />
+          </div>
           {entries.length === 0 ? (
             <StaticRow>
               <Hint text="Ничего не ушло" />
@@ -1251,7 +1313,7 @@ const Stock = () => {
               ) : null}
             </StaticRow>
           ))}
-        </Section>
+        </Panel>
       </>
     );
   };
@@ -1281,10 +1343,8 @@ const Stock = () => {
 
     return (
       <>
-        {monthPicker}
-        <div style={{ height: SPACE.lg }} />
         {canSeeMoney ? (
-          <Section title="Движение склада в деньгах">
+          <Panel title="Движение склада в деньгах">
             <StaticRow>
               {lines
                 .filter(([, value], index) => index < 3 || value !== 0)
@@ -1309,9 +1369,9 @@ const Stock = () => {
                 <Hint text="У части материала нет цены закупки: он посчитан как 0." />
               ) : null}
             </StaticRow>
-          </Section>
+          </Panel>
         ) : null}
-        <Section title="По материалам">
+        <Panel title="По материалам">
           {report.materials.length === 0 ? (
             <StaticRow>
               <Hint text="Движений нет" />
@@ -1341,7 +1401,7 @@ const Stock = () => {
               </StaticRow>
             );
           })}
-        </Section>
+        </Panel>
       </>
     );
   };
@@ -1499,40 +1559,67 @@ const Stock = () => {
       />
     );
 
+  const monthReport = buildStockMonthReport(valued, month);
+
   return (
     <Screen
       title="Склад"
-      action={
-        <Wrap>
-          <Button variant="primary" onClick={() => openPurchase([])}>
-            + Приход
-          </Button>
-          <Button onClick={() => openOut()}>− Расход</Button>
-          <Button
-            onClick={() => {
-              forgetAttempts('recount:');
-              setSheet({ kind: 'recount', typed: {}, errors: {} });
-            }}
-          >
-            Пересчитать
-          </Button>
-        </Wrap>
-      }
+      subtitle="Приход и расход материала, с деньгами"
+      maxWidth={SCREEN_MAX_WIDTH}
+      action={monthPicker}
     >
-      {unsettledNote}
-      <Tabs
-        value={tab}
-        options={TABS}
-        onChange={(next) => {
-          setTab(next);
-          setOpenId(null);
-        }}
-      />
-      <div style={{ height: SPACE.lg }} />
-      {tab === 'stock' ? renderStockTab() : null}
-      {tab === 'in' ? renderInTab() : null}
-      {tab === 'out' ? renderOutTab() : null}
-      {tab === 'report' ? renderReportTab() : null}
+      <div ref={widthRef}>
+        {unsettledNote}
+        <TabStrip
+          value={tab}
+          options={TABS}
+          onChange={(next) => {
+            setTab(next);
+            setOpenId(null);
+          }}
+        />
+        <div style={{ height: SPACE.lg }} />
+        {canSeeMoney ? (
+          <>
+            <StatTiles
+              tiles={[
+                {
+                  label: 'На складе на сумму',
+                  value: shelfValue === null ? '—' : formatWhole(shelfValue),
+                  tone: 'neutral',
+                },
+                {
+                  label: 'Пришло за месяц',
+                  value: `+${formatWhole(monthReport.received)}`,
+                  tone: 'in',
+                },
+                {
+                  label: 'Ушло за месяц',
+                  value: `−${formatWhole(monthReport.opening + monthReport.received - monthReport.closing)}`,
+                  tone: 'out',
+                },
+                ...(canPaySuppliers
+                  ? [
+                      {
+                        label: 'Должны поставщикам',
+                        value: formatWhole(totalDebt),
+                        tone:
+                          totalDebt > 0
+                            ? ('warning' as const)
+                            : ('neutral' as const),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+            <div style={{ height: SPACE.lg }} />
+          </>
+        ) : null}
+        {tab === 'stock' ? renderStockTab() : null}
+        {tab === 'in' ? renderInTab() : null}
+        {tab === 'out' ? renderOutTab() : null}
+        {tab === 'report' ? renderReportTab() : null}
+      </div>
       {renderSheet()}
     </Screen>
   );
