@@ -137,5 +137,27 @@ export default defineObject({
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
       isAuditLogged: false,
     },
+    {
+      universalIdentifier: IDS.master.receivedPayments,
+      type: FieldType.RELATION,
+      name: 'receivedPayments',
+      label: 'Принял оплаты',
+      icon: 'IconUserDollar',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.orderPayment.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.orderPayment.receivedBy,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+    {
+      universalIdentifier: IDS.master.moneyEntries,
+      type: FieldType.RELATION,
+      name: 'moneyEntries',
+      label: 'Сдал деньги',
+      icon: 'IconCash',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.moneyEntry.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.moneyEntry.worker,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+      isAuditLogged: false,
+    },
   ]),
 });

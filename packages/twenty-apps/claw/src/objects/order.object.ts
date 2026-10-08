@@ -390,5 +390,15 @@ export default defineObject({
       relationTargetFieldMetadataUniversalIdentifier: IDS.clientCall.order,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
+    {
+      universalIdentifier: IDS.order.moneyEntries,
+      type: FieldType.RELATION,
+      name: 'moneyEntries',
+      label: 'Расходы на заказ',
+      icon: 'IconCash',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.moneyEntry.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.moneyEntry.order,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
   ]),
 });

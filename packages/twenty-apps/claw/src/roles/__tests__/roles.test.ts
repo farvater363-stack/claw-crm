@@ -147,6 +147,7 @@ describe('workshop', () => {
       'payments',
       'accruals',
       'calls',
+      'moneyEntries',
     ] as const;
     const retiredKeys = ['masterPayPaid', 'prepayment', 'isUrgent'] as const;
     // The object's own identifier, and the retired fields that are no longer defined.
@@ -280,6 +281,15 @@ describe('warehouse access', () => {
       IDS.moneyEntry.object,
     );
   });
+
+  it.each([managerRole, measurerRole, workshopRole])(
+    'keeps recurring expenses with the owner',
+    (role) => {
+      expect(readableObjectIds(role)).not.toContain(
+        IDS.recurringExpense.object,
+      );
+    },
+  );
 
   it.each([measurerRole, workshopRole])(
     'gives the measurer and the workshop no purchases or money',

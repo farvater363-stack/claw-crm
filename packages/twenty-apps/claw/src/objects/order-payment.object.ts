@@ -69,5 +69,21 @@ export default defineObject({
         joinColumnName: 'orderId',
       },
     },
+    // Empty when the money went straight to the business; otherwise it stays
+    // with this worker in «Деньги» until he hands it over.
+    {
+      universalIdentifier: orderPayment.receivedBy,
+      type: FieldType.RELATION,
+      name: 'receivedBy',
+      label: 'Принял',
+      icon: 'IconUserDollar',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.master.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.master.receivedPayments,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'receivedById',
+      },
+    },
   ],
 });
