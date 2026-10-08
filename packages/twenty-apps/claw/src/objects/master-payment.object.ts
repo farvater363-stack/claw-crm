@@ -5,7 +5,10 @@ import {
   RelationType,
 } from 'twenty-sdk/define';
 
-import { MASTER_PAYMENT_KIND_OPTIONS } from 'src/constants/select-options';
+import {
+  MASTER_PAYMENT_KIND_OPTIONS,
+  WALLET_OPTIONS,
+} from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
 
@@ -58,6 +61,16 @@ export default defineObject({
       label: 'Комментарий',
       icon: 'IconMessage',
       isNullable: true,
+      ...NOT_AUDIT_LOGGED,
+    },
+    {
+      universalIdentifier: masterPayment.wallet,
+      type: FieldType.SELECT,
+      name: 'wallet',
+      label: 'Откуда',
+      icon: 'IconWallet',
+      defaultValue: "'CASH'",
+      options: WALLET_OPTIONS,
       ...NOT_AUDIT_LOGGED,
     },
     {

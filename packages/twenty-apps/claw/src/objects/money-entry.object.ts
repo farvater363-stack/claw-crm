@@ -6,6 +6,7 @@ import {
 } from 'twenty-sdk/define';
 
 import {
+  EXPENSE_CATEGORY_OPTIONS,
   MONEY_ENTRY_KIND_OPTIONS,
   WALLET_OPTIONS,
 } from 'src/constants/select-options';
@@ -15,8 +16,10 @@ import { money } from 'src/objects/money-field';
 const { moneyEntry } = IDS;
 
 // Money the app does not already know from orders, pay and purchases: rent,
-// fuel, what the owner took, what a supplier was paid. The amount is always
-// positive; the kind says which way it went.
+// fuel, what the owner took, what a supplier was paid. The amount is positive
+// and the kind says which way it went, except for a recount and an opening
+// balance: their amount is what they change in the wallet, so it can be below
+// zero.
 export default defineObject({
   universalIdentifier: moneyEntry.object,
   nameSingular: 'moneyEntry',
@@ -105,5 +108,62 @@ export default defineObject({
         joinColumnName: 'purchaseId',
       },
     },
+    {
+      universalIdentifier: moneyEntry.category,
+      type: FieldType.SELECT,
+      name: 'category',
+      label: 'На что',
+      icon: 'IconCategory',
+      isNullable: true,
+      options: EXPENSE_CATEGORY_OPTIONS,
+    },
+    // Whose cash it is: the worker who handed it over («Сдал деньги»).
+    {
+      universalIdentifier: moneyEntry.worker,
+      type: FieldType.RELATION,
+      name: 'worker',
+      label: 'Работник',
+      icon: 'IconUser',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.master.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.master.moneyEntries,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'workerId',
+      },
+    },
+    {
+      universalIdentifier: moneyEntry.order,
+      type: FieldType.RELATION,
+      name: 'order',
+      label: 'Заказ',
+      icon: 'IconClipboardList',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.order.moneyEntries,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'orderId',
+      },
+    },
+    {
+      universalIdentifier: moneyEntry.recurringExpense,
+      type: FieldType.RELATION,
+      name: 'recurringExpense',
+      label: 'Постоянный расход',
+      icon: 'IconRepeat',
+      relationTargetObjectMetadataUniversalIdentifier:
+        IDS.recurringExpense.object,
+      relationTargetFieldMetadataUniversalIdentifier:
+        IDS.recurringExpense.moneyEntries,
+      universalSettings: {
+        relationType: RelationType.MANY_TO_ONE,
+        onDelete: OnDeleteAction.SET_NULL,
+        joinColumnName: 'recurringExpenseId',
+      },
+    },
+    // On a recount: the cash counted. What the records said is this minus
+    // the amount.
+    money(moneyEntry.countedAmount, 'countedAmount', 'Насчитали'),
   ],
 });

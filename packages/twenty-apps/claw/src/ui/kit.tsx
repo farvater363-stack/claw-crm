@@ -1064,6 +1064,9 @@ export const Sheet = ({
           <div
             style={{
               ...SHRINKABLE_GRID,
+              // A tall form scrolls; without this a row holding a scroll box
+              // (a tab strip) is squeezed to nothing instead.
+              gridAutoRows: 'max-content',
               gap: SPACE.md,
               overflowY: 'auto',
               padding: `0 ${SPACE.lg}px ${SPACE.lg}px`,
@@ -1429,25 +1432,37 @@ export const TabStrip = <TValue extends string>({
 
 export type StatTone = 'in' | 'out' | 'warning' | 'neutral';
 
-// Key figures side by side: as many per line as fit, at least two on a phone.
+// Key figures side by side: as many per line as fit, at least two on a phone
+// unless wider tiles are asked for. Tinted tiles take their tone's colour as
+// background, as the month's flow does on «Деньги».
 export const StatTiles = ({
   tiles,
+  isTinted = false,
+  minTileWidth = 120,
 }: {
-  tiles: { label: string; value: string; tone: StatTone }[];
+  tiles: { label: string; value: string; tone: StatTone; hint?: string }[];
+  isTinted?: boolean;
+  minTileWidth?: number;
 }) => {
   const colors = usePalette();
   const valueColor: Record<StatTone, string> = {
     in: colors.success,
     out: colors.danger,
     warning: colors.warning,
-    neutral: colors.text,
+    neutral: isTinted ? colors.accent : colors.text,
+  };
+  const background: Record<StatTone, string> = {
+    in: colors.successTint,
+    out: colors.dangerTint,
+    warning: colors.warningTint,
+    neutral: colors.accentTint,
   };
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+        gridTemplateColumns: `repeat(auto-fit, minmax(${minTileWidth}px, 1fr))`,
         gap: SPACE.sm,
       }}
     >
@@ -1459,11 +1474,17 @@ export const StatTiles = ({
             gap: SPACE.xs,
             alignContent: 'start',
             padding: `${SPACE.md}px ${SPACE.lg}px`,
-            background: colors.panel,
+            background: isTinted ? background[tile.tone] : colors.panel,
             borderRadius: RADIUS.card,
           }}
         >
-          <span style={{ ...TYPE.label, color: colors.muted }}>
+          <span
+            style={{
+              ...TYPE.label,
+              color: isTinted ? colors.text : colors.muted,
+              fontWeight: isTinted ? 600 : 400,
+            }}
+          >
             {tile.label}
           </span>
           <span
@@ -1478,6 +1499,11 @@ export const StatTiles = ({
           >
             {tile.value}
           </span>
+          {tile.hint ? (
+            <span style={{ ...TYPE.label, color: colors.muted }}>
+              {tile.hint}
+            </span>
+          ) : null}
         </div>
       ))}
     </div>

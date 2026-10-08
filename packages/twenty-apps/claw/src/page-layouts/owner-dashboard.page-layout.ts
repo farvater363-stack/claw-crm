@@ -126,12 +126,24 @@ export default definePageLayout({
           aggregateOperation: AggregateOperations.COUNT,
           filter: MATERIALS_TO_BUY,
         }),
+        // Owner only: the component shows nothing to a role that cannot read
+        // money.
+        {
+          universalIdentifier: IDS.ownerDashboard.moneyTodayWidget,
+          title: 'Деньги сегодня',
+          type: 'FRONT_COMPONENT',
+          position: grid(2, 0, 6, 12),
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier: IDS.moneyToday.frontComponent,
+          },
+        },
         {
           universalIdentifier: IDS.ownerDashboard.purchasePlanTableWidget,
           title: 'Купить',
           type: 'RECORD_TABLE',
           objectUniversalIdentifier: IDS.material.object,
-          position: grid(2, 0, 6, 6),
+          position: grid(8, 0, 6, 6),
           configuration: {
             configurationType: 'RECORD_TABLE',
             viewUniversalIdentifier: IDS.view.dashboardPurchasePlan,
@@ -142,7 +154,7 @@ export default definePageLayout({
           title: 'Ближайшие сроки',
           type: 'RECORD_TABLE',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(2, 6, 6, 6),
+          position: grid(8, 6, 6, 6),
           configuration: {
             configurationType: 'RECORD_TABLE',
             viewUniversalIdentifier: IDS.view.dashboardNearestDeadlines,
@@ -154,7 +166,7 @@ export default definePageLayout({
           title: 'Принято заказов за месяц',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(8, 0, 2, 6),
+          position: grid(14, 0, 2, 6),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.order.total,
@@ -169,7 +181,7 @@ export default definePageLayout({
           title: 'Получено за месяц',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.orderPayment.object,
-          position: grid(8, 6, 2, 6),
+          position: grid(14, 6, 2, 6),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.orderPayment.amount,
@@ -184,7 +196,7 @@ export default definePageLayout({
           title: 'Выручка за месяц',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(10, 0, 2, 6),
+          position: grid(16, 0, 2, 6),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.order.total,
@@ -199,7 +211,7 @@ export default definePageLayout({
           title: 'Маржа за месяц',
           type: 'GRAPH',
           objectUniversalIdentifier: IDS.order.object,
-          position: grid(10, 6, 2, 6),
+          position: grid(16, 6, 2, 6),
           configuration: {
             configurationType: 'AGGREGATE_CHART',
             aggregateFieldMetadataUniversalIdentifier: IDS.order.margin,
@@ -215,7 +227,7 @@ export default definePageLayout({
           type: 'RECORD_TABLE',
           objectUniversalIdentifier:
             STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
-          position: grid(12, 0, 6, 12),
+          position: grid(18, 0, 6, 12),
           configuration: {
             configurationType: 'RECORD_TABLE',
             viewUniversalIdentifier: IDS.view.dashboardCallBacks,

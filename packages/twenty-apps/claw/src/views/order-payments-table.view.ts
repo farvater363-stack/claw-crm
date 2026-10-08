@@ -29,6 +29,11 @@ export default defineView({
       size: 150,
     },
     {
+      field: orderPayment.receivedBy,
+      viewField: ids.tableFields.receivedBy,
+      size: 150,
+    },
+    {
       field: orderPayment.comment,
       viewField: ids.tableFields.comment,
       size: 240,

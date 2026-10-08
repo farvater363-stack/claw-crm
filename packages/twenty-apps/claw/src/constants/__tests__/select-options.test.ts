@@ -213,6 +213,9 @@ describe('every select option of every object keeps its id', () => {
         "master.categories.SALES": "a52d5352-6865-5292-802a-a73a00a95e33",
         "masterPayment.kind.ADVANCE": "1c3a5879-0ca6-525c-bf22-fea2e634f0ea",
         "masterPayment.kind.SETTLEMENT": "8df999f9-9131-55d2-b5ea-67e3de0db055",
+        "masterPayment.wallet.ACCOUNT": "14bd5c8e-66b3-50e7-bbbf-eaa221f47f09",
+        "masterPayment.wallet.CARD": "79f88bf4-9bf5-5996-83bd-b013ab2102d2",
+        "masterPayment.wallet.CASH": "fb42c1d3-d386-5b6d-8e80-ea6f7e270a7c",
         "material.stockState.BUY": "25bd9a72-40b3-50f4-ad58-1142ca25e97e",
         "material.stockState.LOW": "0f307d05-7bca-5244-ba2e-7d98c683254c",
         "material.stockState.OK": "4040c6f9-2bd4-594a-bf11-08b4dd413ca8",
@@ -221,6 +224,15 @@ describe('every select option of every object keeps its id', () => {
         "material.unit.METER": "d3df0fa9-71ba-5804-9813-5066808ce787",
         "material.unit.PIECE": "592b3e58-e2a2-5cc4-8de4-ca03a77068f4",
         "material.unit.SQUARE_METER": "503171c8-fa2d-509e-b5dc-666ca5c6a932",
+        "moneyEntry.category.ADVERTISING": "3f895012-a70b-5034-a7fa-ce42fd6de98c",
+        "moneyEntry.category.FOOD": "5889dbe2-5c06-56f6-a358-cd8ffde17184",
+        "moneyEntry.category.FUEL": "f12365a4-2c1a-5f6b-adcb-1eac72a6286c",
+        "moneyEntry.category.OTHER": "36a046f8-072b-5c71-99a4-13aac95545e1",
+        "moneyEntry.category.RENT": "54d93b21-ad0f-5d69-9ee1-3dde8670b755",
+        "moneyEntry.category.SALARY": "b1d533d4-830d-5ca8-96ae-66b4e09a67f2",
+        "moneyEntry.category.TAX": "b370435c-6eec-5f63-ba4c-d334b30d0cc8",
+        "moneyEntry.category.TOOLS": "dbe795f6-5dcf-5228-9911-d4da018a216f",
+        "moneyEntry.category.UTILITIES": "7644ef62-c002-5050-bbbe-f5edb7b400f5",
         "moneyEntry.kind.COUNT_DIFFERENCE": "d34d2706-2b03-5d59-8154-82612db58d6c",
         "moneyEntry.kind.EXPENSE": "07615bca-8ec3-50c6-a76c-0b99120ae4a6",
         "moneyEntry.kind.HANDOVER": "5f78c82d-c6f7-5149-9703-53dec84a5b25",
@@ -301,6 +313,18 @@ describe('every select option of every object keeps its id', () => {
         "payRule.work.MASTER": "3576f779-8326-5b9d-9156-64074867c677",
         "payRule.work.MEASURER": "6a93b7bc-3f6f-5bf9-953d-67974b799149",
         "payRule.work.SALES": "578ee3f3-442d-5dc5-8574-d0978a62d7b0",
+        "recurringExpense.category.ADVERTISING": "a5f5ec6a-0149-5393-95c8-7c2abdef3bd1",
+        "recurringExpense.category.FOOD": "44cffec6-040b-5b7a-b873-75c9321accaf",
+        "recurringExpense.category.FUEL": "a0460780-50dd-5f3c-8a13-106dbfa4cb90",
+        "recurringExpense.category.OTHER": "3ff5f18a-b63b-5d46-b2d8-f41f149000b6",
+        "recurringExpense.category.RENT": "77c1a27c-dd38-573c-b082-4e51b03f58d5",
+        "recurringExpense.category.SALARY": "eda200ae-9661-53cf-96c7-48100815b2c3",
+        "recurringExpense.category.TAX": "689e0e7a-eda1-5135-b665-102845a33439",
+        "recurringExpense.category.TOOLS": "a2df88e9-bbf9-5aa8-af61-b6c070140cac",
+        "recurringExpense.category.UTILITIES": "e45a814b-7200-5559-95a6-6cd7c0406c9a",
+        "recurringExpense.wallet.ACCOUNT": "db302710-8fb0-5776-8e48-24381c783b5d",
+        "recurringExpense.wallet.CARD": "cf3f29df-3456-5ab0-ab41-bae1735238ab",
+        "recurringExpense.wallet.CASH": "aee26626-dce6-551e-aa6f-8ec811978ca2",
         "stockMovement.kind.ORDER_EXTRA": "e0f7f3a3-c877-5b52-b217-5a0195696620",
         "stockMovement.kind.OTHER_OUT": "a8aa2447-092d-557a-8891-44307ec42794",
         "stockMovement.kind.RECEIPT": "f3a49374-82bc-5de5-bdeb-b177c8a7dabd",
@@ -312,6 +336,28 @@ describe('every select option of every object keeps its id', () => {
         "stockMovement.kind.WRITE_OFF": "c4613eef-94a1-512e-87c6-deae83f82f51",
       }
     `);
+  });
+});
+
+describe('option labels', () => {
+  // The server refuses to sync an option label with a comma in it.
+  it('carry no comma', async () => {
+    const files = readdirSync(OBJECTS_DIRECTORY).filter((file) =>
+      file.endsWith('.object.ts'),
+    );
+    const labels: string[] = [];
+
+    for (const file of files) {
+      const definition: ObjectDefinition = await import(
+        join(OBJECTS_DIRECTORY, file)
+      );
+
+      for (const field of definition.default.config.fields) {
+        labels.push(...(field.options ?? []).map((option) => option.label));
+      }
+    }
+
+    expect(labels.filter((label) => label.includes(','))).toEqual([]);
   });
 });
 
