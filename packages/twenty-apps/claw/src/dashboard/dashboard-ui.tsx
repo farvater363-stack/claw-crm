@@ -344,7 +344,7 @@ export const TrendTile = ({
         >
           {value}
         </span>
-        <Sparkline values={series} />
+        {isCompact ? null : <Sparkline values={series} />}
       </span>
       <span style={{ ...TYPE.label }}>
         {change ? (
