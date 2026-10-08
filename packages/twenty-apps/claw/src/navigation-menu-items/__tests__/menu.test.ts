@@ -13,19 +13,17 @@ import orders from 'src/navigation-menu-items/orders-kanban.navigation-menu-item
 import payroll from 'src/navigation-menu-items/payroll.navigation-menu-item';
 import prices from 'src/navigation-menu-items/prices.navigation-menu-item';
 import stock from 'src/navigation-menu-items/stock.navigation-menu-item';
+import today from 'src/navigation-menu-items/today.navigation-menu-item';
 import workshop from 'src/navigation-menu-items/workshop.navigation-menu-item';
 import managerRole from 'src/roles/manager.role';
 import measurerRole from 'src/roles/measurer.role';
 import workshopRole from 'src/roles/workshop.role';
 
-// «Сегодня» is not in the menu below: it is a record item that
-// scripts/setup-owner-dashboard.py creates at this position.
-const DASHBOARD_ITEM_POSITION = -2;
-
 // Top to bottom. A role sees an item only when it can read the object the
 // item cannot work without, so each role gets the screens it works in.
 
 const MENU = [
+  { label: 'Сегодня', item: today, requires: IDS.masterPayment.object },
   { label: 'Заказы', item: orders, requires: IDS.stockMovement.object },
   { label: 'В работе', item: workshop, requires: IDS.master.object },
   {
@@ -57,7 +55,7 @@ const menuOf = (role: { config: typeof managerRole.config }) => {
 };
 
 describe('menu', () => {
-  it('has these ten items and no other', () => {
+  it('has these eleven items and no other', () => {
     expect(
       readdirSync(join(__dirname, '..'))
         .filter((file) => file.endsWith('.navigation-menu-item.ts'))
@@ -72,15 +70,15 @@ describe('menu', () => {
       'payroll.navigation-menu-item.ts',
       'prices.navigation-menu-item.ts',
       'stock.navigation-menu-item.ts',
+      'today.navigation-menu-item.ts',
       'workshop.navigation-menu-item.ts',
     ]);
   });
 
-  it('orders them as the spec does, after the dashboard item and off position zero', () => {
-    const positions = MENU.map(({ item }) => item.config.position);
-
-    expect(positions).toEqual([-1, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    expect(positions[0]).toBeGreaterThan(DASHBOARD_ITEM_POSITION);
+  it('orders them as the spec does, off position zero', () => {
+    expect(MENU.map(({ item }) => item.config.position)).toEqual([
+      -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ]);
   });
 
   it('names the object each item cannot work without', () => {
@@ -91,6 +89,7 @@ describe('menu', () => {
 
   it('labels the pages itself and takes the label of a view item from its view', () => {
     expect(MENU.map(({ item }) => item.config.name)).toEqual([
+      'Сегодня',
       undefined,
       'В работе',
       'Новый замер',

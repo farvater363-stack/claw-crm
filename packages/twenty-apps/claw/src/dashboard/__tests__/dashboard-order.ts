@@ -1,0 +1,33 @@
+import { type DashboardOrder } from 'src/dashboard/load-dashboard';
+
+export const dashboardOrder = (
+  overrides: Partial<DashboardOrder>,
+): DashboardOrder => ({
+  id: 'order',
+  name: '№1001',
+  status: 'NEW',
+  clientName: 'Азиз Турсунов',
+  phone: null,
+  place: null,
+  measurementDay: null,
+  measurementTime: null,
+  createdOn: '2026-10-01',
+  measuredOn: null,
+  productionStart: null,
+  deadline: null,
+  readyAt: null,
+  installedAt: null,
+  productionStage: null,
+  isUrgent: false,
+  area: null,
+  total: null,
+  paid: null,
+  balance: null,
+  margin: null,
+  source: null,
+  cancelReason: null,
+  measurerName: null,
+  masterName: null,
+  installerName: null,
+  ...overrides,
+});

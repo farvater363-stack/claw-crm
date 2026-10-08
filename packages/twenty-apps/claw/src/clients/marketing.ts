@@ -78,10 +78,19 @@ export const sourceRows = (
   orders: readonly MarketingOrder[],
   period: MarketingPeriod,
   today: string,
+): SourceRow[] => sourceRowsBetween(orders, periodStart(period, today), null);
+
+// The same, for orders that came in from `start` up to the day before `end`;
+// null leaves that side open.
+export const sourceRowsBetween = (
+  orders: readonly MarketingOrder[],
+  start: string | null,
+  end: string | null,
 ): SourceRow[] => {
-  const start = periodStart(period, today);
   const inPeriod = orders.filter(
-    (order) => start === null || order.createdOn >= start,
+    (order) =>
+      (start === null || order.createdOn >= start) &&
+      (end === null || order.createdOn < end),
   );
   const sources: (string | null)[] = [
     ...SOURCE_OPTIONS.map((option) => option.value),
