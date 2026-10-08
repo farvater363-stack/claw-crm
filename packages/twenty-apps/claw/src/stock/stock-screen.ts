@@ -1,11 +1,7 @@
 import { parseDecimalInput } from 'src/measurer-form/measurer-form';
-import {
-  PLAIN_DECIMAL,
-  parseOptionalMoney,
-  parsePositiveNumber,
-} from 'src/prices/prices-screen';
+import { PLAIN_DECIMAL } from 'src/prices/prices-screen';
 import { roundTo } from 'src/pricing/round';
-import { formatDayMonth, formatMoney, formatQuantity } from 'src/ui/format';
+import { formatQuantity } from 'src/ui/format';
 
 export type StockMaterial = {
   id: string;
@@ -30,6 +26,7 @@ export type StockRow = {
   id: string;
   name: string;
   unitLabel: string;
+  onHand: number;
   onHandText: string;
   reservedText: string;
   pill: { tone: 'danger' | 'warning' | 'success'; text: string };
@@ -65,29 +62,11 @@ export type BuyList = {
   copyText: string;
 };
 
-export type StockReceipt = {
-  kind: 'RECEIPT';
-  materialId: string;
-  quantity: number;
-  unitPrice: number | null;
-  date: string;
-};
-
 export type StockRecountEntry = {
   kind: 'STOCKTAKE';
   materialId: string;
   countedQuantity: number;
   date: string;
-};
-
-// One entry of «Последнее». A recount carries the counted amount, a
-// write-off a negative one.
-export type StockMovementLine = {
-  id: string;
-  kind: 'RECEIPT' | 'STOCKTAKE' | 'WRITE_OFF';
-  quantity: number;
-  date: string | null;
-  orderName: string | null;
 };
 
 const QUANTITY_DECIMALS = 2;
@@ -101,9 +80,7 @@ const stockLevel = ({
 }: Pick<StockMaterial, 'onHand' | 'reserved' | 'minimumStock'>): number => {
   const wanted = (reserved ?? 0) + (minimumStock ?? 0);
 
-  return wanted <= 0
-    ? 1
-    : Math.min(1, Math.max(0, (onHand ?? 0) / wanted));
+  return wanted <= 0 ? 1 : Math.min(1, Math.max(0, (onHand ?? 0) / wanted));
 };
 
 export const buildBuyList = (
@@ -144,7 +121,8 @@ export const buildBuyList = (
       sums.length === 0 ? null : sums.reduce((sum, value) => sum + value, 0),
     copyText: lines
       .map(
-        (line) => `${line.name} — ${formatQuantity(line.quantity, line.unitLabel)}`,
+        (line) =>
+          `${line.name} — ${formatQuantity(line.quantity, line.unitLabel)}`,
       )
       .join('\n'),
   };
@@ -184,6 +162,7 @@ export const buildStockRows = (
           id: material.id,
           name: material.name ?? '',
           unitLabel: material.unitLabel,
+          onHand: material.onHand ?? 0,
           onHandText: formatQuantity(material.onHand ?? 0, material.unitLabel),
           reservedText: formatQuantity(
             material.reserved ?? 0,
@@ -224,90 +203,6 @@ export const buildStockRows = (
         left.row.name.localeCompare(right.row.name, 'ru', { numeric: true }),
     )
     .map(({ row }) => row);
-
-export const buildReceipt = ({
-  materialId,
-  quantity,
-  unitPrice,
-  today,
-}: {
-  materialId: string;
-  quantity: string;
-  unitPrice: string;
-  today: string;
-}): { ok: true; data: StockReceipt } | { ok: false; error: string } => {
-  const parsedQuantity = parsePositiveNumber(quantity);
-  // Checked after rounding: «0,001» is above zero as typed and nothing as stored.
-  const roundedQuantity = parsedQuantity.ok
-    ? roundTo(parsedQuantity.value, QUANTITY_DECIMALS)
-    : 0;
-  const parsedPrice = parseOptionalMoney(unitPrice);
-
-  if (roundedQuantity <= 0) {
-    return { ok: false, error: 'Введите, сколько купили: число больше нуля' };
-  }
-
-  if (!parsedPrice.ok) return { ok: false, error: parsedPrice.error };
-
-  return {
-    ok: true,
-    data: {
-      kind: 'RECEIPT',
-      materialId,
-      quantity: roundedQuantity,
-      unitPrice: parsedPrice.value,
-      date: today,
-    },
-  };
-};
-
-export type PurchaseDraft = Record<string, { quantity: string; price: string }>;
-
-// One trip to the supplier: every material with an amount typed is a purchase.
-export const buildPurchase = (
-  typed: PurchaseDraft,
-  today: string,
-):
-  | { ok: true; data: StockReceipt[] }
-  | { ok: false; errors: Record<string, string> } => {
-  const errors: Record<string, string> = {};
-  const data: StockReceipt[] = [];
-
-  for (const [materialId, { quantity, price }] of Object.entries(typed)) {
-    if (quantity.trim() === '') continue;
-
-    const receipt = buildReceipt({
-      materialId,
-      quantity,
-      unitPrice: price,
-      today,
-    });
-
-    if (receipt.ok) data.push(receipt.data);
-    else errors[materialId] = receipt.error;
-  }
-
-  return Object.keys(errors).length > 0
-    ? { ok: false, errors }
-    : { ok: true, data };
-};
-
-// The sum of the lines that can already be read as a purchase with a price.
-export const purchaseSummary = (typed: PurchaseDraft): string | null => {
-  const purchase = buildPurchase(typed, '');
-  const lines = purchase.ok ? purchase.data : [];
-
-  if (lines.length === 0) return null;
-
-  const total = lines.reduce(
-    (sum, line) => sum + line.quantity * (line.unitPrice ?? 0),
-    0,
-  );
-
-  return total > 0
-    ? `Всего ${formatMoney(Math.round(total))}`
-    : `Материалов в закупке: ${lines.length}`;
-};
 
 // An amount that may be zero: a counted stock, a minimum to keep.
 export const parseStockAmount = (
@@ -372,17 +267,3 @@ export const parseMinimumStock = (
   raw: string,
 ): { ok: true; value: number } | { ok: false; error: string } =>
   raw.trim() === '' ? { ok: true, value: 0 } : parseStockAmount(raw);
-
-export const movementText = (
-  movement: StockMovementLine,
-  unitLabel: string,
-): string =>
-  [
-    ...(movement.date === null ? [] : [formatDayMonth(movement.date)]),
-    movement.kind === 'RECEIPT'
-      ? 'купил'
-      : movement.kind === 'STOCKTAKE'
-        ? 'пересчёт'
-        : `ушло на ${movement.orderName ?? 'заказ'}`,
-    formatQuantity(Math.abs(movement.quantity), unitLabel),
-  ].join(' ');

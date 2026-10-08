@@ -2,14 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildBuyList,
-  buildPurchase,
-  buildReceipt,
   buildRecount,
   buildStockRows,
-  movementText,
   parseMinimumStock,
   parseStockAmount,
-  purchaseSummary,
   recountSummary,
   type StockMaterial,
   stockValue,
@@ -115,105 +111,6 @@ describe('buildStockRows', () => {
     );
 
     expect(rows.map((row) => row.overuseNote)).toEqual([null, null]);
-  });
-});
-
-describe('buildReceipt', () => {
-  it('accepts a positive amount and an optional price', () => {
-    expect(
-      buildReceipt({
-        materialId: 'a',
-        quantity: '60,5',
-        unitPrice: '',
-        today: '2026-10-04',
-      }),
-    ).toEqual({
-      ok: true,
-      data: {
-        kind: 'RECEIPT',
-        materialId: 'a',
-        quantity: 60.5,
-        unitPrice: null,
-        date: '2026-10-04',
-      },
-    });
-  });
-
-  it('rejects zero and text', () => {
-    expect(
-      buildReceipt({
-        materialId: 'a',
-        quantity: '0',
-        unitPrice: '',
-        today: '2026-10-04',
-      }),
-    ).toEqual({
-      ok: false,
-      error: 'Введите, сколько купили: число больше нуля',
-    });
-    expect(
-      buildReceipt({
-        materialId: 'a',
-        quantity: 'много',
-        unitPrice: '',
-        today: '2026-10-04',
-      }),
-    ).toEqual({
-      ok: false,
-      error: 'Введите, сколько купили: число больше нуля',
-    });
-  });
-
-  // «0,001» is a plain number, but nothing is left of it at two decimals.
-  it.each(['-2', '+5', '1e3', '0x10', '0,001'])(
-    'rejects the quantity %j',
-    (quantity) => {
-      expect(
-        buildReceipt({
-          materialId: 'a',
-          quantity,
-          unitPrice: '',
-          today: '2026-10-04',
-        }),
-      ).toEqual({
-        ok: false,
-        error: 'Введите, сколько купили: число больше нуля',
-      });
-    },
-  );
-
-  it('keeps the entered price and two decimals of the amount', () => {
-    expect(
-      buildReceipt({
-        materialId: 'a',
-        quantity: '2,756',
-        unitPrice: '12 000',
-        today: '2026-10-04',
-      }),
-    ).toEqual({
-      ok: true,
-      data: {
-        kind: 'RECEIPT',
-        materialId: 'a',
-        quantity: 2.76,
-        unitPrice: 12_000,
-        date: '2026-10-04',
-      },
-    });
-  });
-
-  it('passes on the reason a price is refused', () => {
-    expect(
-      buildReceipt({
-        materialId: 'a',
-        quantity: '3',
-        unitPrice: '-5',
-        today: '2026-10-04',
-      }),
-    ).toEqual({
-      ok: false,
-      error: 'Введите цену целым числом, без минуса',
-    });
   });
 });
 
@@ -327,39 +224,6 @@ describe('parseMinimumStock', () => {
   });
 });
 
-describe('movementText', () => {
-  const movement = {
-    id: 'movement',
-    kind: 'RECEIPT' as const,
-    quantity: 60,
-    date: '2026-10-03',
-    orderName: null,
-  };
-
-  it('words a purchase and a recount with the day and the unit', () => {
-    expect(movementText(movement, 'м')).toBe('3 октября купил 60 м');
-    expect(
-      movementText({ ...movement, kind: 'STOCKTAKE', quantity: 55.5 }, 'м'),
-    ).toBe('3 октября пересчёт 55,5 м');
-  });
-
-  it('names the order a write-off went to, without the minus', () => {
-    expect(
-      movementText(
-        { ...movement, kind: 'WRITE_OFF', quantity: -23, orderName: '№1031' },
-        'м',
-      ),
-    ).toBe('3 октября ушло на №1031 23 м');
-    expect(
-      movementText({ ...movement, kind: 'WRITE_OFF', quantity: -23 }, 'м'),
-    ).toBe('3 октября ушло на заказ 23 м');
-  });
-
-  it('leaves out a missing day', () => {
-    expect(movementText({ ...movement, date: null }, 'м')).toBe('купил 60 м');
-  });
-});
-
 describe('the buy list', () => {
   const materials = [
     material({ id: 'ok', name: 'Труба', onHand: 180, stockState: 'OK' }),
@@ -418,59 +282,5 @@ describe('the buy list', () => {
 
     expect(row.level).toBeCloseTo(40 / 146);
     expect(plain(row.needText)).toBe('нужно 96 м + запас 50 м');
-  });
-});
-
-describe('buildPurchase', () => {
-  it('turns every material with an amount into a purchase', () => {
-    expect(
-      buildPurchase(
-        {
-          rod: { quantity: '106', price: '9,000' },
-          paint: { quantity: '5', price: '' },
-          pipe: { quantity: '', price: '14000' },
-        },
-        '2026-10-06',
-      ),
-    ).toEqual({
-      ok: true,
-      data: [
-        {
-          kind: 'RECEIPT',
-          materialId: 'rod',
-          quantity: 106,
-          unitPrice: 9_000,
-          date: '2026-10-06',
-        },
-        {
-          kind: 'RECEIPT',
-          materialId: 'paint',
-          quantity: 5,
-          unitPrice: null,
-          date: '2026-10-06',
-        },
-      ],
-    });
-  });
-
-  it('points at the material whose amount cannot be read', () => {
-    const purchase = buildPurchase(
-      { rod: { quantity: 'много', price: '' } },
-      '2026-10-06',
-    );
-
-    expect(purchase.ok ? [] : Object.keys(purchase.errors)).toEqual(['rod']);
-  });
-
-  it('sums the purchase as it is typed', () => {
-    expect(
-      plain(
-        purchaseSummary({
-          rod: { quantity: '106', price: '9000' },
-          paint: { quantity: '5', price: '62000' },
-        }) ?? '',
-      ),
-    ).toBe('Всего 1,264,000 сум');
-    expect(purchaseSummary({})).toBeNull();
   });
 });

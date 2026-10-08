@@ -5,14 +5,11 @@ import {
   materialUnitLabel,
   type MaterialUnit,
 } from 'src/constants/select-options';
-import { todayInTashkent } from 'src/pricing/dates';
-import { fromCurrency, toCurrency } from 'src/recalc/money';
+import { fromCurrency } from 'src/recalc/money';
 import {
   type StockMaterial,
-  type StockMovementLine,
   type StockNeed,
   type StockPrices,
-  type StockReceipt,
   type StockRecountEntry,
 } from 'src/stock/stock-screen';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
@@ -28,8 +25,6 @@ export type StockData = {
 
 // Twenty caps a page at 200 records.
 const PAGE_SIZE = 200;
-const LATEST_MOVEMENTS = 5;
-const LISTED_KINDS = ['RECEIPT', 'STOCKTAKE', 'WRITE_OFF'] as const;
 
 const MONEY = { amountMicros: true } as const;
 
@@ -162,77 +157,17 @@ export const loadStockData = async (
   };
 };
 
-export const loadLatestMovements = async (
-  client: CoreApiClient,
-  materialId: string,
-): Promise<StockMovementLine[]> => {
-  const { stockMovements } = await client.query({
-    stockMovements: {
-      __args: {
-        filter: {
-          materialId: { eq: materialId },
-          kind: { in: [...LISTED_KINDS] },
-        },
-        orderBy: [{ date: 'DescNullsLast' }, { createdAt: 'DescNullsLast' }],
-        first: LATEST_MOVEMENTS,
-      },
-      edges: {
-        node: {
-          id: true,
-          kind: true,
-          quantity: true,
-          countedQuantity: true,
-          date: true,
-          createdAt: true,
-          order: { name: true },
-        },
-      },
-    },
-  });
-
-  return (stockMovements?.edges ?? []).flatMap(({ node }) => {
-    const kind = LISTED_KINDS.find((listed) => listed === node.kind);
-
-    if (kind === undefined) return [];
-
-    return [
-      {
-        id: node.id,
-        kind,
-        quantity:
-          (kind === 'STOCKTAKE' ? node.countedQuantity : node.quantity) ?? 0,
-        date:
-          node.date?.slice(0, 10) ??
-          (node.createdAt ? todayInTashkent(new Date(node.createdAt)) : null),
-        orderName: node.order?.name || null,
-      },
-    ];
-  });
-};
-
-const toMovementData = (movement: StockReceipt | StockRecountEntry) => {
-  if (movement.kind === 'STOCKTAKE') return movement;
-
-  const { unitPrice, ...receipt } = movement;
-
-  // Roles other than the owner's may not write the price field, so a purchase
-  // without a price must not mention it at all.
-  return unitPrice === null
-    ? receipt
-    : { ...receipt, unitPrice: toCurrency(unitPrice) };
-};
-
 // No name is sent: the stock recalc writes the movement's name itself.
 // The id belongs to one attempt of the user: a request whose answer was lost
 // may already be stored, and its retry must overwrite that record, not add one.
 export const createStockMovement = async (
   client: CoreApiClient,
   id: string,
-  movement: StockReceipt | StockRecountEntry,
+  movement: StockRecountEntry,
 ): Promise<void> => {
   await client.mutation({
     createStockMovement: {
-      __args: { data: { id, ...toMovementData(movement) }, upsert: true },
+      __args: { data: { id, ...movement }, upsert: true },
       id: true,
     },
   });

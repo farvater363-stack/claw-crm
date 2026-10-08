@@ -39,14 +39,18 @@ const toneColors = (colors: Palette, tone: Tone) =>
 
 export const Screen = ({
   title,
+  subtitle,
   action,
   isWide = false,
+  maxWidth = CONTENT_MAX_WIDTH,
   children,
 }: {
   title: string;
+  subtitle?: string;
   action?: ReactNode;
   // The wall screen uses the whole width; every other screen is a column
   isWide?: boolean;
+  maxWidth?: number;
   children: ReactNode;
 }) => {
   const colors = usePalette();
@@ -54,7 +58,7 @@ export const Screen = ({
   return (
     <div
       style={{
-        maxWidth: isWide ? 'none' : CONTENT_MAX_WIDTH,
+        maxWidth: isWide ? 'none' : maxWidth,
         margin: '0 auto',
         padding: SPACE.lg,
         color: colors.text,
@@ -73,7 +77,20 @@ export const Screen = ({
           marginBottom: SPACE.xl,
         }}
       >
-        <h2 style={{ margin: 0, ...TYPE.title }}>{title}</h2>
+        <div style={{ minWidth: 0 }}>
+          <h2 style={{ margin: 0, ...TYPE.title }}>{title}</h2>
+          {subtitle ? (
+            <div
+              style={{
+                ...TYPE.label,
+                color: colors.muted,
+                marginTop: SPACE.xs,
+              }}
+            >
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
         {action}
       </div>
       {children}
@@ -863,16 +880,22 @@ export const Wrap = ({ children }: { children: ReactNode }) => (
 export const Hint = ({
   text,
   tone = 'neutral',
+  isSmall = false,
 }: {
   text: string;
   tone?: Tone;
+  // Under a row's title, which is larger and bold
+  isSmall?: boolean;
 }) => {
   const colors = usePalette();
 
   return (
     <div
       role={tone === 'danger' ? 'alert' : undefined}
-      style={{ color: toneColors(colors, tone).color }}
+      style={{
+        color: toneColors(colors, tone).color,
+        ...(isSmall ? TYPE.label : {}),
+      }}
     >
       {text}
     </div>
@@ -929,6 +952,139 @@ export const StickyBar = ({ children }: { children: ReactNode }) => {
       }}
     >
       {children}
+    </div>
+  );
+};
+
+// Wider than this the panel floats as a dialog; narrower it is a sheet along
+// the bottom edge, where a thumb reaches it.
+const SHEET_DIALOG_FROM_WIDTH = 640;
+const SHEET_MAX_WIDTH = 560;
+// The same switch as Button's isWideOnPhone, on the viewport: 0 on a phone,
+// the full amount on a wide screen.
+const onWideScreen = (value: string) =>
+  `clamp(0px, (100vw - ${SHEET_DIALOG_FROM_WIDTH}px) * 999, ${value})`;
+
+// A form opened from a button. The screen stays underneath; a tap beside the
+// panel, «×» or Escape closes it unless a save is on its way.
+export const Sheet = ({
+  title,
+  isBusy = false,
+  onClose,
+  footer,
+  children,
+}: {
+  title: string;
+  isBusy?: boolean;
+  onClose: () => void;
+  // The form's save button and its note, kept in view under the fields
+  footer?: ReactNode;
+  children: ReactNode;
+}) => {
+  const colors = usePalette();
+  const close = () => {
+    if (!isBusy) onClose();
+  };
+
+  return (
+    <div
+      role="presentation"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') close();
+      }}
+      // The widget wrapper has will-change: transform, which traps a fixed
+      // overlay inside it; the panel sticks to the page's scroll area (cqh).
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '100%',
+        minHeight: '100cqh',
+        zIndex: 1000,
+      }}
+    >
+      <div
+        role="presentation"
+        // A sibling of the panel, not its parent: stopPropagation in a front
+        // component never reaches the host's event.
+        onClick={close}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.45)',
+        }}
+      />
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          height: '100cqh',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          paddingBottom: onWideScreen('10cqh'),
+          boxSizing: 'border-box',
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          style={{
+            pointerEvents: 'auto',
+            width: '100%',
+            maxWidth: SHEET_MAX_WIDTH,
+            maxHeight: '85cqh',
+            display: 'flex',
+            flexDirection: 'column',
+            background: colors.surface,
+            color: colors.text,
+            borderRadius: `${RADIUS.card + SPACE.xs}px ${RADIUS.card + SPACE.xs}px ${onWideScreen(`${RADIUS.card + SPACE.xs}px`)} ${onWideScreen(`${RADIUS.card + SPACE.xs}px`)}`,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+            ...TYPE.body,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: SPACE.md,
+              padding: `${SPACE.lg}px ${SPACE.lg}px ${SPACE.md}px`,
+            }}
+          >
+            <h3 style={{ margin: 0, ...TYPE.rowTitle }}>{title}</h3>
+            <Button label="Закрыть" onClick={close}>
+              ×
+            </Button>
+          </div>
+          <div
+            style={{
+              ...SHRINKABLE_GRID,
+              gap: SPACE.md,
+              overflowY: 'auto',
+              padding: `0 ${SPACE.lg}px ${SPACE.lg}px`,
+            }}
+          >
+            {children}
+          </div>
+          {footer ? (
+            <div
+              style={{
+                ...SHRINKABLE_GRID,
+                gap: SPACE.sm,
+                padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.lg}px`,
+                borderTop: `1px solid ${colors.border}`,
+              }}
+            >
+              {footer}
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 };
@@ -1210,5 +1366,225 @@ export const StepTracker = ({ steps, currentKey }: StepTrackerProps) => {
         );
       })}
     </ol>
+  );
+};
+
+// The screen's main switch: one grey strip, the chosen view raised in white.
+export const TabStrip = <TValue extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: TValue;
+  options: { value: TValue; label: string }[];
+  onChange: (value: TValue) => void;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <div
+      role="tablist"
+      style={{
+        display: 'flex',
+        gap: SPACE.xs,
+        padding: SPACE.xs,
+        overflowX: 'auto',
+        background: colors.panel,
+        border: `1px solid ${colors.border}`,
+        borderRadius: RADIUS.card,
+      }}
+    >
+      {options.map((option) => {
+        const isChosen = option.value === value;
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="tab"
+            aria-selected={isChosen}
+            onClick={() => onChange(option.value)}
+            style={{
+              flex: '1 0 auto',
+              minHeight: CONTROL_HEIGHT - SPACE.sm,
+              padding: `0 ${SPACE.md}px`,
+              background: isChosen ? colors.surface : 'transparent',
+              border: 'none',
+              borderRadius: RADIUS.control,
+              boxShadow: isChosen ? '0 1px 3px rgba(0, 0, 0, 0.12)' : 'none',
+              color: isChosen ? colors.text : colors.muted,
+              font: 'inherit',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+            }}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+export type StatTone = 'in' | 'out' | 'warning' | 'neutral';
+
+// Key figures side by side: as many per line as fit, at least two on a phone.
+export const StatTiles = ({
+  tiles,
+}: {
+  tiles: { label: string; value: string; tone: StatTone }[];
+}) => {
+  const colors = usePalette();
+  const valueColor: Record<StatTone, string> = {
+    in: colors.success,
+    out: colors.danger,
+    warning: colors.warning,
+    neutral: colors.text,
+  };
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+        gap: SPACE.sm,
+      }}
+    >
+      {tiles.map((tile) => (
+        <div
+          key={tile.label}
+          style={{
+            display: 'grid',
+            gap: SPACE.xs,
+            alignContent: 'start',
+            padding: `${SPACE.md}px ${SPACE.lg}px`,
+            background: colors.panel,
+            borderRadius: RADIUS.card,
+          }}
+        >
+          <span style={{ ...TYPE.label, color: colors.muted }}>
+            {tile.label}
+          </span>
+          <span
+            style={{
+              ...TABULAR_NUMBERS,
+              fontSize: '20px',
+              lineHeight: '28px',
+              fontWeight: 600,
+              color: valueColor[tile.tone],
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {tile.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// A card with its title and buttons inside, over rows that draw their own
+// top border.
+export const Panel = ({
+  title,
+  subtitle,
+  action,
+  footer,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+  footer?: ReactNode;
+  children: ReactNode;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <section
+      style={{
+        marginBottom: SPACE.lg,
+        background: colors.surface,
+        border: `1px solid ${colors.border}`,
+        borderRadius: RADIUS.card,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: SPACE.md,
+          padding: SPACE.lg,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <h3 style={{ margin: 0, ...TYPE.rowTitle }}>{title}</h3>
+          {subtitle ? (
+            <div
+              style={{ ...TYPE.label, ...TABULAR_NUMBERS, color: colors.muted }}
+            >
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
+        {action}
+      </div>
+      {children}
+      {footer ? (
+        <div
+          style={{
+            padding: SPACE.lg,
+            borderTop: `1px solid ${colors.border}`,
+            display: 'grid',
+            gap: SPACE.md,
+            justifyItems: 'start',
+          }}
+        >
+          {footer}
+        </div>
+      ) : null}
+    </section>
+  );
+};
+
+// Short explanations side by side, each a title over a line or two of text.
+export const InfoCards = ({
+  cards,
+}: {
+  cards: { title: string; text: string }[];
+}) => {
+  const colors = usePalette();
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: SPACE.sm,
+      }}
+    >
+      {cards.map((card) => (
+        <div
+          key={card.title}
+          style={{
+            display: 'grid',
+            gap: SPACE.xs,
+            alignContent: 'start',
+            padding: `${SPACE.md}px ${SPACE.lg}px`,
+            background: colors.panel,
+            borderRadius: RADIUS.card,
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>{card.title}</span>
+          <span style={{ ...TYPE.label, color: colors.muted }}>
+            {card.text}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 };

@@ -189,6 +189,12 @@ export const STOCK_MOVEMENT_KIND_OPTIONS = toOptions([
     'orange',
     'c4613eef-94a1-512e-87c6-deae83f82f51',
   ],
+  ['ORDER_EXTRA', 'На заказ сверх нормы', 'orange'],
+  ['SCRAP', 'Брак', 'red'],
+  ['WASTE', 'Отходы', 'red'],
+  ['WORKSHOP_USE', 'Для цеха', 'gray'],
+  ['SUPPLIER_RETURN', 'Вернул поставщику', 'purple'],
+  ['OTHER_OUT', 'Другое', 'gray'],
 ] as const);
 
 export type StockMovementKind =
@@ -215,6 +221,28 @@ export const PAYMENT_METHOD_OPTIONS = toOptions([
 ] as const);
 
 export type PaymentMethod = (typeof PAYMENT_METHOD_OPTIONS)[number]['value'];
+
+export const WALLET_OPTIONS = toOptions([
+  ['CASH', 'Наличные', 'green'],
+  ['CARD', 'Карта', 'blue'],
+  ['ACCOUNT', 'Счёт', 'purple'],
+] as const);
+
+export type Wallet = (typeof WALLET_OPTIONS)[number]['value'];
+
+export const MONEY_ENTRY_KIND_OPTIONS = toOptions([
+  ['EXPENSE', 'Расход', 'red'],
+  ['INCOME', 'Приход', 'green'],
+  ['OWNER_DRAW', 'Взял себе', 'purple'],
+  ['OWNER_DEPOSIT', 'Вложил', 'blue'],
+  ['SUPPLIER_PAYMENT', 'Оплата поставщику', 'orange'],
+  ['TRANSFER', 'Перевод между кошельками', 'gray'],
+  ['HANDOVER', 'Сдал деньги', 'sky'],
+  ['COUNT_DIFFERENCE', 'Разница при пересчёте', 'yellow'],
+  ['OPENING_BALANCE', 'Начальный остаток', 'gray'],
+] as const);
+
+export type MoneyEntryKind = (typeof MONEY_ENTRY_KIND_OPTIONS)[number]['value'];
 
 export const DISCOUNT_KIND_OPTIONS = toOptions([
   ['PERCENT', '%', 'gray'],

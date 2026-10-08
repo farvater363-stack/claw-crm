@@ -272,6 +272,24 @@ describe('warehouse access', () => {
     );
   });
 
+  it('lets the manager record purchases and suppliers but not money', () => {
+    expect(updatableObjectIds(managerRole)).toEqual(
+      expect.arrayContaining([IDS.supplier.object, IDS.purchase.object]),
+    );
+    expect(readableObjectIds(managerRole)).not.toContain(
+      IDS.moneyEntry.object,
+    );
+  });
+
+  it.each([measurerRole, workshopRole])(
+    'gives the measurer and the workshop no purchases or money',
+    (role) => {
+      expect(readableObjectIds(role)).not.toContain(IDS.purchase.object);
+      expect(readableObjectIds(role)).not.toContain(IDS.supplier.object);
+      expect(readableObjectIds(role)).not.toContain(IDS.moneyEntry.object);
+    },
+  );
+
   it.each([
     ['manager', managerRole],
     ['measurer', measurerRole],

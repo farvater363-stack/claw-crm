@@ -64,6 +64,8 @@ export default defineRole({
     readOnly(IDS.orderMaterial.object),
     readWrite(IDS.materialNorm.object),
     readUpdate(IDS.stockMovement.object),
+    readWrite(IDS.supplier.object),
+    readWrite(IDS.purchase.object),
     readWrite(IDS.clientCall.object),
   ],
   fieldPermissions: [
