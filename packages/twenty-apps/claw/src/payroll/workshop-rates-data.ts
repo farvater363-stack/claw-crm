@@ -89,31 +89,33 @@ export const saveWorkshopRate = async (
   });
 };
 
+// A whole column or a copied one goes in one request: a request per cell
+// would run into the API's limit of requests a minute.
+export const saveWorkshopRates = async (
+  client: CoreApiClient,
+  writes: RateWrite[],
+): Promise<void> => {
+  if (writes.length === 0) return;
+
+  await client.mutation({
+    createWorkshopRates: {
+      __args: {
+        data: writes.map(({ rate, ...write }) => ({
+          ...write,
+          rate: toCurrency(rate),
+        })),
+        upsert: true,
+      },
+      id: true,
+    },
+  });
+};
+
 export const removeWorkshopRate = async (
   client: CoreApiClient,
   id: string,
 ): Promise<void> => {
   await client.mutation({ deleteWorkshopRate: { __args: { id }, id: true } });
-};
-
-export const createGrilleKind = async (
-  client: CoreApiClient,
-  id: string,
-  name: string,
-): Promise<void> => {
-  await client.mutation({
-    createGrilleKind: { __args: { data: { id, name }, upsert: true }, id: true },
-  });
-};
-
-export const setDesignKind = async (
-  client: CoreApiClient,
-  designId: string,
-  grilleKindId: string,
-): Promise<void> => {
-  await client.mutation({
-    updateDesign: { __args: { id: designId, data: { grilleKindId } }, id: true },
-  });
 };
 
 export const setWorkerCategories = async (
