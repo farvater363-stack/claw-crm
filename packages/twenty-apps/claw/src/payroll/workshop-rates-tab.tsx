@@ -8,22 +8,28 @@ import { type SquareMeterSummaryRow } from 'src/payroll/payroll-screen';
 import type { AccrualLine } from 'src/payroll/plan-order-accruals';
 import { rowKeyOf, type WorkshopCatalog, type WorkshopRate } from 'src/payroll/workshop-pay';
 import {
-  createGrilleKind,
+  type RateWrite,
   removeWorkshopRate,
   saveWorkshopRate,
-  setDesignKind,
+  saveWorkshopRates,
   setWorkerCategories,
 } from 'src/payroll/workshop-rates-data';
 import {
   buildRateRows,
-  listFixes,
+  type CellWrite,
+  hasUnpaidCell,
+  legacyKindRates,
   ownRatesCount,
   parseRaisePercent,
+  planBulkRate,
+  planCopyColumn,
+  planRaise,
   type RateCell,
   type RateMaster,
   type RateRow,
   raisedRate,
   rateRecordName,
+  USUAL_COLUMN,
 } from 'src/payroll/workshop-rates-screen';
 import { parseOptionalMoney } from 'src/prices/prices-screen';
 import { formatQuantity, formatWhole } from 'src/ui/format';
@@ -51,15 +57,14 @@ type SheetState =
   | { kind: 'usual'; rowKey: string; value: string }
   | { kind: 'cell'; rowKey: string; masterId: string; isOwn: boolean; value: string }
   | { kind: 'raise'; value: string; raiseOwn: boolean }
-  | { kind: 'newKind'; kindId: string; rateId: string; name: string; value: string }
-  | { kind: 'special'; rateId: string; designId: string; value: string }
-  | { kind: 'master'; workerId: string; copyFrom: string }
-  | { kind: 'assignKind'; designId: string; grilleKindId: string };
+  | { kind: 'bulk'; column: string; value: string }
+  | { kind: 'copy'; from: string; to: string }
+  | { kind: 'master'; workerId: string; copyFrom: string };
 
 const SAVE_FAILED = 'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
 const NO_ACCESS = 'Доступно только владельцу';
 const FROM_TODAY = 'Для заказов, установленных с сегодня. Уже начисленное не меняется.';
-const USUAL = 'usual';
+const USUAL = USUAL_COLUMN;
 
 const MONEY_ERROR = 'Введите ставку целым числом больше нуля';
 
@@ -129,6 +134,8 @@ export const WorkshopRatesTab = ({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [failure, setFailure] = useState<{ isDenied: boolean; retry: () => void } | null>(null);
+  // The ticked grilles, by row key. Nothing ticked means the whole table.
+  const [ticked, setTicked] = useState<string[]>([]);
   const isSavingRef = useRef(false);
   const copyIds = useRef(new Map<string, string>());
 
@@ -138,10 +145,12 @@ export const WorkshopRatesTab = ({
     .sort((left, right) => left.name.localeCompare(right.name, 'ru'));
   const rows = buildRateRows(catalog, masters);
   const rowByKey = new Map(rows.map((row) => [row.key, row]));
-  const fixes = listFixes(catalog, rows);
-  const designsWithoutKind = catalog.designs.filter(
-    (design) => design.grilleKindId === null || !catalog.kinds.some((kind) => kind.id === design.grilleKindId),
-  ).length;
+  const unpaidRows = rows.filter(hasUnpaidCell).length;
+  const leftovers = legacyKindRates(catalog);
+  const tickedRows = rows.filter((row) => ticked.includes(row.key));
+  const targetRows = tickedRows.length > 0 ? tickedRows : rows;
+  const targetText =
+    tickedRows.length > 0 ? `Отмечено решёток: ${tickedRows.length}` : `Все решётки: ${rows.length}`;
   const workshopThisMonth = accruals
     .filter((line) => line.work === 'MASTER' && line.earnedOn.startsWith(month))
     .reduce((sum, line) => sum + line.amount, 0);
@@ -186,6 +195,52 @@ export const WorkshopRatesTab = ({
     workerId,
     rate,
   });
+
+  // The ids of new cells are taken once, here, so «Повторить» overwrites the same records.
+  const toWrites = (cells: CellWrite[]): RateWrite[] =>
+    cells.map(({ row, workerId, recordId, rate }) => recordOf(row, workerId, rate, recordId ?? randomUuid()));
+
+  const saveBulk = (column: string, raw: string) => {
+    const rate = parseRate(raw);
+
+    if (rate === null) {
+      setError(MONEY_ERROR);
+
+      return;
+    }
+
+    setError(null);
+    const writes = toWrites(planBulkRate(targetRows, column, rate));
+
+    void run(() => saveWorkshopRates(new CoreApiClient(), writes));
+  };
+
+  const saveCopy = (from: string, to: string) => {
+    if (from === '' || to === '' || from === to) {
+      setError('Выберите двух разных мастеров');
+
+      return;
+    }
+
+    setError(null);
+    const plan = planCopyColumn(targetRows, from, to);
+    const writes = toWrites(plan.writes);
+
+    void run(async () => {
+      await saveWorkshopRates(new CoreApiClient(), writes);
+
+      for (const id of plan.removeIds) {
+        await removeWorkshopRate(new CoreApiClient(), id);
+      }
+    });
+  };
+
+  const removeLeftovers = () =>
+    void run(async () => {
+      for (const record of leftovers) {
+        await removeWorkshopRate(new CoreApiClient(), record.id);
+      }
+    });
 
   const saveUsual = (row: RateRow, raw: string) => {
     const rate = parseRate(raw);
@@ -253,82 +308,9 @@ export const WorkshopRatesTab = ({
     }
 
     setError(null);
-    const records = catalog.rates.filter((record) => raiseOwn || record.workerId === null);
+    const writes = toWrites(planRaise(targetRows, parsed.value, raiseOwn));
 
-    void run(async () => {
-      for (const record of records) {
-        await saveWorkshopRate(new CoreApiClient(), {
-          ...record,
-          name: nameOf(record, masterName(record.workerId)),
-          rate: raisedRate(record.rate, parsed.value),
-        });
-      }
-    });
-  };
-
-  const saveNewKind = (kindId: string, rateId: string, name: string, raw: string) => {
-    const trimmed = name.trim();
-    const rate = parseRate(raw);
-
-    if (trimmed === '') {
-      setError('Введите название вида');
-
-      return;
-    }
-
-    if (catalog.kinds.some((kind) => kind.name.trim().toLowerCase() === trimmed.toLowerCase())) {
-      setError('Такой вид уже есть');
-
-      return;
-    }
-
-    if (rate === null) {
-      setError(MONEY_ERROR);
-
-      return;
-    }
-
-    setError(null);
-    void run(async () => {
-      await createGrilleKind(new CoreApiClient(), kindId, trimmed);
-      await saveWorkshopRate(new CoreApiClient(), {
-        id: rateId,
-        name: `${trimmed} · обычная`,
-        grilleKindId: kindId,
-        designId: null,
-        workerId: null,
-        rate,
-      });
-    });
-  };
-
-  const saveSpecial = (rateId: string, designId: string, raw: string) => {
-    const design = catalog.designs.find((entry) => entry.id === designId);
-    const rate = parseRate(raw);
-
-    if (design === undefined) {
-      setError('Выберите решётку');
-
-      return;
-    }
-
-    if (rate === null) {
-      setError(MONEY_ERROR);
-
-      return;
-    }
-
-    setError(null);
-    void run(() =>
-      saveWorkshopRate(new CoreApiClient(), {
-        id: rateId,
-        name: `«${design.name}» · обычная`,
-        grilleKindId: null,
-        designId: design.id,
-        workerId: null,
-        rate,
-      }),
-    );
+    void run(() => saveWorkshopRates(new CoreApiClient(), writes));
   };
 
   const saveMaster = (workerId: string, copyFrom: string) => {
@@ -361,17 +343,6 @@ export const WorkshopRatesTab = ({
 
       await setWorkerCategories(new CoreApiClient(), workerId, categories);
     });
-  };
-
-  const saveAssignKind = (designId: string, grilleKindId: string) => {
-    if (grilleKindId === '') {
-      setError('Выберите вид');
-
-      return;
-    }
-
-    setError(null);
-    void run(() => setDesignKind(new CoreApiClient(), designId, grilleKindId));
   };
 
   const failureNote =
@@ -425,7 +396,7 @@ export const WorkshopRatesTab = ({
           {row.designId !== null ? (
             <Wrap>
               <Button variant="link" onClick={() => removeSpecial(row)}>
-                Убрать особую ставку
+                Убрать все ставки этой решётки
               </Button>
             </Wrap>
           ) : null}
@@ -479,11 +450,11 @@ export const WorkshopRatesTab = ({
 
     if (sheet.kind === 'raise') {
       const parsed = parseRaisePercent(sheet.value);
-      const usualRows = rows.filter((row) => row.usual.rate !== null);
+      const usualRows = targetRows.filter((row) => row.usual.rate !== null);
 
       return (
         <Sheet
-          title="Поднять все ставки"
+          title={tickedRows.length > 0 ? 'Поднять ставки отмеченных' : 'Поднять все ставки'}
           isBusy={isSaving}
           onClose={closeSheet}
           footer={footer('Поднять', () => saveRaise(sheet.value, sheet.raiseOwn), FROM_TODAY)}
@@ -526,36 +497,38 @@ export const WorkshopRatesTab = ({
       );
     }
 
-    if (sheet.kind === 'newKind') {
+    if (sheet.kind === 'bulk') {
+      const save = () => saveBulk(sheet.column, sheet.value);
+
       return (
         <Sheet
-          title="Новый вид решётки"
+          title="Поставить ставку"
           isBusy={isSaving}
           onClose={closeSheet}
-          footer={footer(
-            'Добавить вид',
-            () => saveNewKind(sheet.kindId, sheet.rateId, sheet.name, sheet.value),
-            'Вид появится и в Ценах. Все мастера получают обычную ставку, свою можно поставить потом.',
-          )}
+          footer={footer('Поставить', save, FROM_TODAY)}
         >
-          <Field label="Название">
-            <TextInput
-              label="Название"
-              value={sheet.name}
-              onChange={(name) => setSheet({ ...sheet, name })}
-              onCancel={closeSheet}
+          <Hint text={`${targetText}. Чтобы поставить не всем, сначала отметьте решётки галочками.`} />
+          <Field label="Кому">
+            <SelectInput
+              label="Кому"
+              value={sheet.column}
+              options={[
+                { value: USUAL, label: 'Обычная: всем мастерам без своей ставки' },
+                ...masters.map((master) => ({ value: master.id, label: `Своя ставка: ${master.name}` })),
+              ]}
+              onChange={(column) => setSheet({ ...sheet, column })}
             />
           </Field>
-          <Field label="Обычная ставка цеха за м², сум" error={error}>
+          <Field label="Ставка за м²" error={error}>
             <TextInput
-              label="Обычная ставка цеха за м², сум"
+              label="Ставка за м²"
               inputMode="numeric"
               isMoney
               isLarge
               suffix="сум"
               value={sheet.value}
               onChange={(value) => setSheet({ ...sheet, value })}
-              onEnter={() => saveNewKind(sheet.kindId, sheet.rateId, sheet.name, sheet.value)}
+              onEnter={save}
               onCancel={closeSheet}
             />
           </Field>
@@ -563,43 +536,34 @@ export const WorkshopRatesTab = ({
       );
     }
 
-    if (sheet.kind === 'special') {
-      const taken = new Set(rows.flatMap((row) => (row.designId === null ? [] : [row.designId])));
-      const options = catalog.designs
-        .filter((design) => !taken.has(design.id))
-        .sort((left, right) => left.name.localeCompare(right.name, 'ru', { numeric: true }))
-        .map((design) => ({ value: design.id, label: design.name || 'Без названия' }));
+    if (sheet.kind === 'copy') {
+      const options = [
+        { value: '', label: 'Выберите мастера' },
+        ...masters.map((master) => ({ value: master.id, label: master.name })),
+      ];
 
       return (
         <Sheet
-          title="Особая решётка"
+          title="Скопировать ставки мастера"
           isBusy={isSaving}
           onClose={closeSheet}
-          footer={footer(
-            'Сохранить',
-            () => saveSpecial(sheet.rateId, sheet.designId, sheet.value),
-            'Для решётки сложнее своего вида. Её проёмы платятся по этой строке.',
-          )}
+          footer={footer('Скопировать', () => saveCopy(sheet.from, sheet.to), FROM_TODAY)}
         >
-          <Field label="Решётка">
+          <Hint text={`${targetText}. У второго мастера ставки станут такими же, как у первого.`} />
+          <Field label="Чьи ставки взять">
             <SelectInput
-              label="Решётка"
-              value={sheet.designId}
-              options={[{ value: '', label: 'Выберите решётку' }, ...options]}
-              onChange={(designId) => setSheet({ ...sheet, designId })}
+              label="Чьи ставки взять"
+              value={sheet.from}
+              options={options}
+              onChange={(from) => setSheet({ ...sheet, from })}
             />
           </Field>
-          <Field label="Обычная ставка цеха за м², сум" error={error}>
-            <TextInput
-              label="Обычная ставка цеха за м², сум"
-              inputMode="numeric"
-              isMoney
-              isLarge
-              suffix="сум"
-              value={sheet.value}
-              onChange={(value) => setSheet({ ...sheet, value })}
-              onEnter={() => saveSpecial(sheet.rateId, sheet.designId, sheet.value)}
-              onCancel={closeSheet}
+          <Field label="Кому поставить" error={error}>
+            <SelectInput
+              label="Кому поставить"
+              value={sheet.to}
+              options={options}
+              onChange={(to) => setSheet({ ...sheet, to })}
             />
           </Field>
         </Sheet>
@@ -651,34 +615,7 @@ export const WorkshopRatesTab = ({
       );
     }
 
-    const design = catalog.designs.find((entry) => entry.id === sheet.designId);
-
-    return (
-      <Sheet
-        title={`«${design?.name || 'Без названия'}»: вид решётки`}
-        isBusy={isSaving}
-        onClose={closeSheet}
-        footer={footer('Сохранить', () => saveAssignKind(sheet.designId, sheet.grilleKindId))}
-      >
-        <Field label="Вид" error={error}>
-          <SelectInput
-            label="Вид"
-            value={sheet.grilleKindId}
-            options={[
-              { value: '', label: 'Выберите вид' },
-              ...rows
-                .filter((row) => row.grilleKindId !== null)
-                .map((row) => ({
-                  value: row.grilleKindId as string,
-                  label:
-                    row.usual.rate === null ? row.label : `${row.label} · ${formatWhole(row.usual.rate)} за м²`,
-                })),
-            ]}
-            onChange={(grilleKindId) => setSheet({ ...sheet, grilleKindId })}
-          />
-        </Field>
-      </Sheet>
-    );
+    return null;
   };
 
   const openSheet = (next: SheetState) => {
@@ -711,9 +648,9 @@ export const WorkshopRatesTab = ({
           { label: 'Мастеров цеха', value: String(masters.length), tone: 'neutral' },
           { label: 'Своих ставок', value: String(ownRatesCount(rows)), tone: 'neutral' },
           {
-            label: 'Решёток без вида',
-            value: String(designsWithoutKind),
-            tone: designsWithoutKind > 0 ? 'warning' : 'neutral',
+            label: 'Решёток без ставки',
+            value: String(unpaidRows),
+            tone: unpaidRows > 0 ? 'warning' : 'neutral',
           },
           { label: `Цех за ${monthLabel.toLowerCase()}`, value: formatWhole(workshopThisMonth), tone: 'neutral' },
         ]}
@@ -723,11 +660,11 @@ export const WorkshopRatesTab = ({
         title="Цех: ставка за м²"
         action={
           <Wrap>
-            <Button onClick={() => openSheet({ kind: 'raise', value: '', raiseOwn: true })}>Поднять все на %</Button>
-            <Button onClick={() => openSheet({ kind: 'newKind', kindId: randomUuid(), rateId: randomUuid(), name: '', value: '' })}>
-              + Вид решётки
+            <Button variant="primary" onClick={() => openSheet({ kind: 'bulk', column: USUAL, value: '' })}>
+              Поставить ставку
             </Button>
-            <Button onClick={() => openSheet({ kind: 'special', rateId: randomUuid(), designId: '', value: '' })}>+ Особая решётка</Button>
+            <Button onClick={() => openSheet({ kind: 'copy', from: '', to: '' })}>Скопировать мастера</Button>
+            <Button onClick={() => openSheet({ kind: 'raise', value: '', raiseOwn: true })}>Поднять на %</Button>
             <Button onClick={() => openSheet({ kind: 'master', workerId: '', copyFrom: USUAL })}>+ Мастер</Button>
           </Wrap>
         }
@@ -751,7 +688,7 @@ export const WorkshopRatesTab = ({
               </span>
               <span style={{ ...TYPE.label, color: colors.muted }}>серая: как обычно, меняется вместе с обычной</span>
             </Wrap>
-            <Hint text="Нажмите на клетку, чтобы дать мастеру свою ставку или вернуть обычную. Строки таблицы и есть «Виды решёток» из Цен: добавили, переименовали или удалили вид там, таблица меняется вместе с ним." />
+            <Hint text="Строки таблицы и есть решётки из «Цен»: новая решётка появляется здесь сама. Нажмите на клетку, чтобы поменять одну ставку. Чтобы поставить сразу много, отметьте решётки галочками и нажмите «Поставить ставку»; без галочек кнопки работают для всех решёток." />
           </>
         }
       >
@@ -759,7 +696,16 @@ export const WorkshopRatesTab = ({
           <table style={{ width: '100%', borderCollapse: 'collapse', ...TYPE.body }}>
             <thead>
               <tr>
-                <th style={{ ...heading, textAlign: 'left' }}>Вид решётки</th>
+                <th style={{ ...heading, width: 1 }}>
+                  <input
+                    type="checkbox"
+                    aria-label="Отметить все решётки"
+                    checked={rows.length > 0 && tickedRows.length === rows.length}
+                    onChange={(event) => setTicked(event.target.checked ? rows.map((row) => row.key) : [])}
+                    style={{ width: 20, height: 20, accentColor: colors.accent }}
+                  />
+                </th>
+                <th style={{ ...heading, textAlign: 'left' }}>Решётка</th>
                 <th style={{ ...heading, textAlign: 'right', borderRight: `1px solid ${colors.border}` }}>
                   Обычная
                 </th>
@@ -773,6 +719,21 @@ export const WorkshopRatesTab = ({
             <tbody>
               {rows.map((row) => (
                 <tr key={row.key}>
+                  <td style={cellStyle}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Отметить ${row.label}`}
+                      checked={ticked.includes(row.key)}
+                      onChange={(event) =>
+                        setTicked((current) =>
+                          event.target.checked
+                            ? [...current, row.key]
+                            : current.filter((key) => key !== row.key),
+                        )
+                      }
+                      style={{ width: 20, height: 20, accentColor: colors.accent }}
+                    />
+                  </td>
                   <td style={{ ...cellStyle, minWidth: 140 }}>
                     <div>{row.label}</div>
                     {row.note ? <div style={{ ...TYPE.label, color: colors.muted }}>{row.note}</div> : null}
@@ -823,30 +784,22 @@ export const WorkshopRatesTab = ({
           </StaticRow>
         ) : null}
       </Panel>
-      {fixes.length > 0 ? (
-        <Panel title="Нужно поправить">
-          {fixes.map((fix) => (
-            <StaticRow key={fix.kind === 'design' ? fix.designId : fix.rowKey}>
-              <Wrap>
-                <span style={{ flex: '1 1 200px' }}>
-                  <span style={{ fontWeight: 600 }}>{fix.name}</span>
-                  <div style={{ ...TYPE.label, color: colors.muted }}>{fix.text}</div>
-                </span>
-                {fix.kind === 'design' ? (
-                  <Button onClick={() => openSheet({ kind: 'assignKind', designId: fix.designId, grilleKindId: '' })}>
-                    Указать вид
-                  </Button>
-                ) : (
-                  <Button onClick={() => openSheet({ kind: 'usual', rowKey: fix.rowKey, value: '' })}>
-                    Поставить ставку
-                  </Button>
-                )}
-              </Wrap>
-            </StaticRow>
-          ))}
+      {leftovers.length > 0 ? (
+        <Panel title="Остались старые ставки по видам решёток">
+          <StaticRow>
+            <Wrap>
+              <span style={{ flex: '1 1 200px' }}>
+                {`Их ${leftovers.length}. Они ещё платят за решётку, у которой в таблице нет ставки.`}
+              </span>
+              <Button isBusy={isSaving} onClick={removeLeftovers}>
+                Убрать старые ставки
+              </Button>
+            </Wrap>
+            {sheet === null ? failureNote : null}
+          </StaticRow>
         </Panel>
       ) : null}
-      <Hint text="Цеху платят за м² каждого проёма по ставке его решётки. Пока в таблице нет ставки, мастеру платят по его старой ставке за м² из «Условий»." />
+      <Hint text="Цеху платят за м² каждого проёма по ставке его решётки у этого мастера. Пока у решётки нет ставки, мастеру платят по его старой ставке за м² из «Условий»." />
       {renderSheet()}
     </>
   );

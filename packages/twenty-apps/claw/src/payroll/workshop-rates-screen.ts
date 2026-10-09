@@ -1,9 +1,6 @@
 import { parseDecimalInput } from 'src/measurer-form/measurer-form';
 import {
   designPart,
-  kindPart,
-  NO_KIND_LABEL,
-  NO_KIND_PART,
   type WorkshopCatalog,
   type WorkshopRate,
 } from 'src/payroll/workshop-pay';
@@ -71,74 +68,25 @@ const rowOf = ({
   };
 };
 
-// The kinds by name, each followed by its special grilles, then the special
-// grilles with no kind, then «Вид не указан» last, as in the mockup.
+// One row per grille of «Цены», by name: a rate is set on the grille itself.
 export const buildRateRows = (
   catalog: WorkshopCatalog,
   masters: RateMaster[],
-): RateRow[] => {
-  const specialIds = new Set(
-    catalog.rates.flatMap((rate) => (rate.designId === null ? [] : [rate.designId])),
-  );
-  const specials = catalog.designs
-    .filter((design) => specialIds.has(design.id))
+): RateRow[] =>
+  catalog.designs
     .map((design) => ({ ...design, name: design.name || UNNAMED }))
-    .sort(byName);
-  const kinds = catalog.kinds
-    .map((kind) => ({ ...kind, name: kind.name || UNNAMED }))
-    .sort(byName);
-  const kindIds = new Set(kinds.map((kind) => kind.id));
-
-  const specialRow = (design: (typeof specials)[number]) =>
-    rowOf({
-      key: designPart(design.id),
-      label: `«${design.name}»`,
-      note: `особая решётка${
-        design.grilleKindId !== null && kindIds.has(design.grilleKindId)
-          ? `, ${kinds.find((kind) => kind.id === design.grilleKindId)?.name}`
-          : ''
-      }`,
-      grilleKindId: null,
-      designId: design.id,
-      records: catalog.rates.filter((rate) => rate.designId === design.id),
-      masters,
-    });
-
-  return [
-    ...kinds.flatMap((kind) => [
+    .sort(byName)
+    .map((design) =>
       rowOf({
-        key: kindPart(kind.id),
-        label: kind.name,
+        key: designPart(design.id),
+        label: design.name,
         note: null,
-        grilleKindId: kind.id,
-        designId: null,
-        records: catalog.rates.filter(
-          (rate) => rate.designId === null && rate.grilleKindId === kind.id,
-        ),
+        grilleKindId: null,
+        designId: design.id,
+        records: catalog.rates.filter((rate) => rate.designId === design.id),
         masters,
       }),
-      ...specials
-        .filter((design) => design.grilleKindId === kind.id)
-        .map(specialRow),
-    ]),
-    ...specials
-      .filter(
-        (design) => design.grilleKindId === null || !kindIds.has(design.grilleKindId),
-      )
-      .map(specialRow),
-    rowOf({
-      key: NO_KIND_PART,
-      label: NO_KIND_LABEL,
-      note: 'для решёток без вида',
-      grilleKindId: null,
-      designId: null,
-      records: catalog.rates.filter(
-        (rate) => rate.designId === null && rate.grilleKindId === null,
-      ),
-      masters,
-    }),
-  ];
-};
+    );
 
 export const ownRatesCount = (rows: RateRow[]): number =>
   rows.reduce(
@@ -146,49 +94,102 @@ export const ownRatesCount = (rows: RateRow[]): number =>
     0,
   );
 
-export type FixItem =
-  | { kind: 'design'; designId: string; name: string; text: string }
-  | { kind: 'rate'; rowKey: string; name: string; text: string };
+// A grille some master would be paid nothing for: no usual rate, and not every master has his own.
+export const hasUnpaidCell = (row: RateRow): boolean =>
+  row.usual.rate === null &&
+  (Object.keys(row.byMaster).length === 0 ||
+    Object.values(row.byMaster).some((cell) => cell.rate === null));
 
-// What makes a grille paid by a fallback row: no kind, or a kind with no usual rate.
-export const listFixes = (
-  catalog: WorkshopCatalog,
-  rows: RateRow[],
-): FixItem[] => {
-  const specialIds = new Set(
-    catalog.rates.flatMap((rate) => (rate.designId === null ? [] : [rate.designId])),
-  );
-  const kindIds = new Set(catalog.kinds.map((kind) => kind.id));
-  const noKindRate = rows.find((row) => row.key === NO_KIND_PART)?.usual.rate ?? null;
-  const fallback =
-    noKindRate === null
-      ? 'ставки нет, платится по старой ставке мастера за м²'
-      : 'платится по строке «Вид не указан»';
+// Rates set before a rate was put on the grille itself: by kind, or for
+// «Вид не указан». They still pay a grille that has no row rate of its own, so
+// the screen names them until they are removed.
+export const legacyKindRates = (catalog: WorkshopCatalog): WorkshopRate[] =>
+  catalog.rates.filter((rate) => rate.designId === null);
 
-  return [
-    ...rows
-      .filter((row) => row.grilleKindId !== null && row.usual.rate === null)
-      .map((row): FixItem => ({
-        kind: 'rate',
-        rowKey: row.key,
-        name: row.label,
-        text: `у вида нет обычной ставки, его решётки: ${fallback}`,
-      })),
-    ...catalog.designs
-      .filter(
-        (design) =>
-          !specialIds.has(design.id) &&
-          (design.grilleKindId === null || !kindIds.has(design.grilleKindId)),
-      )
-      .sort(byName)
-      .map((design): FixItem => ({
-        kind: 'design',
-        designId: design.id,
-        name: `«${design.name || UNNAMED}»`,
-        text: `нет вида решётки, ${fallback}`,
-      })),
-  ];
+export const USUAL_COLUMN = 'usual';
+
+// One cell to write: the record it already has, or none for a new one.
+export type CellWrite = {
+  row: RateRow;
+  workerId: string | null;
+  recordId: string | null;
+  rate: number;
 };
+
+const cellOf = (row: RateRow, workerId: string | null): RateCell | undefined =>
+  workerId === null ? row.usual : row.byMaster[workerId];
+
+// One rate for a whole column of the chosen grilles. A cell that already holds
+// it as its own is left alone.
+export const planBulkRate = (
+  rows: RateRow[],
+  column: string,
+  rate: number,
+): CellWrite[] => {
+  const workerId = column === USUAL_COLUMN ? null : column;
+
+  return rows.flatMap((row) => {
+    const record = cellOf(row, workerId)?.record ?? null;
+
+    return record !== null && record.rate === rate
+      ? []
+      : [{ row, workerId, recordId: record?.id ?? null, rate }];
+  });
+};
+
+// Makes one master's column the same as another's: his own rates are copied,
+// and where he follows the usual rate the other one follows it too.
+export const planCopyColumn = (
+  rows: RateRow[],
+  fromMasterId: string,
+  toMasterId: string,
+): { writes: CellWrite[]; removeIds: string[] } => {
+  const writes: CellWrite[] = [];
+  const removeIds: string[] = [];
+
+  for (const row of rows) {
+    const source = row.byMaster[fromMasterId];
+    const target = row.byMaster[toMasterId];
+
+    if (source === undefined || target === undefined) continue;
+
+    if (source.isOwn && source.rate !== null) {
+      if (!target.isOwn || target.rate !== source.rate) {
+        writes.push({
+          row,
+          workerId: toMasterId,
+          recordId: target.record?.id ?? null,
+          rate: source.rate,
+        });
+      }
+    } else if (target.record !== null) {
+      removeIds.push(target.record.id);
+    }
+  }
+
+  return { writes, removeIds };
+};
+
+export const planRaise = (
+  rows: RateRow[],
+  percent: number,
+  raiseOwn: boolean,
+): CellWrite[] =>
+  rows.flatMap((row) =>
+    [row.usual, ...(raiseOwn ? Object.values(row.byMaster) : [])].flatMap(
+      ({ record }) =>
+        record === null
+          ? []
+          : [
+              {
+                row,
+                workerId: record.workerId,
+                recordId: record.id,
+                rate: raisedRate(record.rate, percent),
+              },
+            ],
+    ),
+  );
 
 export const parseRaisePercent = (
   raw: string,

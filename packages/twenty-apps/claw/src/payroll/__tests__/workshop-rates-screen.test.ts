@@ -3,86 +3,113 @@ import { describe, expect, it } from 'vitest';
 import { type WorkshopCatalog } from 'src/payroll/workshop-pay';
 import {
   buildRateRows,
-  listFixes,
+  hasUnpaidCell,
+  legacyKindRates,
   ownRatesCount,
   parseRaisePercent,
+  planBulkRate,
+  planCopyColumn,
+  planRaise,
   raisedRate,
+  USUAL_COLUMN,
 } from 'src/payroll/workshop-rates-screen';
 
-const CATALOG: WorkshopCatalog = {
-  kinds: [
-    { id: 'welded', name: 'Сварная' },
-    { id: 'forged', name: 'Кованая' },
-    { id: 'cast', name: 'Литая' },
-  ],
+const masters = [
+  { id: 'avaz', name: 'Авазбек' },
+  { id: 'mirza', name: 'Мирзарахмон' },
+];
+
+const catalog: WorkshopCatalog = {
+  kinds: [{ id: 'rod', name: 'Прут' }],
   designs: [
-    { id: 'sun', name: 'Солнце', grilleKindId: 'forged' },
-    { id: 'vine', name: 'Лоза', grilleKindId: 'forged' },
-    { id: 'loose', name: 'Волна', grilleKindId: null },
+    { id: 'm5', name: 'М-05', grilleKindId: 'rod' },
+    { id: 'm3', name: 'М-03', grilleKindId: null },
+    { id: 'm10', name: 'М-10', grilleKindId: null },
   ],
   rates: [
-    { id: 'r1', grilleKindId: 'forged', designId: null, workerId: null, rate: 50_000 },
-    { id: 'r2', grilleKindId: 'forged', designId: null, workerId: 'master-2', rate: 55_000 },
-    { id: 'r3', grilleKindId: 'welded', designId: null, workerId: null, rate: 30_000 },
-    { id: 'r4', grilleKindId: null, designId: 'sun', workerId: null, rate: 80_000 },
+    { id: 'r1', grilleKindId: null, designId: 'm3', workerId: null, rate: 30_000 },
+    { id: 'r2', grilleKindId: null, designId: 'm3', workerId: 'avaz', rate: 35_000 },
+    { id: 'r3', grilleKindId: null, designId: 'm5', workerId: 'mirza', rate: 40_000 },
+    { id: 'old', grilleKindId: 'rod', designId: null, workerId: null, rate: 25_000 },
   ],
 };
-const MASTERS = [
-  { id: 'master-1', name: 'Мастер 1' },
-  { id: 'master-2', name: 'Мастер 2' },
+
+const rows = buildRateRows(catalog, masters);
+const rates = (row: (typeof rows)[number]) => [
+  row.usual.rate,
+  row.byMaster.avaz.rate,
+  row.byMaster.mirza.rate,
 ];
 
 describe('buildRateRows', () => {
-  const rows = buildRateRows(CATALOG, MASTERS);
-
-  it('lists the kinds by name, each followed by its special grilles, «Вид не указан» last', () => {
-    expect(rows.map((row) => row.label)).toEqual([
-      'Кованая',
-      '«Солнце»',
-      'Литая',
-      'Сварная',
-      'Вид не указан',
-    ]);
-    expect(rows[1].note).toBe('особая решётка, Кованая');
+  it('has one row per grille, by name, whether it has a rate or not', () => {
+    expect(rows.map((row) => row.label)).toEqual(['М-03', 'М-05', 'М-10']);
+    expect(rows.every((row) => row.designId !== null)).toBe(true);
   });
 
-  it("fills a master's cell with the usual rate unless he has his own", () => {
-    expect(rows[0].usual.rate).toBe(50_000);
-    expect(rows[0].byMaster['master-1']).toEqual({ record: null, rate: 50_000, isOwn: false });
-    expect(rows[0].byMaster['master-2']).toMatchObject({ rate: 55_000, isOwn: true });
-    expect(ownRatesCount(rows)).toBe(1);
+  it('fills a master\'s cell with the usual rate unless he has his own', () => {
+    expect(rates(rows[0])).toEqual([30_000, 35_000, 30_000]);
+    expect(rows[0].byMaster.avaz.isOwn).toBe(true);
+    expect(rows[0].byMaster.mirza.isOwn).toBe(false);
+    expect(ownRatesCount(rows)).toBe(2);
   });
-});
 
-describe('listFixes', () => {
-  it('names the kinds with no usual rate and the grilles with no kind', () => {
-    expect(listFixes(CATALOG, buildRateRows(CATALOG, MASTERS))).toEqual([
-      {
-        kind: 'rate',
-        rowKey: 'kind:cast',
-        name: 'Литая',
-        text: 'у вида нет обычной ставки, его решётки: ставки нет, платится по старой ставке мастера за м²',
-      },
-      {
-        kind: 'design',
-        designId: 'loose',
-        name: '«Волна»',
-        text: 'нет вида решётки, ставки нет, платится по старой ставке мастера за м²',
-      },
-    ]);
+  it('marks a grille some master would be paid nothing for', () => {
+    expect(rows.map(hasUnpaidCell)).toEqual([false, true, true]);
+  });
+
+  it('names the rates left from when they went by kind', () => {
+    expect(legacyKindRates(catalog).map((rate) => rate.id)).toEqual(['old']);
   });
 });
 
-describe('raising every rate', () => {
-  it('takes a percent from 1 to 100', () => {
-    expect(parseRaisePercent('10%')).toEqual({ ok: true, value: 10 });
-    expect(parseRaisePercent('7,5')).toEqual({ ok: true, value: 7.5 });
+describe('setting rates in bulk', () => {
+  it('puts one usual rate on every chosen grille, skipping one that already has it', () => {
+    const writes = planBulkRate(rows, USUAL_COLUMN, 30_000);
+
+    expect(
+      writes.map(({ row, workerId, recordId, rate }) => [row.label, workerId, recordId, rate]),
+    ).toEqual([
+      ['М-05', null, null, 30_000],
+      ['М-10', null, null, 30_000],
+    ]);
+  });
+
+  it('gives one master his own rate on every chosen grille, over the record he has', () => {
+    const writes = planBulkRate(rows.slice(0, 2), 'avaz', 45_000);
+
+    expect(writes.map(({ row, recordId, workerId }) => [row.label, recordId, workerId])).toEqual([
+      ['М-03', 'r2', 'avaz'],
+      ['М-05', null, 'avaz'],
+    ]);
+  });
+
+  it('copies a master\'s column: his own rates over, and the usual rate where he follows it', () => {
+    const plan = planCopyColumn(rows, 'avaz', 'mirza');
+
+    // Авазбек has his own on М-03 only; on М-05 he follows the usual, so Мирзарахмон's own goes.
+    expect(plan.writes.map(({ row, workerId, rate }) => [row.label, workerId, rate])).toEqual([
+      ['М-03', 'mirza', 35_000],
+    ]);
+    expect(plan.removeIds).toEqual(['r3']);
+  });
+
+  it('raises the chosen rows, the masters\' own rates only when asked', () => {
+    expect(planRaise(rows, 10, false).map(({ recordId, rate }) => [recordId, rate])).toEqual([
+      ['r1', 33_000],
+    ]);
+    expect(planRaise(rows, 10, true).map(({ recordId, rate }) => [recordId, rate])).toEqual([
+      ['r1', 33_000],
+      ['r2', 38_500],
+      ['r3', 44_000],
+    ]);
+  });
+});
+
+describe('raising', () => {
+  it('reads a percent from 1 to 100 and rounds a raised rate to hundreds', () => {
+    expect(parseRaisePercent('10 %')).toEqual({ ok: true, value: 10 });
     expect(parseRaisePercent('0').ok).toBe(false);
-    expect(parseRaisePercent('много').ok).toBe(false);
-  });
-
-  it('rounds the new rate to whole hundreds', () => {
-    expect(raisedRate(55_000, 7.5)).toBe(59_100);
-    expect(raisedRate(30_000, 10)).toBe(33_000);
+    expect(raisedRate(33_333, 10)).toBe(36_700);
   });
 });
