@@ -45,6 +45,9 @@ const ORDER_KEYS_WITHOUT_FIELD: string[] = [
   'isUrgent',
 ];
 
+// The contract is the office's; without it the order page hides its block.
+const HIDDEN_ORDER_FIELDS: string[] = [IDS.order.contractState];
+
 const SHARED_FIELD_PERMISSIONS = [
   ...ADMIN_ONLY_FIELD_PERMISSIONS,
   ...CALCULATED_FIELD_PERMISSIONS,
@@ -89,6 +92,7 @@ const LOCKED_ORDER_FIELDS = Object.entries(IDS.order)
       !ORDER_KEYS_WITHOUT_FIELD.includes(key) &&
       !oneToManyOrderFields.has(fieldUniversalIdentifier) &&
       !WORKSHOP_WRITABLE_ORDER_FIELDS.includes(fieldUniversalIdentifier) &&
+      !HIDDEN_ORDER_FIELDS.includes(fieldUniversalIdentifier) &&
       !alreadyLimitedOrderFields.has(fieldUniversalIdentifier),
   )
   .map(([, fieldUniversalIdentifier]) => ({
@@ -125,6 +129,12 @@ export default defineRole({
   fieldPermissions: [
     ...SHARED_FIELD_PERMISSIONS,
     ...LOCKED_ORDER_FIELDS,
+    ...HIDDEN_ORDER_FIELDS.map((fieldUniversalIdentifier) => ({
+      objectUniversalIdentifier: IDS.order.object,
+      fieldUniversalIdentifier,
+      canReadFieldValue: false,
+      canUpdateFieldValue: false,
+    })),
     {
       objectUniversalIdentifier: IDS.design.object,
       fieldUniversalIdentifier: IDS.design.pricePerSquareMeter,

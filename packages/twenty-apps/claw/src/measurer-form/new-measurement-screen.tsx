@@ -27,6 +27,22 @@ import {
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import {
+  contractDataFromDraft,
+  contractNumberOf,
+  missingClientDetails,
+} from 'src/contract/contract-data';
+import { buildContractDocument } from 'src/contract/contract-document';
+import {
+  loadContractTemplate,
+  loadSignerName,
+  signContract,
+} from 'src/contract/contract-store';
+import {
+  type ContractTemplate,
+  missingCompanyDetails,
+} from 'src/contract/contract-template';
+import { ContractSigning } from 'src/contract/contract-view';
+import {
   buildMeasurementPayload,
   buildOpeningPhotoLabel,
   computeDraftTotal,
@@ -79,7 +95,6 @@ import {
   QuickPicks,
   SectionTitle,
   Segmented,
-  SignaturePad,
   type SignatureStroke,
   SummaryLine,
   TextArea,
@@ -124,10 +139,11 @@ type SaveResult = {
   photoFailureOpeningNumbers: number[];
   isVisorFailed: boolean;
   isPaymentFailed: boolean;
-  isSignatureFailed: boolean;
+  // null when the client did not sign
+  contract: 'signed' | 'failed' | null;
 };
 
-type Step = 'measurement' | 'payment';
+type Step = 'measurement' | 'payment' | 'contract';
 
 type Picker = {
   openingKey: string;
@@ -416,85 +432,6 @@ const fetchFieldMetadataId = async (
   );
 };
 
-const SIGNATURE_PADDING_PX = 12;
-const SIGNATURE_FILE_NAME = 'Подпись клиента.png';
-
-// The sandbox has no <canvas> element, so the strokes are kept as points,
-// shown as SVG and drawn into an image only when the order is saved.
-const renderSignatureFile = async (
-  strokes: SignatureStroke[],
-): Promise<File> => {
-  const points = strokes.flat();
-  const left = Math.min(...points.map((point) => point.x));
-  const top = Math.min(...points.map((point) => point.y));
-  const canvas = new OffscreenCanvas(
-    Math.max(...points.map((point) => point.x)) -
-      left +
-      2 * SIGNATURE_PADDING_PX,
-    Math.max(...points.map((point) => point.y)) -
-      top +
-      2 * SIGNATURE_PADDING_PX,
-  );
-  const context = canvas.getContext('2d');
-
-  if (context === null) throw new Error('no 2d context');
-
-  context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.strokeStyle = '#000000';
-  context.lineWidth = 2;
-  context.lineCap = 'round';
-  context.lineJoin = 'round';
-  context.translate(SIGNATURE_PADDING_PX - left, SIGNATURE_PADDING_PX - top);
-
-  for (const stroke of strokes) {
-    context.beginPath();
-    context.moveTo(stroke[0].x, stroke[0].y);
-    // Starts with the first point again, so a single tap leaves a dot.
-    stroke.forEach((point) => context.lineTo(point.x, point.y));
-    context.stroke();
-  }
-
-  return new File(
-    [await canvas.convertToBlob({ type: 'image/png' })],
-    SIGNATURE_FILE_NAME,
-    { type: 'image/png' },
-  );
-};
-
-const attachClientSignature = async (
-  orderId: string,
-  strokes: SignatureStroke[],
-) => {
-  const fieldMetadataId = await fetchFieldMetadataId(
-    IDS.order.object,
-    IDS.order.clientSignature,
-  );
-
-  if (fieldMetadataId === null) throw new Error('no signature field');
-
-  const result = await uploadFile(await renderSignatureFile(strokes), {
-    fieldMetadataId,
-    fileName: SIGNATURE_FILE_NAME,
-  });
-
-  if (result.status !== 'uploaded') throw new Error('upload failed');
-
-  await new CoreApiClient().mutation({
-    updateOrder: {
-      __args: {
-        id: orderId,
-        data: {
-          clientSignature: [
-            { fileId: result.file.fileId, label: SIGNATURE_FILE_NAME },
-          ],
-        },
-      },
-      id: true,
-    },
-  });
-};
-
 const attachOpeningPhotos = async (
   item: SavedItem,
   photos: OpeningPhoto[],
@@ -614,6 +551,8 @@ export const NewMeasurement = () => {
   const [saveIds, setSaveIds] = useState(createSaveIds);
   const [step, setStep] = useState<Step>('measurement');
   const [signature, setSignature] = useState<SignatureStroke[]>([]);
+  const [contractTemplate, setContractTemplate] =
+    useState<ContractTemplate | null>(null);
   // The order whose card opened the form: «Назад» returns there
   const [openedFromOrderId, setOpenedFromOrderId] = useState<string | null>(
     null,
@@ -671,6 +610,10 @@ export const NewMeasurement = () => {
 
     loadUsage()
       .then(setUsage)
+      .catch(() => undefined);
+
+    loadContractTemplate()
+      .then(setContractTemplate)
       .catch(() => undefined);
   }, [userId]);
 
@@ -899,6 +842,24 @@ export const NewMeasurement = () => {
     if (firstWrongOpening !== undefined) setExpandedKey(firstWrongOpening.key);
   };
 
+  // The scheduled order already has its number; a new one gets it on saving.
+  const contractData = (template: ContractTemplate) => {
+    const scheduled = scheduledOrders.find((order) => order.id === target);
+
+    return contractDataFromDraft({
+      draft,
+      grilles,
+      visorOptions,
+      subtotal: preview.subtotal,
+      discount: preview.discount,
+      total: preview.total ?? 0,
+      prepayment: preview.prepayment,
+      number: contractNumberOf(scheduled?.name ?? null),
+      signedOn: today,
+      template,
+    });
+  };
+
   const save = async () => {
     if (measurerId === null) {
       if (loadError !== null) setErrors([loadError]);
@@ -1088,14 +1049,27 @@ export const NewMeasurement = () => {
       }
     }
 
-    const isSignatureFailed =
-      signature.length > 0 &&
-      (await attachClientSignature(orderId, signature).then(
-        () => false,
-        () => true,
-      ));
-
     const orderName = await waitForOrderName(orderId).catch(() => null);
+    let contract: SaveResult['contract'] = null;
+
+    // Signed only once the order and its items are saved: the PDF's
+    // спецификация is the form as the client read it.
+    if (signature.length > 0 && contractTemplate !== null) {
+      contract = await signContract({
+        orderId,
+        orderName: orderName ?? '',
+        template: contractTemplate,
+        data: {
+          ...contractData(contractTemplate),
+          number: contractNumberOf(orderName),
+        },
+        signature,
+        signedBy: userId === null ? '—' : await loadSignerName(userId),
+      }).then(
+        (): SaveResult['contract'] => 'signed',
+        (): SaveResult['contract'] => 'failed',
+      );
+    }
 
     setResult({
       orderId,
@@ -1105,7 +1079,7 @@ export const NewMeasurement = () => {
       photoFailureOpeningNumbers,
       isVisorFailed,
       isPaymentFailed,
-      isSignatureFailed,
+      contract,
     });
   };
 
@@ -1199,7 +1173,9 @@ export const NewMeasurement = () => {
           </div>
           <Card padding={SPACE.xl}>
             <span style={{ color: colors.success, fontWeight: 600 }}>
-              ✓ Замер сохранён
+              {result.contract === 'signed'
+                ? '✓ Замер сохранён, договор подписан, PDF в заказе'
+                : '✓ Замер сохранён'}
             </span>
             <h2 style={{ margin: 0, fontSize: '32px', lineHeight: '38px' }}>
               Заказ {result.orderName ?? '(номер появится через минуту)'}
@@ -1247,8 +1223,10 @@ export const NewMeasurement = () => {
                       'Заказ сохранён, но предоплата не записана. Откройте заказ и запишите её вручную.',
                     ]
                   : []),
-                ...(result.isSignatureFailed
-                  ? ['Заказ сохранён, но подпись клиента не загрузилась.']
+                ...(result.contract === 'failed'
+                  ? [
+                      'Заказ сохранён, но договор не записался. Откройте заказ и нажмите «Подписать договор».',
+                    ]
                   : []),
                 ...(result.photoFailureOpeningNumbers.length > 0
                   ? [
@@ -1331,14 +1309,25 @@ export const NewMeasurement = () => {
         gap: SPACE.md,
       }}
     >
-      {step === 'payment' ? (
+      {step === 'contract' ? (
         <button
           type="button"
           style={linkButton(false)}
           onClick={() => {
             setErrors([]);
-            // The client signed for these sizes and this sum.
+            // The client signed for this sum and this prepayment.
             setSignature([]);
+            setStep('payment');
+          }}
+        >
+          ← К оплате
+        </button>
+      ) : step === 'payment' ? (
+        <button
+          type="button"
+          style={linkButton(false)}
+          onClick={() => {
+            setErrors([]);
             setStep('measurement');
           }}
         >
@@ -1375,6 +1364,41 @@ export const NewMeasurement = () => {
       )}
     </div>
   );
+
+  if (step === 'contract' && contractTemplate !== null) {
+    const data = contractData(contractTemplate);
+
+    return frame(
+      <div style={column()}>
+        {header}
+        <ContractSigning
+          document={buildContractDocument(contractTemplate, data)}
+          data={data}
+          blockers={missingClientDetails(data)}
+          warnings={missingCompanyDetails(contractTemplate)}
+          signature={signature}
+          onSignatureChange={setSignature}
+        >
+          <ErrorList errors={errors} />
+          {signature.length > 0 && (
+            <button
+              type="button"
+              style={{ ...primaryWide, opacity: isSaving ? 0.6 : 1 }}
+              aria-busy={isSaving}
+              onClick={handleSave}
+            >
+              {isSaving ? 'Сохранение…' : 'Подписать и сохранить замер'}
+            </button>
+          )}
+          <span
+            style={{ ...TYPE.label, color: colors.muted, textAlign: 'center' }}
+          >
+            Заказ, оплата и подписанный PDF сохраняются одним нажатием.
+          </span>
+        </ContractSigning>
+      </div>,
+    );
+  }
 
   if (step === 'payment') {
     const receipt = (
@@ -1557,52 +1581,48 @@ export const NewMeasurement = () => {
         </div>
       );
 
-    const signatureBlock = (
+    const isContractReady = contractTemplate !== null && preview.total !== null;
+    const nextBlock = (
       <div style={column(SPACE.md)}>
-        <SectionTitle title="Подпись клиента" />
+        <SectionTitle title="Дальше" />
         <Card>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              alignItems: 'baseline',
-              gap: SPACE.md,
-            }}
-          >
-            <span style={TYPE.rowTitle}>
-              {draftClientName(draft) ?? 'Клиент'}
-            </span>
-            {signature.length > 0 && (
-              <span style={{ color: colors.success, fontWeight: 600 }}>
-                ✓ Подписано
-              </span>
-            )}
-          </div>
+          <span style={TYPE.rowTitle}>Договор с клиентом</span>
           <span style={{ color: colors.muted }}>
-            Клиент расписывается пальцем: согласен с размерами и суммой.
+            {isContractReady
+              ? 'Клиент читает договор с размерами и суммой, пролистывает до конца и расписывается пальцем. PDF сохранится в заказе.'
+              : preview.total === null
+                ? 'Договор можно подписать, когда у заказа есть цена: менеджер подпишет его из заказа.'
+                : 'Договор загружается…'}
           </span>
-          <SignaturePad strokes={signature} onChange={setSignature} />
-          {signature.length > 0 && (
-            <div>
-              <Button onClick={() => setSignature([])}>Очистить подпись</Button>
-            </div>
-          )}
         </Card>
         <ErrorList errors={errors} />
-        <button
-          type="button"
-          style={{ ...primaryWide, opacity: isSaving ? 0.6 : 1 }}
-          aria-busy={isSaving}
-          onClick={handleSave}
-        >
-          {isSaving ? 'Сохранение…' : 'Сохранить замер'}
-        </button>
+        {isContractReady && (
+          <button
+            type="button"
+            style={primaryWide}
+            onClick={() => {
+              if (Object.keys(preview.errors).length > 0) {
+                setErrors(['Сначала исправьте скидку или предоплату.']);
+
+                return;
+              }
+
+              setErrors([]);
+              setSignature([]);
+              setStep('contract');
+            }}
+          >
+            Далее: договор
+          </button>
+        )}
+        <Button isBusy={isSaving} busyText="Сохранение…" onClick={handleSave}>
+          Сохранить без договора
+        </Button>
         <span
           style={{ ...TYPE.label, color: colors.muted, textAlign: 'center' }}
         >
-          Подпись не обязательна. Если вернуться к замеру, её нужно будет
-          поставить заново.
+          Без договора заказ сохранится со статусом «Не подписан»; подписать
+          можно позже из заказа.
         </span>
       </div>
     );
@@ -1625,7 +1645,7 @@ export const NewMeasurement = () => {
               {receipt}
               {paymentForm}
             </div>
-            {signatureBlock}
+            {nextBlock}
           </div>
         </div>
       </>,
@@ -2669,6 +2689,7 @@ const StepDots = ({ step }: { step: Step }) => {
   const steps: { key: Step; label: string }[] = [
     { key: 'measurement', label: 'Замер' },
     { key: 'payment', label: 'Оплата' },
+    { key: 'contract', label: 'Договор' },
   ];
 
   return (
@@ -2684,7 +2705,8 @@ const StepDots = ({ step }: { step: Step }) => {
     >
       {steps.map((item, index) => {
         const isCurrent = item.key === step;
-        const isDone = step === 'payment' && item.key === 'measurement';
+        const isDone =
+          steps.findIndex((candidate) => candidate.key === step) > index;
 
         return (
           <li

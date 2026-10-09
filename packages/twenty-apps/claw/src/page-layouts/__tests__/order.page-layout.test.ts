@@ -35,6 +35,7 @@ describe('order page', () => {
       'Что делаем',
       'Оплата цеха',
       'Козырьки и услуги',
+      'Договор',
       'Оплаты',
       'Материалы',
     ]);
@@ -60,6 +61,7 @@ describe('order page', () => {
           ids.itemsWidget,
           IDS.workshopPay.orderPageWidget,
           ids.extraServicesWidget,
+          IDS.contract.orderPageWidget,
           ids.paymentsWidget,
           ids.materialsWidget,
         ],

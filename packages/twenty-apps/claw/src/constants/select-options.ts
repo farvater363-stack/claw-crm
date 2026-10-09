@@ -302,3 +302,10 @@ export const ACCRUAL_METHOD_OPTIONS = toOptions([
 ] as const);
 
 export type AccrualMethod = (typeof ACCRUAL_METHOD_OPTIONS)[number]['value'];
+
+export const CONTRACT_STATE_OPTIONS = toOptions([
+  ['NONE', 'Не подписан', 'gray'],
+  ['SIGNED', 'Подписан', 'green'],
+] as const);
+
+export type ContractState = (typeof CONTRACT_STATE_OPTIONS)[number]['value'];
