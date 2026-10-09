@@ -1266,8 +1266,12 @@ export const FilePicker = ({
   const [isFocused, setIsFocused] = useState(false);
 
   return (
+    // Focus is tracked on the label: a focus handler on the file input makes
+    // the host mirror its value and then try to set a filename, which throws.
     <label
       aria-busy={isBusy}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -1298,8 +1302,6 @@ export const FilePicker = ({
           opacity: 0,
           overflow: 'hidden',
         }}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
 
