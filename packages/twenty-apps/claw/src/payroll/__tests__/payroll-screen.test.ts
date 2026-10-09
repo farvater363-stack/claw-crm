@@ -5,6 +5,11 @@ import { type PayRule, type PayWork } from 'src/payroll/pay-rules';
 import { type PayrollRow } from 'src/payroll/compute-monthly-payroll';
 import {
   buildPayRule,
+  cardPayWorksOf,
+  groupTeam,
+  monthLine,
+  payLine,
+  teamGaps,
   buildStatement,
   owedLine,
   payrollTotals,
@@ -413,5 +418,77 @@ describe('squareMeterSummary', () => {
       { key: 'kind:forged:55000', label: 'Кованая', isOwn: true, basis: 3.5, rate: 55_000, amount: 192_500 },
       { key: ':40000', label: 'За м²', isOwn: false, basis: 2, rate: 40_000, amount: 80_000 },
     ]);
+  });
+});
+
+describe('«Команда»', () => {
+  const worker = (name: string, categories: WorkerCategory[]) => ({ name, categories });
+
+  it('groups people by their work, one with two kinds of work in both groups', () => {
+    const groups = groupTeam([
+      worker('Рустам', ['MASTER']),
+      worker('Бахтиёр', ['INSTALLER', 'MASTER']),
+      worker('Дилноза', ['SALES']),
+      worker('Новый', []),
+    ]);
+
+    expect(groups.map((group) => [group.title, group.workers.map(({ name }) => name)])).toEqual([
+      ['Цех', ['Бахтиёр', 'Рустам']],
+      ['Установка и замер', ['Бахтиёр']],
+      ['Офис', ['Дилноза']],
+      ['Работа не указана', ['Новый']],
+    ]);
+  });
+
+  it('does not offer a master a rate per m² on his card', () => {
+    expect(cardPayWorksOf('PER_SQUARE_METER')).toEqual(['INSTALLER', 'MEASURER']);
+    expect(cardPayWorksOf('PER_ORDER')).toEqual(['MASTER', 'INSTALLER', 'MEASURER']);
+  });
+
+  it('says how a person is paid: a master by the table, the others by their rules', () => {
+    const cells = [{ rate: 30_000 }, { rate: 35_000 }, { rate: null }];
+
+    expect(
+      plain(
+        payLine({
+          categories: ['MASTER'],
+          rules: [rule(), rule({ id: 'f', method: 'FIXED', work: null, amount: 1_000_000 })],
+          masterCells: cells,
+        }),
+      ),
+    ).toBe('по ставкам цеха · 2 из 3 решёток со ставкой · Фикса 1,000,000 сум в месяц');
+    expect(
+      plain(
+        payLine({
+          categories: ['INSTALLER'],
+          rules: [rule({ work: 'INSTALLER', amount: 25_000 })],
+          masterCells: [],
+        }),
+      ),
+    ).toBe('Установщик: 25,000 сум за м²');
+  });
+
+  it('names what is not set up yet', () => {
+    expect(
+      teamGaps({ categories: ['MASTER'], rules: [], masterCells: [{ rate: null }, { rate: 1 }], hasLogin: false }),
+    ).toEqual(['решёток без ставки: 1']);
+    expect(teamGaps({ categories: ['MEASURER'], rules: [], masterCells: [], hasLogin: false })).toEqual([
+      'не указано, как платим',
+      'нет логина',
+    ]);
+    // A master's old rule per m² does not count as a way the installer in him is paid.
+    expect(
+      teamGaps({ categories: ['MASTER', 'INSTALLER'], rules: [rule()], masterCells: [], hasLogin: true }),
+    ).toEqual(['не указано, как платим']);
+  });
+
+  it('sums a person\'s month up in one line', () => {
+    expect(plain(monthLine({ earned: 708_000, paidThisMonth: 500_000, owed: 608_000 }))).toBe(
+      'начислено 708,000 · выплачено 500,000 · к выплате 608,000 сум',
+    );
+    expect(plain(monthLine({ earned: 500_000, paidThisMonth: 500_000, owed: 0 }))).toBe(
+      'начислено 500,000 · выплачено 500,000 · расчёт полный',
+    );
+    expect(monthLine({ earned: 0, paidThisMonth: 0, owed: 0 })).toBe('в этом месяце ничего');
   });
 });
