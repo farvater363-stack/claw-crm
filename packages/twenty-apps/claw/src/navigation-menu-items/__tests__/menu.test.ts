@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { IDS } from 'src/constants/universal-identifiers';
 import callBacks from 'src/navigation-menu-items/call-backs.navigation-menu-item';
 import clients from 'src/navigation-menu-items/clients.navigation-menu-item';
+import contract from 'src/navigation-menu-items/contract.navigation-menu-item';
 import marketing from 'src/navigation-menu-items/marketing.navigation-menu-item';
 import money from 'src/navigation-menu-items/money.navigation-menu-item';
 import myMeasurements from 'src/navigation-menu-items/my-measurements.navigation-menu-item';
@@ -39,6 +40,7 @@ const MENU = [
   },
   { label: 'Склад', item: stock, requires: IDS.stockMovement.object },
   { label: 'Цены', item: prices, requires: IDS.materialNorm.object },
+  { label: 'Договор', item: contract, requires: IDS.moneyEntry.object },
   { label: 'ЗП', item: payroll, requires: IDS.masterPayment.object },
   { label: 'Клиенты', item: clients, requires: IDS.clientCall.object },
   { label: 'Перезвоны', item: callBacks, requires: IDS.clientCall.object },
@@ -57,7 +59,7 @@ const menuOf = (role: { config: typeof managerRole.config }) => {
 };
 
 describe('menu', () => {
-  it('has these twelve items and no other', () => {
+  it('has these thirteen items and no other', () => {
     expect(
       readdirSync(join(__dirname, '..'))
         .filter((file) => file.endsWith('.navigation-menu-item.ts'))
@@ -65,6 +67,7 @@ describe('menu', () => {
     ).toEqual([
       'call-backs.navigation-menu-item.ts',
       'clients.navigation-menu-item.ts',
+      'contract.navigation-menu-item.ts',
       'marketing.navigation-menu-item.ts',
       'money.navigation-menu-item.ts',
       'my-measurements.navigation-menu-item.ts',
@@ -80,7 +83,7 @@ describe('menu', () => {
 
   it('orders them as the spec does, off position zero', () => {
     expect(MENU.map(({ item }) => item.config.position)).toEqual([
-      -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+      -2, -1, 1, 2, 3, 4, 5, 5.5, 6, 7, 8, 9, 10,
     ]);
   });
 
@@ -99,6 +102,7 @@ describe('menu', () => {
       undefined,
       'Склад',
       'Цены',
+      'Договор',
       'ЗП',
       undefined,
       'Перезвоны',

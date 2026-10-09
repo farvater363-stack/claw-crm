@@ -103,6 +103,19 @@ export default definePageLayout({
           IDS.order.extraServices,
           IDS.view.orderExtraServicesTable,
         ),
+        {
+          universalIdentifier: IDS.contract.orderPageWidget,
+          title: 'Договор',
+          type: 'FRONT_COMPONENT',
+          // Цех may not read contractState, so the block never shows there.
+          conditionalDisplay: {
+            '!!': [{ var: 'selectedRecords.0.contractState' }],
+          },
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier: IDS.contract.orderFrontComponent,
+          },
+        },
         table(
           ids.paymentsWidget,
           'Оплаты',

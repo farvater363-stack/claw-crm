@@ -67,6 +67,8 @@ export default defineRole({
     readWrite(IDS.supplier.object),
     readWrite(IDS.purchase.object),
     readWrite(IDS.clientCall.object),
+    readOnly(IDS.contractTemplate.object),
+    readUpdate(IDS.signedContract.object),
   ],
   fieldPermissions: [
     ...ADMIN_ONLY_FIELD_PERMISSIONS,

@@ -15,6 +15,7 @@ import {
   ORDER_STATUS_OPTIONS,
   PRODUCTION_STAGE_OPTIONS,
   SOURCE_OPTIONS,
+  CONTRACT_STATE_OPTIONS,
   URGENCY_OPTIONS,
 } from 'src/constants/select-options';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
@@ -398,6 +399,25 @@ export default defineObject({
       icon: 'IconCash',
       relationTargetObjectMetadataUniversalIdentifier: IDS.moneyEntry.object,
       relationTargetFieldMetadataUniversalIdentifier: IDS.moneyEntry.order,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+    {
+      universalIdentifier: IDS.order.contractState,
+      type: FieldType.SELECT,
+      name: 'contractState',
+      label: 'Договор',
+      icon: 'IconSignature',
+      defaultValue: "'NONE'",
+      options: CONTRACT_STATE_OPTIONS,
+    },
+    {
+      universalIdentifier: IDS.order.signedContracts,
+      type: FieldType.RELATION,
+      name: 'signedContracts',
+      label: 'Подписанные договоры',
+      icon: 'IconSignature',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.signedContract.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.signedContract.order,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
   ]),

@@ -250,6 +250,8 @@ describe('every select option of every object keeps its id', () => {
         "order.cancelReason.OTHER": "4755c43e-ac8a-556e-827a-61ec72cabcd2",
         "order.cancelReason.TOO_EXPENSIVE": "479a09b8-2a8c-56f6-903c-308f6c9a2145",
         "order.cancelReason.UNREACHABLE": "95cc8def-3b8b-5bf0-9525-4d42e9852193",
+        "order.contractState.NONE": "4decd05d-30b3-554a-88fa-106733f5a006",
+        "order.contractState.SIGNED": "5f09759d-6a3b-5749-bd97-ff32cbd2296b",
         "order.deadlineState.DUE_TODAY": "0dd28c3b-18a7-5f3a-9cde-ad6102ff91a3",
         "order.deadlineState.OVERDUE": "6a7a0025-138f-5136-958a-9ff7c3df215f",
         "order.discountKind.AMOUNT": "174ae085-2818-558d-a7f6-a3ea894dc361",

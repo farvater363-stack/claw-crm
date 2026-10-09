@@ -55,6 +55,8 @@ export default defineRole({
     readOnly(IDS.design.object),
     readOnly(IDS.grilleKind.object),
     readOnly(IDS.extraService.object),
+    readOnly(IDS.contractTemplate.object),
+    createAndEdit(IDS.signedContract.object),
   ],
   fieldPermissions: [
     ...ADMIN_ONLY_FIELD_PERMISSIONS,
