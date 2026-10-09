@@ -1,6 +1,5 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
-import { type WorkerCategory } from 'src/constants/select-options';
 import { type WorkshopCatalog } from 'src/payroll/workshop-pay';
 import { toWorkshopCatalog } from 'src/payroll/workshop-records';
 import { toCurrency } from 'src/recalc/money';
@@ -116,14 +115,4 @@ export const removeWorkshopRate = async (
   id: string,
 ): Promise<void> => {
   await client.mutation({ deleteWorkshopRate: { __args: { id }, id: true } });
-};
-
-export const setWorkerCategories = async (
-  client: CoreApiClient,
-  workerId: string,
-  categories: WorkerCategory[],
-): Promise<void> => {
-  await client.mutation({
-    updateMaster: { __args: { id: workerId, data: { categories } }, id: true },
-  });
 };

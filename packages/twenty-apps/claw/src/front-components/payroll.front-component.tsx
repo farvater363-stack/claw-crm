@@ -25,6 +25,8 @@ import {
 } from 'src/payroll/load-payroll-data';
 import { type PayRule, type PayWork } from 'src/payroll/pay-rules';
 import { buildPaymentInput } from 'src/payroll/payment-draft';
+import { type RateWrite, saveWorkshopRates } from 'src/payroll/workshop-rates-data';
+import { buildRateRows, rateRecordName } from 'src/payroll/workshop-rates-screen';
 import { SquareMeterSummaryTable, WorkshopRatesTab } from 'src/payroll/workshop-rates-tab';
 import { currentMonthInTashkent, formatMonthLabel, shiftMonth } from 'src/payroll/payroll-month';
 import {
@@ -32,20 +34,26 @@ import {
   buildStatement,
   buildWorker,
   canPayInMonth,
-  owedLine,
+  cardPayWorksOf,
   CATEGORY_REQUIRED,
+  groupTeam,
+  isWorkshopRateRule,
+  masterRatesText,
+  monthLine,
+  owedLine,
   parsePenaltyPercent,
   payRuleLabel,
   payRuleSuffix,
   payRuleValue,
   payRuleValueLabel,
+  payLine,
   payrollTotals,
-  payWorksOf,
   rowTitle,
   signedWhole,
   skippedNote,
   squareMeterSummary,
   storedAttempts,
+  teamGaps,
   totalsSentence,
   withCategory,
 } from 'src/payroll/payroll-screen';
@@ -69,15 +77,15 @@ import {
   Section,
   SelectInput,
   SkeletonRows,
+  StatePill,
   StaticRow,
-  Tabs,
   TabStrip,
   TextInput,
   Wrap,
 } from 'src/ui/kit';
 import { SPACE, TYPE } from 'src/ui/tokens';
 import { dropKey } from 'src/utils/drop-key';
-import { EMPTY_FULL_NAME, type FullName } from 'src/utils/full-name';
+import { EMPTY_FULL_NAME, type FullName, joinFullName } from 'src/utils/full-name';
 import { isAccessError } from 'src/utils/is-access-error';
 import { randomUuid } from 'src/utils/random-uuid';
 
@@ -89,12 +97,13 @@ type LoadState =
 
 // The one form shown at a time; each has the screen's primary button.
 type Panel = 'pay' | 'rule' | 'worker';
-// An open worker shows the month or the terms of pay, never both.
-type Tab = 'month' | 'terms';
-type ScreenTab = 'workers' | 'rates';
+// Each figure is entered in one place: payments in «Выплаты», people and their
+// pay rules in «Команда», masters' rates per m² in «Ставки цеха».
+type ScreenTab = 'pay' | 'team' | 'rates';
 type PayForm = { kind: MasterPaymentKind; amount: string; comment: string };
 type NewRule = { method: PayMethod; work: PayWork | null; value: string };
-type NewWorker = FullName & { categories: WorkerCategory[] };
+// `copyFrom` is the master whose rates a new master starts with; empty for the usual ones.
+type NewWorker = FullName & { categories: WorkerCategory[]; copyFrom: string };
 
 const SAVED_TICK_MS = 2_000;
 const NO_ACCESS = 'Доступно только владельцу';
@@ -102,17 +111,16 @@ const LOAD_FAILED = 'Не удалось загрузить ЗП. Проверь
 const SAVE_FAILED = 'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
 const EMPTY_TEXT =
   'Добавьте тех, кому платите: мастеров, установщиков, замерщиков. Приложение посчитает, сколько кому выплатить.';
-const NEW_RULE: NewRule = { method: 'PER_SQUARE_METER', work: 'MASTER', value: '' };
-const NEW_WORKER: NewWorker = { ...EMPTY_FULL_NAME, categories: [] };
+const NEW_RULE: NewRule = { method: 'FIXED', work: null, value: '' };
+const NEW_WORKER: NewWorker = { ...EMPTY_FULL_NAME, categories: [], copyFrom: '' };
 const ADD_KEY = 'add';
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'month', label: 'Месяц' },
-  { value: 'terms', label: 'Условия' },
-];
 const SCREEN_TABS: { value: ScreenTab; label: string }[] = [
-  { value: 'workers', label: 'Работники' },
+  { value: 'pay', label: 'Выплаты' },
+  { value: 'team', label: 'Команда' },
   { value: 'rates', label: 'Ставки цеха' },
 ];
+const ONE_PLACE =
+  'Людей добавляют только в «Команде». Ставки мастеров за м² ставят только в «Ставках цеха». Оплата остальных задаётся в их карточке.';
 // Wide enough for the rates table with a few masters, as on Склад.
 const RATES_MAX_WIDTH = 1080;
 
@@ -131,8 +139,7 @@ const Payroll = () => {
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
   const [openId, setOpenId] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
-  const [tab, setTab] = useState<Tab>('month');
-  const [screenTab, setScreenTab] = useState<ScreenTab>('workers');
+  const [screenTab, setScreenTab] = useState<ScreenTab>('pay');
   const [payForm, setPayForm] = useState<PayForm | null>(null);
   const [newRule, setNewRule] = useState<NewRule>(NEW_RULE);
   const [newWorker, setNewWorker] = useState<NewWorker>(NEW_WORKER);
@@ -329,7 +336,6 @@ const Payroll = () => {
       worker,
     ),
   );
-  const workerById = new Map(workers.map((worker) => [worker.id, worker]));
   const rows = computeMonthlyPayroll({
     month,
     // A worker who left and is owed nothing has no row. The open row stays
@@ -340,6 +346,21 @@ const Payroll = () => {
   });
   const skipped = skippedNote(data.skipped);
   const totals = payrollTotals(rows);
+  const rateMasters = workers
+    .filter((worker) => worker.isActive && worker.categories.includes('MASTER'))
+    .map((worker) => ({ id: worker.id, name: worker.name || 'Без имени' }));
+  const rateRows = buildRateRows(data.catalog, rateMasters);
+  // A master's cell of every grille; none for somebody who is not a master.
+  const masterCellsOf = (workerId: string) =>
+    rateRows.flatMap((row) => (row.byMaster[workerId] === undefined ? [] : [row.byMaster[workerId]]));
+  const cardRulesOf = (workerId: string) =>
+    data.rules.filter((rule) => rule.workerId === workerId && !isWorkshopRateRule(rule));
+  // A form belongs to its tab and is not carried to another one.
+  const showScreenTab = (next: ScreenTab) => {
+    setScreenTab(next);
+    showRow(null);
+    setPanel(null);
+  };
 
   // Closing a form drops what it held and what was said about it, and ends its
   // attempt: a create that failed may still have been stored, and the next
@@ -354,7 +375,6 @@ const Payroll = () => {
   // What is typed in a row belongs to that row; the new worker's form is not a row's.
   const showRow = (workerId: string | null) => {
     setOpenId(workerId);
-    setTab('month');
     setPanel((current) => (current === 'worker' ? current : null));
     setPayForm(null);
     setNewRule(NEW_RULE);
@@ -495,7 +515,7 @@ const Payroll = () => {
       });
     }
 
-    setTab('month');
+    setScreenTab('pay');
     setPanel('pay');
   };
 
@@ -541,6 +561,22 @@ const Payroll = () => {
     }
 
     const workerId = attemptId(ADD_KEY);
+    const workerName = joinFullName(built.data.fullName);
+    // The ids are taken here, once, so «Повторить» overwrites the same copies.
+    const copied: RateWrite[] =
+      built.data.categories.includes('MASTER') && form.copyFrom !== ''
+        ? data.catalog.rates
+            .filter((rate) => rate.workerId === form.copyFrom && rate.designId !== null)
+            .map((rate) => ({
+              ...rate,
+              id: randomUuid(),
+              workerId,
+              name: rateRecordName(
+                { label: data.catalog.designs.find((design) => design.id === rate.designId)?.name ?? '' },
+                workerName,
+              ),
+            }))
+        : [];
 
     clearError(ADD_KEY);
     attemptFinishes.current[ADD_KEY] = () => {
@@ -551,12 +587,12 @@ const Payroll = () => {
       setPanel(null);
       // Opened so the first pay rule can be added straight away.
       showRow(workerId);
-      setTab('terms');
     };
     void run(
       ADD_KEY,
       async () => {
         await saveWorker(new CoreApiClient(), workerId, built.data);
+        await saveWorkshopRates(new CoreApiClient(), copied);
         endAttempt(ADD_KEY);
       },
       () => finishAttempt(ADD_KEY),
@@ -673,7 +709,7 @@ const Payroll = () => {
 
   const renderNewRule = (workerId: string, rules: PayRule[]) => {
     const key = `${workerId}:rule`;
-    const works = payWorksOf(newRule.method);
+    const works = cardPayWorksOf(newRule.method);
     const valueLabel = payRuleValueLabel(newRule.method);
     const save = () => saveNewRule(workerId, rules, newRule);
     const close = () => {
@@ -694,7 +730,7 @@ const Payroll = () => {
                   const method = PAY_METHOD_OPTIONS.find((option) => option.value === value)?.value ?? newRule.method;
 
                   // The work follows the method: a fixed pay has none, a percent is for sales only.
-                  setNewRule({ ...newRule, method, work: payWorksOf(method)[0] ?? null });
+                  setNewRule({ ...newRule, method, work: cardPayWorksOf(method)[0] ?? null });
                 }}
               />
             </Field>,
@@ -738,11 +774,13 @@ const Payroll = () => {
     );
   };
 
-  const renderOpenRow = (row: PayrollRow, worker: PayrollScreenWorker) => {
-    const rules = data.rules.filter((rule) => rule.workerId === row.workerId);
-    const categoriesKey = `${row.workerId}:categories`;
-    const loginKey = `${row.workerId}:login`;
-    const penaltyKey = `${row.workerId}:penalty`;
+  // «Команда»: who the person is and how he is paid. A master's rule per m² is
+  // not shown here: his rates are the cells of «Ставки цеха».
+  const renderCard = (worker: PayrollScreenWorker) => {
+    const rules = cardRulesOf(worker.id);
+    const categoriesKey = `${worker.id}:categories`;
+    const loginKey = `${worker.id}:login`;
+    const penaltyKey = `${worker.id}:penalty`;
     // A login pays one worker: a member already linked to another worker is not offered.
     const loginOptions = [
       { value: '', label: '—' },
@@ -751,113 +789,108 @@ const Payroll = () => {
         .map((login) => ({ value: login.id, label: login.name })),
     ];
 
+    return (
+      <>
+        {worker.categories.includes('MASTER') ? (
+          <Wrap>
+            <span style={{ flex: '1 1 200px' }}>
+              {`Мастер: ${masterRatesText(masterCellsOf(worker.id))}`}
+            </span>
+            <Button onClick={() => setScreenTab('rates')}>
+              Ставки цеха <span aria-hidden>›</span>
+            </Button>
+          </Wrap>
+        ) : null}
+        <span>Как платим:</span>
+        {rules.map((rule) => renderRule(rule, rules))}
+        {panel === 'rule' ? (
+          renderNewRule(worker.id, rules)
+        ) : (
+          <Wrap>
+            <Button onClick={() => setPanel('rule')}>+ Добавить правило</Button>
+          </Wrap>
+        )}
+        <Wrap>
+          <span>Работа:</span>
+          {WORKER_CATEGORY_OPTIONS.map((option) => (
+            <Checkbox
+              key={option.value}
+              label={option.label}
+              isChecked={worker.categories.includes(option.value)}
+              onChange={(isChecked) => toggleCategory(worker, option.value, isChecked)}
+            />
+          ))}
+        </Wrap>
+        {errors[categoriesKey] ? <Hint tone="danger" text={errors[categoriesKey]} /> : null}
+        <Field isInline label="Логин" isSaved={savedKey === loginKey}>
+          <SelectInput
+            label="Логин"
+            value={worker.loginId ?? ''}
+            options={loginOptions}
+            onChange={(value) => changeWorker(worker.id, 'login', { loginId: value === '' ? null : value })}
+          />
+        </Field>
+        <Field isInline label="Штраф за просрочку" error={errors[penaltyKey]} isSaved={savedKey === penaltyKey}>
+          <TextInput
+            label="Штраф за просрочку"
+            inputMode="decimal"
+            value={drafts[penaltyKey] ?? String(worker.penaltyPercentPerDay).replace('.', ',')}
+            suffix="% в день"
+            onChange={(value) => setDraft(penaltyKey, value)}
+            onCommit={() => commitPenalty(worker)}
+            onCancel={() => clearDraft(penaltyKey)}
+          />
+        </Field>
+        <Checkbox
+          label="Работает"
+          isChecked={worker.isActive}
+          onChange={(isActive) => changeWorker(worker.id, 'active', { isActive })}
+        />
+      </>
+    );
+  };
+
+  // «Выплаты»: a person's month as a statement, and the buttons that pay it.
+  const renderMonth = (row: PayrollRow) => {
     const canPay = canPayInMonth(month, currentMonthInTashkent());
 
     return (
       <>
-        <Tabs
-          value={tab}
-          options={TABS}
-          onChange={(next) => {
-            setTab(next);
-            // A form belongs to its tab and is not carried to the other one.
-            if (panel === 'pay' || panel === 'rule') setPanel(null);
-          }}
-        />
-        {tab === 'month' ? (
-          <>
-            {panel === 'pay' && payForm ? renderPayForm(row, payForm) : null}
-            <SquareMeterSummaryTable rows={squareMeterSummary(row.lines, data.catalog, row.workerId)} />
-            {buildStatement(row).map((line) => (
-              <AmountLine key={line.key} amount={signedWhole(line.amount)}>
-                {line.orderId === null ? (
-                  line.text
-                ) : (
-                  <Link href={`/object/order/${line.orderId}`}>{line.text}</Link>
-                )}
-              </AmountLine>
-            ))}
-            <AmountLine isTotal amount={owedLine(row.owed).amount}>
-              {owedLine(row.owed).label}
-            </AmountLine>
-            {canPay && panel !== 'pay' ? (
-              <Wrap>
-                <Button variant="primary" isWideOnPhone onClick={() => openPay(row)}>
-                  {row.owed > 0 ? `Выплатить ${formatMoney(row.owed)}` : 'Выплатить'}
-                </Button>
-                <Button onClick={() => openPay(row, 'ADVANCE')}>Аванс</Button>
-              </Wrap>
-            ) : null}
-            <Wrap>
-              <Link href="/objects/masterPayments">
-                Все выплаты <span aria-hidden>›</span>
-              </Link>
-            </Wrap>
-          </>
-        ) : (
-          <>
-            <span>Как платим:</span>
-            {rules.map((rule) => renderRule(rule, rules))}
-            {panel === 'rule' ? (
-              renderNewRule(row.workerId, rules)
-            ) : (
-              <Wrap>
-                <Button onClick={() => setPanel('rule')}>+ Добавить правило</Button>
-              </Wrap>
-            )}
-            <Wrap>
-              <span>Кто:</span>
-              {WORKER_CATEGORY_OPTIONS.map((option) => (
-                <Checkbox
-                  key={option.value}
-                  label={option.label}
-                  isChecked={worker.categories.includes(option.value)}
-                  onChange={(isChecked) => toggleCategory(worker, option.value, isChecked)}
-                />
-              ))}
-            </Wrap>
-            {errors[categoriesKey] ? <Hint tone="danger" text={errors[categoriesKey]} /> : null}
-            <Field isInline label="Логин" isSaved={savedKey === loginKey}>
-              <SelectInput
-                label="Логин"
-                value={worker.loginId ?? ''}
-                options={loginOptions}
-                onChange={(value) => changeWorker(row.workerId, 'login', { loginId: value === '' ? null : value })}
-              />
-            </Field>
-            <Field isInline label="Штраф" error={errors[penaltyKey]} isSaved={savedKey === penaltyKey}>
-              <TextInput
-                label="Штраф"
-                inputMode="decimal"
-                value={drafts[penaltyKey] ?? String(worker.penaltyPercentPerDay).replace('.', ',')}
-                suffix="% в день"
-                onChange={(value) => setDraft(penaltyKey, value)}
-                onCommit={() => commitPenalty(worker)}
-                onCancel={() => clearDraft(penaltyKey)}
-              />
-            </Field>
-            <Checkbox
-              label="Работает"
-              isChecked={worker.isActive}
-              onChange={(isActive) => changeWorker(row.workerId, 'active', { isActive })}
-            />
-          </>
-        )}
+        {panel === 'pay' && payForm ? renderPayForm(row, payForm) : null}
+        <SquareMeterSummaryTable rows={squareMeterSummary(row.lines, data.catalog, row.workerId)} />
+        {buildStatement(row).map((line) => (
+          <AmountLine key={line.key} amount={signedWhole(line.amount)}>
+            {line.orderId === null ? line.text : <Link href={`/object/order/${line.orderId}`}>{line.text}</Link>}
+          </AmountLine>
+        ))}
+        <AmountLine isTotal amount={owedLine(row.owed).amount}>
+          {owedLine(row.owed).label}
+        </AmountLine>
+        {canPay && panel !== 'pay' ? (
+          <Wrap>
+            <Button variant="primary" isWideOnPhone onClick={() => openPay(row)}>
+              {row.owed > 0 ? `Выплатить ${formatMoney(row.owed)}` : 'Выплатить'}
+            </Button>
+            <Button onClick={() => openPay(row, 'ADVANCE')}>Аванс</Button>
+          </Wrap>
+        ) : null}
+        <Wrap>
+          <Link href="/objects/masterPayments">
+            Все выплаты <span aria-hidden>›</span>
+          </Link>
+        </Wrap>
       </>
     );
   };
 
   const renderRow = (row: PayrollRow) => {
-    const worker = workerById.get(row.workerId);
     const isOpen = openId === row.workerId;
-
-    if (worker === undefined) return null;
 
     return (
       <Row
         key={row.workerId}
         title={rowTitle(row)}
-        value={row.owed < 0 ? `${owedLine(row.owed).label} ${owedLine(row.owed).amount}` : formatMoney(row.owed)}
+        value={monthLine(row)}
         action={
           // An open row has its own pay buttons under the statement.
           !isOpen && canPayInMonth(month, currentMonthInTashkent()) ? (
@@ -867,7 +900,34 @@ const Payroll = () => {
         isOpen={isOpen}
         onToggle={() => showRow(isOpen ? null : row.workerId)}
       >
-        {isOpen ? renderOpenRow(row, worker) : null}
+        {isOpen ? renderMonth(row) : null}
+      </Row>
+    );
+  };
+
+  const renderTeamRow = (groupKey: string, worker: PayrollScreenWorker) => {
+    const isOpen = openId === worker.id;
+    const gaps = teamGaps({
+      categories: worker.categories,
+      rules: cardRulesOf(worker.id),
+      masterCells: masterCellsOf(worker.id),
+      hasLogin: worker.loginId !== null,
+    });
+
+    return (
+      <Row
+        key={`${groupKey}:${worker.id}`}
+        title={`${worker.name || 'Без имени'}${worker.isActive ? '' : ' · не работает'}`}
+        value={payLine({
+          categories: worker.categories,
+          rules: cardRulesOf(worker.id),
+          masterCells: masterCellsOf(worker.id),
+        })}
+        pill={gaps.length > 0 ? gaps.map((gap) => <StatePill key={gap} tone="warning" text={gap} />) : undefined}
+        isOpen={isOpen}
+        onToggle={() => showRow(isOpen ? null : worker.id)}
+      >
+        {isOpen ? renderCard(worker) : null}
       </Row>
     );
   };
@@ -899,7 +959,7 @@ const Payroll = () => {
           />
         </Field>
         <Wrap>
-          <span>Кто:</span>
+          <span>Работа:</span>
           {WORKER_CATEGORY_OPTIONS.map((option) => (
             <Checkbox
               key={option.value}
@@ -911,6 +971,20 @@ const Payroll = () => {
             />
           ))}
         </Wrap>
+        {newWorker.categories.includes('MASTER') ? (
+          <Field label="Ставки мастера для начала">
+            <SelectInput
+              label="Ставки мастера для начала"
+              value={newWorker.copyFrom}
+              options={[
+                { value: '', label: 'Обычные' },
+                ...rateMasters.map((master) => ({ value: master.id, label: `Как у ${master.name}` })),
+              ]}
+              onChange={(copyFrom) => setNewWorker({ ...newWorker, copyFrom })}
+            />
+          </Field>
+        ) : null}
+        <Hint text="Как платим и логин задаются в карточке работника после сохранения. Мастеру цеха платят по «Ставкам цеха»." />
         <Wrap>
           <Button
             variant="primary"
@@ -930,7 +1004,8 @@ const Payroll = () => {
 
   const screenTabs = (
     <>
-      <TabStrip value={screenTab} options={SCREEN_TABS} onChange={setScreenTab} />
+      <Hint text={ONE_PLACE} />
+      <TabStrip value={screenTab} options={SCREEN_TABS} onChange={showScreenTab} />
       <div style={{ height: SPACE.lg }} />
     </>
   );
@@ -951,15 +1026,6 @@ const Payroll = () => {
     );
   }
 
-  if (rows.length === 0 && panel !== 'worker') {
-    return (
-      <Screen title="ЗП" action={switcher}>
-        {screenTabs}
-        <EmptyState text={EMPTY_TEXT} actionText="Добавить работника" onAction={() => setPanel('worker')} />
-      </Screen>
-    );
-  }
-
   const failureNotes = Object.entries(failures).map(([key, failure]) =>
     // Trying again cannot help a role that may not write here.
     failure.isDenied ? (
@@ -968,6 +1034,46 @@ const Payroll = () => {
       <ErrorNote key={key} text={SAVE_FAILED} onRetry={failure.retry} />
     ),
   );
+
+  if (screenTab === 'team') {
+    if (workers.length === 0 && panel !== 'worker') {
+      return (
+        <Screen title="ЗП" action={switcher}>
+          {screenTabs}
+          <EmptyState text={EMPTY_TEXT} actionText="Добавить работника" onAction={() => setPanel('worker')} />
+        </Screen>
+      );
+    }
+
+    return (
+      <Screen title="ЗП" action={switcher}>
+        {screenTabs}
+        {failureNotes.length > 0 ? <StaticRow>{failureNotes}</StaticRow> : null}
+        {groupTeam(workers).map((group) => (
+          <Section key={group.key} title={group.title}>
+            {group.workers.map((worker) => renderTeamRow(group.key, worker))}
+          </Section>
+        ))}
+        <Section
+          title="Новый работник"
+          footer={
+            panel === 'worker' ? undefined : (
+              <Wrap>
+                <Button variant="primary" onClick={() => setPanel('worker')}>
+                  + Добавить работника
+                </Button>
+                <Link href="/objects/masters">
+                  Все работники <span aria-hidden>›</span>
+                </Link>
+              </Wrap>
+            )
+          }
+        >
+          {panel === 'worker' ? renderNewWorker() : null}
+        </Section>
+      </Screen>
+    );
+  }
 
   return (
     <Screen title="ЗП" action={switcher}>
@@ -979,21 +1085,15 @@ const Payroll = () => {
           <Hint text={totalsSentence(totals)} />
         </StaticRow>
       </Section>
-      <Section
-        title="Работники"
-        footer={
-          <Wrap>
-            <Button onClick={() => setPanel('worker')}>+ Добавить работника</Button>
-            <Link href="/objects/masters">
-              Все работники <span aria-hidden>›</span>
-            </Link>
-          </Wrap>
-        }
-      >
+      <Section title={`${formatMonthLabel(month)}: кому сколько`}>
         {/* Above the list, so a save that failed in a row closed since is still seen. */}
         {failureNotes.length > 0 ? <StaticRow>{failureNotes}</StaticRow> : null}
         {rows.map(renderRow)}
-        {panel === 'worker' ? renderNewWorker() : null}
+        {rows.length === 0 ? (
+          <StaticRow>
+            <Hint text="Пока никого нет. Работников добавляют во вкладке «Команда»." />
+          </StaticRow>
+        ) : null}
         {skipped === null ? null : (
           <StaticRow>
             <Hint tone="warning" text={skipped} />

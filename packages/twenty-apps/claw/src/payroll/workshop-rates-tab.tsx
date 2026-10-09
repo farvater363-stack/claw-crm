@@ -1,18 +1,16 @@
 import { useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { type WorkerCategory } from 'src/constants/select-options';
 import { type PayrollScreenWorker } from 'src/payroll/load-payroll-data';
 import { type SquareMeterSummaryRow } from 'src/payroll/payroll-screen';
 // Type only, as a whole statement: that module imports node:crypto, which must not reach a front component's bundle.
 import type { AccrualLine } from 'src/payroll/plan-order-accruals';
-import { rowKeyOf, type WorkshopCatalog, type WorkshopRate } from 'src/payroll/workshop-pay';
+import { type WorkshopCatalog } from 'src/payroll/workshop-pay';
 import {
   type RateWrite,
   removeWorkshopRate,
   saveWorkshopRate,
   saveWorkshopRates,
-  setWorkerCategories,
 } from 'src/payroll/workshop-rates-data';
 import {
   buildRateRows,
@@ -58,8 +56,7 @@ type SheetState =
   | { kind: 'cell'; rowKey: string; masterId: string; isOwn: boolean; value: string }
   | { kind: 'raise'; value: string; raiseOwn: boolean }
   | { kind: 'bulk'; column: string; value: string }
-  | { kind: 'copy'; from: string; to: string }
-  | { kind: 'master'; workerId: string; copyFrom: string };
+  | { kind: 'copy'; from: string; to: string };
 
 const SAVE_FAILED = 'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
 const NO_ACCESS = 'Доступно только владельцу';
@@ -137,7 +134,6 @@ export const WorkshopRatesTab = ({
   // The ticked grilles, by row key. Nothing ticked means the whole table.
   const [ticked, setTicked] = useState<string[]>([]);
   const isSavingRef = useRef(false);
-  const copyIds = useRef(new Map<string, string>());
 
   const masters: RateMaster[] = workers
     .filter((worker) => worker.isActive && worker.categories.includes('MASTER'))
@@ -183,9 +179,6 @@ export const WorkshopRatesTab = ({
       setIsSaving(false);
     }
   };
-
-  const nameOf = (record: WorkshopRate, workerName: string | null) =>
-    rateRecordName({ label: rowByKey.get(rowKeyOf(record))?.label ?? '' }, workerName);
 
   const recordOf = (row: RateRow, workerId: string | null, rate: number, id: string) => ({
     id,
@@ -311,38 +304,6 @@ export const WorkshopRatesTab = ({
     const writes = toWrites(planRaise(targetRows, parsed.value, raiseOwn));
 
     void run(() => saveWorkshopRates(new CoreApiClient(), writes));
-  };
-
-  const saveMaster = (workerId: string, copyFrom: string) => {
-    const worker = workers.find((entry) => entry.id === workerId);
-
-    if (worker === undefined) {
-      setError('Выберите работника');
-
-      return;
-    }
-
-    setError(null);
-    const copied = copyFrom === USUAL ? [] : catalog.rates.filter((record) => record.workerId === copyFrom);
-    const categories: WorkerCategory[] = [...worker.categories, 'MASTER'];
-
-    void run(async () => {
-      for (const record of copied) {
-        const key = `${workerId}:${record.id}`;
-        // One id per copied cell for as long as the screen is open, so a retry overwrites the same copies.
-        const id = copyIds.current.get(key) ?? randomUuid();
-
-        copyIds.current.set(key, id);
-        await saveWorkshopRate(new CoreApiClient(), {
-          ...record,
-          id,
-          name: nameOf(record, worker.name),
-          workerId,
-        });
-      }
-
-      await setWorkerCategories(new CoreApiClient(), workerId, categories);
-    });
   };
 
   const failureNote =
@@ -570,51 +531,6 @@ export const WorkshopRatesTab = ({
       );
     }
 
-    if (sheet.kind === 'master') {
-      const candidates = workers
-        .filter((worker) => worker.isActive && !worker.categories.includes('MASTER'))
-        .map((worker) => ({ value: worker.id, label: worker.name || 'Без имени' }));
-
-      return (
-        <Sheet
-          title="Мастер в таблицу"
-          isBusy={isSaving}
-          onClose={closeSheet}
-          footer={footer(
-            'Добавить',
-            () => saveMaster(sheet.workerId, sheet.copyFrom),
-            'Работник станет мастером цеха. Потом можно поменять отдельные клетки.',
-          )}
-        >
-          {candidates.length === 0 ? (
-            <Hint text="Все работники уже в таблице. Нового работника добавьте во вкладке «Работники» и отметьте «Цех»." />
-          ) : (
-            <>
-              <Field label="Работник" error={error}>
-                <SelectInput
-                  label="Работник"
-                  value={sheet.workerId}
-                  options={[{ value: '', label: 'Выберите работника' }, ...candidates]}
-                  onChange={(workerId) => setSheet({ ...sheet, workerId })}
-                />
-              </Field>
-              <Field label="Ставки">
-                <SelectInput
-                  label="Ставки"
-                  value={sheet.copyFrom}
-                  options={[
-                    { value: USUAL, label: 'Как обычно' },
-                    ...masters.map((master) => ({ value: master.id, label: `Как у ${master.name}` })),
-                  ]}
-                  onChange={(copyFrom) => setSheet({ ...sheet, copyFrom })}
-                />
-              </Field>
-            </>
-          )}
-        </Sheet>
-      );
-    }
-
     return null;
   };
 
@@ -665,7 +581,6 @@ export const WorkshopRatesTab = ({
             </Button>
             <Button onClick={() => openSheet({ kind: 'copy', from: '', to: '' })}>Скопировать мастера</Button>
             <Button onClick={() => openSheet({ kind: 'raise', value: '', raiseOwn: true })}>Поднять на %</Button>
-            <Button onClick={() => openSheet({ kind: 'master', workerId: '', copyFrom: USUAL })}>+ Мастер</Button>
           </Wrap>
         }
         footer={
@@ -780,7 +695,7 @@ export const WorkshopRatesTab = ({
         </div>
         {masters.length === 0 ? (
           <StaticRow>
-            <Hint text="Мастеров цеха пока нет: отметьте «Цех» у работника или нажмите «+ Мастер»." />
+            <Hint text="Мастеров цеха пока нет. Добавьте работника в «Команде» и отметьте ему работу «Мастер»: у него появится столбец." />
           </StaticRow>
         ) : null}
       </Panel>
@@ -799,7 +714,7 @@ export const WorkshopRatesTab = ({
           </StaticRow>
         </Panel>
       ) : null}
-      <Hint text="Цеху платят за м² каждого проёма по ставке его решётки у этого мастера. Пока у решётки нет ставки, мастеру платят по его старой ставке за м² из «Условий»." />
+      <Hint text="Цеху платят за м² каждого проёма по ставке его решётки у этого мастера. Ставка действует для заказов, установленных со дня, когда её сохранили: уже начисленное не меняется. Столбцы таблицы и есть мастера цеха: их добавляют в «Команде»." />
       {renderSheet()}
     </>
   );

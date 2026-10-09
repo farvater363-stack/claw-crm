@@ -9,6 +9,7 @@ import {
 import { parseDecimalInput } from 'src/measurer-form/measurer-form';
 import { type PayrollPayment, type PayrollRow } from 'src/payroll/compute-monthly-payroll';
 import {
+  describePayRule,
   isAllowedPayRulePair,
   PAY_METHOD_UNIT,
   type PayRule,
@@ -367,3 +368,89 @@ export const partLabel = (part: string | null, catalog: WorkshopCatalog): string
 
   return 'За м²';
 };
+
+// «Команда» groups people by what they do; one with two kinds of work is in both.
+export const TEAM_GROUPS: { key: string; title: string; roles: WorkerCategory[] }[] = [
+  { key: 'workshop', title: 'Цех', roles: ['MASTER'] },
+  { key: 'field', title: 'Установка и замер', roles: ['INSTALLER', 'MEASURER'] },
+  { key: 'office', title: 'Офис', roles: ['SALES'] },
+];
+
+export const groupTeam = <TWorker extends { name: string | null; categories: WorkerCategory[] }>(
+  workers: TWorker[],
+): { key: string; title: string; workers: TWorker[] }[] => {
+  const byName = (left: TWorker, right: TWorker) => (left.name ?? '').localeCompare(right.name ?? '', 'ru');
+
+  return [
+    ...TEAM_GROUPS.map(({ key, title, roles }) => ({
+      key,
+      title,
+      workers: workers.filter((worker) => worker.categories.some((category) => roles.includes(category))).sort(byName),
+    })),
+    {
+      key: 'none',
+      title: 'Работа не указана',
+      workers: workers.filter((worker) => worker.categories.length === 0).sort(byName),
+    },
+  ].filter((group) => group.workers.length > 0);
+};
+
+// A master's rate per m² is set in «Ставки цеха» and nowhere else: his card neither shows nor offers such a rule.
+export const isWorkshopRateRule = ({ method, work }: Pick<PayRule, 'method' | 'work'>): boolean =>
+  method === 'PER_SQUARE_METER' && work === 'MASTER';
+
+export const cardPayWorksOf = (method: PayMethod): (PayWork | null)[] =>
+  payWorksOf(method).filter((work) => !isWorkshopRateRule({ method, work }));
+
+// How many grilles pay this master something, by his own rate or the usual one.
+export const masterRatesText = (cells: { rate: number | null }[]): string =>
+  `по ставкам цеха · ${cells.filter((cell) => cell.rate !== null).length} из ${cells.length} решёток со ставкой`;
+
+// What a card says on its right: how this person is paid, in words.
+export const payLine = ({
+  categories,
+  rules,
+  masterCells,
+}: {
+  categories: WorkerCategory[];
+  rules: PayRule[];
+  masterCells: { rate: number | null }[];
+}): string =>
+  [
+    ...(categories.includes('MASTER') ? [masterRatesText(masterCells)] : []),
+    ...rules.filter((rule) => !isWorkshopRateRule(rule)).map(describePayRule),
+  ].join(' · ');
+
+// What still has to be set up before this person can be paid right.
+export const teamGaps = ({
+  categories,
+  rules,
+  masterCells,
+  hasLogin,
+}: {
+  categories: WorkerCategory[];
+  rules: PayRule[];
+  masterCells: { rate: number | null }[];
+  hasLogin: boolean;
+}): string[] => {
+  const unpaid = masterCells.filter((cell) => cell.rate === null).length;
+  const others = categories.filter((category) => category !== 'MASTER');
+  const hasRule = rules.some((rule) => !isWorkshopRateRule(rule));
+
+  return [
+    ...(categories.includes('MASTER') && unpaid > 0 ? [`решёток без ставки: ${unpaid}`] : []),
+    ...(others.length > 0 && !hasRule ? ['не указано, как платим'] : []),
+    // A measurer's замеры are counted by the login they were made under.
+    ...(categories.includes('MEASURER') && !hasLogin ? ['нет логина'] : []),
+  ];
+};
+
+// «начислено X · выплачено Y · к выплате Z», or that nothing is owed.
+export const monthLine = ({ earned, paidThisMonth, owed }: Pick<PayrollRow, 'earned' | 'paidThisMonth' | 'owed'>): string =>
+  owed === 0 && earned === 0 && paidThisMonth === 0
+    ? 'в этом месяце ничего'
+    : [
+        `начислено ${formatWhole(earned)}`,
+        `выплачено ${formatWhole(paidThisMonth)}`,
+        owed === 0 ? 'расчёт полный' : `${owedLine(owed).label.toLowerCase()} ${owedLine(owed).amount}`,
+      ].join(' · ');
