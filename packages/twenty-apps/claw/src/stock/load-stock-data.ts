@@ -21,6 +21,10 @@ export type StockData = {
   // Purchase prices are the owner's: other roles get no price field
   canSeePrice: boolean;
   prices: StockPrices;
+  // Grilles and services by material id, by name
+  usedIn: Record<string, string[]>;
+  // Deleted materials, so the history of what they were still reads by name
+  removedMaterials: StockMaterial[];
 };
 
 // Twenty caps a page at 200 records.
@@ -69,55 +73,110 @@ export const loadStockData = async (
   // between two reads, so one that may not read prices is not asked again
   knownCanSeePrice?: boolean,
 ): Promise<StockData> => {
-  const [materialNodes, lineNodes, prices] = await Promise.all([
-    fetchAllPages(async (after) => {
-      const { materials } = await client.query({
-        materials: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              name: true,
-              unit: true,
-              minimumStock: true,
-              onHand: true,
-              reserved: true,
-              toBuy: true,
-              stockState: true,
-              overrunPercent: true,
+  const [materialNodes, lineNodes, prices, normNodes, removedNodes] =
+    await Promise.all([
+      fetchAllPages(async (after) => {
+        const { materials } = await client.query({
+          materials: {
+            __args: { first: PAGE_SIZE, after },
+            edges: {
+              node: {
+                id: true,
+                name: true,
+                unit: true,
+                minimumStock: true,
+                onHand: true,
+                reserved: true,
+                toBuy: true,
+                stockState: true,
+                overrunPercent: true,
+              },
             },
+            pageInfo: PAGE_INFO,
           },
-          pageInfo: PAGE_INFO,
-        },
-      });
+        });
 
-      return materials;
-    }),
-    fetchAllPages(async (after) => {
-      const { orderMaterials } = await client.query({
-        orderMaterials: {
-          __args: {
-            first: PAGE_SIZE,
-            after,
-            filter: { writtenOffQuantity: { is: 'NULL' } },
-          },
-          edges: {
-            node: {
-              id: true,
-              materialId: true,
-              plannedQuantity: true,
-              writtenOffQuantity: true,
-              order: { id: true, name: true, status: true },
+        return materials;
+      }),
+      fetchAllPages(async (after) => {
+        const { orderMaterials } = await client.query({
+          orderMaterials: {
+            __args: {
+              first: PAGE_SIZE,
+              after,
+              filter: { writtenOffQuantity: { is: 'NULL' } },
             },
+            edges: {
+              node: {
+                id: true,
+                materialId: true,
+                plannedQuantity: true,
+                writtenOffQuantity: true,
+                order: { id: true, name: true, status: true },
+              },
+            },
+            pageInfo: PAGE_INFO,
           },
-          pageInfo: PAGE_INFO,
-        },
-      });
+        });
 
-      return orderMaterials;
-    }),
-    knownCanSeePrice === false ? null : loadPurchasePrices(client),
-  ]);
+        return orderMaterials;
+      }),
+      knownCanSeePrice === false ? null : loadPurchasePrices(client),
+      fetchAllPages(async (after) => {
+        const { materialNorms } = await client.query({
+          materialNorms: {
+            __args: {
+              first: PAGE_SIZE,
+              after,
+              filter: { materialId: { is: 'NOT_NULL' } },
+            },
+            edges: {
+              node: {
+                id: true,
+                materialId: true,
+                design: { name: true },
+                extraService: { name: true },
+              },
+            },
+            pageInfo: PAGE_INFO,
+          },
+        });
+
+        return materialNorms;
+      }),
+      fetchAllPages(async (after) => {
+        const { materials } = await client.query({
+          materials: {
+            __args: {
+              first: PAGE_SIZE,
+              after,
+              filter: { deletedAt: { is: 'NOT_NULL' } },
+            },
+            edges: { node: { id: true, name: true, unit: true } },
+            pageInfo: PAGE_INFO,
+          },
+        });
+
+        return materials;
+      }),
+    ]);
+  const usedIn: Record<string, string[]> = {};
+
+  for (const norm of normNodes) {
+    const name = norm.design?.name || norm.extraService?.name;
+
+    if (!norm.materialId || !name) continue;
+
+    const names = (usedIn[norm.materialId] ??= []);
+
+    if (!names.includes(name)) names.push(name);
+  }
+
+  for (const names of Object.values(usedIn)) {
+    names.sort((left, right) =>
+      left.localeCompare(right, 'ru', { numeric: true }),
+    );
+  }
 
   return {
     materials: materialNodes.map((node) => ({
@@ -154,7 +213,37 @@ export const loadStockData = async (
       ),
     canSeePrice: prices !== null,
     prices: prices ?? {},
+    usedIn,
+    removedMaterials: removedNodes.map((node) => ({
+      id: node.id,
+      name: node.name ?? null,
+      unitLabel: materialUnitLabel(node.unit),
+      onHand: null,
+      reserved: null,
+      toBuy: null,
+      minimumStock: null,
+      stockState: null,
+      overrunPercent: null,
+    })),
   };
+};
+
+export const deleteMaterial = async (
+  client: CoreApiClient,
+  materialId: string,
+): Promise<void> => {
+  await client.mutation({
+    deleteMaterial: { __args: { id: materialId }, id: true },
+  });
+};
+
+export const restoreMaterial = async (
+  client: CoreApiClient,
+  materialId: string,
+): Promise<void> => {
+  await client.mutation({
+    restoreMaterial: { __args: { id: materialId }, id: true },
+  });
 };
 
 // No name is sent: the stock recalc writes the movement's name itself.

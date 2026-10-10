@@ -20,7 +20,9 @@ import {
 import {
   createMaterial,
   createStockMovement,
+  deleteMaterial,
   loadStockData,
+  restoreMaterial,
   type StockData,
   updateMinimumStock,
 } from 'src/stock/load-stock-data';
@@ -44,6 +46,7 @@ import {
   buildRecount,
   buildStockRows,
   type BuyList,
+  materialRemovalNotes,
   parseMinimumStock,
   recountSummary,
   type StockRow,
@@ -85,6 +88,7 @@ import {
   Field,
   Hint,
   InfoCards,
+  InlineConfirm,
   LevelBar,
   Link,
   Panel,
@@ -97,6 +101,7 @@ import {
   TabStrip,
   Tabs,
   TextInput,
+  UndoBar,
   Wrap,
 } from 'src/ui/kit';
 import { SPACE } from 'src/ui/tokens';
@@ -137,6 +142,7 @@ const SAVED_TICK_MS = 2_000;
 // that is usually done, and once more for a slow run.
 const SETTLE_REFETCH_MS = [2_000, 6_000];
 const HISTORY_LINES = 5;
+const UNDO_MS = 10_000;
 const UNNAMED = 'Без названия';
 const SAVE_FAILED =
   'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
@@ -217,6 +223,8 @@ const Stock = () => {
   const [errors, setErrors] = useState<Errors>({});
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [copyNote, setCopyNote] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [removedId, setRemovedId] = useState<string | null>(null);
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
   const [failures, setFailures] = useState<
     Record<string, { isDenied: boolean; retry: () => void }>
@@ -443,6 +451,8 @@ const Stock = () => {
   const materialsByName = [...shownMaterials].sort((left, right) =>
     (left.name ?? '').localeCompare(right.name ?? '', 'ru', { numeric: true }),
   );
+  // Deleted materials still name the purchases and write-offs they were in.
+  const historyMaterials = [...shownMaterials, ...data.removedMaterials];
   const onHandById = new Map(
     shownMaterials.map((material) => [material.id, material.onHand ?? 0]),
   );
@@ -466,10 +476,10 @@ const Stock = () => {
   const totalDebt = debts.reduce((sum, supplier) => sum + supplier.debt, 0);
   const today = todayInTashkent();
   const unitOf = (materialId: string) =>
-    shownMaterials.find((material) => material.id === materialId)?.unitLabel ??
-    '';
+    historyMaterials.find((material) => material.id === materialId)
+      ?.unitLabel ?? '';
   const nameOf = (materialId: string) =>
-    shownMaterials.find((material) => material.id === materialId)?.name ||
+    historyMaterials.find((material) => material.id === materialId)?.name ||
     UNNAMED;
 
   const closeSheet = () => {
@@ -878,6 +888,35 @@ const Stock = () => {
     ].join(', ');
   };
 
+  // The question closes as soon as it is answered: if the delete is refused,
+  // the row is back as it was, with the failure note under it.
+  const removeMaterial = (row: StockRow) => {
+    setConfirmRemoveId(null);
+    void run(`${row.id}:remove`, async () => {
+      await deleteMaterial(new CoreApiClient(), row.id);
+      setOpenId(null);
+      setRemovedId(row.id);
+      later(
+        () => setRemovedId((current) => (current === row.id ? null : current)),
+        UNDO_MS,
+      );
+
+      const next = await readList();
+
+      if (next !== null) setLoad(next);
+    });
+  };
+
+  const restoreRemoved = (materialId: string) =>
+    void run('undo', async () => {
+      await restoreMaterial(new CoreApiClient(), materialId);
+      setRemovedId(null);
+
+      const next = await readList();
+
+      if (next !== null) setLoad(next);
+    });
+
   const renderOpenRow = (row: StockRow) => {
     const minimumKey = `${row.id}:minimumStock`;
     const history = valued
@@ -959,6 +998,28 @@ const Stock = () => {
             )}
           />
         ))}
+        {confirmRemoveId === row.id ? (
+          <>
+            {materialRemovalNotes(row, data.usedIn[row.id] ?? []).map(
+              (note) => (
+                <Hint key={note} tone="warning" text={note} />
+              ),
+            )}
+            <InlineConfirm
+              question={`Удалить "${row.name || UNNAMED}"?`}
+              confirmText="Удалить"
+              cancelText="Оставить"
+              onConfirm={() => removeMaterial(row)}
+              onCancel={() => setConfirmRemoveId(null)}
+            />
+          </>
+        ) : (
+          <Wrap>
+            <Button variant="link" onClick={() => setConfirmRemoveId(row.id)}>
+              Удалить материал
+            </Button>
+          </Wrap>
+        )}
       </>
     );
   };
@@ -994,6 +1055,7 @@ const Stock = () => {
         {/* Outside the row, so a save that fails after the row was closed is
             still seen. */}
         {failureNote(`${row.id}:minimumStock`)}
+        {failureNote(`${row.id}:remove`)}
       </Fragment>
     );
   };
@@ -1104,6 +1166,7 @@ const Stock = () => {
               <>
                 {renderOpenRow(row)}
                 {failureNote(`${row.id}:minimumStock`)}
+                {failureNote(`${row.id}:remove`)}
               </>
             )}
           />
@@ -1152,7 +1215,7 @@ const Stock = () => {
             const isOpen = openId === purchase.id;
             const linesText = purchaseLinesText(
               purchase,
-              shownMaterials,
+              historyMaterials,
               formatWhole,
             );
 
@@ -1255,7 +1318,7 @@ const Stock = () => {
       valued,
       month,
       filter: outFilter,
-      materials: shownMaterials,
+      materials: historyMaterials,
       orderNames: books.orderNames,
     });
     const total = entries.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
@@ -1620,6 +1683,13 @@ const Stock = () => {
         {tab === 'out' ? renderOutTab() : null}
         {tab === 'report' ? renderReportTab() : null}
       </div>
+      {failureNote('undo')}
+      {removedId !== null ? (
+        <UndoBar
+          text={`Удалено: ${nameOf(removedId)}`}
+          onUndo={() => restoreRemoved(removedId)}
+        />
+      ) : null}
       {renderSheet()}
     </Screen>
   );

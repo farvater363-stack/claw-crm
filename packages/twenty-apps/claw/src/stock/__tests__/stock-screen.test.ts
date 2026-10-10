@@ -4,6 +4,7 @@ import {
   buildBuyList,
   buildRecount,
   buildStockRows,
+  materialRemovalNotes,
   parseMinimumStock,
   parseStockAmount,
   recountSummary,
@@ -282,5 +283,38 @@ describe('the buy list', () => {
 
     expect(row.level).toBeCloseTo(40 / 146);
     expect(plain(row.needText)).toBe('нужно 96 м + запас 50 м');
+  });
+});
+
+describe('materialRemovalNotes', () => {
+  const need = (orderName: string) => ({
+    materialId: 'material-1',
+    orderId: orderName,
+    orderName,
+    quantity: 2,
+  });
+
+  it('says what is still on the shelf, where it is used and which orders lose their reserve', () => {
+    expect(
+      materialRemovalNotes(
+        {
+          onHand: 12,
+          onHandText: '12 м',
+          needs: [need('№1012'), need('№1010'), need('№1012')],
+        },
+        ['М-03', 'М-04'],
+      ),
+    ).toEqual([
+      'На складе ещё 12 м.',
+      'Уберётся из состава: М-03, М-04.',
+      'Снимется резерв на заказы: №1012, №1010.',
+      'История приходов и расходов останется.',
+    ]);
+  });
+
+  it('only promises the history for an unused, empty material', () => {
+    expect(
+      materialRemovalNotes({ onHand: 0, onHandText: '0 м', needs: [] }, []),
+    ).toEqual(['История приходов и расходов останется.']);
   });
 });

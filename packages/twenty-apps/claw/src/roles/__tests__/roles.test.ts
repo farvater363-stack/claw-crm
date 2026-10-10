@@ -402,6 +402,7 @@ describe('functions role', () => {
         .sort(),
     ).toEqual(
       [
+        IDS.material.object,
         IDS.orderMaterial.object,
         IDS.stockMovement.object,
         IDS.design.object,

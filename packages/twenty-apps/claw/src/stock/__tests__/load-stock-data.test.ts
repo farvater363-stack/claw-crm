@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 import {
   createMaterial,
   createStockMovement,
+  deleteMaterial,
   loadStockData,
+  restoreMaterial,
   updateMinimumStock,
 } from 'src/stock/load-stock-data';
 
@@ -40,6 +42,8 @@ const fakeClient = ({
   materials = [MATERIAL] as Record<string, unknown>[],
   lines = [] as Record<string, unknown>[],
   movements = [] as Record<string, unknown>[],
+  norms = [] as Record<string, unknown>[],
+  removed = [] as Record<string, unknown>[],
   priceError = null as Error | null,
 } = {}) => {
   const queries: Request[] = [];
@@ -52,8 +56,13 @@ const fakeClient = ({
 
       if (node && 'lastPurchasePrice' in node && priceError) throw priceError;
 
+      const isRemovedQuery = JSON.stringify(
+        request.materials?.__args ?? {},
+      ).includes('deletedAt');
+
       return {
-        materials: page(materials),
+        materials: page(isRemovedQuery ? removed : materials),
+        materialNorms: page(norms),
         orderMaterials: page(lines),
         stockMovements: page(movements),
       };
@@ -112,6 +121,53 @@ describe('loadStockData', () => {
     expect(
       queries.find((request) => request.orderMaterials)?.orderMaterials.__args,
     ).toMatchObject({ filter: { writtenOffQuantity: { is: 'NULL' } } });
+  });
+
+  it('lists the grilles and services each material is in, once each and by name', async () => {
+    const { client } = fakeClient({
+      norms: [
+        { id: 'n1', materialId: 'material-1', design: { name: 'М-04' } },
+        { id: 'n2', materialId: 'material-1', design: { name: 'М-03' } },
+        {
+          id: 'n3',
+          materialId: 'material-1',
+          design: null,
+          extraService: { name: 'Козырёк' },
+        },
+        { id: 'n4', materialId: 'material-1', design: { name: 'М-03' } },
+        { id: 'n5', materialId: null, design: { name: 'М-05' } },
+        {
+          id: 'n6',
+          materialId: 'material-2',
+          design: null,
+          extraService: null,
+        },
+      ],
+    });
+
+    expect((await loadStockData(client)).usedIn).toEqual({
+      'material-1': ['Козырёк', 'М-03', 'М-04'],
+    });
+  });
+
+  it('keeps the names of deleted materials for their history', async () => {
+    const { client } = fakeClient({
+      removed: [{ id: 'old', name: 'Старый прут', unit: 'METER' }],
+    });
+
+    expect((await loadStockData(client)).removedMaterials).toEqual([
+      {
+        id: 'old',
+        name: 'Старый прут',
+        unitLabel: 'м',
+        onHand: null,
+        reserved: null,
+        toBuy: null,
+        minimumStock: null,
+        stockState: null,
+        overrunPercent: null,
+      },
+    ]);
   });
 
   it('shows the price field only to a role that may read purchase prices', async () => {
@@ -227,6 +283,20 @@ describe('stock writes', () => {
           id: true,
         },
       },
+    ]);
+  });
+});
+
+describe('deleting a material', () => {
+  it('sends it to the deleted records and brings it back', async () => {
+    const { client, mutations } = fakeClient();
+
+    await deleteMaterial(client, 'material-1');
+    await restoreMaterial(client, 'material-1');
+
+    expect(mutations).toEqual([
+      { deleteMaterial: { __args: { id: 'material-1' }, id: true } },
+      { restoreMaterial: { __args: { id: 'material-1' }, id: true } },
     ]);
   });
 });
