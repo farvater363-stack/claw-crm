@@ -603,6 +603,8 @@ export const IDS = {
     onOrderMaterialUpdated: '63431278-566e-4865-88b5-814ecb297ed8', // Retired: orders no longer record actual consumption; ids are never reused.
     onMaterialNormDeleted: 'd220b223-1581-4478-b54a-0099b19f40a8',
     onMaterialNormRestored: '46abf261-a045-4da5-b22c-d595256f9970',
+    onMaterialDeleted: '99819fa6-3880-442f-9b7b-01eb469e2ed8',
+    onMaterialRestored: '11133911-f358-4ef6-8957-f6a01badf7e2',
     onOrderPaymentCreated: '580c9cde-52b6-4c18-b3e9-e96d5c836a00',
     onOrderPaymentUpdated: '8f043aec-8eb8-4e99-aeca-0268cb5355c2',
     onOrderPaymentDeleted: '29234af7-da1a-45ea-9962-d0e00f746ca3',

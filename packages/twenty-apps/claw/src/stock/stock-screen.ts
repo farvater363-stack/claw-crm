@@ -267,3 +267,21 @@ export const parseMinimumStock = (
   raw: string,
 ): { ok: true; value: number } | { ok: false; error: string } =>
   raw.trim() === '' ? { ok: true, value: 0 } : parseStockAmount(raw);
+
+// What deleting a material takes with it, said before it is deleted. The
+// history stays: past purchases and write-offs keep their amounts and money.
+export const materialRemovalNotes = (
+  row: Pick<StockRow, 'onHand' | 'onHandText' | 'needs'>,
+  usedIn: string[],
+): string[] => [
+  ...(row.onHand > 0 ? [`На складе ещё ${row.onHandText}.`] : []),
+  ...(usedIn.length > 0 ? [`Уберётся из состава: ${usedIn.join(', ')}.`] : []),
+  ...(row.needs.length > 0
+    ? [
+        `Снимется резерв на заказы: ${[
+          ...new Set(row.needs.map((need) => need.orderName)),
+        ].join(', ')}.`,
+      ]
+    : []),
+  'История приходов и расходов останется.',
+];
