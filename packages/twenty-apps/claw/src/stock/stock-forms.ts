@@ -5,14 +5,21 @@ import {
   type PurchaseLineEntry,
   type StockOutEntry,
 } from 'src/stock/load-stock-books';
-import { type ManualOutKind } from 'src/stock/stock-ledger';
-import { formatDayMonth, formatMoney } from 'src/ui/format';
+import {
+  isManualOut,
+  type LedgerMovement,
+  type ManualOutKind,
+  type PurchaseRecord,
+} from 'src/stock/stock-ledger';
+import { formatDayMonth, formatMoney, formatWhole } from 'src/ui/format';
 
 const QUANTITY_DECIMALS = 2;
 export const NEW_SUPPLIER = 'new';
 
 export type PurchaseLineDraft = {
   key: string;
+  // The stored line a changed purchase keeps; none for a line added now
+  movementId?: string;
   materialId: string;
   quantity: string;
   price: string;
@@ -107,6 +114,9 @@ export const buildPurchaseEntry = (
         materialId: line.materialId,
         quantity: quantity.value,
         unitPrice: price.value,
+        ...(line.movementId === undefined
+          ? {}
+          : { movementId: line.movementId }),
       });
     }
   }
@@ -273,3 +283,49 @@ export const buildDebtPayment = (
     },
   };
 };
+
+const typedQuantity = (value: number) => String(value).replace('.', ',');
+
+// A stored purchase as its form: payment is not part of it, a payment made
+// or a debt paid is changed in «Деньги».
+export const purchaseEditDraft = (
+  purchase: PurchaseRecord,
+  movements: LedgerMovement[],
+  newLineKey: () => string,
+): PurchaseDraft => ({
+  supplierId: purchase.supplierId ?? '',
+  newSupplierName: '',
+  date: purchase.date ?? purchase.createdAt.slice(0, 10),
+  lines: movements
+    .filter(
+      (movement) =>
+        movement.purchaseId === purchase.id && movement.kind === 'RECEIPT',
+    )
+    .map((movement) => ({
+      key: newLineKey(),
+      movementId: movement.id,
+      materialId: movement.materialId ?? '',
+      quantity: typedQuantity(movement.quantity ?? 0),
+      price: movement.unitPrice === null ? '' : formatWhole(movement.unitPrice),
+    })),
+  payment: 'DEBT',
+  paidAmount: '',
+  wallet: 'CASH',
+  comment: purchase.comment ?? '',
+});
+
+// Null for a movement this form does not write: a write-off by the
+// composition, a recount or a purchase line.
+export const stockOutEditDraft = (
+  movement: LedgerMovement,
+): StockOutDraft | null =>
+  isManualOut(movement.kind) && movement.materialId !== null
+    ? {
+        kind: movement.kind,
+        orderId: movement.orderId ?? '',
+        materialId: movement.materialId,
+        quantity: typedQuantity(-(movement.quantity ?? 0)),
+        date: movement.date ?? movement.createdAt.slice(0, 10),
+        comment: movement.comment ?? '',
+      }
+    : null;

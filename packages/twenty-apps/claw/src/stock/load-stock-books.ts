@@ -247,6 +247,8 @@ export const createPurchase = async (
 };
 
 export type PurchaseLineEntry = {
+  // The stored line a changed purchase keeps
+  movementId?: string;
   materialId: string;
   quantity: number;
   // Null for a role that may not write prices; the field is then not sent
@@ -367,5 +369,120 @@ export const attachInvoicePhotos = async (
       __args: { id: purchaseId, data: { invoicePhotos: photos } },
       id: true,
     },
+  });
+};
+
+// The whole movement is written again, so a comment or an order taken out of
+// the form is cleared, not kept.
+export const updateStockOut = async (
+  client: CoreApiClient,
+  id: string,
+  entry: StockOutEntry,
+): Promise<void> => {
+  await client.mutation({
+    updateStockMovement: {
+      __args: {
+        id,
+        data: {
+          kind: entry.kind,
+          materialId: entry.materialId,
+          quantity: -entry.quantity,
+          date: entry.date,
+          orderId: entry.orderId,
+          comment: entry.comment,
+        },
+      },
+      id: true,
+    },
+  });
+};
+
+export const deleteStockMovements = async (
+  client: CoreApiClient,
+  ids: string[],
+): Promise<void> => {
+  if (ids.length === 0) return;
+
+  await client.mutation({
+    deleteStockMovements: {
+      __args: { filter: { id: { in: ids } } },
+      id: true,
+    },
+  });
+};
+
+export const restoreStockMovements = async (
+  client: CoreApiClient,
+  ids: string[],
+): Promise<void> => {
+  if (ids.length === 0) return;
+
+  await client.mutation({
+    restoreStockMovements: {
+      __args: { filter: { id: { in: ids } } },
+      id: true,
+    },
+  });
+};
+
+// A purchase leaves with its lines and the payments made for it, and comes
+// back with the same ones.
+export type PurchaseRemoval = {
+  purchaseId: string | null;
+  movementIds: string[];
+  paymentIds: string[];
+};
+
+export const deletePurchase = async (
+  client: CoreApiClient,
+  removal: PurchaseRemoval,
+): Promise<void> => {
+  if (removal.paymentIds.length > 0) {
+    await client.mutation({
+      deleteMoneyEntries: {
+        __args: { filter: { id: { in: removal.paymentIds } } },
+        id: true,
+      },
+    });
+  }
+
+  await deleteStockMovements(client, removal.movementIds);
+
+  if (removal.purchaseId !== null) {
+    await client.mutation({
+      deletePurchase: { __args: { id: removal.purchaseId }, id: true },
+    });
+  }
+};
+
+export const restorePurchase = async (
+  client: CoreApiClient,
+  removal: PurchaseRemoval,
+): Promise<void> => {
+  if (removal.purchaseId !== null) {
+    await client.mutation({
+      restorePurchase: { __args: { id: removal.purchaseId }, id: true },
+    });
+  }
+
+  await restoreStockMovements(client, removal.movementIds);
+
+  if (removal.paymentIds.length > 0) {
+    await client.mutation({
+      restoreMoneyEntries: {
+        __args: { filter: { id: { in: removal.paymentIds } } },
+        id: true,
+      },
+    });
+  }
+};
+
+export const renameSupplier = async (
+  client: CoreApiClient,
+  id: string,
+  name: string,
+): Promise<void> => {
+  await client.mutation({
+    updateSupplier: { __args: { id, data: { name } }, id: true },
   });
 };

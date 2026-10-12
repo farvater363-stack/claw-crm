@@ -215,3 +215,8 @@ export const createPayment = async (client: CoreApiClient, id: string, data: Pay
     createMasterPayment: { __args: { data: { id, ...data }, upsert: true }, id: true },
   });
 };
+
+// A soft delete: the payout can be brought back from «Удалённые».
+export const removePayment = async (client: CoreApiClient, id: string): Promise<void> => {
+  await client.mutation({ deleteMasterPayment: { __args: { id }, id: true } });
+};

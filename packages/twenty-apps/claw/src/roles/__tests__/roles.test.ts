@@ -412,6 +412,9 @@ describe('functions role', () => {
         IDS.payRule.object,
         IDS.payAccrual.object,
         IDS.workshopRate.object,
+        IDS.moneyEntry.object,
+        IDS.purchase.object,
+        IDS.masterPayment.object,
       ].sort(),
     );
     expect(

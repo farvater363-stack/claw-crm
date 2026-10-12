@@ -64,8 +64,15 @@ export type MoneySource =
   | 'hand'
   | 'recount';
 
+// Which record a line of the ledger was built from, so it can be opened.
+export type MoneyMoveRecord =
+  | { kind: 'entry'; id: string }
+  | { kind: 'payment'; id: string; orderId: string | null }
+  | { kind: 'payout'; id: string };
+
 export type MoneyMove = {
   key: string;
+  record: MoneyMoveRecord;
   date: string;
   createdAt: string;
   title: string;
@@ -107,6 +114,7 @@ const entryMove = (
   const wallet = entry.wallet ?? 'CASH';
   const base = {
     key: `entry:${entry.id}`,
+    record: { kind: 'entry' as const, id: entry.id },
     date: dayOf(entry.date, entry.createdAt),
     createdAt: entry.createdAt,
     walletText: walletLabel(wallet),
@@ -196,6 +204,7 @@ export const buildMoneyMoves = ({
 
       return {
         key: `payment:${payment.id}`,
+        record: { kind: 'payment', id: payment.id, orderId: payment.orderId },
         date: dayOf(payment.date, payment.createdAt),
         createdAt: payment.createdAt,
         title: `Оплата ${payment.orderTitle ?? 'заказа'}`,
@@ -212,6 +221,7 @@ export const buildMoneyMoves = ({
     ...payouts.map(
       (payout): MoneyMove => ({
         key: `payout:${payout.id}`,
+        record: { kind: 'payout', id: payout.id },
         date: dayOf(payout.date, payout.createdAt),
         createdAt: payout.createdAt,
         title: `${payout.kind === null ? 'Выплата' : PAYOUT_TITLE[payout.kind]} ${workerName(payout.workerId)}`,

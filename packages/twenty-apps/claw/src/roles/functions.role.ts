@@ -4,9 +4,10 @@ import { IDS } from 'src/constants/universal-identifiers';
 
 // A screen's requests are bounded by this role as well as by the user's own.
 // The order material sync soft-deletes the lines and movements it no longer
-// needs; «Склад» removes materials; «Цены» removes grilles, their kinds,
+// needs; «Склад» removes materials, purchases and stock movements; «Деньги»
+// and «Склад» remove money entries; «Цены» removes grilles, their kinds,
 // services and composition rows; the accrual sync removes pay lines that are
-// no longer due and «ЗП» removes pay rules and workshop rates.
+// no longer due and «ЗП» removes pay rules, workshop rates and payouts.
 const readUpdateSoftDelete = (objectUniversalIdentifier: string) => ({
   objectUniversalIdentifier,
   canReadObjectRecords: true,
@@ -37,5 +38,8 @@ export default defineApplicationRole({
     readUpdateSoftDelete(IDS.payRule.object),
     readUpdateSoftDelete(IDS.payAccrual.object),
     readUpdateSoftDelete(IDS.workshopRate.object),
+    readUpdateSoftDelete(IDS.moneyEntry.object),
+    readUpdateSoftDelete(IDS.purchase.object),
+    readUpdateSoftDelete(IDS.masterPayment.object),
   ],
 });

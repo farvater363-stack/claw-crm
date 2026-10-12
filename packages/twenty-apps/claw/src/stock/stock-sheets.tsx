@@ -106,6 +106,7 @@ export const PurchaseSheet = ({
   failure,
   photoNames,
   newLineKey,
+  isEdit = false,
   onChange,
   onPickPhotos,
   onSave,
@@ -120,6 +121,8 @@ export const PurchaseSheet = ({
   failure?: ReactNode;
   photoNames: string[];
   newLineKey: () => string;
+  // A purchase already recorded: its payment is changed in «Деньги»
+  isEdit?: boolean;
   onChange: (draft: PurchaseDraft) => void;
   onPickPhotos: (files: File[]) => void;
   onSave: () => void;
@@ -140,12 +143,12 @@ export const PurchaseSheet = ({
 
   return (
     <Sheet
-      title="Новый приход"
+      title={isEdit ? 'Изменить приход' : 'Новый приход'}
       isBusy={isSaving}
       onClose={onClose}
       footer={
         <SaveFooter
-          text="Записать приход"
+          text={isEdit ? 'Сохранить' : 'Записать приход'}
           summary={total === null ? null : formatMoney(total)}
           isSaving={isSaving}
           failure={failure}
@@ -274,7 +277,10 @@ export const PurchaseSheet = ({
           </Wrap>
         </div>
       </Field>
-      {canSeeMoney ? (
+      {isEdit && canSeeMoney ? (
+        <Hint text="Оплата этого прихода меняется в «Деньги»: нажмите на неё в «Движении денег». Долг пересчитается сам." />
+      ) : null}
+      {canSeeMoney && !isEdit ? (
         <>
           <Field label="Оплата">
             <Tabs
@@ -312,14 +318,16 @@ export const PurchaseSheet = ({
           onCancel={onClose}
         />
       </Field>
-      <Wrap>
-        <FilePicker
-          text={photoNames.length > 0 ? 'Другое фото' : 'Фото накладной'}
-          accept="image/*"
-          onPick={onPickPhotos}
-        />
-        {photoNames.length > 0 ? <Hint text={photoNames.join(', ')} /> : null}
-      </Wrap>
+      {isEdit ? null : (
+        <Wrap>
+          <FilePicker
+            text={photoNames.length > 0 ? 'Другое фото' : 'Фото накладной'}
+            accept="image/*"
+            onPick={onPickPhotos}
+          />
+          {photoNames.length > 0 ? <Hint text={photoNames.join(', ')} /> : null}
+        </Wrap>
+      )}
     </Sheet>
   );
 };
@@ -332,6 +340,7 @@ export const StockOutSheet = ({
   estimate,
   isSaving,
   failure,
+  isEdit = false,
   onChange,
   onSave,
   onClose,
@@ -344,6 +353,7 @@ export const StockOutSheet = ({
   estimate: string | null;
   isSaving: boolean;
   failure?: ReactNode;
+  isEdit?: boolean;
   onChange: (draft: StockOutDraft) => void;
   onSave: () => void;
   onClose: () => void;
@@ -354,12 +364,12 @@ export const StockOutSheet = ({
 
   return (
     <Sheet
-      title="Записать расход"
+      title={isEdit ? 'Изменить расход' : 'Записать расход'}
       isBusy={isSaving}
       onClose={onClose}
       footer={
         <SaveFooter
-          text="Записать расход"
+          text={isEdit ? 'Сохранить' : 'Записать расход'}
           summary={estimate}
           isSaving={isSaving}
           failure={failure}

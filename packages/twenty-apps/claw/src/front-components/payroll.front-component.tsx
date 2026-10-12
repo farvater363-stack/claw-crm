@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { defineFrontComponent } from 'twenty-sdk/define';
 
@@ -17,6 +17,7 @@ import {
   loadPayrollData,
   type PayrollData,
   type PayrollScreenWorker,
+  removePayment,
   removePayRule,
   savePayRule,
   saveWorker,
@@ -64,6 +65,7 @@ import {
   Button,
   Checkbox,
   Columns,
+  DeleteAction,
   EmptyState,
   ErrorNote,
   Field,
@@ -101,6 +103,9 @@ type Panel = 'pay' | 'rule' | 'worker';
 // pay rules in «Команда», masters' rates per m² in «Ставки цеха».
 type ScreenTab = 'pay' | 'team' | 'rates';
 type PayForm = { kind: MasterPaymentKind; amount: string; comment: string };
+
+// A payout already made, opened from the statement to be changed or deleted.
+type PaymentEdit = PayForm & { id: string; paidOn: string };
 type NewRule = { method: PayMethod; work: PayWork | null; value: string };
 // `copyFrom` is the master whose rates a new master starts with; empty for the usual ones.
 type NewWorker = FullName & { categories: WorkerCategory[]; copyFrom: string };
@@ -141,6 +146,7 @@ const Payroll = () => {
   const [panel, setPanel] = useState<Panel | null>(null);
   const [screenTab, setScreenTab] = useState<ScreenTab>('pay');
   const [payForm, setPayForm] = useState<PayForm | null>(null);
+  const [paymentEdit, setPaymentEdit] = useState<PaymentEdit | null>(null);
   const [newRule, setNewRule] = useState<NewRule>(NEW_RULE);
   const [newWorker, setNewWorker] = useState<NewWorker>(NEW_WORKER);
   const [confirmRuleId, setConfirmRuleId] = useState<string | null>(null);
@@ -659,6 +665,133 @@ const Payroll = () => {
     );
   };
 
+  const openPaymentEdit = (paymentId: string) => {
+    const payment = data.payments.find((one) => one.id === paymentId);
+
+    if (payment === undefined) return;
+
+    setPaymentEdit({
+      id: payment.id,
+      kind: payment.kind === 'ADVANCE' ? 'ADVANCE' : 'SETTLEMENT',
+      amount: formatWhole(payment.amount),
+      comment: payment.comment ?? '',
+      paidOn: payment.paidOn,
+    });
+  };
+
+  const savePaymentEdit = (row: PayrollRow, edit: PaymentEdit) => {
+    const key = `${edit.id}:edit`;
+    const result = buildPaymentInput({
+      kind: edit.kind,
+      masterId: row.workerId,
+      masterName: row.workerName,
+      amount: edit.amount,
+      paidOn: edit.paidOn,
+      comment: edit.comment,
+    });
+
+    if (!result.isValid) {
+      setError(key, result.error);
+
+      return;
+    }
+
+    clearError(key);
+    void run(
+      key,
+      () => createPayment(new CoreApiClient(), edit.id, result.data),
+      () => setPaymentEdit(null),
+    );
+  };
+
+  const renderPaymentEdit = (row: PayrollRow, edit: PaymentEdit) => {
+    const key = `${edit.id}:edit`;
+    const removeKey = `${edit.id}:remove`;
+    const close = () => {
+      setPaymentEdit(null);
+      clearError(key);
+    };
+
+    return (
+      <StaticRow>
+        <Columns>
+          {[
+            <Field key="amount" label="Сумма" error={errors[key]}>
+              <TextInput
+                label="Сумма"
+                inputMode="numeric"
+                isMoney
+                value={edit.amount}
+                suffix="сум"
+                onChange={(amount) => setPaymentEdit({ ...edit, amount })}
+                onEnter={() => savePaymentEdit(row, edit)}
+                onCancel={close}
+              />
+            </Field>,
+            <Field key="kind" label="Тип">
+              <SelectInput
+                label="Тип"
+                value={edit.kind}
+                options={MASTER_PAYMENT_KIND_OPTIONS}
+                onChange={(value) =>
+                  setPaymentEdit({
+                    ...edit,
+                    kind:
+                      MASTER_PAYMENT_KIND_OPTIONS.find(
+                        (option) => option.value === value,
+                      )?.value ?? edit.kind,
+                  })
+                }
+              />
+            </Field>,
+            <Field key="date" label="Дата">
+              <TextInput
+                type="date"
+                label="Дата"
+                value={edit.paidOn}
+                onChange={(paidOn) => setPaymentEdit({ ...edit, paidOn })}
+                onCancel={close}
+              />
+            </Field>,
+            <Field key="comment" label="Комментарий">
+              <TextInput
+                label="Комментарий"
+                value={edit.comment}
+                onChange={(comment) => setPaymentEdit({ ...edit, comment })}
+                onEnter={() => savePaymentEdit(row, edit)}
+                onCancel={close}
+              />
+            </Field>,
+          ]}
+        </Columns>
+        <Wrap>
+          <Button
+            variant="primary"
+            isBusy={busyKeys.includes(key)}
+            onClick={() => savePaymentEdit(row, edit)}
+          >
+            Сохранить
+          </Button>
+          <Button variant="link" onClick={close}>
+            Отмена
+          </Button>
+        </Wrap>
+        <DeleteAction
+          text="Удалить выплату"
+          question="Удалить эту выплату? Долг работнику пересчитается."
+          isBusy={busyKeys.includes(removeKey)}
+          onConfirm={() =>
+            void run(
+              removeKey,
+              () => removePayment(new CoreApiClient(), edit.id),
+              () => setPaymentEdit(null),
+            )
+          }
+        />
+      </StaticRow>
+    );
+  };
+
   const renderRule = (rule: PayRule, rules: PayRule[]) => {
     const key = `${rule.id}:value`;
     const label = payRuleLabel(rule);
@@ -858,11 +991,27 @@ const Payroll = () => {
       <>
         {panel === 'pay' && payForm ? renderPayForm(row, payForm) : null}
         <SquareMeterSummaryTable rows={squareMeterSummary(row.lines, data.catalog, row.workerId)} />
-        {buildStatement(row).map((line) => (
-          <AmountLine key={line.key} amount={signedWhole(line.amount)}>
-            {line.orderId === null ? line.text : <Link href={`/object/order/${line.orderId}`}>{line.text}</Link>}
-          </AmountLine>
-        ))}
+        {buildStatement(row).map((line) => {
+          const { paymentId } = line;
+
+          if (paymentId !== null && paymentEdit?.id === paymentId) {
+            return <Fragment key={line.key}>{renderPaymentEdit(row, paymentEdit)}</Fragment>;
+          }
+
+          return (
+            <AmountLine key={line.key} amount={signedWhole(line.amount)}>
+              {line.orderId !== null ? (
+                <Link href={`/object/order/${line.orderId}`}>{line.text}</Link>
+              ) : paymentId !== null ? (
+                <Button variant="link" onClick={() => openPaymentEdit(paymentId)}>
+                  {line.text}
+                </Button>
+              ) : (
+                line.text
+              )}
+            </AmountLine>
+          );
+        })}
         <AmountLine isTotal amount={owedLine(row.owed).amount}>
           {owedLine(row.owed).label}
         </AmountLine>

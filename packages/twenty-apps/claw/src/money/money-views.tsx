@@ -49,7 +49,13 @@ const SmallLabel = ({ text }: { text: string }) => {
   );
 };
 
-const LedgerRow = ({ move }: { move: MoneyMove }) => {
+const LedgerRow = ({
+  move,
+  onOpen,
+}: {
+  move: MoneyMove;
+  onOpen: (move: MoneyMove) => void;
+}) => {
   const colors = usePalette();
   const direction = move.flow > 0 ? 'in' : move.flow < 0 ? 'out' : 'move';
   const tint =
@@ -61,14 +67,23 @@ const LedgerRow = ({ move }: { move: MoneyMove }) => {
   const automatic = isAutomatic(move.source);
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => onOpen(move)}
       style={{
         display: 'grid',
         gridTemplateColumns: 'auto minmax(0, 1fr) auto',
         alignItems: 'center',
         gap: `${SPACE.xs}px ${SPACE.md}px`,
+        width: '100%',
         padding: `${SPACE.sm + 2}px 0`,
+        background: 'transparent',
+        border: 'none',
         borderTop: `1px solid ${colors.border}`,
+        color: colors.text,
+        font: 'inherit',
+        textAlign: 'left',
+        cursor: 'pointer',
       }}
     >
       <span
@@ -129,21 +144,23 @@ const LedgerRow = ({ move }: { move: MoneyMove }) => {
       >
         {direction === 'move' ? formatWhole(move.amount) : signed(move.flow)}
       </span>
-    </div>
+    </button>
   );
 };
 
 export const Ledger = ({
   days,
+  onOpen,
 }: {
   days: { date: string; moves: MoneyMove[] }[];
+  onOpen: (move: MoneyMove) => void;
 }) => (
   <div>
     {days.map((day) => (
       <div key={day.date}>
         <SmallLabel text={formatDayMonth(day.date)} />
         {day.moves.map((move) => (
-          <LedgerRow key={move.key} move={move} />
+          <LedgerRow key={move.key} move={move} onOpen={onOpen} />
         ))}
       </div>
     ))}

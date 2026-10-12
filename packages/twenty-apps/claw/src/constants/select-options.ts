@@ -254,6 +254,7 @@ export const EXPENSE_CATEGORY_OPTIONS = toOptions([
   ['SALARY', 'Оклад', 'green'],
   ['TAX', 'Налог', 'red'],
   ['FOOD', 'Еда', 'turquoise'],
+  ['TRAVEL', 'Дорожные расходы', 'purple'],
   ['OTHER', 'Другое', 'gray'],
 ] as const);
 

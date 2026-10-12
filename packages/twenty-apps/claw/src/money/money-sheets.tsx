@@ -8,6 +8,7 @@ import {
 import { type CashHolder } from 'src/money/money-books';
 import {
   type DifferenceChoice,
+  type EntrySumDraft,
   type HandoverDraft,
   type PayRecurringDraft,
   RECORD_DIRECTIONS,
@@ -22,9 +23,11 @@ import {
   AmountLine,
   Button,
   Columns,
+  DeleteAction,
   Field,
   FilePicker,
   Hint,
+  Link,
   SelectInput,
   Sheet,
   TabStrip,
@@ -144,6 +147,21 @@ const CategoryField = ({
   </Field>
 );
 
+const DeleteEntry = ({
+  isBusy,
+  onDelete,
+}: {
+  isBusy: boolean;
+  onDelete: () => void;
+}) => (
+  <DeleteAction
+    text="Удалить запись"
+    question="Удалить эту запись? Суммы в кассе пересчитаются."
+    isBusy={isBusy}
+    onConfirm={onDelete}
+  />
+);
+
 export const RecordSheet = ({
   draft,
   errors,
@@ -154,6 +172,8 @@ export const RecordSheet = ({
   onChange,
   onPickPhotos,
   onSave,
+  onDelete,
+  isDeleting = false,
   onClose,
 }: {
   draft: RecordDraft;
@@ -165,22 +185,35 @@ export const RecordSheet = ({
   onChange: (draft: RecordDraft) => void;
   onPickPhotos: (files: File[]) => void;
   onSave: () => void;
+  // Only for an entry already written, which the form then changes
+  onDelete?: () => void;
+  isDeleting?: boolean;
   onClose: () => void;
 }) => {
   const set = (patch: Partial<RecordDraft>) => onChange({ ...draft, ...patch });
   const isExpense = draft.direction === 'EXPENSE';
+  const isEdit = onDelete !== undefined;
 
   return (
     <Sheet
-      title="Записать"
-      isBusy={isSaving}
+      title={isEdit ? 'Изменить запись' : 'Записать'}
+      isBusy={isSaving || isDeleting}
       onClose={onClose}
       footer={
         <SaveFooter
-          text="Записать"
+          text={isEdit ? 'Сохранить' : 'Записать'}
           isSaving={isSaving}
           failure={failure}
-          note="Оплаты клиентов, ЗП и покупки на склад сюда вносить не надо, они уже есть."
+          note={
+            isEdit
+              ? undefined
+              : 'Оплаты клиентов, ЗП и покупки на склад сюда вносить не надо, они уже есть.'
+          }
+          extra={
+            onDelete ? (
+              <DeleteEntry isBusy={isDeleting} onDelete={onDelete} />
+            ) : null
+          }
           onSave={onSave}
         />
       }
@@ -243,20 +276,148 @@ export const RecordSheet = ({
           />
         </Field>
       ) : null}
-      <Field label="Фото чека">
-        <FilePicker
-          text={
-            photoNames.length > 0
-              ? `Фото: ${photoNames.join(', ')}`
-              : 'Добавить фото'
-          }
-          accept="image/*"
-          onPick={onPickPhotos}
-        />
-      </Field>
+      {isEdit ? null : (
+        <Field label="Фото чека">
+          <FilePicker
+            text={
+              photoNames.length > 0
+                ? `Фото: ${photoNames.join(', ')}`
+                : 'Добавить фото'
+            }
+            accept="image/*"
+            onPick={onPickPhotos}
+          />
+        </Field>
+      )}
     </Sheet>
   );
 };
+
+// An entry that is not typed in «Записать»: its sum, wallet, date and comment
+// change, or, for a recount line, it is only taken back.
+export const EntrySheet = ({
+  title,
+  note,
+  draft,
+  errors,
+  isSaving,
+  isDeleting,
+  failure,
+  onChange,
+  onSave,
+  onDelete,
+  onClose,
+}: {
+  title: string;
+  note?: string;
+  // Null for an entry that can only be deleted
+  draft: EntrySumDraft | null;
+  errors: Errors;
+  isSaving: boolean;
+  isDeleting: boolean;
+  failure?: ReactNode;
+  onChange: (draft: EntrySumDraft) => void;
+  onSave: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) => {
+  const deleteEntry = <DeleteEntry isBusy={isDeleting} onDelete={onDelete} />;
+
+  if (draft === null) {
+    return (
+      <Sheet
+        title={title}
+        isBusy={isDeleting}
+        onClose={onClose}
+        footer={
+          <>
+            {deleteEntry}
+            {failure}
+          </>
+        }
+      >
+        {note ? <MutedNote text={note} /> : null}
+      </Sheet>
+    );
+  }
+
+  const set = (patch: Partial<EntrySumDraft>) =>
+    onChange({ ...draft, ...patch });
+
+  return (
+    <Sheet
+      title={title}
+      isBusy={isSaving || isDeleting}
+      onClose={onClose}
+      footer={
+        <SaveFooter
+          text="Сохранить"
+          isSaving={isSaving}
+          failure={failure}
+          extra={deleteEntry}
+          onSave={onSave}
+        />
+      }
+    >
+      {note ? <MutedNote text={note} /> : null}
+      <MoneyField
+        label="Сумма, сум"
+        value={draft.amount}
+        error={errors.amount}
+        onChange={(amount) => set({ amount })}
+        onEnter={onSave}
+        onCancel={onClose}
+      />
+      <WalletField
+        label="Кошелёк"
+        value={draft.wallet}
+        onChange={(wallet) => set({ wallet })}
+      />
+      <Columns>
+        {[
+          <DateField
+            key="date"
+            value={draft.date}
+            error={errors.date}
+            onChange={(date) => set({ date })}
+            onCancel={onClose}
+          />,
+          <Field key="comment" label="Комментарий">
+            <TextInput
+              label="Комментарий"
+              value={draft.comment}
+              onChange={(comment) => set({ comment })}
+              onEnter={onSave}
+              onCancel={onClose}
+            />
+          </Field>,
+        ]}
+      </Columns>
+    </Sheet>
+  );
+};
+
+// A client payment or a payout is changed where it was entered.
+export const ElsewhereSheet = ({
+  title,
+  text,
+  link,
+  onClose,
+}: {
+  title: string;
+  text: string;
+  link: { href: string; text: string } | null;
+  onClose: () => void;
+}) => (
+  <Sheet title={title} onClose={onClose}>
+    <MutedNote text={text} />
+    {link ? (
+      <Link href={link.href}>
+        {link.text} <span aria-hidden>›</span>
+      </Link>
+    ) : null}
+  </Sheet>
+);
 
 const DIFFERENCE_CHOICES: { value: DifferenceChoice; label: string }[] = [
   { value: 'FORGOTTEN', label: 'Внести забытый расход' },
