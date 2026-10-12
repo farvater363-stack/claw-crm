@@ -6,7 +6,19 @@ import {
   orBlank,
   type PlaceholderValues,
 } from 'src/contract/contract-template';
-import { formatItemSize } from 'src/pricing/compute-item-area';
+import {
+  shapeKindLabel,
+  type StoredShape,
+} from 'src/opening-shape/opening-shape';
+import {
+  layoutOpeningSketch,
+  layoutRailingSketch,
+  type SketchLayout,
+} from 'src/opening-shape/sketch-layout';
+import {
+  formatItemSize,
+  formatRailingSize,
+} from 'src/pricing/compute-item-area';
 import { formatWhole } from 'src/ui/format';
 
 // One проём as the client agrees to it: the спецификация row and its схема.
@@ -25,6 +37,9 @@ export type ContractOpening = {
   lineTotal: number | null;
   // Grille id, so a later grille change counts as a changed order
   designId: string | null;
+  // Width is the railing's length, priced per п.м.
+  isRailing?: boolean;
+  shape?: StoredShape | null;
 };
 
 export type ContractData = {
@@ -197,14 +212,40 @@ export const buildContractDocument = (
   };
 };
 
-export const describeOpeningSize = (opening: ContractOpening): string =>
-  opening.widthCm === null || opening.heightCm === null
-    ? '—'
-    : formatItemSize({
+export const describeOpeningSize = (opening: ContractOpening): string => {
+  if (opening.widthCm === null || opening.heightCm === null) return '—';
+
+  if (opening.isRailing === true) {
+    return formatRailingSize({
+      lengthCm: opening.widthCm,
+      heightCm: opening.heightCm,
+    });
+  }
+
+  const size = formatItemSize({
+    widthCm: opening.widthCm,
+    heightCm: opening.heightCm,
+    projectionCm: opening.projectionCm,
+    projectionKind: opening.projectionKind,
+  });
+
+  return opening.shape === null || opening.shape === undefined
+    ? size
+    : `${shapeKindLabel(opening.shape.kind).toLowerCase()} ${size}`;
+};
+
+export const sketchLayoutOf = (opening: ContractOpening): SketchLayout =>
+  opening.isRailing === true
+    ? layoutRailingSketch({
+        lengthCm: opening.widthCm,
+        heightCm: opening.heightCm,
+      })
+    : layoutOpeningSketch({
         widthCm: opening.widthCm,
         heightCm: opening.heightCm,
-        projectionCm: opening.projectionCm,
         projectionKind: opening.projectionKind,
+        projectionCm: opening.projectionCm,
+        shape: opening.shape ?? null,
       });
 
 // What the client agreed to, in a form both the form and the saved order give
@@ -221,6 +262,8 @@ export const contractTermsKey = (data: {
         const hasProjection =
           opening.projectionKind !== 'NONE' && opening.projectionCm > 0;
 
+        // Appended only when present, so contracts signed before shapes and
+        // railings keep their key.
         return [
           opening.designId ?? '',
           opening.widthCm,
@@ -228,6 +271,10 @@ export const contractTermsKey = (data: {
           hasProjection ? opening.projectionKind : 'NONE',
           hasProjection ? opening.projectionCm : 0,
           opening.quantity,
+          ...(opening.isRailing === true ? ['RAILING'] : []),
+          ...(opening.shape === null || opening.shape === undefined
+            ? []
+            : [opening.shape.outline]),
         ];
       })
       .map((entry) => JSON.stringify(entry))

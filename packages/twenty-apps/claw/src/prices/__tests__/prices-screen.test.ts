@@ -38,6 +38,37 @@ describe('buildPriceSections', () => {
     expect(plain(grilles[0].priceText)).toBe('100,000 сум за м²');
   });
 
+  it('lists railings apart from grilles, priced per running metre', () => {
+    const { grilles, railings } = buildPriceSections({
+      grilles: [
+        {
+          id: 'g',
+          name: 'Ромб',
+          metal: null,
+          price: 150_000,
+          photoUrl: null,
+        },
+        {
+          id: 'r',
+          product: 'RAILING',
+          name: 'Классика',
+          metal: null,
+          price: 600_000,
+          photoUrl: null,
+        },
+      ],
+      services: [],
+      norms: [],
+      materials,
+    });
+
+    expect(grilles.map((row) => row.id)).toEqual(['g']);
+    expect(railings).toHaveLength(1);
+    expect(railings[0]).toMatchObject({ section: 'RAILING' });
+    expect(plain(railings[0].priceText)).toBe('600,000 сум за п.м.');
+    expect(railings[0].warnings).toEqual(['Не указаны материалы']);
+  });
+
   it('splits services into visors and services', () => {
     const sections = buildPriceSections({
       grilles: [],

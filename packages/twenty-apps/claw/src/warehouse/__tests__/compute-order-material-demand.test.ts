@@ -37,6 +37,24 @@ describe('computeOrderMaterialDemand', () => {
     expect(demand.missingNorms).toBeNull();
   });
 
+  it('counts a railing by running metres of its length, not by area', () => {
+    const demand = computeOrderMaterialDemand({
+      items: [
+        item({
+          product: 'RAILING',
+          widthCm: 450,
+          areaSquareMeters: null,
+          quantity: 2,
+        }),
+      ],
+      extraServiceLines: [],
+      grilles: [{ id: 'grille-1', name: 'Перилла Классика' }],
+      norms: [norm({ quantityPerUnit: 3 })],
+    });
+
+    expect(demand.quantityByMaterialId.get('profile')).toBe(27);
+  });
+
   it('sums the same material across items and extra services', () => {
     const demand = computeOrderMaterialDemand({
       items: [item(), item({ areaSquareMeters: 1, quantity: 1 })],

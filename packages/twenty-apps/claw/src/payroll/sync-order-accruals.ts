@@ -1,6 +1,7 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
 import { isInstalled } from 'src/constants/order-status-sets';
+import { toProduct } from 'src/constants/select-options';
 import {
   ACCRUAL_SELECTION,
   ALL_PAY_RULES_QUERY,
@@ -72,7 +73,13 @@ export const syncOrderAccruals = async (
     orderItems: {
       __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
       edges: {
-        node: { designId: true, areaSquareMeters: true, quantity: true },
+        node: {
+          designId: true,
+          areaSquareMeters: true,
+          quantity: true,
+          product: true,
+          widthCm: true,
+        },
       },
     },
     payAccruals: {
@@ -140,6 +147,8 @@ export const syncOrderAccruals = async (
         designId: node.designId ?? null,
         areaSquareMeters: toNumber(node.areaSquareMeters),
         quantity: toNumber(node.quantity),
+        product: toProduct(node.product),
+        widthCm: toNumber(node.widthCm),
       })),
     },
     rules,

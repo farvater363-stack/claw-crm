@@ -1,13 +1,27 @@
 import {
   type DiscountKind,
   DISTRICT_OPTIONS,
+  type ExtraServiceUnit,
   type PaymentMethod,
+  type Product,
   type ProjectionKind,
   SOURCE_OPTIONS,
 } from 'src/constants/select-options';
+import {
+  buildShapeOutline,
+  createShapeDraft,
+  outlineHeightCm,
+  type ShapeDraft,
+  type ShapeOutline,
+  type StoredShape,
+  toStoredShape,
+} from 'src/opening-shape/opening-shape';
 import { PLAIN_DECIMAL, parseOptionalMoney } from 'src/prices/prices-screen';
 import { computeDiscount } from 'src/pricing/compute-discount';
-import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
+import {
+  computeItemAreaSquareMeters,
+  computeRunningMeters,
+} from 'src/pricing/compute-item-area';
 import { todayInTashkent } from 'src/pricing/dates';
 import {
   normalizeUzbekPhone,
@@ -40,9 +54,13 @@ export type OpeningDraft = {
   key: string;
   // The id its visor line is saved under, as `key` is for the order item
   visorKey: string;
+  product: Product;
   designId: string;
+  // A railing's length
   widthCm: string;
+  // A rectangle's or a railing's height; any other shape takes its points'
   heightCm: string;
+  shape: ShapeDraft;
   projectionKind: ProjectionKind;
   projectionCm: string;
   quantity: string;
@@ -52,6 +70,15 @@ export type OpeningDraft = {
   isVisorWanted: boolean;
   visorServiceId: string;
   visorLengthCm: string;
+};
+
+// One line of «Услуги»: demolition, delivery, anything priced in Цены → Услуги.
+// An empty quantity of a service per m² follows the openings' area.
+export type ServiceDraft = {
+  // The id its order line is saved under
+  key: string;
+  serviceId: string;
+  quantity: string;
 };
 
 export type MeasurementDraft = {
@@ -65,6 +92,7 @@ export type MeasurementDraft = {
   measurementDate: string;
   comment: string;
   openings: OpeningDraft[];
+  services: ServiceDraft[];
 };
 
 export type OrderPayload = {
@@ -84,9 +112,12 @@ export type OrderPayload = {
 
 export type OrderItemPayload = {
   id: string;
+  product: Product;
   designId: string | null;
   widthCm: number;
+  // The highest point of a shape: the price counts its outer box
   heightCm: number;
+  shape: StoredShape | null;
   projectionKind: ProjectionKind;
   projectionCm: number;
   quantity: number;
@@ -102,6 +133,12 @@ export type VisorPayload = {
   orderItemId: string | null;
 };
 
+export type ServicePayload = {
+  id: string;
+  extraServiceId: string;
+  quantity: number;
+};
+
 export type FirstPayment = {
   amount: number;
   method: PaymentMethod;
@@ -111,11 +148,20 @@ export type FirstPayment = {
 
 export type VisorOption = { id: string; name: string; price: number | null };
 
+export type ServiceOption = {
+  id: string;
+  name: string;
+  unit: ExtraServiceUnit | null;
+  price: number | null;
+};
+
 export type GrilleOption = {
   id: string;
+  product: Product;
   name: string;
   kindName: string | null;
   photoUrl: string | null;
+  // Per running metre for a railing
   pricePerSquareMeter: number | null;
 };
 
@@ -127,11 +173,16 @@ export type MeasurementPayloadResult =
       order: OrderPayload;
       items: OrderItemPayload[];
       visors: VisorPayload[];
+      services: ServicePayload[];
       firstPayment: FirstPayment | null;
     }
   | { isValid: false; errors: string[] };
 
 const NATIONAL_PHONE_GROUPS = [2, 3, 2, 2];
+
+let shapePointSequence = 0;
+// Keys only need to be unique within the page.
+export const createShapePointKey = () => `point-${shapePointSequence++}`;
 
 export const createEmptyOpening = (
   key: string,
@@ -139,9 +190,11 @@ export const createEmptyOpening = (
 ): OpeningDraft => ({
   key,
   visorKey,
+  product: 'GRILLE',
   designId: '',
   widthCm: '',
   heightCm: '',
+  shape: createShapeDraft(createShapePointKey),
   projectionKind: 'NONE',
   projectionCm: '',
   quantity: '1',
@@ -219,13 +272,58 @@ export const parseDecimalInput = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+// The shape the typed numbers describe, null while they do not describe one.
+export const openingOutline = (opening: OpeningDraft): ShapeOutline | null =>
+  opening.product === 'RAILING'
+    ? null
+    : buildShapeOutline(opening.shape, opening.widthCm, opening.heightCm)
+        .outline;
+
+// What the price is counted from: a rectangle's height, or a shape's highest
+// point, so an arch costs as the box it fits in.
+export const openingHeightCm = (opening: OpeningDraft): number | null => {
+  if (opening.product === 'RAILING' || opening.shape.kind === 'RECTANGLE') {
+    return parseDecimalInput(opening.heightCm);
+  }
+
+  const outline = openingOutline(opening);
+
+  return outline === null ? null : outlineHeightCm(outline);
+};
+
+export const computeOpeningRunningMeters = (
+  opening: OpeningDraft,
+): number | null => {
+  const lengthCm = parseDecimalInput(opening.widthCm);
+  const heightCm = parseDecimalInput(opening.heightCm);
+
+  if (
+    opening.product !== 'RAILING' ||
+    lengthCm === null ||
+    heightCm === null ||
+    lengthCm <= 0 ||
+    heightCm <= 0
+  ) {
+    return null;
+  }
+
+  return computeRunningMeters(lengthCm);
+};
+
+// A railing has no area: it counts in running metres.
 export const computeOpeningAreaSquareMeters = (
   opening: OpeningDraft,
 ): number | null => {
   const widthCm = parseDecimalInput(opening.widthCm);
-  const heightCm = parseDecimalInput(opening.heightCm);
+  const heightCm = openingHeightCm(opening);
 
-  if (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0) {
+  if (
+    opening.product === 'RAILING' ||
+    widthCm === null ||
+    heightCm === null ||
+    widthCm <= 0 ||
+    heightCm <= 0
+  ) {
     return null;
   }
 
@@ -280,16 +378,19 @@ export const computeOpeningQuote = (
   opening: OpeningDraft,
   grilles: GrillePrice[],
 ): { pricePerSquareMeter: number; lineTotal: number } | null => {
-  const areaSquareMeters = computeOpeningAreaSquareMeters(opening);
+  const units =
+    opening.product === 'RAILING'
+      ? computeOpeningRunningMeters(opening)
+      : computeOpeningAreaSquareMeters(opening);
   const pricePerSquareMeter = findGrillePrice(opening, grilles);
 
-  if (areaSquareMeters === null || pricePerSquareMeter === null) return null;
+  if (units === null || pricePerSquareMeter === null) return null;
 
   const quantity = parseDecimalInput(opening.quantity) ?? 1;
 
   return {
     pricePerSquareMeter,
-    lineTotal: Math.round(areaSquareMeters * quantity * pricePerSquareMeter),
+    lineTotal: Math.round(units * quantity * pricePerSquareMeter),
   };
 };
 
@@ -300,6 +401,8 @@ const MIN_VISOR_LENGTH_CM = 10;
 
 // A visor alone: no sizes, so no grille is made for this opening.
 export const isVisorOnlyOpening = (opening: OpeningDraft): boolean =>
+  opening.product === 'GRILLE' &&
+  opening.shape.kind === 'RECTANGLE' &&
   opening.visorServiceId !== '' &&
   opening.widthCm.trim() === '' &&
   opening.heightCm.trim() === '';
@@ -354,6 +457,69 @@ export const computeDraftTotal = (
 
   return total;
 };
+
+const SERVICE_UNIT_TEXT: Record<ExtraServiceUnit, string> = {
+  FIXED: 'за заказ',
+  PER_SQUARE_METER: 'за м²',
+  PER_PIECE: 'за шт',
+  PER_RUNNING_METER: 'за п.м.',
+};
+
+export const serviceUnitText = (unit: ExtraServiceUnit | null): string =>
+  SERVICE_UNIT_TEXT[unit ?? 'FIXED'];
+
+// null while the measurer still has to type it.
+export const computeServiceQuantity = (
+  line: ServiceDraft,
+  option: ServiceOption | undefined,
+  openingsAreaSquareMeters: number,
+): number | null => {
+  const unit = option?.unit ?? 'FIXED';
+
+  if (unit === 'FIXED') return 1;
+
+  const typed = parseDecimalInput(line.quantity);
+
+  if (unit === 'PER_SQUARE_METER' && line.quantity.trim() === '') {
+    return openingsAreaSquareMeters > 0 ? openingsAreaSquareMeters : null;
+  }
+
+  if (typed === null || typed <= 0) return null;
+  if (unit === 'PER_PIECE' && !Number.isInteger(typed)) return null;
+
+  return roundTo(typed, 2);
+};
+
+// 0 without services; null while a quantity or a price is missing.
+export const computeServicesTotal = (
+  services: ServiceDraft[],
+  options: ServiceOption[],
+  openingsAreaSquareMeters: number,
+): number | null => {
+  let total = 0;
+
+  for (const line of services) {
+    const option = options.find((candidate) => candidate.id === line.serviceId);
+    const quantity = computeServiceQuantity(
+      line,
+      option,
+      openingsAreaSquareMeters,
+    );
+
+    if (option?.price == null || quantity === null) return null;
+
+    total += Math.round(option.price * quantity);
+  }
+
+  return total;
+};
+
+export const computeServiceLineTotal = (
+  line: ServiceDraft,
+  options: ServiceOption[],
+  openingsAreaSquareMeters: number,
+): number | null =>
+  computeServicesTotal([line], options, openingsAreaSquareMeters);
 
 // datetime-local wants local wall time without a zone.
 export const toDateTimeLocalInputValue = (date: Date): string => {
@@ -595,6 +761,7 @@ export type MeasurementContext = {
   // The draft's sum before the discount; null while a price is missing
   subtotal: number | null;
   today: string;
+  serviceOptions: ServiceOption[];
 };
 
 export const buildMeasurementPayload = (
@@ -635,9 +802,17 @@ export const buildMeasurementPayload = (
 
   draft.openings.forEach((opening, index) => {
     const label = `Проём ${index + 1}`;
+    const isRailing = opening.product === 'RAILING';
     const widthCm = parseDecimalInput(opening.widthCm);
-    const heightCm = parseDecimalInput(opening.heightCm);
-    const hasProjection = opening.projectionKind !== 'NONE';
+    const shapeResult = isRailing
+      ? null
+      : buildShapeOutline(opening.shape, opening.widthCm, opening.heightCm);
+    const heightCm = isRailing
+      ? parseDecimalInput(opening.heightCm)
+      : shapeResult?.outline
+        ? outlineHeightCm(shapeResult.outline)
+        : null;
+    const hasProjection = !isRailing && opening.projectionKind !== 'NONE';
     const projectionCm = hasProjection
       ? (parseDecimalInput(opening.projectionCm) ?? 0)
       : 0;
@@ -646,10 +821,21 @@ export const buildMeasurementPayload = (
     const openingErrors: string[] = [];
 
     if (
+      isRailing &&
+      (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0)
+    ) {
+      openingErrors.push(`${label}: укажите длину и высоту периллы больше 0`);
+    } else if (
+      !isRailing &&
       !isVisorOnly &&
+      opening.shape.kind === 'RECTANGLE' &&
       (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0)
     ) {
       openingErrors.push(`${label}: укажите ширину и высоту больше 0`);
+    } else if (!isVisorOnly && shapeResult !== null && !shapeResult.isValid) {
+      openingErrors.push(
+        ...shapeResult.errors.map((error) => `${label}: ${error}`),
+      );
     } else if (!isVisorOnly && hasProjection && projectionCm <= 0) {
       openingErrors.push(`${label}: укажите вынос в сантиметрах`);
     } else if (
@@ -691,10 +877,15 @@ export const buildMeasurementPayload = (
     if (!isVisorOnly && widthCm !== null && heightCm !== null) {
       items.push({
         id: opening.key,
+        product: opening.product,
         designId: emptyToNull(opening.designId),
         widthCm,
         heightCm,
-        projectionKind: opening.projectionKind,
+        shape:
+          shapeResult?.outline == null
+            ? null
+            : toStoredShape(opening.shape, shapeResult.outline),
+        projectionKind: isRailing ? 'NONE' : opening.projectionKind,
         projectionCm,
         quantity: quantity ?? 1,
         notes: emptyToNull(opening.notes),
@@ -710,6 +901,34 @@ export const buildMeasurementPayload = (
       });
     }
   });
+
+  const services: ServicePayload[] = [];
+  const openingsAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
+    draft.openings,
+  );
+
+  for (const line of draft.services) {
+    const option = context.serviceOptions.find(
+      (candidate) => candidate.id === line.serviceId,
+    );
+    const quantity = computeServiceQuantity(
+      line,
+      option,
+      openingsAreaSquareMeters,
+    );
+    const name = option?.name ?? 'услуга';
+
+    if (quantity === null) {
+      errors.push(
+        option?.unit === 'PER_PIECE'
+          ? `Услуга «${name}»: количество должно быть целым числом от 1`
+          : `Услуга «${name}»: укажите ${option?.unit === 'PER_RUNNING_METER' ? 'длину в п.м.' : 'площадь в м²'}`,
+      );
+      continue;
+    }
+
+    services.push({ id: line.key, extraServiceId: line.serviceId, quantity });
+  }
 
   const preview = computePaymentPreview(context.subtotal, context.payment);
   const discountValue = parseDiscountValue(context.payment);
@@ -746,6 +965,7 @@ export const buildMeasurementPayload = (
     },
     items,
     visors,
+    services,
     firstPayment:
       preview.prepayment > 0
         ? {

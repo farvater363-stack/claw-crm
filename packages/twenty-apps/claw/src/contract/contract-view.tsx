@@ -7,12 +7,13 @@ import {
   describeOpeningSize,
   formatPhone,
   percentOf,
+  sketchLayoutOf,
 } from 'src/contract/contract-document';
 import { type ContractRun } from 'src/contract/contract-template';
 import {
-  OpeningSketch,
   SignaturePad,
   type SignatureStroke,
+  SketchDrawing,
   useElementWidth,
 } from 'src/measurer-form/measurer-form-ui';
 import { formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
@@ -233,15 +234,11 @@ const Appendices = ({ document }: { document: ContractDocument }) => {
                     ? `${opening.title} × ${opening.quantity}`
                     : opening.title}
                 </div>
-                <OpeningSketch
-                  widthCm={opening.widthCm}
-                  heightCm={opening.heightCm}
-                  projectionKind={opening.projectionKind}
-                  projectionCm={opening.projectionCm}
-                />
+                <SketchDrawing layout={sketchLayoutOf(opening)} />
                 <div style={{ fontWeight: 600 }}>{opening.product}</div>
                 <div style={{ color: colors.muted, ...TABULAR_NUMBERS }}>
-                  {describeOpeningSize(opening)} см
+                  {describeOpeningSize(opening)}
+                  {opening.isRailing === true ? '' : ' см'}
                   {opening.areaSquareMeters === null
                     ? ''
                     : ` · ${opening.areaSquareMeters.toFixed(2)} м²`}

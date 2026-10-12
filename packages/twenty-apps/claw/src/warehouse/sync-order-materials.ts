@@ -1,5 +1,6 @@
 import { type CoreApiClient } from 'twenty-client-sdk/core';
 
+import { toProduct } from 'src/constants/select-options';
 import { todayInTashkent } from 'src/pricing/dates';
 import { toNumber } from 'src/recalc/load-recalc-input';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
@@ -94,6 +95,8 @@ export const syncOrderMaterials = async (
           designId: true,
           areaSquareMeters: true,
           quantity: true,
+          product: true,
+          widthCm: true,
         },
       },
     },
@@ -134,6 +137,8 @@ export const syncOrderMaterials = async (
           designId: toText(node.designId),
           areaSquareMeters: toNumber(node.areaSquareMeters),
           quantity: toNumber(node.quantity),
+          product: toProduct(node.product),
+          widthCm: toNumber(node.widthCm),
         })),
         (orderExtraServices?.edges ?? []).map(({ node }) => ({
           extraServiceId: toText(node.extraServiceId),

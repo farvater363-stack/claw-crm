@@ -246,6 +246,15 @@ export default defineObject({
       universalSettings: { maxNumberOfValues: 10 },
     },
     {
+      universalIdentifier: IDS.order.schemePdf,
+      type: FieldType.FILES,
+      name: 'schemePdf',
+      label: 'Схема для печати',
+      icon: 'IconPrinter',
+      isNullable: true,
+      universalSettings: { maxNumberOfValues: 1 },
+    },
+    {
       universalIdentifier: IDS.order.clientSignature,
       type: FieldType.FILES,
       name: 'clientSignature',

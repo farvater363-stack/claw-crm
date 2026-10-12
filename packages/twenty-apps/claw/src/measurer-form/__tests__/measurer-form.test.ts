@@ -41,6 +41,7 @@ const context = (
   payment: EMPTY_PAYMENT_DRAFT,
   subtotal: null,
   today: '2026-10-05',
+  serviceOptions: [],
   ...overrides,
 });
 
@@ -84,6 +85,7 @@ const draft = (overrides: Partial<MeasurementDraft>): MeasurementDraft => ({
       quantity: '2',
     }),
   ],
+  services: [],
   ...overrides,
 });
 
@@ -203,9 +205,12 @@ describe('buildMeasurementPayload', () => {
           projectionCm: 30,
           quantity: 2,
           notes: 'угловое',
+          product: 'GRILLE',
+          shape: null,
         },
       ],
       visors: [],
+      services: [],
       firstPayment: null,
     });
   });

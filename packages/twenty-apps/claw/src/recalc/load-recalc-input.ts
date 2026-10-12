@@ -6,6 +6,7 @@ import {
   type DiscountKind,
   type ExtraServiceUnit,
   type ProjectionKind,
+  toProduct,
 } from 'src/constants/select-options';
 import {
   ALL_PAY_RULES_QUERY,
@@ -93,6 +94,8 @@ export const loadRecalcInput = async (
         node: {
           id: true,
           name: true,
+          product: true,
+          shape: true,
           designId: true,
           widthCm: true,
           heightCm: true,
@@ -264,6 +267,8 @@ export const loadRecalcInput = async (
     items: (orderItems?.edges ?? []).map(({ node }) => ({
       id: node.id,
       name: node.name ?? null,
+      product: toProduct(node.product),
+      shape: node.shape ?? null,
       designId: node.designId ?? null,
       widthCm: toNumber(node.widthCm),
       heightCm: toNumber(node.heightCm),

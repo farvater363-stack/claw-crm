@@ -7,7 +7,10 @@ import {
 } from 'twenty-sdk/define';
 
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
-import { PROJECTION_KIND_OPTIONS } from 'src/constants/select-options';
+import {
+  PRODUCT_OPTIONS,
+  PROJECTION_KIND_OPTIONS,
+} from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
 
@@ -41,8 +44,25 @@ export default defineObject({
       icon: 'IconAbc',
       isNullable: true,
     },
+    {
+      universalIdentifier: IDS.orderItem.product,
+      type: FieldType.SELECT,
+      name: 'product',
+      label: 'Изделие',
+      icon: 'IconBox',
+      defaultValue: "'GRILLE'",
+      options: PRODUCT_OPTIONS,
+    },
     centimeters(IDS.orderItem.widthCm, 'widthCm', 'Ширина, см'),
     centimeters(IDS.orderItem.heightCm, 'heightCm', 'Высота, см'),
+    {
+      universalIdentifier: IDS.orderItem.shape,
+      type: FieldType.RAW_JSON,
+      name: 'shape',
+      label: 'Форма проёма',
+      icon: 'IconVectorTriangle',
+      isNullable: true,
+    },
     {
       universalIdentifier: IDS.orderItem.projectionKind,
       type: FieldType.SELECT,
@@ -85,13 +105,13 @@ export default defineObject({
     money(
       IDS.orderItem.pricePerSquareMeter,
       'pricePerSquareMeter',
-      'Цена за м²',
+      'Цена за м² (у перилл за п.м.)',
     ),
     money(IDS.orderItem.lineTotal, 'lineTotal', 'Сумма'),
     money(
       IDS.orderItem.costPerSquareMeter,
       'costPerSquareMeter',
-      'Себестоимость за м²',
+      'Себестоимость за м² (у перилл за п.м.)',
     ),
     money(IDS.orderItem.lineCost, 'lineCost', 'Себестоимость'),
     {

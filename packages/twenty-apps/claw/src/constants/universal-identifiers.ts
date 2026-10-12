@@ -18,6 +18,7 @@ export const IDS = {
     installationCostPerSquareMeter: 'a635bad0-c224-492b-ad57-e93dc788affb',
     norms: '9f651b17-f028-4f0c-8473-57493bc3ed45',
     workshopRates: 'c0bc0180-6ef1-40f6-957d-dc2f11f7cd4a',
+    product: 'e3a95cd3-b14b-459b-bc38-0b46a6df8944',
   },
   // Retired: the price list object is gone, price and composition live on the grille; ids are never reused.
   priceListItem: {
@@ -91,6 +92,7 @@ export const IDS = {
     masterPayTotal: '52abc943-23aa-4124-a082-d9a7f75f3926',
     masterPayPaid: '70bd7edf-4777-424b-bf2b-e8a36b62836e', // Retired: replaced by masterPayment; ids are never reused.
     finishedPhotos: '6b04cb33-43a9-469d-9a6a-ea292aa5fe71',
+    schemePdf: '75fb8090-4f46-45a6-b728-a254631587a8',
     comment: 'ed094a90-c3ca-47c2-ab65-33e0732a91af',
     client: 'e392b98e-243e-4aa2-b6a8-ba55e7f39260',
     manager: 'fa3cea15-e2db-4f8e-ba7e-dfaae0bec003',
@@ -156,6 +158,8 @@ export const IDS = {
     order: 'a6a3b933-914d-4325-b166-41fdd01ad6ff',
     design: '81ba9544-964a-4d96-ab5e-c0f860dd7b74',
     extraServices: '6eb798db-ed75-4f2e-bc96-79cc81be1ef6',
+    product: 'c1df516e-34e6-439d-991e-2bd89295bb73',
+    shape: 'a2129e8a-9230-4046-af70-ea699bef9d7e',
   },
   orderExtraService: {
     object: '035541ea-e6a3-4338-a841-67b201bdb3d0',

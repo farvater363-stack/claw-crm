@@ -173,6 +173,75 @@ describe('planOrderRecalc', () => {
     });
   });
 
+  it('prices a railing per running metre and leaves it out of the area', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [
+          item(),
+          item({
+            id: 'rail',
+            product: 'RAILING',
+            designId: 'grille-2',
+            widthCm: 450,
+            heightCm: 90,
+            projectionCm: 0,
+            quantity: 1,
+          }),
+        ],
+      }),
+    );
+
+    expect(plan.itemUpdates[1]).toEqual({
+      id: 'rail',
+      update: {
+        name: '450×90, 4,5 п.м.',
+        pricePerSquareMeter: 150_000,
+        costPerSquareMeter: 90_000,
+        lineTotal: 675_000,
+        lineCost: 405_000,
+      },
+    });
+    expect(plan.orderUpdate).toMatchObject({
+      areaSquareMeters: 7.68,
+      subtotal: 768_000 + 675_000,
+      masterPayCalculated: 76_800,
+    });
+  });
+
+  it('names a shaped проём by its shape and prices it by the outer box', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [
+          item({
+            widthCm: 124,
+            heightCm: 62,
+            projectionCm: 0,
+            quantity: 1,
+            shape: {
+              version: 1,
+              kind: 'ARCH',
+              outline: {
+                widthCm: 124,
+                points: [
+                  { xCm: 0, heightCm: 0 },
+                  { xCm: 124, heightCm: 0 },
+                ],
+                arcRisesCm: [62],
+              },
+              draft: {},
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(plan.itemUpdates[0].update).toMatchObject({
+      name: 'арка 124×62',
+      areaSquareMeters: 0.77,
+      lineTotal: 77_000,
+    });
+  });
+
   it('keeps a manually typed price until the grille changes', () => {
     const manual = item({
       pricePerSquareMeter: 210_000,

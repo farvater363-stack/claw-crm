@@ -1,5 +1,6 @@
-import { type ProjectionKind } from 'src/constants/select-options';
+import { type Product, type ProjectionKind } from 'src/constants/select-options';
 import { roundTo } from 'src/pricing/round';
+import { formatQuantity } from 'src/ui/format';
 
 const SQUARE_CENTIMETERS_PER_SQUARE_METER = 10_000;
 
@@ -55,3 +56,36 @@ export const formatItemSize = ({
   hasProjection({ projectionCm, projectionKind })
     ? `${widthCm}×${heightCm}×${projectionCm}${projectionKind === 'BOTTOM' ? ' снизу' : ''}`
     : `${widthCm}×${heightCm}`;
+
+const CENTIMETERS_PER_METER = 100;
+
+// A railing is priced, built and paid per running metre of its length.
+export const computeRunningMeters = (lengthCm: number): number =>
+  roundTo(lengthCm / CENTIMETERS_PER_METER, 2);
+
+// «450×90, 4,5 п.м.»: length × height in cm, then what the price counts.
+export const formatRailingSize = ({
+  lengthCm,
+  heightCm,
+}: {
+  lengthCm: number;
+  heightCm: number;
+}): string =>
+  `${lengthCm}×${heightCm}, ${formatQuantity(computeRunningMeters(lengthCm), 'п.м.')}`;
+
+// One piece of an item in the unit its price, composition and pay are per:
+// m² of a grille, п.м. of a railing.
+export const computeItemUnits = ({
+  product,
+  widthCm,
+  areaSquareMeters,
+}: {
+  product?: Product | null;
+  widthCm?: number | null;
+  areaSquareMeters: number | null;
+}): number | null =>
+  product === 'RAILING'
+    ? widthCm === null || widthCm === undefined
+      ? null
+      : computeRunningMeters(widthCm)
+    : areaSquareMeters;

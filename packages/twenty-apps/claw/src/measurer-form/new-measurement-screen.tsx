@@ -6,7 +6,6 @@ import {
   useState,
 } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
-import { MetadataApiClient } from 'twenty-client-sdk/metadata';
 import {
   openSidePanelPage,
   SidePanelPages,
@@ -19,11 +18,14 @@ import {
   DISCOUNT_KIND_OPTIONS,
   type DiscountKind,
   DISTRICT_OPTIONS,
+  type ExtraServiceUnit,
   PAYMENT_METHOD_OPTIONS,
   type PaymentMethod,
   PROJECTION_KIND_OPTIONS,
+  type Product,
   type ProjectionKind,
   SOURCE_OPTIONS,
+  toProduct,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import {
@@ -48,11 +50,16 @@ import {
   computeDraftTotal,
   computeOpeningAreaSquareMeters,
   computeOpeningQuote,
+  computeOpeningRunningMeters,
   computeOpeningsTotalAreaSquareMeters,
   computeOpeningVisorTotal,
   computePaymentPreview,
+  computeServiceLineTotal,
+  computeServiceQuantity,
+  computeServicesTotal,
   copyOpening,
   createEmptyOpening,
+  createShapePointKey,
   describeMeasurementTime,
   describePhotoUploadFailure,
   draftFromScheduledOrder,
@@ -63,6 +70,8 @@ import {
   MAX_PHOTOS_PER_OPENING,
   MEASUREMENT_ORDER_STORAGE_KEY,
   type MeasurementDraft,
+  openingHeightCm,
+  openingOutline,
   NEW_CLIENT_TARGET,
   type OpeningDraft,
   type OpeningPhoto,
@@ -70,6 +79,9 @@ import {
   type PaymentDraft,
   resolveTargetOrderId,
   type ScheduledOrder,
+  type ServiceDraft,
+  type ServiceOption,
+  serviceUnitText,
   sortScheduledOrders,
   takePhotosWithinLimit,
   toDateTimeLocalInputValue,
@@ -89,6 +101,7 @@ import {
   NoteBox,
   OpeningSketch,
   PickButton,
+  RailingSketch,
   PickerGroup,
   PickerPanel,
   QuantityStepper,
@@ -109,11 +122,26 @@ import {
   rankByUse,
   sortByName,
 } from 'src/measurer-form/option-search';
-import { formatItemSize } from 'src/pricing/compute-item-area';
+import { ShapeFields } from 'src/measurer-form/shape-fields';
+import {
+  buildShapeOutline,
+  shapeKindLabel,
+} from 'src/opening-shape/opening-shape';
+import {
+  formatItemSize,
+  formatRailingSize,
+} from 'src/pricing/compute-item-area';
 import { todayInTashkent } from 'src/pricing/dates';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
 import { formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
-import { Button, Field, PhotoTile, TextInput, usePalette } from 'src/ui/kit';
+import {
+  Button,
+  Field,
+  PhotoTile,
+  SelectInput,
+  TextInput,
+  usePalette,
+} from 'src/ui/kit';
 import {
   CONTROL_HEIGHT,
   RADIUS,
@@ -122,6 +150,7 @@ import {
   TYPE,
 } from 'src/ui/tokens';
 import { joinFullName, trimFullName } from 'src/utils/full-name';
+import { fetchFieldMetadataId } from 'src/utils/fetch-field-metadata-id';
 import { randomUuid } from 'src/utils/random-uuid';
 
 type SavedItem = {
@@ -138,6 +167,7 @@ type SaveResult = {
   failedOpeningNumbers: number[];
   photoFailureOpeningNumbers: number[];
   isVisorFailed: boolean;
+  isServiceFailed: boolean;
   isPaymentFailed: boolean;
   // null when the client did not sign
   contract: 'signed' | 'failed' | null;
@@ -198,6 +228,7 @@ const createEmptyDraft = (): MeasurementDraft => ({
   measurementDate: toDateTimeLocalInputValue(new Date()),
   comment: '',
   openings: [createOpening()],
+  services: [],
 });
 
 const describeError = (error: unknown) =>
@@ -221,6 +252,7 @@ const loadFormContext = async (userId: string) => {
           node: {
             id: true,
             name: true,
+            product: true,
             pricePerSquareMeter: { amountMicros: true, currencyCode: true },
             photos: { url: true },
             grilleKind: { name: true },
@@ -228,32 +260,53 @@ const loadFormContext = async (userId: string) => {
         },
       },
       extraServices: {
-        __args: { filter: { kind: { eq: 'VISOR' } }, first: 200 },
+        __args: { first: 200 },
         edges: {
           node: {
             id: true,
             name: true,
+            kind: true,
+            unit: true,
             price: { amountMicros: true, currencyCode: true },
           },
         },
       },
     });
+  const services = (extraServices?.edges ?? []).map(({ node }) => node);
 
   return {
     measurerId: workspaceMembers?.edges[0]?.node?.id ?? null,
     grilles: (designs?.edges ?? []).map(({ node }): GrilleOption => ({
       id: node.id,
+      product: toProduct(node.product),
       name: node.name ?? '',
       kindName: node.grilleKind?.name ?? null,
       photoUrl: node.photos?.[0]?.url ?? null,
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
     })),
     visorOptions: sortByName<VisorOption>(
-      (extraServices?.edges ?? []).map(({ node }): VisorOption => ({
-        id: node.id,
-        name: node.name ?? '',
-        price: fromCurrency(node.price),
-      })),
+      services
+        .filter((node) => node.kind === 'VISOR')
+        .map(
+          (node): VisorOption => ({
+            id: node.id,
+            name: node.name ?? '',
+            price: fromCurrency(node.price),
+          }),
+        ),
+    ),
+    // Every service in Цены → Услуги, whatever is added there later.
+    serviceOptions: sortByName<ServiceOption>(
+      services
+        .filter((node) => node.kind !== 'VISOR')
+        .map(
+          (node): ServiceOption => ({
+            id: node.id,
+            name: node.name ?? '',
+            unit: (node.unit ?? null) as ExtraServiceUnit | null,
+            price: fromCurrency(node.price),
+          }),
+        ),
     ),
   };
 };
@@ -409,29 +462,6 @@ const createThumbnailUrl = async (file: File): Promise<string | null> => {
   }
 };
 
-// uploadFile needs this workspace's id of the files field, which differs from
-// the universalIdentifier the app declares.
-const fetchFieldMetadataId = async (
-  objectUniversalIdentifier: string,
-  fieldUniversalIdentifier: string,
-): Promise<string | null> => {
-  const { objects } = await new MetadataApiClient().query({
-    objects: {
-      __args: {
-        paging: { first: 1 },
-        filter: { universalIdentifier: { eq: objectUniversalIdentifier } },
-      },
-      edges: { node: { fieldsList: { id: true, universalIdentifier: true } } },
-    },
-  });
-
-  return (
-    objects.edges[0]?.node.fieldsList?.find(
-      (field) => field.universalIdentifier === fieldUniversalIdentifier,
-    )?.id ?? null
-  );
-};
-
 const attachOpeningPhotos = async (
   item: SavedItem,
   photos: OpeningPhoto[],
@@ -499,13 +529,20 @@ const countOpenings = (count: number) =>
 
 const describeSize = (opening: OpeningDraft): string | null => {
   const widthCm = parseDecimalInput(opening.widthCm);
-  const heightCm = parseDecimalInput(opening.heightCm);
+  const heightCm =
+    opening.product === 'RAILING'
+      ? parseDecimalInput(opening.heightCm)
+      : openingHeightCm(opening);
 
   if (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0) {
     return null;
   }
 
-  return formatItemSize({
+  if (opening.product === 'RAILING') {
+    return formatRailingSize({ lengthCm: widthCm, heightCm });
+  }
+
+  const size = formatItemSize({
     widthCm,
     heightCm,
     projectionCm:
@@ -514,7 +551,22 @@ const describeSize = (opening: OpeningDraft): string | null => {
         : (parseDecimalInput(opening.projectionCm) ?? 0),
     projectionKind: opening.projectionKind,
   });
+
+  return opening.shape.kind === 'RECTANGLE'
+    ? size
+    : `${shapeKindLabel(opening.shape.kind).toLowerCase()} ${size}`;
 };
+
+// Only contradictions while typing: «укажите …» for a field not reached yet
+// would turn the card red before the measurer is done.
+const liveShapeErrors = (opening: OpeningDraft): string[] =>
+  opening.product === 'RAILING' || opening.shape.kind === 'RECTANGLE'
+    ? []
+    : buildShapeOutline(
+        opening.shape,
+        opening.widthCm,
+        opening.heightCm,
+      ).errors.filter((error) => !error.includes('укажите'));
 
 const quantityOf = (opening: OpeningDraft) =>
   parseDecimalInput(opening.quantity) ?? 1;
@@ -530,6 +582,7 @@ export const NewMeasurement = () => {
   const [draft, setDraft] = useState<MeasurementDraft>(createEmptyDraft);
   const [grilles, setGrilles] = useState<GrilleOption[]>([]);
   const [visorOptions, setVisorOptions] = useState<VisorOption[]>([]);
+  const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([]);
   const [usage, setUsage] = useState<Usage>({
     grilles: new Map(),
     visors: new Map(),
@@ -574,6 +627,7 @@ export const NewMeasurement = () => {
       .then(async (context) => {
         setGrilles(context.grilles);
         setVisorOptions(context.visorOptions);
+        setServiceOptions(context.serviceOptions);
 
         if (context.measurerId === null) {
           setLoadError('Не удалось определить текущего пользователя.');
@@ -673,6 +727,32 @@ export const NewMeasurement = () => {
     setPicker(null);
   };
 
+  const addService = (serviceId: string) => {
+    if (serviceId === '') return;
+
+    setDraft((current) => ({
+      ...current,
+      services: [
+        ...current.services,
+        { key: randomUuid(), serviceId, quantity: '' },
+      ],
+    }));
+  };
+
+  const updateService = (key: string, quantity: string) =>
+    setDraft((current) => ({
+      ...current,
+      services: current.services.map((line) =>
+        line.key === key ? { ...line, quantity } : line,
+      ),
+    }));
+
+  const removeService = (key: string) =>
+    setDraft((current) => ({
+      ...current,
+      services: current.services.filter((line) => line.key !== key),
+    }));
+
   const updatePayment = (changes: Partial<PaymentDraft>) =>
     setPayment((current) => ({ ...current, ...changes }));
 
@@ -767,7 +847,20 @@ export const NewMeasurement = () => {
   const totalAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
     draft.openings,
   );
-  const draftTotal = computeDraftTotal(draft.openings, grilles, visorOptions);
+  const openingsTotal = computeDraftTotal(
+    draft.openings,
+    grilles,
+    visorOptions,
+  );
+  const servicesTotal = computeServicesTotal(
+    draft.services,
+    serviceOptions,
+    totalAreaSquareMeters,
+  );
+  const draftTotal =
+    openingsTotal === null || servicesTotal === null
+      ? null
+      : openingsTotal + servicesTotal;
   const preview = computePaymentPreview(draftTotal, payment);
   const today = todayInTashkent();
   const isDirty =
@@ -776,6 +869,7 @@ export const NewMeasurement = () => {
     draft.clientPhone !== '' ||
     draft.addressLine !== '' ||
     draft.comment !== '' ||
+    draft.services.length > 0 ||
     draft.openings.some(
       (opening) =>
         opening.widthCm !== '' ||
@@ -808,9 +902,64 @@ export const NewMeasurement = () => {
       ? null
       : computeOpeningsTotalAreaSquareMeters([opening]);
   };
-  const describeGrille = (opening: OpeningDraft) =>
-    grilleOf(opening)?.name ??
-    (isVisorOnlyOpening(opening) ? 'Только козырёк' : 'Другая решётка');
+  const serviceOptionOf = (line: ServiceDraft) =>
+    serviceOptions.find((option) => option.id === line.serviceId);
+  const describeServiceLine = (line: ServiceDraft): string => {
+    const option = serviceOptionOf(line);
+    const quantity = computeServiceQuantity(
+      line,
+      option,
+      totalAreaSquareMeters,
+    );
+    const price =
+      option?.price == null
+        ? 'цена не задана'
+        : `${formatMoney(option.price)} ${serviceUnitText(option.unit)}`;
+
+    if (option?.unit == null || option.unit === 'FIXED') return price;
+
+    const unitLabel =
+      option.unit === 'PER_SQUARE_METER'
+        ? 'м²'
+        : option.unit === 'PER_RUNNING_METER'
+          ? 'п.м.'
+          : 'шт';
+
+    return `${quantity === null ? '—' : formatQuantity(quantity, unitLabel)} · ${price}`;
+  };
+  const describeGrille = (opening: OpeningDraft) => {
+    const name = grilleOf(opening)?.name;
+
+    if (opening.product === 'RAILING') {
+      return name === undefined ? 'Другие перилла' : `Перилла ${name}`;
+    }
+
+    return (
+      name ??
+      (isVisorOnlyOpening(opening) ? 'Только козырёк' : 'Другая решётка')
+    );
+  };
+  // A railing has no visor or projection, and a design of the other kind
+  // would price it per the wrong unit.
+  const changeProduct = (opening: OpeningDraft, product: Product) => {
+    const design = grilleOf(opening);
+
+    updateOpening(opening.key, {
+      product,
+      designId: design !== null && design.product !== product ? '' : opening.designId,
+      ...(product === 'RAILING'
+        ? {
+            projectionKind: 'NONE',
+            projectionCm: '',
+            isVisorWanted: false,
+            visorServiceId: '',
+            visorLengthCm: '',
+          }
+        : {}),
+    });
+
+    if (picker?.openingKey === opening.key) setPicker(null);
+  };
 
   // The payment has its own screen, so the sizes are checked before it opens.
   const goToPayment = () => {
@@ -820,6 +969,7 @@ export const NewMeasurement = () => {
       payment: EMPTY_PAYMENT_DRAFT,
       subtotal: null,
       today,
+      serviceOptions,
     });
     const stepErrors = [
       ...(targetOrder.ok ? [] : [targetOrder.error]),
@@ -850,6 +1000,7 @@ export const NewMeasurement = () => {
       draft,
       grilles,
       visorOptions,
+      serviceOptions,
       subtotal: preview.subtotal,
       discount: preview.discount,
       total: preview.total ?? 0,
@@ -880,6 +1031,7 @@ export const NewMeasurement = () => {
       payment,
       subtotal: draftTotal,
       today,
+      serviceOptions,
     });
 
     if (!payload.isValid) {
@@ -954,7 +1106,11 @@ export const NewMeasurement = () => {
         items.push({
           id: createOrderItem.id,
           openingNumber,
-          label: `${formatItemSize(item)} см, ${item.quantity} шт`,
+          label: `${
+            item.product === 'RAILING'
+              ? `перилла ${formatRailingSize({ lengthCm: item.widthCm, heightCm: item.heightCm })}`
+              : `${formatItemSize(item)} см`
+          }, ${item.quantity} шт`,
           photoCount: 0,
         });
       } catch {
@@ -1022,6 +1178,23 @@ export const NewMeasurement = () => {
       }
     }
 
+    let isServiceFailed = false;
+
+    for (const service of payload.services) {
+      try {
+        const { createOrderExtraService } = await client.mutation({
+          createOrderExtraService: {
+            __args: { data: { ...service, orderId }, upsert: true },
+            id: true,
+          },
+        });
+
+        if (!createOrderExtraService?.id) throw new Error('empty response');
+      } catch {
+        isServiceFailed = true;
+      }
+    }
+
     let isPaymentFailed = false;
 
     if (payload.firstPayment !== null) {
@@ -1078,6 +1251,7 @@ export const NewMeasurement = () => {
       failedOpeningNumbers,
       photoFailureOpeningNumbers,
       isVisorFailed,
+      isServiceFailed,
       isPaymentFailed,
       contract,
     });
@@ -1216,6 +1390,11 @@ export const NewMeasurement = () => {
                 ...(result.isVisorFailed
                   ? [
                       'Заказ создан, но не все козырьки сохранены. Откройте заказ и добавьте их в «Козырьки и услуги» вручную.',
+                    ]
+                  : []),
+                ...(result.isServiceFailed
+                  ? [
+                      'Заказ создан, но не все услуги сохранены. Откройте заказ и добавьте их в «Козырьки и услуги» вручную.',
                     ]
                   : []),
                 ...(result.isPaymentFailed
@@ -1434,7 +1613,7 @@ export const NewMeasurement = () => {
                   <ReceiptLine
                     key={opening.key}
                     title={`Проём ${index + 1} · ${describeGrille(opening)}`}
-                    detail={`${describeSize(opening) ?? ''}${quantityOf(opening) > 1 ? `, ${opening.quantity} шт` : ''} · ${formatQuantity(openingArea(opening) ?? 0, 'м²')}`}
+                    detail={`${describeSize(opening) ?? ''}${quantityOf(opening) > 1 ? `, ${opening.quantity} шт` : ''}${opening.product === 'RAILING' ? '' : ` · ${formatQuantity(openingArea(opening) ?? 0, 'м²')}`}`}
                     amount={quote === null ? '—' : formatMoney(quote.lineTotal)}
                   />,
                 );
@@ -1456,6 +1635,23 @@ export const NewMeasurement = () => {
               }
 
               return lines;
+            })}
+            {draft.services.map((line) => {
+              const option = serviceOptionOf(line);
+              const lineTotal = computeServiceLineTotal(
+                line,
+                serviceOptions,
+                totalAreaSquareMeters,
+              );
+
+              return (
+                <ReceiptLine
+                  key={line.key}
+                  title={option?.name ?? 'Услуга'}
+                  detail={describeServiceLine(line)}
+                  amount={lineTotal === null ? '—' : formatMoney(lineTotal)}
+                />
+              );
             })}
             <div style={{ paddingTop: SPACE.md }}>
               <SummaryLine
@@ -1479,8 +1675,8 @@ export const NewMeasurement = () => {
         <Card>
           <span style={TYPE.rowTitle}>Цену назовёт менеджер</span>
           <span style={{ color: colors.muted }}>
-            В заказе есть решётка или козырёк без цены, поэтому скидку и
-            предоплату менеджер внесёт сам.
+            В заказе есть решётка, козырёк или услуга без цены, поэтому скидку
+            и предоплату менеджер внесёт сам.
           </span>
         </Card>
       ) : (
@@ -1822,10 +2018,14 @@ export const NewMeasurement = () => {
 
   const grilleField = (opening: OpeningDraft) => {
     const grille = grilleOf(opening);
+    const isRailing = opening.product === 'RAILING';
+    const choices = grilles.filter(
+      (option) => option.product === opening.product,
+    );
     const isOpen =
       picker?.openingKey === opening.key && picker.kind === 'grille';
     const quick = pickQuickOptions({
-      options: grilles,
+      options: choices,
       uses: usage.grilles,
       usedHereIds: draft.openings
         .filter((other) => other.key !== opening.key)
@@ -1836,7 +2036,7 @@ export const NewMeasurement = () => {
 
     return (
       <div style={column(SPACE.sm)}>
-        <FieldLabel>Решётка</FieldLabel>
+        <FieldLabel>{isRailing ? 'Перилла' : 'Решётка'}</FieldLabel>
         <PickButton
           hasPicture
           photoUrl={grille?.photoUrl}
@@ -1848,13 +2048,13 @@ export const NewMeasurement = () => {
                   grille.kindName,
                   grille.pricePerSquareMeter === null
                     ? 'без цены'
-                    : `${formatMoney(grille.pricePerSquareMeter)} за м²`,
+                    : `${formatMoney(grille.pricePerSquareMeter)} за ${isRailing ? 'п.м.' : 'м²'}`,
                 ]
                   .filter((part) => part !== null)
                   .join(' · ')
           }
           actionText={
-            grille === null ? `Выбрать из ${grilles.length}` : 'Сменить'
+            grille === null ? `Выбрать из ${choices.length}` : 'Сменить'
           }
           isEmpty={grille === null}
           onClick={() =>
@@ -1872,7 +2072,7 @@ export const NewMeasurement = () => {
         />
         {isOpen && picker !== null ? (
           <GrillePicker
-            grilles={grilles}
+            grilles={choices}
             uses={usage.grilles}
             chosenId={opening.designId}
             picker={picker}
@@ -2018,6 +2218,10 @@ export const NewMeasurement = () => {
     const quote = computeOpeningQuote(opening, grilles);
     const visorTotal = computeOpeningVisorTotal(opening, visorOptions);
     const size = describeSize(opening);
+    const isRailing = opening.product === 'RAILING';
+    const isShaped = !isRailing && opening.shape.kind !== 'RECTANGLE';
+    const outline = isRailing ? null : openingOutline(opening);
+    const runningMeters = computeOpeningRunningMeters(opening);
     const meta = [
       describeGrille(opening),
       size,
@@ -2099,9 +2303,14 @@ export const NewMeasurement = () => {
             <span style={{ fontWeight: 600 }}>
               {total === null ? '—' : formatMoney(total)}
             </span>
-            {area !== null && (
+            {(area !== null || runningMeters !== null) && (
               <span style={{ ...TYPE.label, color: colors.muted }}>
-                {formatQuantity(area, 'м²')}
+                {area !== null
+                  ? formatQuantity(area, 'м²')
+                  : formatQuantity(
+                      (runningMeters ?? 0) * quantityOf(opening),
+                      'п.м.',
+                    )}
               </span>
             )}
           </span>
@@ -2117,6 +2326,20 @@ export const NewMeasurement = () => {
               borderTop: `1px solid ${colors.border}`,
             }}
           >
+            <div style={column(SPACE.sm)}>
+              <FieldLabel>Изделие</FieldLabel>
+              <div style={{ maxWidth: 360 }}>
+                <Segmented
+                  label="Изделие"
+                  value={opening.product}
+                  options={[
+                    { value: 'GRILLE', label: 'Решётка' },
+                    { value: 'RAILING', label: 'Перилла' },
+                  ]}
+                  onChange={(product) => changeProduct(opening, product)}
+                />
+              </div>
+            </div>
             {grilleField(opening)}
             <div
               style={{
@@ -2129,40 +2352,59 @@ export const NewMeasurement = () => {
               }}
             >
               <div style={column(SPACE.lg)}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-                    gap: SPACE.md,
-                  }}
-                >
-                  <Field label="Ширина">
-                    <TextInput
-                      label="Ширина, см"
-                      inputMode="decimal"
-                      isLarge
-                      suffix="см"
-                      placeholder="0"
-                      value={opening.widthCm}
-                      onChange={(widthCm) =>
-                        updateOpening(opening.key, { widthCm })
-                      }
-                    />
-                  </Field>
-                  <Field label="Высота">
-                    <TextInput
-                      label="Высота, см"
-                      inputMode="decimal"
-                      isLarge
-                      suffix="см"
-                      placeholder="0"
-                      value={opening.heightCm}
-                      onChange={(heightCm) =>
-                        updateOpening(opening.key, { heightCm })
-                      }
-                    />
-                  </Field>
-                </div>
+                {isRailing ? (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                      gap: SPACE.md,
+                    }}
+                  >
+                    <Field label="Длина">
+                      <TextInput
+                        label="Длина, см"
+                        inputMode="decimal"
+                        isLarge
+                        suffix="см"
+                        placeholder="0"
+                        value={opening.widthCm}
+                        onChange={(widthCm) =>
+                          updateOpening(opening.key, { widthCm })
+                        }
+                      />
+                    </Field>
+                    <Field label="Высота">
+                      <TextInput
+                        label="Высота, см"
+                        inputMode="decimal"
+                        isLarge
+                        suffix="см"
+                        placeholder="0"
+                        value={opening.heightCm}
+                        onChange={(heightCm) =>
+                          updateOpening(opening.key, { heightCm })
+                        }
+                      />
+                    </Field>
+                  </div>
+                ) : (
+                  <ShapeFields
+                    shape={opening.shape}
+                    widthCm={opening.widthCm}
+                    heightCm={opening.heightCm}
+                    nextKey={createShapePointKey}
+                    liveErrors={liveShapeErrors(opening)}
+                    onShapeChange={(shape) =>
+                      updateOpening(opening.key, { shape })
+                    }
+                    onWidthChange={(widthCm) =>
+                      updateOpening(opening.key, { widthCm })
+                    }
+                    onHeightChange={(heightCm) =>
+                      updateOpening(opening.key, { heightCm })
+                    }
+                  />
+                )}
                 <QuantityStepper
                   label="Количество одинаковых"
                   value={opening.quantity}
@@ -2170,6 +2412,7 @@ export const NewMeasurement = () => {
                     updateOpening(opening.key, { quantity })
                   }
                 />
+                {!isRailing && (
                 <div style={column(SPACE.sm)}>
                   <FieldLabel>Вынос</FieldLabel>
                   <div
@@ -2209,7 +2452,8 @@ export const NewMeasurement = () => {
                     )}
                   </div>
                 </div>
-                {visorField(opening)}
+                )}
+                {!isRailing && visorField(opening)}
               </div>
               <div
                 style={{
@@ -2220,20 +2464,45 @@ export const NewMeasurement = () => {
                 }}
               >
                 <div style={{ maxWidth: 300, width: '100%', margin: '0 auto' }}>
-                  <OpeningSketch
-                    widthCm={parseDecimalInput(opening.widthCm)}
-                    heightCm={parseDecimalInput(opening.heightCm)}
-                    projectionKind={opening.projectionKind}
-                    projectionCm={parseDecimalInput(opening.projectionCm) ?? 0}
-                  />
+                  {isRailing ? (
+                    <RailingSketch
+                      lengthCm={parseDecimalInput(opening.widthCm)}
+                      heightCm={parseDecimalInput(opening.heightCm)}
+                    />
+                  ) : (
+                    <OpeningSketch
+                      widthCm={parseDecimalInput(opening.widthCm)}
+                      heightCm={openingHeightCm(opening)}
+                      projectionKind={opening.projectionKind}
+                      projectionCm={
+                        parseDecimalInput(opening.projectionCm) ?? 0
+                      }
+                      shape={
+                        outline === null || opening.shape.kind === 'RECTANGLE'
+                          ? null
+                          : { kind: opening.shape.kind, outline }
+                      }
+                    />
+                  )}
                 </div>
+                {runningMeters !== null && (
+                  <SummaryLine
+                    label="Длина"
+                    value={`${formatQuantity(runningMeters, 'п.м.')}${quantityOf(opening) > 1 ? ` × ${opening.quantity}` : ''}`}
+                  />
+                )}
                 {area !== null && (
                   <SummaryLine
-                    label="Площадь"
+                    label={isShaped ? 'Площадь по габариту' : 'Площадь'}
                     value={`${formatQuantity(computeOpeningAreaSquareMeters(opening) ?? 0, 'м²')}${quantityOf(opening) > 1 ? ` × ${opening.quantity}` : ''}`}
                   />
                 )}
-                {grille !== null && area !== null && (
+                {isShaped && outline === null && (
+                  <span style={{ ...TYPE.label, color: colors.muted }}>
+                    Эскиз и цена появятся, когда размеры сойдутся.
+                  </span>
+                )}
+                {grille !== null && (area !== null || runningMeters !== null) && (
                   <SummaryLine
                     label={grille.name}
                     value={quote === null ? '—' : formatMoney(quote.lineTotal)}
@@ -2370,7 +2639,147 @@ export const NewMeasurement = () => {
     );
   };
 
-  const otherErrors = errors.filter((error) => !/^Проём \d+:/.test(error));
+  const remainingServices = serviceOptions.filter(
+    (option) => !draft.services.some((line) => line.serviceId === option.id),
+  );
+
+  const serviceRow = (line: ServiceDraft) => {
+    const option = serviceOptionOf(line);
+    const unit = option?.unit ?? 'FIXED';
+    const lineTotal = computeServiceLineTotal(
+      line,
+      serviceOptions,
+      totalAreaSquareMeters,
+    );
+    const name = option?.name ?? 'Услуга';
+
+    return (
+      <div
+        key={line.key}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+          alignItems: 'center',
+          gap: SPACE.md,
+          padding: `${SPACE.md}px 0`,
+          borderTop: `1px solid ${colors.border}`,
+        }}
+      >
+        <button
+          type="button"
+          aria-label={`Убрать услугу «${name}»`}
+          onClick={() => removeService(line.key)}
+          style={{
+            width: CONTROL_HEIGHT,
+            height: CONTROL_HEIGHT,
+            background: 'transparent',
+            border: `1px solid ${colors.border}`,
+            borderRadius: RADIUS.control,
+            color: colors.muted,
+            font: 'inherit',
+            fontSize: '20px',
+            cursor: 'pointer',
+          }}
+        >
+          ×
+        </button>
+        <span style={{ display: 'grid', minWidth: 0 }}>
+          <span style={{ fontWeight: 600 }}>{name}</span>
+          <span style={{ ...TYPE.label, color: colors.muted }}>
+            {option?.price == null
+              ? 'цена не задана · назовёт менеджер'
+              : `${formatMoney(option.price)} ${serviceUnitText(unit)}`}
+          </span>
+        </span>
+        <span
+          style={{
+            display: 'grid',
+            justifyItems: 'end',
+            gap: SPACE.xs,
+            ...TABULAR_NUMBERS,
+          }}
+        >
+          {unit === 'PER_PIECE' && (
+            <QuantityStepper
+              label={`Количество: ${name}`}
+              value={line.quantity === '' ? '1' : line.quantity}
+              onChange={(quantity) => updateService(line.key, quantity)}
+            />
+          )}
+          {(unit === 'PER_SQUARE_METER' || unit === 'PER_RUNNING_METER') && (
+            <div style={{ width: 140 }}>
+              <TextInput
+                label={`${unit === 'PER_SQUARE_METER' ? 'Площадь' : 'Длина'}: ${name}`}
+                inputMode="decimal"
+                suffix={unit === 'PER_SQUARE_METER' ? 'м²' : 'п.м.'}
+                placeholder={
+                  unit === 'PER_SQUARE_METER'
+                    ? formatQuantity(totalAreaSquareMeters, '')
+                    : '0'
+                }
+                value={line.quantity}
+                onChange={(quantity) => updateService(line.key, quantity)}
+              />
+            </div>
+          )}
+          <span style={{ fontWeight: 600 }}>
+            {lineTotal === null ? '—' : formatMoney(lineTotal)}
+          </span>
+        </span>
+      </div>
+    );
+  };
+
+  const serviceErrors = errors.filter((error) => error.startsWith('Услуга '));
+  const servicesSection = (
+    <div style={column(SPACE.md)}>
+      <SectionTitle
+        title="Услуги"
+        aside={
+          <span style={{ color: colors.muted }}>из Цены → Услуги</span>
+        }
+      />
+      <Card>
+        {serviceOptions.length === 0 ? (
+          <span style={{ color: colors.muted }}>
+            В «Ценах» пока нет услуг. Их добавляет владелец: Цены → Услуги.
+          </span>
+        ) : (
+          <Field label="Добавить услугу">
+            <SelectInput
+              label="Добавить услугу"
+              value=""
+              options={[
+                {
+                  value: '',
+                  label:
+                    remainingServices.length === 0
+                      ? 'Все услуги уже добавлены'
+                      : 'Выберите услугу',
+                },
+                ...remainingServices.map((option) => ({
+                  value: option.id,
+                  label:
+                    option.price === null
+                      ? `${option.name} · цена не задана`
+                      : `${option.name} · ${formatMoney(option.price)} ${serviceUnitText(option.unit)}`,
+                })),
+              ]}
+              onChange={addService}
+            />
+          </Field>
+        )}
+        {draft.services.length > 0 && (
+          <div style={column(0)}>{draft.services.map(serviceRow)}</div>
+        )}
+        <ErrorList errors={serviceErrors} />
+      </Card>
+    </div>
+  );
+
+  const otherErrors = errors.filter(
+    (error) => !/^Проём \d+:/.test(error) && !error.startsWith('Услуга '),
+  );
   const totalText =
     draftTotal === null ? 'Цену назовёт менеджер' : formatMoney(draftTotal);
 
@@ -2457,6 +2866,26 @@ export const NewMeasurement = () => {
           );
         })}
       </div>
+      {draft.services.length > 0 && (
+        <div style={column(SPACE.xs)}>
+          <SectionTitle title="Услуги" />
+          {draft.services.map((line) => {
+            const lineTotal = computeServiceLineTotal(
+              line,
+              serviceOptions,
+              totalAreaSquareMeters,
+            );
+
+            return (
+              <SummaryLine
+                key={line.key}
+                label={serviceOptionOf(line)?.name ?? 'Услуга'}
+                value={lineTotal === null ? '—' : formatMoney(lineTotal)}
+              />
+            );
+          })}
+        </div>
+      )}
       <div
         style={{
           ...column(SPACE.xs),
@@ -2555,6 +2984,7 @@ export const NewMeasurement = () => {
           + Добавить проём
         </button>
       </div>
+      {servicesSection}
       {!isSideSummary && (
         <>
           <ErrorList errors={otherErrors} />
@@ -2869,7 +3299,7 @@ const GrillePicker = ({
         grille.kindName,
         grille.pricePerSquareMeter === null
           ? 'без цены'
-          : `${formatMoney(grille.pricePerSquareMeter)} за м²`,
+          : `${formatMoney(grille.pricePerSquareMeter)} за ${grille.product === 'RAILING' ? 'п.м.' : 'м²'}`,
       ]
         .filter((part) => part !== null)
         .join(' · ')}

@@ -88,6 +88,18 @@ export const PROJECTION_KIND_OPTIONS = toOptions([
 
 export type ProjectionKind = (typeof PROJECTION_KIND_OPTIONS)[number]['value'];
 
+// What a проём is made into. Empty on items and designs from before railings:
+// they are grilles.
+export const PRODUCT_OPTIONS = toOptions([
+  ['GRILLE', 'Решётка', 'blue'],
+  ['RAILING', 'Перилла', 'orange'],
+] as const);
+
+export type Product = (typeof PRODUCT_OPTIONS)[number]['value'];
+
+export const toProduct = (value: string | null | undefined): Product =>
+  value === 'RAILING' ? 'RAILING' : 'GRILLE';
+
 export const EXTRA_SERVICE_UNIT_OPTIONS = toOptions([
   ['FIXED', 'Фикс', 'gray'],
   ['PER_SQUARE_METER', 'За м²', 'blue'],

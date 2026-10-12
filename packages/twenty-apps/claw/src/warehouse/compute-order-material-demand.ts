@@ -1,9 +1,14 @@
+import { type Product } from 'src/constants/select-options';
+import { computeItemUnits } from 'src/pricing/compute-item-area';
 import { roundTo } from 'src/pricing/round';
 
 export type DemandItem = {
   designId: string | null;
   areaSquareMeters: number | null;
   quantity: number | null;
+  // A railing's composition is per running metre of its length
+  product?: Product | null;
+  widthCm?: number | null;
 };
 
 export type DemandExtraServiceLine = {
@@ -92,7 +97,9 @@ export const computeOrderMaterialDemand = ({
   );
 
   for (const item of items) {
-    if (item.areaSquareMeters === null || item.designId === null) continue;
+    const units = computeItemUnits(item);
+
+    if (units === null || item.designId === null) continue;
 
     const grilleNorms = normsByGrille.get(item.designId) ?? [];
 
@@ -101,7 +108,7 @@ export const computeOrderMaterialDemand = ({
       continue;
     }
 
-    add(grilleNorms, item.areaSquareMeters * (item.quantity ?? 1));
+    add(grilleNorms, units * (item.quantity ?? 1));
   }
 
   // Services without norms (delivery, installation) consume nothing and are not flagged.

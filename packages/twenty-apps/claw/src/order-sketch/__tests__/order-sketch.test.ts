@@ -21,14 +21,29 @@ describe('toSchemeOpenings', () => {
       title: 'Проём 1',
       designName: 'Ромб',
       quantity: 2,
+      isRailing: false,
+      shape: null,
       sketch: {
         widthCm: 140,
         heightCm: 150,
         projectionKind: 'BOTTOM',
         projectionCm: 30,
         sizeText: '140×150×30 снизу',
-        areaSquareMeters: 2.97,
+        unitsText: '2,97 м²',
       },
+    });
+  });
+
+  it('describes a railing by its length in running metres', () => {
+    const [opening] = toSchemeOpenings([
+      { ...row, product: 'RAILING', widthCm: 450, heightCm: 90 },
+    ]);
+
+    expect(opening.isRailing).toBe(true);
+    expect(opening.sketch).toMatchObject({
+      projectionKind: 'NONE',
+      sizeText: '450×90',
+      unitsText: '4,5 п.м.',
     });
   });
 

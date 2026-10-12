@@ -54,6 +54,21 @@ describe('buildRateRows', () => {
     expect(ownRatesCount(rows)).toBe(2);
   });
 
+  it('marks a railing row as paid per running metre', () => {
+    const [railing] = buildRateRows(
+      {
+        ...catalog,
+        designs: [
+          { id: 'rail', name: 'Перилла Классика', grilleKindId: null, product: 'RAILING' },
+        ],
+      },
+      masters,
+    );
+
+    expect(railing.note).toBe('перилла, ставка за п.м.');
+    expect(rows[0].note).toBeNull();
+  });
+
   it('marks a grille some master would be paid nothing for', () => {
     expect(rows.map(hasUnpaidCell)).toEqual([false, true, true]);
   });
