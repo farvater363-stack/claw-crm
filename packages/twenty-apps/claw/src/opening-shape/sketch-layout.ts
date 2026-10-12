@@ -262,20 +262,17 @@ const layoutShape = (
       x2: middleX,
       y2: sideY - rise * scale,
     });
-    // Beside the box: inside a flat arch the label would cross the arc.
-    const riseLabelY = sideY - (rise * scale) / 2;
-
+    // Above the top: inside a flat arch the label would cross the arc, and
+    // beside it the side view stands.
     texts.push(
-      text(right + 5, riseLabelY - 2, 'стрела', {
-        anchor: 'start',
-        isMuted: true,
-        isBold: false,
-        size: 10,
-      }),
-      text(right + 5, riseLabelY + 11, formatSketchCm(rise), {
-        anchor: 'start',
-        size: 11,
-      }),
+      text(
+        middleX,
+        sideY - rise * scale - 5,
+        `стрела ${formatSketchCm(rise)}`,
+        {
+          size: 11,
+        },
+      ),
     );
   } else if (kind === 'STEP') {
     const levels: { fromX: number; toX: number; heightCm: number }[] = [];
@@ -402,7 +399,7 @@ export const layoutRailingSketch = ({
   ) {
     return {
       ...EMPTY_LAYOUT,
-      ariaLabel: 'Эскиз периллы',
+      ariaLabel: 'Эскиз перилл',
       placeholder: 'Введите длину и высоту',
     };
   }
@@ -432,7 +429,7 @@ export const layoutRailingSketch = ({
 
   return {
     ...EMPTY_LAYOUT,
-    ariaLabel: `Эскиз периллы: ${formatSketchCm(lengthCm)} на ${formatSketchCm(heightCm)} см`,
+    ariaLabel: `Эскиз перилл: ${formatSketchCm(lengthCm)} на ${formatSketchCm(heightCm)} см`,
     bars,
     texts: [
       text(

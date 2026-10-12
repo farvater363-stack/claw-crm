@@ -92,8 +92,8 @@ const SECTIONS = [
   {
     key: 'railings',
     title: 'Перилла',
-    addText: '+ Добавить периллу',
-    newName: 'Новая перилла',
+    addText: '+ Добавить перилла',
+    newName: 'Новые перилла',
     product: 'RAILING',
     service: null,
   },

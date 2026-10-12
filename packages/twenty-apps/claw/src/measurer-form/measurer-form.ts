@@ -824,7 +824,7 @@ export const buildMeasurementPayload = (
       isRailing &&
       (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0)
     ) {
-      openingErrors.push(`${label}: укажите длину и высоту периллы больше 0`);
+      openingErrors.push(`${label}: укажите длину и высоту перилл больше 0`);
     } else if (
       !isRailing &&
       !isVisorOnly &&

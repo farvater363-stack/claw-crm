@@ -31,10 +31,12 @@ const WIDTH_POLL_INTERVAL_MS = 500;
 
 // Children of a flex row take the whole line each while the row is narrower
 // than this, and share it above.
-const stackBelow = (widthPx: number): CSSProperties => ({
-  flex: `1 1 calc((${widthPx}px - 100%) * 999)`,
-  minWidth: 0,
-});
+// Without a width the buttons keep their text width and wrap to a new line
+// instead of squeezing over each other.
+const stackBelow = (widthPx: number): CSSProperties =>
+  widthPx === 0
+    ? { flex: '1 1 auto' }
+    : { flex: `1 1 calc((${widthPx}px - 100%) * 999)`, minWidth: 0 };
 
 export type SignaturePoint = { x: number; y: number };
 export type SignatureStroke = SignaturePoint[];

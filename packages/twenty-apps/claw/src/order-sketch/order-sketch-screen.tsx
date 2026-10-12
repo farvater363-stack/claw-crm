@@ -12,6 +12,7 @@ import {
   outlineHeightCm,
   type ShapeDraft,
   shapeDraftFromStored,
+  type StoredShape,
   toStoredShape,
 } from 'src/opening-shape/opening-shape';
 import {
@@ -125,7 +126,13 @@ const toItemUpdate = (
   opening: SchemeOpening,
   draft: EditDraft,
 ):
-  | { update: { widthCm: number; heightCm: number; shape?: unknown } }
+  | {
+      update: {
+        widthCm: number;
+        heightCm: number;
+        shape?: StoredShape | null;
+      };
+    }
   | { errors: string[] } => {
   if (opening.isRailing) {
     const widthCm = parseCm(draft.widthCm);
@@ -137,7 +144,7 @@ const toItemUpdate = (
       widthCm <= 0 ||
       heightCm <= 0
     ) {
-      return { errors: ['Укажите длину и высоту периллы больше 0'] };
+      return { errors: ['Укажите длину и высоту перилл больше 0'] };
     }
 
     return { update: { widthCm, heightCm } };
