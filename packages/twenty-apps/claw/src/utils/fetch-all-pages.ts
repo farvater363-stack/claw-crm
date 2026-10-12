@@ -25,3 +25,21 @@ export const fetchAllPages = async <TNode>(
     after = endCursor;
   }
 };
+
+// One query reads the first page of every list it needs; only a list longer
+// than a page costs more requests.
+export const withRemainingPages = async <TNode>(
+  page: Page<TNode> | null,
+  fetchPage: (after: string) => Promise<Page<TNode>>,
+): Promise<{ edges: { node: TNode }[] }> => {
+  const firstNodes = (page?.edges ?? []).map(({ node }) => node);
+  const endCursor = page?.pageInfo?.endCursor;
+  const restNodes =
+    page?.pageInfo?.hasNextPage && endCursor
+      ? await fetchAllPages((after) => fetchPage(after ?? endCursor))
+      : [];
+
+  return {
+    edges: [...firstNodes, ...restNodes].map((node) => ({ node })),
+  };
+};

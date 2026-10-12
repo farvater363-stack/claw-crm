@@ -135,6 +135,10 @@ export type StockMonthReport = {
   workshopUse: number;
   returned: number;
   otherOut: number;
+  // The deleted materials' share of the lines above: their stock is in
+  // neither the opening nor the closing value, so closing = opening + lines −
+  // removed
+  removed: number;
   closing: number;
   // Losses = брак + отходы + other + recount shortage
   losses: number;
@@ -151,12 +155,19 @@ const sumValues = (movements: ValuedMovement[]) =>
 // Money leaving the shelf is shown as a positive amount.
 const outValue = (movements: ValuedMovement[]) => -sumValues(movements);
 
+// A deleted material is no longer on the shelf, so it adds nothing to what
+// the shelf is worth; its purchases and write-offs still happened that month.
 export const buildStockMonthReport = (
   valued: ValuedMovement[],
   month: string,
+  removedMaterialIds: ReadonlySet<string> = new Set(),
 ): StockMonthReport => {
   const before = valued.filter((movement) => movement.date < monthStart(month));
   const inMonth = valued.filter((movement) => movement.date.startsWith(month));
+  const isRemoved = (movement: ValuedMovement) =>
+    removedMaterialIds.has(movement.materialId);
+  const onShelf = (movements: ValuedMovement[]) =>
+    movements.filter((movement) => !isRemoved(movement));
   const ofKind = (...kinds: StockMovementKind[]) =>
     inMonth.filter((movement) => kinds.includes(movement.kind));
   const receipts = ofKind('RECEIPT');
@@ -191,7 +202,7 @@ export const buildStockMonthReport = (
   ) => 0 - quantityOf(movements, materialId, kinds);
 
   return {
-    opening: sumValues(before),
+    opening: sumValues(onShelf(before)),
     received: sumValues(receipts),
     receiptCount: new Set(
       receipts.map((movement) => movement.purchaseId ?? movement.id),
@@ -209,7 +220,8 @@ export const buildStockMonthReport = (
     workshopUse: outValue(ofKind('WORKSHOP_USE')),
     returned: outValue(ofKind('SUPPLIER_RETURN')),
     otherOut,
-    closing: sumValues(before) + sumValues(inMonth),
+    removed: sumValues(inMonth.filter(isRemoved)),
+    closing: sumValues(onShelf(before)) + sumValues(onShelf(inMonth)),
     losses: scrap + waste + otherOut + Math.max(0, -recount),
     hasUnpriced: [...before, ...inMonth].some(
       (movement) => movement.value === null && movement.quantity !== 0,

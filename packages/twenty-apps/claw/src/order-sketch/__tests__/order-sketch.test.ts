@@ -63,4 +63,30 @@ describe('toSchemeOpenings', () => {
     expect(second.title).toBe('Проём 2');
     expect(second.sketch).toBeNull();
   });
+
+  it('keeps the form numbers when a visor alone was проём 2', () => {
+    const openings = toSchemeOpenings([
+      { ...row, id: 'third', openingNumber: 3 },
+      { ...row, id: 'first', openingNumber: 1 },
+    ]);
+
+    expect(openings.map(({ id, title }) => ({ id, title }))).toEqual([
+      { id: 'first', title: 'Проём 1' },
+      { id: 'third', title: 'Проём 3' },
+    ]);
+  });
+
+  it('numbers an item without a form number after the numbered ones', () => {
+    const openings = toSchemeOpenings([
+      { ...row, id: 'added-later', openingNumber: null },
+      { ...row, id: 'third', openingNumber: 3 },
+      { ...row, id: 'first', openingNumber: 1 },
+    ]);
+
+    expect(openings.map(({ id, title }) => ({ id, title }))).toEqual([
+      { id: 'first', title: 'Проём 1' },
+      { id: 'third', title: 'Проём 3' },
+      { id: 'added-later', title: 'Проём 4' },
+    ]);
+  });
 });

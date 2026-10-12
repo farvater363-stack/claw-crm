@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyPaymentChanges,
   buildMeasurementPayload,
   buildOpeningPhotoLabel,
   computeDraftTotal,
@@ -25,6 +26,8 @@ import {
   type ScheduledOrder,
   scheduledOrderLabel,
   sortScheduledOrders,
+  isVisorOnlyOpening,
+  openingHeightCm,
   takePhotosWithinLimit,
   toDateTimeLocalInputValue,
   toOrderUpdateData,
@@ -131,6 +134,23 @@ describe('opening area', () => {
     ).toBe(2.1);
   });
 
+  it('rounds a rectangle height to a millimetre, as the saved item does', () => {
+    const typed = opening({ widthCm: '140', heightCm: '150,46' });
+    const result = buildMeasurementPayload(
+      draft({ openings: [typed] }),
+      'member-1',
+      context(),
+    );
+
+    expect(openingHeightCm(typed)).toBe(150.5);
+    expect(result.isValid && result.items[0].heightCm).toBe(150.5);
+    expect(computeOpeningAreaSquareMeters(typed)).toBe(
+      computeOpeningAreaSquareMeters(
+        opening({ widthCm: '140', heightCm: '150,5' }),
+      ),
+    );
+  });
+
   it('has no area until width and height are positive', () => {
     expect(
       computeOpeningAreaSquareMeters(opening({ widthCm: '140' })),
@@ -208,6 +228,7 @@ describe('buildMeasurementPayload', () => {
           notes: 'угловое',
           product: 'GRILLE',
           shape: null,
+          openingNumber: 1,
         },
       ],
       visors: [],
@@ -245,6 +266,29 @@ describe('buildMeasurementPayload', () => {
       isValid: false,
       errors: ['Проём 2: укажите ширину и высоту больше 0'],
     });
+  });
+
+  it('refuses sizes typed in metres instead of centimetres', () => {
+    const build = (openingDraft: OpeningDraft) =>
+      buildMeasurementPayload(
+        draft({ openings: [openingDraft] }),
+        'member-1',
+        context(),
+      );
+
+    expect(build(opening({ widthCm: '1,4', heightCm: '150' }))).toEqual({
+      isValid: false,
+      errors: ['Проём 1: укажите ширину и высоту в сантиметрах, от 10'],
+    });
+    expect(
+      build(opening({ product: 'RAILING', widthCm: '300', heightCm: '0,9' })),
+    ).toEqual({
+      isValid: false,
+      errors: ['Проём 1: укажите длину и высоту перилл в сантиметрах, от 10'],
+    });
+    expect(build(opening({ widthCm: '10', heightCm: '10' })).isValid).toBe(
+      true,
+    );
   });
 
   it('asks for the centimetres of a вынос that was chosen, and saves none as 0', () => {
@@ -490,6 +534,55 @@ describe('visor', () => {
       items: [],
       visors: [{ quantity: 3, orderItemId: null }],
     });
+  });
+
+  it('asks for sizes when a grille is picked over a visor alone, not drops it', () => {
+    const grilleAndVisor = opening({
+      designId: 'design-1',
+      visorServiceId: 'visor-1',
+      visorLengthCm: '300',
+    });
+    const result = buildMeasurementPayload(
+      draft({ openings: [grilleAndVisor] }),
+      'member-1',
+      context(),
+    );
+
+    expect(isVisorOnlyOpening(grilleAndVisor)).toBe(false);
+    expect(result).toEqual({
+      isValid: false,
+      errors: [
+        'Проём 1: выбрана решётка — укажите ширину и высоту. Если нужен только козырёк, выберите решётку «Другая».',
+      ],
+    });
+    expect(computeDraftTotal([grilleAndVisor], [], options)).toBeNull();
+  });
+
+  it('keeps the form number of each opening when a visor alone sits between them', () => {
+    const result = buildMeasurementPayload(
+      draft({
+        openings: [
+          opening({ key: 'first', ...sized }),
+          opening({
+            key: 'visor-only',
+            visorKey: 'visor-only-visor',
+            visorServiceId: 'visor-1',
+            visorLengthCm: '300',
+          }),
+          opening({ key: 'third', ...sized }),
+        ],
+      }),
+      'member-1',
+      context(),
+    );
+
+    expect(
+      result.isValid &&
+        result.items.map(({ id, openingNumber }) => ({ id, openingNumber })),
+    ).toEqual([
+      { id: 'first', openingNumber: 1 },
+      { id: 'third', openingNumber: 3 },
+    ]);
   });
 
   it('does not drop the notes or photos of a visor without sizes', () => {
@@ -1092,6 +1185,26 @@ describe('copyOpening', () => {
       notes: '',
       photos: [],
     });
+  });
+});
+
+describe('applyPaymentChanges', () => {
+  it('clears the discount when сум turns into %', () => {
+    expect(
+      applyPaymentChanges(
+        payment({ discountKind: 'AMOUNT', discountValue: '50,000' }),
+        { discountKind: 'PERCENT' },
+      ),
+    ).toMatchObject({ discountKind: 'PERCENT', discountValue: '' });
+  });
+
+  it('keeps the discount while the kind stays', () => {
+    expect(
+      applyPaymentChanges(payment({ discountValue: '5' }), {
+        discountKind: 'PERCENT',
+        prepayment: '100 000',
+      }),
+    ).toMatchObject({ discountValue: '5', prepayment: '100 000' });
   });
 });
 

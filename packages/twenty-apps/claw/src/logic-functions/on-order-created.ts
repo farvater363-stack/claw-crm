@@ -7,7 +7,10 @@ import {
 import { syncOrderClient } from 'src/clients/sync-order-client';
 import { IDS } from 'src/constants/universal-identifiers';
 import { measuredAtOnStatusChange } from 'src/pricing/dates';
-import { assignOrderNumber } from 'src/recalc/assign-order-number';
+import {
+  assignOrderNumber,
+  hasEarlierOrderWithNumber,
+} from 'src/recalc/assign-order-number';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { findWorkerIdByLogin } from 'src/recalc/find-worker-by-login';
 import { linkClientByPhone } from 'src/recalc/link-client-by-phone';
@@ -27,6 +30,8 @@ type CreatedOrder = {
   measuredAt: string | null;
   cancelReason: string | null;
 };
+
+const MAX_RENUMBER_ATTEMPTS = 3;
 
 const handler = async (
   payload: DatabaseEventPayload<ObjectRecordCreateEvent<CreatedOrder>>,
@@ -82,6 +87,25 @@ const handler = async (
     await client.mutation({
       updateOrder: { __args: { id: payload.recordId, data }, id: true },
     });
+  }
+
+  let numbered = typeof data.number === 'number' ? data.number : null;
+
+  for (
+    let attempt = 0;
+    numbered !== null && attempt < MAX_RENUMBER_ATTEMPTS;
+    attempt += 1
+  ) {
+    if (!(await hasEarlierOrderWithNumber(client, payload.recordId, numbered))) {
+      break;
+    }
+
+    const next = await assignOrderNumber(client);
+
+    await client.mutation({
+      updateOrder: { __args: { id: payload.recordId, data: next }, id: true },
+    });
+    numbered = next.number;
   }
 
   await recalcOrder(client, payload.recordId, {

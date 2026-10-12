@@ -3,35 +3,70 @@ import { defineLogicFunction } from 'twenty-sdk/define';
 import { recalcClient } from 'src/clients/recalc-client';
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
+import { normalizeUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { linkClientByPhone } from 'src/recalc/link-client-by-phone';
+import { PAGE_INFO } from 'src/utils/fetch-all-pages';
+import { type StoredFullName } from 'src/utils/full-name';
 
 // Each run stays well inside the app's 500 requests a minute; a backlog
 // (orders from before clients were linked) is worked off over a few runs.
 const BATCH_SIZE = 40;
+const PAGE_SIZE = 200;
+
+type OrderToLink = {
+  id: string;
+  clientFullName: StoredFullName;
+  clientPhone?: string | null;
+};
 
 const handler = async (): Promise<void> => {
   const client = createRecalcClient();
 
-  const { orders } = await client.query({
-    orders: {
-      __args: {
-        filter: {
-          clientId: { is: 'NULL' },
-          clientPhone: { is: 'NOT_NULL' },
-        },
-        first: BATCH_SIZE,
-      },
-      edges: {
-        node: {
-          id: true,
-          clientFullName: { firstName: true, lastName: true },
-          clientPhone: true,
-        },
-      },
-    },
-  });
+  const linkable: OrderToLink[] = [];
+  let after: string | undefined;
 
-  for (const { node } of orders?.edges ?? []) {
+  // A phone no client can be found by stays unlinked for good, so it is
+  // stepped over instead of filling every batch.
+  while (linkable.length < BATCH_SIZE) {
+    const { orders } = await client.query({
+      orders: {
+        __args: {
+          filter: {
+            clientId: { is: 'NULL' },
+            clientPhone: { is: 'NOT_NULL' },
+          },
+          orderBy: [{ createdAt: 'DescNullsLast' }],
+          first: PAGE_SIZE,
+          after,
+        },
+        edges: {
+          node: {
+            id: true,
+            clientFullName: { firstName: true, lastName: true },
+            clientPhone: true,
+          },
+        },
+        pageInfo: PAGE_INFO,
+      },
+    });
+
+    for (const { node } of orders?.edges ?? []) {
+      if (
+        linkable.length < BATCH_SIZE &&
+        normalizeUzbekPhone(node.clientPhone ?? '') !== null
+      ) {
+        linkable.push(node);
+      }
+    }
+
+    const endCursor = orders?.pageInfo?.endCursor;
+
+    if (!orders?.pageInfo?.hasNextPage || !endCursor) break;
+
+    after = endCursor;
+  }
+
+  for (const node of linkable) {
     try {
       const clientId = await linkClientByPhone(client, {
         clientFullName: node.clientFullName,

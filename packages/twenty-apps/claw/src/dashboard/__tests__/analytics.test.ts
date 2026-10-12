@@ -34,6 +34,17 @@ describe('periodRanges', () => {
     expect(ranges.compareLabel).toBe('к 8 сентября');
   });
 
+  it('keeps the last day of a shorter month before it', () => {
+    expect(periodRanges('month', 0, '2026-10-30').previous).toEqual({
+      start: '2026-09-01',
+      end: '2026-10-01',
+    });
+    expect(periodRanges('month', 0, '2027-03-29').previous).toEqual({
+      start: '2027-02-01',
+      end: '2027-03-01',
+    });
+  });
+
   it('compares a finished month with the whole month before it', () => {
     const ranges = periodRanges('month', -1, TODAY);
 

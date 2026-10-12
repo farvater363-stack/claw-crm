@@ -15,6 +15,7 @@ import {
   type SignatureStroke,
   sha256Hex,
 } from 'src/contract/contract-pdf';
+import { contractNumberOf } from 'src/contract/contract-data';
 import {
   type ContractTemplate,
   DEFAULT_CONTRACT_TEMPLATE,
@@ -22,6 +23,7 @@ import {
   serializeSections,
 } from 'src/contract/contract-template';
 import { IDS } from 'src/constants/universal-identifiers';
+import { todayInTashkent } from 'src/pricing/dates';
 import { joinFullName } from 'src/utils/full-name';
 
 const TEMPLATE_FIELDS = {
@@ -42,11 +44,18 @@ const TEMPLATE_FIELDS = {
 const textOr = (value: string | null | undefined, fallback: string) =>
   value === null || value === undefined ? fallback : value;
 
+// Two first saves at once leave two records of the same version: the older
+// one is the template, everywhere it is read.
+const NEWEST_TEMPLATE_ORDER = [
+  { version: 'DescNullsLast' },
+  { createdAt: 'AscNullsLast' },
+] as const;
+
 // The newest saved template, or the built-in PROFMET text before the first save.
 export const loadContractTemplate = async (): Promise<ContractTemplate> => {
   const { contractTemplates } = await new CoreApiClient().query({
     contractTemplates: {
-      __args: { first: 1, orderBy: [{ version: 'DescNullsLast' }] },
+      __args: { first: 1, orderBy: [...NEWEST_TEMPLATE_ORDER] },
       edges: { node: TEMPLATE_FIELDS },
     },
   });
@@ -74,11 +83,45 @@ export const loadContractTemplate = async (): Promise<ContractTemplate> => {
   };
 };
 
+const loadNewestTemplateVersion = async (
+  client: CoreApiClient,
+): Promise<{ id: string; version: number | null } | null> => {
+  const { contractTemplates } = await client.query({
+    contractTemplates: {
+      __args: { first: 1, orderBy: [...NEWEST_TEMPLATE_ORDER] },
+      edges: { node: { id: true, version: true } },
+    },
+  });
+  const node = contractTemplates?.edges[0]?.node;
+
+  return node === undefined || node === null
+    ? null
+    : { id: node.id, version: node.version ?? null };
+};
+
+export const describeTemplateConflict = (version: number | null) =>
+  `договор уже сохранили на другом устройстве${version === null ? '' : ` (версия ${version})`}. Обновите страницу и внесите правки заново, иначе они затрут чужие.`;
+
+// Whether the template the editor opened is still the newest one saved.
+export const isTemplateCurrent = (
+  opened: Pick<ContractTemplate, 'id' | 'version'>,
+  newest: { id: string; version: number | null } | null,
+): boolean =>
+  newest === null
+    ? opened.id === null
+    : opened.id === newest.id && (newest.version ?? 0) <= opened.version;
+
 // Saving makes the next version; the record is kept, its text replaced.
 export const saveContractTemplate = async (
   template: ContractTemplate,
 ): Promise<ContractTemplate> => {
   const client = new CoreApiClient();
+  const newest = await loadNewestTemplateVersion(client);
+
+  if (!isTemplateCurrent(template, newest)) {
+    throw new Error(describeTemplateConflict(newest?.version ?? null));
+  }
+
   const version = template.version + 1;
   const data = {
     name: 'Договор с клиентом',
@@ -101,6 +144,13 @@ export const saveContractTemplate = async (
     });
 
     if (!createContractTemplate?.id) throw new Error('empty response');
+
+    // Another first save may have landed between the check and the create.
+    const winner = await loadNewestTemplateVersion(client);
+
+    if (winner !== null && winner.id !== createContractTemplate.id) {
+      throw new Error(describeTemplateConflict(winner.version));
+    }
 
     return { ...template, id: createContractTemplate.id, version };
   }
@@ -186,11 +236,19 @@ export const signContract = async ({
   orderId,
   orderName,
   template,
-  data,
+  data: unsignedData,
   signature,
   signedBy,
 }: ContractSigning): Promise<void> => {
+  // A contract without its number would be stored as «№ ______» for good.
+  if (contractNumberOf(orderName) === null || unsignedData.number === null) {
+    throw new Error('у заказа ещё нет номера');
+  }
+
   const signedAt = new Date();
+  // The date on the contract is the day it is signed, not the day the screen
+  // was opened.
+  const data = { ...unsignedData, signedOn: todayInTashkent(signedAt) };
   const document = buildContractDocument(template, data);
   const checkCode = await sha256Hex(
     `${documentText(document)}\n${JSON.stringify(signature)}\n${signedAt.toISOString()}`,

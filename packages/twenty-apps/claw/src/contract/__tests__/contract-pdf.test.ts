@@ -8,6 +8,7 @@ import {
   formatSigningTime,
 } from 'src/contract/contract-document';
 import {
+  ellipsize,
   renderContractPdf,
   sha256Hex,
   shortCheckCode,
@@ -96,7 +97,7 @@ describe('the terms the client agreed to', () => {
   it('do not depend on the order the проёмы come back in', () => {
     expect(
       contractTermsKey({
-        total: SAMPLE_CONTRACT_DATA.total,
+        ...SAMPLE_CONTRACT_DATA,
         openings: [...SAMPLE_CONTRACT_DATA.openings].reverse(),
       }),
     ).toBe(contractTermsKey(SAMPLE_CONTRACT_DATA));
@@ -108,13 +109,13 @@ describe('the terms the client agreed to', () => {
 
     expect(
       contractTermsKey({
-        total: SAMPLE_CONTRACT_DATA.total,
+        ...SAMPLE_CONTRACT_DATA,
         openings: [{ ...first, widthCm: 151 }, ...rest],
       }),
     ).not.toBe(key);
     expect(
       contractTermsKey({
-        total: SAMPLE_CONTRACT_DATA.total,
+        ...SAMPLE_CONTRACT_DATA,
         openings: [{ ...first, designId: 'other' }, ...rest],
       }),
     ).not.toBe(key);
@@ -128,7 +129,7 @@ describe('the terms the client agreed to', () => {
 
     expect(
       contractTermsKey({
-        total: SAMPLE_CONTRACT_DATA.total,
+        ...SAMPLE_CONTRACT_DATA,
         openings: [
           { ...first, projectionKind: 'NONE', projectionCm: 30 },
           ...rest,
@@ -136,7 +137,7 @@ describe('the terms the client agreed to', () => {
       }),
     ).toBe(
       contractTermsKey({
-        total: SAMPLE_CONTRACT_DATA.total,
+        ...SAMPLE_CONTRACT_DATA,
         openings: [
           { ...first, projectionKind: 'NONE', projectionCm: 0 },
           ...rest,
@@ -151,5 +152,23 @@ describe('the signing time', () => {
     expect(formatSigningTime(new Date('2026-10-09T09:32:00Z'))).toBe(
       '9 октября 2026, 14:32',
     );
+  });
+});
+
+describe('a grille name under its drawing', () => {
+  // One unit per character stands in for the font's own widths.
+  const measure = (text: string) => Array.from(text).length;
+
+  it('stays whole when it fits', () => {
+    expect(ellipsize('М-03', 10, measure)).toBe('М-03');
+  });
+
+  it('is cut to one line with «…»', () => {
+    expect(ellipsize('Решётка Ажур с завитками', 10, measure)).toBe(
+      'Решётка А…',
+    );
+    expect(
+      measure(ellipsize('Решётка Ажур с завитками', 10, measure)),
+    ).toBeLessThanOrEqual(10);
   });
 });

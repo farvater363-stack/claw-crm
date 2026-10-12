@@ -66,13 +66,15 @@ const SaveFooter = ({
 const WalletField = ({
   label = 'Откуда',
   value,
+  error,
   onChange,
 }: {
   label?: string;
   value: Wallet;
+  error?: string;
   onChange: (wallet: Wallet) => void;
 }) => (
-  <Field label={label}>
+  <Field label={label} error={error}>
     <TabStrip value={value} options={WALLETS} onChange={onChange} />
   </Field>
 );
@@ -192,6 +194,7 @@ export const RecordSheet = ({
 }) => {
   const set = (patch: Partial<RecordDraft>) => onChange({ ...draft, ...patch });
   const isExpense = draft.direction === 'EXPENSE';
+  const isTransfer = draft.direction === 'TRANSFER';
   const isEdit = onDelete !== undefined;
 
   return (
@@ -239,10 +242,21 @@ export const RecordSheet = ({
         />
       ) : null}
       <WalletField
-        label={isExpense || draft.direction === 'OWNER_DRAW' ? 'Откуда' : 'Куда'}
+        label={draft.direction === 'INCOME' ? 'Куда' : 'Откуда'}
         value={draft.wallet}
         onChange={(wallet) => set({ wallet })}
       />
+      {isTransfer ? (
+        <>
+          <WalletField
+            label="Куда"
+            value={draft.toWallet}
+            error={errors.toWallet}
+            onChange={(toWallet) => set({ toWallet })}
+          />
+          <MutedNote text="Деньги переходят из одного места в другое: это не приход и не расход, на прибыль не влияет." />
+        </>
+      ) : null}
       <Columns>
         {[
           <DateField

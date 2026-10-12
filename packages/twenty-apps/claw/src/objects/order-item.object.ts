@@ -13,6 +13,11 @@ import {
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
+import { readableThroughOrder } from 'src/objects/readable-through-order';
+
+// Цех may not read sale prices, and every role can read the timeline, so
+// these values are never audit-logged.
+const NOT_AUDIT_LOGGED = { isAuditLogged: false } as const;
 
 const centimeters = (
   universalIdentifier: string,
@@ -35,6 +40,7 @@ export default defineObject({
   labelPlural: 'Позиции',
   icon: 'IconRuler',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.orderItem.name,
+  ...readableThroughOrder(IDS.orderItem.order),
   fields: withoutAuditOfAdminOnlyFields([
     {
       universalIdentifier: IDS.orderItem.name,
@@ -84,6 +90,16 @@ export default defineObject({
       icon: 'IconHash',
       defaultValue: 1,
     },
+    // «Проём N» in the measurement form, so the Схема and the contract number
+    // openings the way the photos are labelled.
+    {
+      universalIdentifier: IDS.orderItem.openingNumber,
+      type: FieldType.NUMBER,
+      name: 'openingNumber',
+      label: 'Номер проёма',
+      icon: 'IconHash',
+      isNullable: true,
+    },
     {
       universalIdentifier: IDS.orderItem.photos,
       type: FieldType.FILES,
@@ -106,8 +122,9 @@ export default defineObject({
       IDS.orderItem.pricePerSquareMeter,
       'pricePerSquareMeter',
       'Цена за м² (у перилл за п.м.)',
+      NOT_AUDIT_LOGGED,
     ),
-    money(IDS.orderItem.lineTotal, 'lineTotal', 'Сумма'),
+    money(IDS.orderItem.lineTotal, 'lineTotal', 'Сумма', NOT_AUDIT_LOGGED),
     money(
       IDS.orderItem.costPerSquareMeter,
       'costPerSquareMeter',

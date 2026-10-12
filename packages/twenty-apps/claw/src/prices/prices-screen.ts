@@ -226,6 +226,8 @@ export const buildPriceSections = ({
 
 export const PLAIN_DECIMAL = /^\d+([.,]\d+)?$/;
 // Thousands groups: one kind of separator throughout, and a first group that is not all zeros.
+const MONEY_LIMIT = 1e12;
+
 const WHOLE_SUM = /^(\d+|(?!0+[.,])\d{1,3}((\.\d{3})+|(,\d{3})+))$/;
 
 export const parsePositiveNumber = (
@@ -253,8 +255,12 @@ export const parseOptionalMoney = (
     ? Number(compact.replace(/[.,]/g, ''))
     : Number.NaN;
 
-  // Digits alone can still be too many to fit a number.
-  return Number.isFinite(value)
+  if (!Number.isFinite(value)) {
+    return { ok: false, error: 'Введите цену целым числом, без минуса' };
+  }
+
+  // Stored in millionths, a sum past this stops being exact.
+  return value < MONEY_LIMIT
     ? { ok: true, value }
-    : { ok: false, error: 'Введите цену целым числом, без минуса' };
+    : { ok: false, error: 'Не больше 12 цифр' };
 };

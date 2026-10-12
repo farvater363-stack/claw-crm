@@ -15,6 +15,7 @@ import {
   payrollTotals,
   signedWhole,
   squareMeterSummary,
+  summaryBasisTotals,
   totalsSentence,
   buildWorker,
   canPayInMonth,
@@ -415,9 +416,39 @@ describe('squareMeterSummary', () => {
         'master-1',
       ),
     ).toEqual([
-      { key: 'design:sun:80000', label: '«Солнце»', isOwn: false, basis: 3, rate: 80_000, amount: 240_000 },
-      { key: 'kind:forged:55000', label: 'Кованая', isOwn: true, basis: 3.5, rate: 55_000, amount: 192_500 },
-      { key: ':40000', label: 'За м²', isOwn: false, basis: 2, rate: 40_000, amount: 80_000 },
+      { key: 'design:sun:80000', label: '«Солнце»', isOwn: false, basis: 3, unit: 'м²', rate: 80_000, amount: 240_000 },
+      { key: 'kind:forged:55000', label: 'Кованая', isOwn: true, basis: 3.5, unit: 'м²', rate: 55_000, amount: 192_500 },
+      { key: ':40000', label: 'За м²', isOwn: false, basis: 2, unit: 'м²', rate: 40_000, amount: 80_000 },
+    ]);
+  });
+
+  it('keeps a railing in running metres apart from the m² of grilles', () => {
+    const withRailing = {
+      ...catalog,
+      designs: [...catalog.designs, { id: 'rail', name: 'Перила Классика', grilleKindId: null, product: 'RAILING' as const }],
+    };
+    const rows = squareMeterSummary(
+      [line('kind:forged', 2.5, 55_000), line('design:sun', 1.25, 80_000), line('design:rail', 4.2, 30_000)],
+      withRailing,
+      'master-1',
+    );
+
+    expect(rows.map(({ key, unit, basis }) => ({ key, unit, basis }))).toEqual([
+      { key: 'design:sun:80000', unit: 'м²', basis: 1.25 },
+      { key: 'kind:forged:55000', unit: 'м²', basis: 2.5 },
+      { key: 'design:rail:30000', unit: 'п.м.', basis: 4.2 },
+    ]);
+    expect(summaryBasisTotals(rows)).toEqual([
+      { unit: 'м²', basis: 3.75 },
+      { unit: 'п.м.', basis: 4.2 },
+    ]);
+    // The money is one total whatever the unit.
+    expect(rows.reduce((sum, row) => sum + row.amount, 0)).toBe(137_500 + 100_000 + 126_000);
+  });
+
+  it('gives only m² a total when there are no railings', () => {
+    expect(summaryBasisTotals(squareMeterSummary([line('kind:forged', 1.1, 55_000), line(null, 2.2, 40_000)], catalog, 'master-1'))).toEqual([
+      { unit: 'м²', basis: 3.3 },
     ]);
   });
 });

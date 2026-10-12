@@ -887,7 +887,11 @@ const Prices = () => {
     const photosKey = `${row.id}:photos`;
     const photos = data.photosById.get(row.id) ?? [];
     const savePrice = async (value: number | null) => {
-      const amount = toCurrency(value);
+      // A bare null leaves a money field as it was; only a null amount clears it.
+      const amount = toCurrency(value) ?? {
+        amountMicros: null,
+        currencyCode: 'UZS',
+      };
 
       await updateRow(row, { pricePerSquareMeter: amount }, { price: amount });
       patchRow(row, { price: value });

@@ -42,7 +42,15 @@ export default defineLogicFunction({
   timeoutSeconds: 30,
   databaseEventTriggerSettings: {
     eventName: 'orderExtraService.updated',
-    updatedFields: ['extraServiceId', 'quantity', 'price', 'cost', 'orderId'],
+    // An upsert that brings a deleted line back arrives as an update.
+    updatedFields: [
+      'extraServiceId',
+      'quantity',
+      'price',
+      'cost',
+      'orderId',
+      'deletedAt',
+    ],
   },
   handler,
 });

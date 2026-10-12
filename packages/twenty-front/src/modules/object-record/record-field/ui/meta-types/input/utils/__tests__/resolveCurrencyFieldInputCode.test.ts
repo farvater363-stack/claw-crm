@@ -16,11 +16,24 @@ describe('resolveCurrencyFieldInputCode', () => {
     });
   });
 
-  it('forces the field currency over a stored or a typed one', () => {
+  it('keeps a value stored in another currency in that currency', () => {
+    expect(
+      resolveCurrencyFieldInputCode({
+        draftCurrencyCode: undefined,
+        recordCurrencyCode: CurrencyCode.USD,
+        defaultCurrencyCode: "'UZS'",
+      }),
+    ).toEqual({
+      currencyCode: CurrencyCode.USD,
+      allowedCurrencyCodes: [CurrencyCode.UZS, CurrencyCode.USD],
+    });
+  });
+
+  it('refuses a typed currency the field does not take', () => {
     expect(
       resolveCurrencyFieldInputCode({
         draftCurrencyCode: CurrencyCode.EUR,
-        recordCurrencyCode: CurrencyCode.USD,
+        recordCurrencyCode: undefined,
         defaultCurrencyCode: "'UZS'",
       }),
     ).toEqual({

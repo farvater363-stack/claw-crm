@@ -65,6 +65,7 @@ const fakeClient = ({
   orders = [ORDER] as Record<string, unknown>[],
   payments = [] as Record<string, unknown>[],
   workersError = null as Error | null,
+  moneyError = null as Error | null,
   updatedOrders = [{ id: 'order-1' }] as { id: string }[],
 } = {}) => {
   const queries: Request[] = [];
@@ -74,6 +75,13 @@ const fakeClient = ({
       queries.push(request);
 
       if (request.masters && workersError) throw workersError;
+
+      if (
+        moneyError &&
+        JSON.stringify(request.orders ?? {}).includes('clientPhone')
+      ) {
+        throw moneyError;
+      }
 
       return {
         orders: page(orders),
@@ -109,6 +117,7 @@ describe('loadOrderHeader', () => {
       total: 1_410_000,
       paid: 500_000,
       balance: 910_000,
+      canSeeMoney: true,
       masterId: null,
       installerId: 'worker-2',
       cancelReason: null,
@@ -116,6 +125,37 @@ describe('loadOrderHeader', () => {
     expect(
       queries.find((request) => request.orders)?.orders.__args,
     ).toMatchObject({ filter: { id: { eq: 'order-1' } }, first: 1 });
+  });
+
+  it('shows the workshop the work without the sums and the phone it may not read', async () => {
+    const { client, queries } = fakeClient({
+      moneyError: new Error('User does not have permission to read field'),
+    });
+    const data = await loadOrderHeader(client, 'order-1');
+    const orderQueries = queries.filter((request) => request.orders);
+
+    expect(data?.order).toMatchObject({
+      id: 'order-1',
+      clientName: 'Азиз Рахимов',
+      status: 'MEASURED',
+      clientPhone: null,
+      total: null,
+      paid: null,
+      balance: null,
+      canSeeMoney: false,
+    });
+    expect(orderQueries).toHaveLength(2);
+    expect(JSON.stringify(orderQueries[1].orders)).not.toMatch(
+      /clientPhone|total|paid|balance/,
+    );
+  });
+
+  it('passes on an error of the order query that is not about rights', async () => {
+    const { client } = fakeClient({ moneyError: new Error('Network down') });
+
+    await expect(loadOrderHeader(client, 'order-1')).rejects.toThrow(
+      'Network down',
+    );
   });
 
   it('offers active workers by category and every workspace member', async () => {

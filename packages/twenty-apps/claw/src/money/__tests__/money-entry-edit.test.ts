@@ -6,6 +6,7 @@ import {
   buildRecord,
   entryEditMode,
   entrySumDraft,
+  entrySumLimit,
   recordChange,
   recordDraftFromEntry,
 } from 'src/money/money-forms';
@@ -24,6 +25,8 @@ const entry = (overrides: Partial<MoneyEntryRecord> = {}): MoneyEntryRecord => (
   orderId: 'order-1',
   recurringExpenseId: null,
   countedAmount: null,
+  toWallet: null,
+  recountId: null,
   ...overrides,
 });
 
@@ -35,6 +38,7 @@ describe('changing a money entry', () => {
       amount: '180,000',
       category: 'FUEL',
       wallet: 'CARD',
+      toWallet: 'CASH',
       date: '2026-10-09',
       comment: 'Дамас',
       orderId: 'order-1',
@@ -78,6 +82,21 @@ describe('changing a money entry', () => {
         comment: 'Дамас',
       },
     });
+  });
+
+  it('lets a handover grow only by what the worker still holds', () => {
+    const handover = entry({ kind: 'HANDOVER', workerId: 'w', amount: 500_000 });
+    const limit = entrySumLimit(handover, [{ workerId: 'w', amount: 300_000 }]);
+
+    expect(limit).toBe(800_000);
+    expect(entrySumLimit(handover, [])).toBe(500_000);
+    expect(entrySumLimit(entry(), [{ workerId: 'w', amount: 1 }])).toBeNull();
+    expect(
+      buildEntrySum({ ...entrySumDraft(handover), amount: '900 000' }, limit),
+    ).toEqual({ ok: false, errors: { amount: 'У него только 800,000 сум' } });
+    expect(
+      buildEntrySum({ ...entrySumDraft(handover), amount: '800 000' }, limit),
+    ).toMatchObject({ ok: true, data: { amount: 800_000 } });
   });
 
   it('only deletes a recount line, whose sum is what the count differed by', () => {
