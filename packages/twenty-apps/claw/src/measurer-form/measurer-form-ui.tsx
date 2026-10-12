@@ -62,6 +62,26 @@ export const useElementWidth = () => {
   return { ref, width };
 };
 
+// The same polling for a block whose height sets where the sticky ones below
+// it start.
+export const useElementHeight = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const read = () =>
+      setHeight(Math.round(ref.current?.getBoundingClientRect().height ?? 0));
+
+    read();
+
+    const timer = setInterval(read, WIDTH_POLL_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return { ref, height };
+};
+
 export const Card = ({
   children,
   padding = SPACE.lg,
@@ -1130,9 +1150,11 @@ export const ErrorList = ({ errors }: { errors: string[] }) => {
 
 export const SignaturePad = ({
   strokes,
+  height = SIGNATURE_PAD_HEIGHT_PX,
   onChange,
 }: {
   strokes: SignatureStroke[];
+  height?: number;
   onChange: (update: (strokes: SignatureStroke[]) => SignatureStroke[]) => void;
 }) => {
   const pad = useRef<HTMLDivElement>(null);
@@ -1192,7 +1214,7 @@ export const SignaturePad = ({
         border: '2px dashed #c9ccd4',
         borderRadius: RADIUS.card,
         cursor: 'crosshair',
-        height: `${SIGNATURE_PAD_HEIGHT_PX}px`,
+        height: `${height}px`,
         overflow: 'hidden',
         position: 'relative',
         // Without it a finger drawing on the pad scrolls the page instead.
@@ -1212,16 +1234,16 @@ export const SignaturePad = ({
       >
         <line
           x1="24"
-          y1={SIGNATURE_PAD_HEIGHT_PX - 50}
+          y1={height - 50}
           x2="96%"
-          y2={SIGNATURE_PAD_HEIGHT_PX - 50}
+          y2={height - 50}
           stroke="#c9ccd4"
           strokeWidth="1"
         />
         {strokes.length === 0 ? (
           <text
             x="50%"
-            y={SIGNATURE_PAD_HEIGHT_PX / 2 - 10}
+            y={height / 2 - 10}
             textAnchor="middle"
             fontSize="15"
             fill="#9a9ea8"

@@ -30,6 +30,9 @@ const SKETCH_MIN_WIDTH_PX = 180;
 const SIDE_BY_SIDE_MIN_WIDTH = 860;
 const PAPER_HEIGHT_WIDE_PX = 640;
 const PAPER_HEIGHT_NARROW_PX = 440;
+// The client reads on the measurer's tablet at arm's length
+const LARGE_TEXT = { fontSize: '19px', lineHeight: '30px' };
+const SIGNATURE_HEIGHT_PX = 280;
 
 const Runs = ({ runs }: { runs: ContractRun[] }) => (
   <>
@@ -47,7 +50,9 @@ const Block = ({ block }: { block: ContractBlock }) => {
   switch (block.kind) {
     case 'title':
       return (
-        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 18 }}>
+        <div
+          style={{ textAlign: 'center', fontWeight: 700, fontSize: '1.15em' }}
+        >
           <Runs runs={block.runs} />
         </div>
       );
@@ -265,10 +270,12 @@ const readRatio = ({ scrollTop, scrollHeight, clientHeight }: Geometry) =>
 export const ContractPaper = ({
   document,
   height = 560,
+  isLargeText = false,
   onReadToEnd,
 }: {
   document: ContractDocument;
   height?: number | string;
+  isLargeText?: boolean;
   onReadToEnd: () => void;
 }) => {
   const colors = usePalette();
@@ -354,6 +361,8 @@ export const ContractPaper = ({
           border: `1px solid ${colors.border}`,
           borderRadius: RADIUS.card,
           ...TYPE.body,
+          ...(isLargeText ? LARGE_TEXT : {}),
+          overflowWrap: 'anywhere',
         }}
       >
         {document.blocks.map((block, index) => (
@@ -412,7 +421,11 @@ export const SigningPanel = ({
       ) : null}
       {isUnlocked && isAgreed ? (
         <>
-          <SignaturePad strokes={signature} onChange={onSignatureChange} />
+          <SignaturePad
+            strokes={signature}
+            height={SIGNATURE_HEIGHT_PX}
+            onChange={onSignatureChange}
+          />
           {signature.length > 0 ? (
             <div
               style={{
@@ -554,6 +567,7 @@ export const ContractSigning = ({
   const page = useElementWidth();
   const [isRead, setIsRead] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
+  const [isLargeText, setIsLargeText] = useState(true);
   const isSideBySide = page.width >= SIDE_BY_SIDE_MIN_WIDTH;
 
   return (
@@ -568,11 +582,19 @@ export const ContractSigning = ({
         alignItems: 'start',
       }}
     >
-      <ContractPaper
-        document={document}
-        height={isSideBySide ? PAPER_HEIGHT_WIDE_PX : PAPER_HEIGHT_NARROW_PX}
-        onReadToEnd={() => setIsRead(true)}
-      />
+      <div style={{ display: 'grid', gap: SPACE.sm, minWidth: 0 }}>
+        <div style={{ justifySelf: 'end' }}>
+          <Button onClick={() => setIsLargeText((current) => !current)}>
+            {isLargeText ? 'Обычный шрифт' : 'А+ Крупный шрифт'}
+          </Button>
+        </div>
+        <ContractPaper
+          document={document}
+          isLargeText={isLargeText}
+          height={isSideBySide ? PAPER_HEIGHT_WIDE_PX : PAPER_HEIGHT_NARROW_PX}
+          onReadToEnd={() => setIsRead(true)}
+        />
+      </div>
       <div style={{ display: 'grid', gap: SPACE.md, minWidth: 0 }}>
         <ContractSummary data={data} />
         {warnings.length > 0 ? (
