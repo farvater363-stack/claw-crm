@@ -315,6 +315,7 @@ describe('the month as a statement', () => {
     ]);
     expect(statement.reduce((sum, { amount }) => sum + amount, 0)).toBe(row().owed);
     expect(statement[1].orderId).toBe('order-1031');
+    expect(statement.map(({ paymentId }) => paymentId)).toEqual([null, null, null, 'p']);
   });
 
   it('words a fixed pay, a percent and a penalty', () => {

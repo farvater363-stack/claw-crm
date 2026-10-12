@@ -287,3 +287,16 @@ export const createMaterial = async (
     },
   });
 };
+
+export const renameMaterial = async (
+  client: CoreApiClient,
+  materialId: string,
+  name: string,
+): Promise<void> => {
+  await client.mutation({
+    updateMaterial: {
+      __args: { id: materialId, data: { name } },
+      id: true,
+    },
+  });
+};

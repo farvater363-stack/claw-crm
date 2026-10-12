@@ -16,7 +16,11 @@ import {
   type RecurringRecord,
   type WorkerRecord,
 } from 'src/money/money-books';
-import { type NewMoneyEntry, type RecurringEntry } from 'src/money/money-forms';
+import {
+  type EntryChange,
+  type NewMoneyEntry,
+  type RecurringEntry,
+} from 'src/money/money-forms';
 import {
   type AccrualRecord,
   type ReadyOrderRecord,
@@ -347,6 +351,40 @@ export const saveRecurringExpense = async (
 
   await client.mutation({
     updateRecurringExpense: { __args: { id, data }, id: true },
+  });
+};
+
+export const updateMoneyEntry = async (
+  client: CoreApiClient,
+  id: string,
+  change: EntryChange,
+): Promise<void> => {
+  await client.mutation({
+    updateMoneyEntry: {
+      __args: {
+        id,
+        data: { ...change, amount: toCurrency(change.amount) },
+      },
+      id: true,
+    },
+  });
+};
+
+export const deleteMoneyEntry = async (
+  client: CoreApiClient,
+  id: string,
+): Promise<void> => {
+  await client.mutation({
+    deleteMoneyEntry: { __args: { id }, id: true },
+  });
+};
+
+export const restoreMoneyEntry = async (
+  client: CoreApiClient,
+  id: string,
+): Promise<void> => {
+  await client.mutation({
+    restoreMoneyEntry: { __args: { id }, id: true },
   });
 };
 

@@ -4,9 +4,13 @@ import {
   type MoneyEntryKind,
   type Wallet,
 } from 'src/constants/select-options';
-import { type RecurringRecord, walletLabel } from 'src/money/money-books';
+import {
+  type MoneyEntryRecord,
+  type RecurringRecord,
+  walletLabel,
+} from 'src/money/money-books';
 import { parseOptionalMoney } from 'src/prices/prices-screen';
-import { formatMoney } from 'src/ui/format';
+import { formatMoney, formatWhole } from 'src/ui/format';
 
 type Errors = Record<string, string>;
 
@@ -344,6 +348,95 @@ export const buildHandover = (
       wallet: draft.wallet,
       date: draft.date,
       workerId: holder.workerId,
+    },
+  };
+};
+
+// How a written entry is changed: one typed in «Записать» opens that form
+// again; a supplier payment, a handover, «Вложил» or a bill paid keep what
+// they are and change only their sum, wallet, date and comment; a recount
+// line is only taken back, since its sum is what the count differed by.
+export type EntryEditMode = 'record' | 'sum' | 'remove';
+
+export const entryEditMode = (entry: MoneyEntryRecord): EntryEditMode => {
+  switch (entry.kind) {
+    case 'EXPENSE':
+      return entry.recurringExpenseId === null ? 'record' : 'sum';
+    case 'INCOME':
+    case 'OWNER_DRAW':
+      return 'record';
+    case 'COUNT_DIFFERENCE':
+    case 'OPENING_BALANCE':
+      return 'remove';
+    default:
+      return 'sum';
+  }
+};
+
+export const recordDraftFromEntry = (entry: MoneyEntryRecord): RecordDraft => ({
+  direction:
+    entry.kind === 'INCOME' || entry.kind === 'OWNER_DRAW'
+      ? entry.kind
+      : 'EXPENSE',
+  amount: formatWhole(Math.abs(entry.amount)),
+  category: entry.category ?? '',
+  wallet: entry.wallet ?? 'CASH',
+  date: entry.date ?? entry.createdAt.slice(0, 10),
+  comment: entry.comment ?? '',
+  orderId: entry.orderId ?? '',
+});
+
+export type EntrySumDraft = {
+  amount: string;
+  wallet: Wallet;
+  date: string;
+  comment: string;
+};
+
+export const entrySumDraft = (entry: MoneyEntryRecord): EntrySumDraft => ({
+  amount: formatWhole(Math.abs(entry.amount)),
+  wallet: entry.wallet ?? 'CASH',
+  date: entry.date ?? entry.createdAt.slice(0, 10),
+  comment: entry.comment ?? '',
+});
+
+// What an edit writes over: the links an entry was made with (its bill, its
+// worker, its supplier and purchase) are never sent, so they stay.
+export type EntryChange = {
+  amount: number;
+  wallet: Wallet;
+  date: string;
+  comment: string | null;
+} & Partial<Pick<NewMoneyEntry, 'kind' | 'name' | 'category' | 'orderId'>>;
+
+export const recordChange = (entry: NewMoneyEntry): EntryChange => ({
+  kind: entry.kind,
+  name: entry.name,
+  amount: entry.amount,
+  wallet: entry.wallet,
+  date: entry.date,
+  category: entry.category,
+  comment: entry.comment,
+  orderId: entry.orderId,
+});
+
+export const buildEntrySum = (draft: EntrySumDraft): Built<EntryChange> => {
+  const errors: Errors = {};
+  const amount = parseAmount(draft.amount);
+
+  if (!amount.ok) errors.amount = amount.error;
+  if (draft.date === '') errors.date = 'Выберите дату';
+
+  if (!amount.ok || Object.keys(errors).length > 0)
+    return { ok: false, errors };
+
+  return {
+    ok: true,
+    data: {
+      amount: amount.value,
+      wallet: draft.wallet,
+      date: draft.date,
+      comment: draft.comment.trim() || null,
     },
   };
 };

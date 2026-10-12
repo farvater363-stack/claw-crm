@@ -644,6 +644,38 @@ export const InlineConfirm = ({
   </div>
 );
 
+// A delete that asks first, for the foot of a form or an opened row.
+export const DeleteAction = ({
+  text,
+  question,
+  isBusy = false,
+  onConfirm,
+}: {
+  text: string;
+  question: string;
+  isBusy?: boolean;
+  onConfirm: () => void;
+}) => {
+  const [isAsking, setIsAsking] = useState(false);
+
+  return isAsking ? (
+    <InlineConfirm
+      question={question}
+      confirmText="Удалить"
+      cancelText="Оставить"
+      isBusy={isBusy}
+      onConfirm={onConfirm}
+      onCancel={() => setIsAsking(false)}
+    />
+  ) : (
+    <div>
+      <Button variant="link" onClick={() => setIsAsking(true)}>
+        {text}
+      </Button>
+    </div>
+  );
+};
+
 export const UndoBar = ({
   text,
   onUndo,

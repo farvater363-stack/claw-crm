@@ -10,11 +10,14 @@ import { IDS } from 'src/constants/universal-identifiers';
 import { useElementWidth } from 'src/measurer-form/measurer-form-ui';
 import {
   createMoneyEntry,
+  deleteMoneyEntry,
   loadMoneyBooks,
   loadReadyOrders,
   type MoneyBooks,
+  restoreMoneyEntry,
   saveRecurringExpense,
   stopRecurringExpense,
+  updateMoneyEntry,
 } from 'src/money/load-money-books';
 import {
   buildMoneyMoves,
@@ -23,6 +26,7 @@ import {
   type LedgerFilter,
   ledgerDays,
   lastRecount,
+  type MoneyMove,
   monthFlow,
   type RecurringRecord,
   recurringBadge,
@@ -36,17 +40,25 @@ import {
   buildRecount,
   buildRecurring,
   buildRecurringPayment,
+  buildEntrySum,
   emptyRecord,
   emptyRecount,
   emptyRecurring,
+  entryEditMode,
+  entrySumDraft,
+  type EntrySumDraft,
   type HandoverDraft,
   type PayRecurringDraft,
   type RecordDraft,
   type RecountDraft,
   type RecurringDraft,
+  recordChange,
+  recordDraftFromEntry,
 } from 'src/money/money-forms';
 import { buildProfit, type ReadyOrderRecord } from 'src/money/money-profit';
 import {
+  ElsewhereSheet,
+  EntrySheet,
   HandoverSheet,
   PayRecurringSheet,
   RecordSheet,
@@ -83,6 +95,7 @@ import {
   Screen,
   TabStrip,
   Tabs,
+  UndoBar,
   usePalette,
   Wrap,
 } from 'src/ui/kit';
@@ -111,7 +124,23 @@ type OpenSheet =
   | { kind: 'recount'; draft: RecountDraft; errors: Errors }
   | { kind: 'recurring'; draft: RecurringDraft; errors: Errors }
   | { kind: 'pay'; draft: PayRecurringDraft; errors: Errors }
-  | { kind: 'handover'; draft: HandoverDraft; errors: Errors };
+  | { kind: 'handover'; draft: HandoverDraft; errors: Errors }
+  | { kind: 'editRecord'; entryId: string; draft: RecordDraft; errors: Errors }
+  | {
+      kind: 'editEntry';
+      entryId: string;
+      title: string;
+      note: string | undefined;
+      // Null for a recount line, which is only deleted
+      draft: EntrySumDraft | null;
+      errors: Errors;
+    }
+  | {
+      kind: 'elsewhere';
+      title: string;
+      text: string;
+      link: { href: string; text: string } | null;
+    };
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'cash', label: 'Касса' },
@@ -131,6 +160,18 @@ const WALLET_HINTS: Record<Wallet, string> = {
   CASH: 'ещё не пересчитано',
   CARD: 'Uzcard / Humo',
   ACCOUNT: 'перечисления',
+};
+const UNDO_MS = 10_000;
+const DELETE_KEY = 'delete';
+const ENTRY_NOTES: Partial<Record<string, string>> = {
+  SUPPLIER_PAYMENT:
+    'Оплата поставщику. Долг поставщика на «Складе» пересчитается сам.',
+  HANDOVER: 'Работник сдал деньги в кассу.',
+  OWNER_DEPOSIT: 'Вложили свои деньги.',
+  COUNT_DIFFERENCE:
+    'Строка пересчёта: её сумма это разница между записями и тем, что насчитали. Если пересчёт был с ошибкой, удалите её и пересчитайте заново.',
+  OPENING_BALANCE:
+    'Начальный остаток: с него касса начала считаться. Если насчитали неверно, удалите его и пересчитайте заново.',
 };
 const WALLET_TITLES: Record<Wallet, string> = {
   CASH: 'Наличные',
@@ -271,6 +312,7 @@ const Money = () => {
   );
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
   const [failures, setFailures] = useState<Record<string, () => void>>({});
+  const [removedEntryId, setRemovedEntryId] = useState<string | null>(null);
   const { ref: widthRef, width } = useElementWidth();
   const inFlight = useRef(new Set<string>());
   const attemptIds = useRef<Record<string, string>>({});
@@ -403,9 +445,15 @@ const Money = () => {
     .sort((left, right) => (left.dayOfMonth ?? 1) - (right.dayOfMonth ?? 1));
 
   const closeSheet = () => {
-    if (sheet === null || inFlight.current.has(sheet.kind)) return;
+    if (
+      sheet === null ||
+      inFlight.current.has(sheet.kind) ||
+      inFlight.current.has(DELETE_KEY)
+    ) {
+      return;
+    }
 
-    setFailures((current) => dropKey(current, sheet.kind));
+    setFailures((current) => dropKey(dropKey(current, sheet.kind), DELETE_KEY));
     forgetAttempts(`${sheet.kind}:`);
     setSheet(null);
     setPhotos([]);
@@ -550,6 +598,129 @@ const Money = () => {
     });
   };
 
+  // A line of the ledger opens what it was written from: an entry typed here
+  // changes here; a client payment or a payout changes where it was entered.
+  const openMove = (move: MoneyMove) => {
+    const { record } = move;
+
+    if (record.kind === 'payment') {
+      open({
+        kind: 'elsewhere',
+        title: move.title,
+        text: 'Оплата клиента меняется или удаляется в самом заказе.',
+        link:
+          record.orderId === null
+            ? null
+            : {
+                href: `/object/order/${record.orderId}`,
+                text: 'Открыть заказ',
+              },
+      });
+
+      return;
+    }
+
+    if (record.kind === 'payout') {
+      open({
+        kind: 'elsewhere',
+        title: move.title,
+        text: 'Выплата работнику меняется или удаляется в «ЗП», вкладка «Выплаты»: откройте работника и нажмите на выплату.',
+        link: null,
+      });
+
+      return;
+    }
+
+    const entry = books.entries.find((one) => one.id === record.id);
+
+    if (entry === undefined) return;
+
+    const mode = entryEditMode(entry);
+
+    if (mode === 'record') {
+      open({
+        kind: 'editRecord',
+        entryId: entry.id,
+        draft: recordDraftFromEntry(entry),
+        errors: {},
+      });
+
+      return;
+    }
+
+    open({
+      kind: 'editEntry',
+      entryId: entry.id,
+      title: move.title,
+      note:
+        entry.recurringExpenseId !== null
+          ? 'Оплата постоянного расхода.'
+          : ENTRY_NOTES[entry.kind ?? ''],
+      draft: mode === 'remove' ? null : entrySumDraft(entry),
+      errors: {},
+    });
+  };
+
+  const saveEditRecord = (entryId: string, draft: RecordDraft) => {
+    const built = buildRecord(draft);
+
+    setSheet({
+      kind: 'editRecord',
+      entryId,
+      draft,
+      errors: built.ok ? {} : built.errors,
+    });
+
+    if (!built.ok) return;
+
+    void run('editRecord', async () => {
+      await updateMoneyEntry(
+        new CoreApiClient(),
+        entryId,
+        recordChange(built.data),
+      );
+      await finishSave('editRecord', built.data.date);
+    });
+  };
+
+  const saveEditEntry = (
+    current: Extract<OpenSheet, { kind: 'editEntry' }>,
+    draft: EntrySumDraft,
+  ) => {
+    const built = buildEntrySum(draft);
+
+    setSheet({ ...current, draft, errors: built.ok ? {} : built.errors });
+
+    if (!built.ok) return;
+
+    void run('editEntry', async () => {
+      await updateMoneyEntry(new CoreApiClient(), current.entryId, built.data);
+      await finishSave('editEntry', built.data.date);
+    });
+  };
+
+  const removeEntry = (entryId: string) =>
+    void run(DELETE_KEY, async () => {
+      await deleteMoneyEntry(new CoreApiClient(), entryId);
+      setSheet(null);
+      setRemovedEntryId(entryId);
+      setTimeout(
+        () =>
+          setRemovedEntryId((current) =>
+            current === entryId ? null : current,
+          ),
+        UNDO_MS,
+      );
+      await reload();
+    });
+
+  const restoreEntry = (entryId: string) =>
+    void run('undo', async () => {
+      await restoreMoneyEntry(new CoreApiClient(), entryId);
+      setRemovedEntryId(null);
+      await reload();
+    });
+
   const monthPicker = (
     <Wrap>
       <Button
@@ -679,7 +850,7 @@ const Money = () => {
               {days.length === 0 ? (
                 <MutedNote text="В этом месяце записей нет" />
               ) : (
-                <Ledger days={days} />
+                <Ledger days={days} onOpen={openMove} />
               )}
             </Inside>
           </Panel>
@@ -1002,6 +1173,71 @@ const Money = () => {
       );
     }
 
+    if (sheet.kind === 'editRecord') {
+      return (
+        <RecordSheet
+          draft={sheet.draft}
+          errors={sheet.errors}
+          orders={stock?.orders ?? []}
+          photoNames={[]}
+          isSaving={isSaving}
+          isDeleting={busyKeys.includes(DELETE_KEY)}
+          failure={
+            failureNote('editRecord', () =>
+              saveEditRecord(sheet.entryId, sheet.draft),
+            ) ?? failureNote(DELETE_KEY)
+          }
+          onChange={(draft) => {
+            if (!isLocked) setSheet({ ...sheet, draft });
+          }}
+          onPickPhotos={() => undefined}
+          onSave={() => saveEditRecord(sheet.entryId, sheet.draft)}
+          onDelete={() => removeEntry(sheet.entryId)}
+          onClose={closeSheet}
+        />
+      );
+    }
+
+    if (sheet.kind === 'editEntry') {
+      const { draft } = sheet;
+
+      return (
+        <EntrySheet
+          title={sheet.title}
+          note={sheet.note}
+          draft={draft}
+          errors={sheet.errors}
+          isSaving={isSaving}
+          isDeleting={busyKeys.includes(DELETE_KEY)}
+          failure={
+            (draft === null
+              ? null
+              : failureNote('editEntry', () => saveEditEntry(sheet, draft))) ??
+            failureNote(DELETE_KEY)
+          }
+          onChange={(next) => {
+            if (!isLocked) setSheet({ ...sheet, draft: next });
+          }}
+          onSave={() => {
+            if (draft !== null) saveEditEntry(sheet, draft);
+          }}
+          onDelete={() => removeEntry(sheet.entryId)}
+          onClose={closeSheet}
+        />
+      );
+    }
+
+    if (sheet.kind === 'elsewhere') {
+      return (
+        <ElsewhereSheet
+          title={sheet.title}
+          text={sheet.text}
+          link={sheet.link}
+          onClose={closeSheet}
+        />
+      );
+    }
+
     if (sheet.kind === 'recount') {
       const context = recountContext(sheet.draft.wallet);
 
@@ -1105,6 +1341,13 @@ const Money = () => {
         {tab === 'profit' ? renderProfit() : null}
         {tab === 'regular' ? renderRegular() : null}
       </div>
+      {failureNote('undo')}
+      {removedEntryId !== null ? (
+        <UndoBar
+          text="Запись удалена."
+          onUndo={() => restoreEntry(removedEntryId)}
+        />
+      ) : null}
       {renderSheet()}
     </Screen>
   );

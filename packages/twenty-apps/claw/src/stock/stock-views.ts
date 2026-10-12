@@ -61,6 +61,8 @@ const OUT_TITLES: Record<
 
 export type OutEntry = {
   key: string;
+  kind: StockMovementKind;
+  movementIds: string[];
   date: string;
   title: string;
   orderId: string | null;
@@ -116,6 +118,8 @@ export const buildOutEntries = ({
 
       return {
         key,
+        kind: first.kind,
+        movementIds: movements.map((movement) => movement.id),
         date: first.date,
         title:
           first.kind === 'WRITE_OFF' ||

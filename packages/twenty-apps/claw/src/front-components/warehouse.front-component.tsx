@@ -14,14 +14,22 @@ import {
   createStockOut,
   createSupplier,
   createSupplierPayment,
+  deletePurchase,
+  deleteStockMovements,
   loadStockBooks,
+  type PurchaseRemoval,
+  renameSupplier,
+  restorePurchase,
+  restoreStockMovements,
   type StockBooks,
+  updateStockOut,
 } from 'src/stock/load-stock-books';
 import {
   createMaterial,
   createStockMovement,
   deleteMaterial,
   loadStockData,
+  renameMaterial,
   restoreMaterial,
   type StockData,
   updateMinimumStock,
@@ -32,8 +40,11 @@ import {
   buildStockOut,
   type DebtPaymentDraft,
   type PurchaseDraft,
+  purchaseEditDraft,
+  type PurchaseEntry,
   purchaseName,
   type StockOutDraft,
+  stockOutEditDraft,
 } from 'src/stock/stock-forms';
 import {
   buildStockMonthReport,
@@ -68,8 +79,10 @@ import {
   buildOutEntries,
   historyLineText,
   monthLabel,
+  type OutEntry,
   OUT_FILTERS,
   type OutFilter,
+  type PurchaseListItem,
   purchaseLinesText,
   purchaseList,
   shiftMonth,
@@ -83,6 +96,7 @@ import {
 import {
   AmountLine,
   Button,
+  DeleteAction,
   EmptyState,
   ErrorNote,
   Field,
@@ -122,8 +136,19 @@ type Tab = 'stock' | 'in' | 'out' | 'report';
 type Errors = Record<string, string>;
 
 type OpenSheet =
-  | { kind: 'purchase'; draft: PurchaseDraft; errors: Errors }
-  | { kind: 'out'; draft: StockOutDraft; errors: Errors }
+  // editId: the purchase or the movement being changed; null for a new one
+  | {
+      kind: 'purchase';
+      draft: PurchaseDraft;
+      errors: Errors;
+      editId: string | null;
+    }
+  | {
+      kind: 'out';
+      draft: StockOutDraft;
+      errors: Errors;
+      editId: string | null;
+    }
   | { kind: 'recount'; typed: Record<string, string>; errors: Errors }
   | { kind: 'material'; draft: NewMaterialDraft; errors: Errors }
   | { kind: 'debt'; draft: DebtPaymentDraft; errors: Errors };
@@ -224,7 +249,13 @@ const Stock = () => {
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [copyNote, setCopyNote] = useState<string | null>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
-  const [removedId, setRemovedId] = useState<string | null>(null);
+  const [renamingSupplierId, setRenamingSupplierId] = useState<string | null>(
+    null,
+  );
+  const [undo, setUndo] = useState<{
+    text: string;
+    restore: () => Promise<void>;
+  } | null>(null);
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
   const [failures, setFailures] = useState<
     Record<string, { isDenied: boolean; retry: () => void }>
@@ -502,6 +533,7 @@ const Stock = () => {
     setSheet({
       kind: 'purchase',
       errors: {},
+      editId: null,
       draft: {
         supplierId: '',
         newSupplierName: '',
@@ -534,6 +566,7 @@ const Stock = () => {
     setSheet({
       kind: 'out',
       errors: {},
+      editId: null,
       draft: {
         kind: 'SCRAP',
         orderId: '',
@@ -563,19 +596,182 @@ const Stock = () => {
     });
   };
 
-  const savePurchase = (draft: PurchaseDraft) => {
+  // The purchase and its lines are written again; a line taken out of the form
+  // is deleted. Payments stay as they are.
+  const saveChangedPurchase = (purchaseId: string, purchase: PurchaseEntry) => {
+    const storedLineIds = books.movements
+      .filter((movement) => movement.purchaseId === purchaseId)
+      .map((movement) => movement.id);
+    const kept = new Set(
+      purchase.lines.flatMap((line) =>
+        line.movementId === undefined ? [] : [line.movementId],
+      ),
+    );
+    const touched = [
+      ...purchase.lines.map((line) => line.materialId),
+      ...books.movements
+        .filter((movement) => movement.purchaseId === purchaseId)
+        .flatMap((movement) =>
+          movement.materialId === null ? [] : [movement.materialId],
+        ),
+    ];
+
+    void run('purchase', async () => {
+      const client = new CoreApiClient();
+      const supplierId =
+        purchase.newSupplierName === null
+          ? purchase.supplierId
+          : attemptId('purchase:supplier');
+
+      if (purchase.newSupplierName !== null && supplierId !== null) {
+        await createSupplier(client, supplierId, purchase.newSupplierName);
+      }
+
+      const supplierName =
+        purchase.newSupplierName ??
+        books.suppliers.find((supplier) => supplier.id === supplierId)?.name ??
+        null;
+
+      await createPurchase(client, purchaseId, {
+        name: purchaseName(purchase.date, supplierName),
+        date: purchase.date,
+        supplierId,
+        comment: purchase.comment,
+      });
+
+      for (const [index, line] of purchase.lines.entries()) {
+        await createPurchaseLine(
+          client,
+          line.movementId ?? attemptId(`purchase:line:${index}`),
+          { id: purchaseId, date: purchase.date },
+          line,
+        );
+      }
+
+      await deleteStockMovements(
+        client,
+        storedLineIds.filter((id) => !kept.has(id)),
+      );
+      forgetAttempts('purchase:');
+      setSheet(null);
+      setMonth(purchase.date.slice(0, 7));
+      settle(
+        Object.fromEntries(touched.map((materialId) => [materialId, null])),
+      );
+    });
+  };
+
+  const offerUndo = (text: string, restore: () => Promise<void>) => {
+    const entry = { text, restore };
+
+    setUndo(entry);
+    later(
+      () => setUndo((current) => (current === entry ? null : current)),
+      UNDO_MS,
+    );
+  };
+
+  // A row deleted from the history leaves at once; the shelf amounts it
+  // changed are read again when the recalc is done.
+  const removeHistory = (
+    key: string,
+    text: string,
+    materialIds: string[],
+    remove: (client: CoreApiClient) => Promise<void>,
+    restore: (client: CoreApiClient) => Promise<void>,
+  ) =>
+    void run(key, async () => {
+      await remove(new CoreApiClient());
+      setOpenId(null);
+      offerUndo(text, async () => {
+        await restore(new CoreApiClient());
+        settle(
+          Object.fromEntries(
+            materialIds.map((materialId) => [materialId, null]),
+          ),
+        );
+
+        const next = await readList();
+
+        if (next !== null) setLoad(next);
+      });
+      settle(
+        Object.fromEntries(materialIds.map((materialId) => [materialId, null])),
+      );
+
+      const next = await readList();
+
+      if (next !== null) setLoad(next);
+    });
+
+  const removePurchase = (purchase: PurchaseListItem) => {
+    const removal: PurchaseRemoval = {
+      purchaseId: purchase.isLoose ? null : purchase.id,
+      movementIds: purchase.isLoose
+        ? purchase.lines.map((line) => line.movementId)
+        : books.movements
+            .filter((movement) => movement.purchaseId === purchase.id)
+            .map((movement) => movement.id),
+      paymentIds: purchase.isLoose
+        ? []
+        : (books.payments ?? [])
+            .filter((payment) => payment.purchaseId === purchase.id)
+            .map((payment) => payment.id),
+    };
+
+    removeHistory(
+      `${purchase.id}:remove`,
+      'Приход удалён.',
+      purchase.lines.map((line) => line.materialId),
+      (client) => deletePurchase(client, removal),
+      (client) => restorePurchase(client, removal),
+    );
+  };
+
+  const openPurchaseEdit = (purchaseId: string) => {
+    const record = books.purchases.find((one) => one.id === purchaseId);
+
+    if (record === undefined) return;
+
+    forgetAttempts('purchase:');
+    setPhotos([]);
+    setSheet({
+      kind: 'purchase',
+      errors: {},
+      editId: purchaseId,
+      draft: purchaseEditDraft(record, books.movements, newLineKey),
+    });
+  };
+
+  const openOutEdit = (movementId: string) => {
+    const movement = books.movements.find((one) => one.id === movementId);
+    const draft = movement ? stockOutEditDraft(movement) : null;
+
+    if (draft === null) return;
+
+    forgetAttempts('out:');
+    setSheet({ kind: 'out', errors: {}, editId: movementId, draft });
+  };
+
+  const savePurchase = (draft: PurchaseDraft, editId: string | null) => {
     const entry = buildPurchaseEntry(draft, canSeeMoney);
 
     if (!entry.ok) {
-      setSheet({ kind: 'purchase', draft, errors: entry.errors });
+      setSheet({ kind: 'purchase', draft, errors: entry.errors, editId });
 
       return;
     }
 
-    setSheet({ kind: 'purchase', draft, errors: {} });
+    setSheet({ kind: 'purchase', draft, errors: {}, editId });
 
     const { data: purchase } = entry;
     const picked = photos;
+
+    if (editId !== null) {
+      saveChangedPurchase(editId, purchase);
+
+      return;
+    }
 
     void run('purchase', async () => {
       const client = new CoreApiClient();
@@ -661,19 +857,44 @@ const Stock = () => {
     });
   };
 
-  const saveOut = (draft: StockOutDraft) => {
+  const saveOut = (draft: StockOutDraft, editId: string | null) => {
+    const before =
+      editId === null
+        ? null
+        : books.movements.find((movement) => movement.id === editId);
+    // A changed расход is checked against the shelf as it was without it.
+    const returned =
+      before && before.materialId === draft.materialId
+        ? -(before.quantity ?? 0)
+        : 0;
     const entry = buildStockOut(
       draft,
-      draft.materialId === '' ? null : (onHandById.get(draft.materialId) ?? 0),
+      draft.materialId === ''
+        ? null
+        : (onHandById.get(draft.materialId) ?? 0) + returned,
     );
 
     if (!entry.ok) {
-      setSheet({ kind: 'out', draft, errors: entry.errors });
+      setSheet({ kind: 'out', draft, errors: entry.errors, editId });
 
       return;
     }
 
-    setSheet({ kind: 'out', draft, errors: {} });
+    setSheet({ kind: 'out', draft, errors: {}, editId });
+
+    if (editId !== null) {
+      void run('out', async () => {
+        await updateStockOut(new CoreApiClient(), editId, entry.data);
+        setSheet(null);
+        settle({
+          [entry.data.materialId]: null,
+          ...(before?.materialId ? { [before.materialId]: null } : {}),
+        });
+      });
+
+      return;
+    }
+
     void run('out', async () => {
       await createStockOut(
         new CoreApiClient(),
@@ -895,11 +1116,13 @@ const Stock = () => {
     void run(`${row.id}:remove`, async () => {
       await deleteMaterial(new CoreApiClient(), row.id);
       setOpenId(null);
-      setRemovedId(row.id);
-      later(
-        () => setRemovedId((current) => (current === row.id ? null : current)),
-        UNDO_MS,
-      );
+      offerUndo(`Удалено: ${row.name || UNNAMED}`, async () => {
+        await restoreMaterial(new CoreApiClient(), row.id);
+
+        const next = await readList();
+
+        if (next !== null) setLoad(next);
+      });
 
       const next = await readList();
 
@@ -907,18 +1130,69 @@ const Stock = () => {
     });
   };
 
-  const restoreRemoved = (materialId: string) =>
-    void run('undo', async () => {
-      await restoreMaterial(new CoreApiClient(), materialId);
-      setRemovedId(null);
+  const commitName = (row: StockRow) => {
+    const key = `${row.id}:name`;
+    const draft = drafts[key];
+
+    if (draft === undefined) return;
+
+    const name = draft.trim();
+
+    if (name === '') {
+      setErrors((current) => ({ ...current, [key]: 'Введите название' }));
+
+      return;
+    }
+
+    setErrors((current) => dropKey(current, key));
+
+    if (name === row.name) {
+      setDrafts((current) => dropKey(current, key));
+      setFailures((current) => dropKey(current, key));
+
+      return;
+    }
+
+    void run(key, async () => {
+      await renameMaterial(new CoreApiClient(), row.id, name);
 
       const next = await readList();
 
       if (next !== null) setLoad(next);
+
+      setDrafts((current) =>
+        current[key] === draft ? dropKey(current, key) : current,
+      );
+      showSaved(key);
     });
+  };
+
+  const commitSupplierName = (supplier: { id: string; name: string }) => {
+    const key = `${supplier.id}:name`;
+    const name = (drafts[key] ?? supplier.name).trim();
+
+    if (name === '' || name === supplier.name) {
+      setDrafts((current) => dropKey(current, key));
+      setRenamingSupplierId(null);
+
+      return;
+    }
+
+    void run(key, async () => {
+      await renameSupplier(new CoreApiClient(), supplier.id, name);
+
+      const next = await readList();
+
+      if (next !== null) setLoad(next);
+
+      setDrafts((current) => dropKey(current, key));
+      setRenamingSupplierId(null);
+    });
+  };
 
   const renderOpenRow = (row: StockRow) => {
     const minimumKey = `${row.id}:minimumStock`;
+    const nameKey = `${row.id}:name`;
     const history = valued
       .filter((movement) => movement.materialId === row.id)
       .slice(-HISTORY_LINES)
@@ -957,6 +1231,25 @@ const Stock = () => {
             ))}
           </Wrap>
         ) : null}
+        <Field
+          isInline
+          label="Название"
+          error={errors[nameKey]}
+          isSaved={savedKey === nameKey}
+        >
+          <TextInput
+            label="Название"
+            value={drafts[nameKey] ?? row.name}
+            onChange={(value) =>
+              setDrafts((current) => ({ ...current, [nameKey]: value }))
+            }
+            onCommit={() => commitName(row)}
+            onCancel={() => {
+              setDrafts((current) => dropKey(current, nameKey));
+              setErrors((current) => dropKey(current, nameKey));
+            }}
+          />
+        </Field>
         <Field
           isInline
           label="Запас не меньше"
@@ -1055,6 +1348,7 @@ const Stock = () => {
         {/* Outside the row, so a save that fails after the row was closed is
             still seen. */}
         {failureNote(`${row.id}:minimumStock`)}
+        {failureNote(`${row.id}:name`)}
         {failureNote(`${row.id}:remove`)}
       </Fragment>
     );
@@ -1166,6 +1460,7 @@ const Stock = () => {
               <>
                 {renderOpenRow(row)}
                 {failureNote(`${row.id}:minimumStock`)}
+                {failureNote(`${row.id}:name`)}
                 {failureNote(`${row.id}:remove`)}
               </>
             )}
@@ -1272,6 +1567,30 @@ const Stock = () => {
                         </Button>
                       </Wrap>
                     ) : null}
+                    {canSeeMoney ? (
+                      <>
+                        {purchase.isLoose ? null : (
+                          <Wrap>
+                            <Button
+                              onClick={() => openPurchaseEdit(purchase.id)}
+                            >
+                              Изменить
+                            </Button>
+                          </Wrap>
+                        )}
+                        <DeleteAction
+                          text="Удалить приход"
+                          question={
+                            purchase.paid > 0
+                              ? 'Удалить приход? Материал уйдёт со склада, оплата за него удалится из «Деньги».'
+                              : 'Удалить приход? Материал уйдёт со склада.'
+                          }
+                          isBusy={busyKeys.includes(`${purchase.id}:remove`)}
+                          onConfirm={() => removePurchase(purchase)}
+                        />
+                        {failureNote(`${purchase.id}:remove`)}
+                      </>
+                    ) : null}
                   </>
                 ) : null}
               </Row>
@@ -1305,10 +1624,80 @@ const Stock = () => {
                 <Hint
                   text={`Приходов: ${supplier.purchaseCount}${canSeeMoney ? ` на ${formatMoney(supplier.purchased)}` : ''}`}
                 />
+                {renamingSupplierId === supplier.id ? (
+                  <Field label="Название">
+                    <TextInput
+                      label="Название"
+                      value={drafts[`${supplier.id}:name`] ?? supplier.name}
+                      onChange={(value) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [`${supplier.id}:name`]: value,
+                        }))
+                      }
+                      onCommit={() => commitSupplierName(supplier)}
+                      onCancel={() => {
+                        setDrafts((current) =>
+                          dropKey(current, `${supplier.id}:name`),
+                        );
+                        setRenamingSupplierId(null);
+                      }}
+                    />
+                  </Field>
+                ) : (
+                  <div>
+                    <Button
+                      variant="link"
+                      onClick={() => setRenamingSupplierId(supplier.id)}
+                    >
+                      Переименовать
+                    </Button>
+                  </div>
+                )}
+                {failureNote(`${supplier.id}:name`)}
               </StaticRow>
             ))}
           </Panel>
         ) : null}
+      </>
+    );
+  };
+
+  // A write-off by the composition follows its order and is not changed here.
+  const renderOutActions = (entry: OutEntry) => {
+    const [movementId] = entry.movementIds;
+    const movement = books.movements.find((one) => one.id === movementId);
+
+    if (movementId === undefined || movement === undefined) return null;
+
+    const key = `${movementId}:remove`;
+
+    return (
+      <>
+        <Wrap>
+          {stockOutEditDraft(movement) === null ? null : (
+            <Button onClick={() => openOutEdit(movementId)}>Изменить</Button>
+          )}
+        </Wrap>
+        <DeleteAction
+          text="Удалить"
+          question={
+            entry.kind === 'STOCKTAKE'
+              ? 'Удалить этот пересчёт? Остаток посчитается без него.'
+              : 'Удалить этот расход? Материал вернётся на склад.'
+          }
+          isBusy={busyKeys.includes(key)}
+          onConfirm={() =>
+            removeHistory(
+              key,
+              'Расход удалён.',
+              movement.materialId === null ? [] : [movement.materialId],
+              (client) => deleteStockMovements(client, [movementId]),
+              (client) => restoreStockMovements(client, [movementId]),
+            )
+          }
+        />
+        {failureNote(key)}
       </>
     );
   };
@@ -1374,6 +1763,9 @@ const Stock = () => {
                   text={entry.note}
                 />
               ) : null}
+              {canSeeMoney && entry.kind !== 'WRITE_OFF'
+                ? renderOutActions(entry)
+                : null}
             </StaticRow>
           ))}
         </Panel>
@@ -1481,17 +1873,20 @@ const Stock = () => {
           suppliers={books.suppliers}
           canSeeMoney={canSeeMoney}
           isSaving={busyKeys.includes('purchase')}
-          failure={failureNote('purchase', () => savePurchase(sheet.draft))}
+          failure={failureNote('purchase', () =>
+            savePurchase(sheet.draft, sheet.editId),
+          )}
           photoNames={photos.map((photo) => photo.name)}
           newLineKey={newLineKey}
+          isEdit={sheet.editId !== null}
           onChange={(draft) => {
             // What is being saved was read at the press.
             if (inFlight.current.has('purchase')) return;
 
-            setSheet({ kind: 'purchase', draft, errors: sheet.errors });
+            setSheet({ ...sheet, draft });
           }}
           onPickPhotos={(files) => setPhotos(files)}
-          onSave={() => savePurchase(sheet.draft)}
+          onSave={() => savePurchase(sheet.draft, sheet.editId)}
           onClose={closeSheet}
         />
       );
@@ -1516,13 +1911,14 @@ const Stock = () => {
               : null
           }
           isSaving={busyKeys.includes('out')}
-          failure={failureNote('out', () => saveOut(sheet.draft))}
+          failure={failureNote('out', () => saveOut(sheet.draft, sheet.editId))}
+          isEdit={sheet.editId !== null}
           onChange={(draft) => {
             if (inFlight.current.has('out')) return;
 
-            setSheet({ kind: 'out', draft, errors: sheet.errors });
+            setSheet({ ...sheet, draft });
           }}
-          onSave={() => saveOut(sheet.draft)}
+          onSave={() => saveOut(sheet.draft, sheet.editId)}
           onClose={closeSheet}
         />
       );
@@ -1684,10 +2080,15 @@ const Stock = () => {
         {tab === 'report' ? renderReportTab() : null}
       </div>
       {failureNote('undo')}
-      {removedId !== null ? (
+      {undo !== null ? (
         <UndoBar
-          text={`Удалено: ${nameOf(removedId)}`}
-          onUndo={() => restoreRemoved(removedId)}
+          text={undo.text}
+          onUndo={() =>
+            void run('undo', async () => {
+              await undo.restore();
+              setUndo(null);
+            })
+          }
         />
       ) : null}
       {renderSheet()}

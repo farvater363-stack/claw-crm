@@ -233,6 +233,8 @@ export type StatementLine = {
   // Signed: what was earned adds, what was paid takes away
   amount: number;
   orderId: string | null;
+  // A payout, which the statement opens to change or delete
+  paymentId: string | null;
 };
 
 const accrualText = (line: AccrualLine): string => {
@@ -265,10 +267,10 @@ export const buildStatement = ({
 }: Pick<PayrollRow, 'carriedOver' | 'lines' | 'payments'>): StatementLine[] => [
   ...(carriedOver === 0
     ? []
-    : [{ key: 'carried', text: 'С прошлого месяца', amount: carriedOver, orderId: null }]),
+    : [{ key: 'carried', text: 'С прошлого месяца', amount: carriedOver, orderId: null, paymentId: null }]),
   ...[...lines]
     .sort((left, right) => left.earnedOn.localeCompare(right.earnedOn) || left.name.localeCompare(right.name, 'ru', { numeric: true }))
-    .map((line) => ({ key: line.id, text: accrualText(line), amount: line.amount, orderId: line.orderId })),
+    .map((line) => ({ key: line.id, text: accrualText(line), amount: line.amount, orderId: line.orderId, paymentId: null })),
   ...[...payments]
     .sort((left, right) => left.paidOn.localeCompare(right.paidOn))
     .map((payment) => ({
@@ -281,6 +283,7 @@ export const buildStatement = ({
         .join(' · '),
       amount: -payment.amount,
       orderId: null,
+      paymentId: payment.id,
     })),
 ];
 
