@@ -121,6 +121,12 @@ const input = (overrides: Partial<RecalcInput> = {}): RecalcInput => ({
       pricePerSquareMeter: 150_000,
       costPerSquareMeter: 90_000,
     },
+    {
+      id: 'railing-1',
+      product: 'RAILING',
+      pricePerSquareMeter: 150_000,
+      costPerSquareMeter: 90_000,
+    },
   ],
   master: paidPerSquareMeter(10_000, 4),
   paymentsTotal: 0,
@@ -181,7 +187,7 @@ describe('planOrderRecalc', () => {
           item({
             id: 'rail',
             product: 'RAILING',
-            designId: 'grille-2',
+            designId: 'railing-1',
             widthCm: 450,
             heightCm: 90,
             projectionCm: 0,
@@ -206,6 +212,26 @@ describe('planOrderRecalc', () => {
       subtotal: 768_000 + 675_000,
       masterPayCalculated: 76_800,
     });
+  });
+
+  it('leaves a railing unpriced while it still points at a grille design', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [
+          item({
+            product: 'RAILING',
+            designId: 'grille-2',
+            widthCm: 450,
+            heightCm: 90,
+            projectionCm: 0,
+            quantity: 1,
+          }),
+        ],
+      }),
+    );
+
+    expect(plan.itemUpdates[0].update.pricePerSquareMeter ?? null).toBeNull();
+    expect(plan.itemUpdates[0].update.lineTotal ?? null).toBeNull();
   });
 
   it('names a shaped проём by its shape and prices it by the outer box', () => {

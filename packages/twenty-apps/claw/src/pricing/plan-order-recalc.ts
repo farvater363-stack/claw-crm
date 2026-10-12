@@ -6,7 +6,7 @@ import {
   type ProjectionKind,
 } from 'src/constants/select-options';
 import {
-  parseStoredShape,
+  parseItemShape,
   shapeKindLabel,
 } from 'src/opening-shape/opening-shape';
 import {
@@ -26,7 +26,7 @@ import { computeDeadlineState } from 'src/pricing/compute-deadline-state';
 import { computeDiscount } from 'src/pricing/compute-discount';
 import {
   computeItemAreaSquareMeters,
-  computeRunningMeters,
+  computeItemUnits,
   formatItemSize,
   formatRailingSize,
 } from 'src/pricing/compute-item-area';
@@ -35,6 +35,8 @@ import { roundTo } from 'src/pricing/round';
 
 export type GrillePrice = {
   id: string;
+  // Missing on designs loaded before railings: those are grilles
+  product?: Product | null;
   pricePerSquareMeter: number | null;
   costPerSquareMeter: number | null;
 };
@@ -175,7 +177,7 @@ const describeItemSize = (
     });
   }
 
-  const shape = parseStoredShape(item.shape);
+  const shape = parseItemShape(item.shape, size.widthCm, size.heightCm);
 
   return shape === null
     ? formatItemSize(size)
@@ -197,15 +199,20 @@ const planItem = (
   const isRailing = item.product === 'RAILING';
   const areaSquareMeters =
     hasDimensions && !isRailing ? computeItemAreaSquareMeters(size) : null;
-  // A railing is priced per running metre of its length, a grille per m²
-  const units = isRailing
-    ? hasDimensions
-      ? computeRunningMeters(size.widthCm)
-      : null
-    : areaSquareMeters;
+  const units = computeItemUnits({
+    product: item.product,
+    widthCm: hasDimensions ? size.widthCm : null,
+    areaSquareMeters,
+  });
   const name = hasDimensions ? describeItemSize(item, size) : item.name;
 
-  const entry = grilles.find((grille) => grille.id === item.designId) ?? null;
+  // A grille's per-m² price never prices a railing's metres, nor the reverse
+  const entry =
+    grilles.find(
+      (grille) =>
+        grille.id === item.designId &&
+        (grille.product ?? 'GRILLE') === (item.product ?? 'GRILLE'),
+    ) ?? null;
   const pricePerSquareMeter =
     shouldRefreshPrice || item.pricePerSquareMeter === null
       ? (entry?.pricePerSquareMeter ??

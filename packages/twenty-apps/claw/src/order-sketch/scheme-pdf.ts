@@ -1,6 +1,7 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 
 import { embedPrintFonts } from 'src/contract/contract-pdf';
+import { SKETCH_WIDTH } from 'src/opening-shape/sketch-layout';
 import { drawSketchLayout, fitSketch } from 'src/opening-shape/sketch-pdf';
 import {
   type SchemeOpening,
@@ -107,7 +108,7 @@ export const renderSchemePdf = async ({
           { page, regular, bold, clean },
           schemeSketchLayout(opening),
           {
-            left: left + 5 + (inner - 240 * unit) / 2,
+            left: left + 5 + (inner - SKETCH_WIDTH * unit) / 2,
             top: top - 30,
             unit,
           },

@@ -1,4 +1,7 @@
-import { type Product, type ProjectionKind } from 'src/constants/select-options';
+import {
+  type Product,
+  type ProjectionKind,
+} from 'src/constants/select-options';
 import { roundTo } from 'src/pricing/round';
 import { formatQuantity } from 'src/ui/format';
 
@@ -64,6 +67,18 @@ export const computeRunningMeters = (lengthCm: number): number =>
   roundTo(lengthCm / CENTIMETERS_PER_METER, 2);
 
 // «450×90, 4,5 п.м.»: length × height in cm, then what the price counts.
+// «Перилла Классика»; a design already named «Перилла …» is not prefixed twice.
+export const railingName = (
+  designName: string | null | undefined,
+  fallback = 'Перилла',
+): string => {
+  if (designName === null || designName === undefined) return fallback;
+
+  return /^перилл/i.test(designName.trim())
+    ? designName
+    : `Перилла ${designName}`;
+};
+
 export const formatRailingSize = ({
   lengthCm,
   heightCm,

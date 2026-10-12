@@ -5,6 +5,7 @@ import {
   createShapeDraft,
   describeShape,
   outlineHeightCm,
+  parseItemShape,
   parseStoredShape,
   sampleArc,
   type ShapeDraft,
@@ -117,15 +118,15 @@ describe('buildShapeOutline', () => {
     expect(result.outline && outlineHeightCm(result.outline)).toBe(180);
   });
 
-  it('refuses an arch rise bigger than the width', () => {
+  it('refuses an arch rise bigger than half the width', () => {
     expect(
       buildShapeOutline(
-        draftOf({ kind: 'ARCH', sideCm: '0', riseCm: '130' }),
+        draftOf({ kind: 'ARCH', sideCm: '0', riseCm: '70' }),
         '120',
         '',
       ).errors,
     ).toEqual([
-      'стрела 130 см больше ширины 120 см. Проверьте стрелу: у полукруга она равна половине ширины',
+      'стрела 70 см больше половины ширины 120 см. У полукруга стрела равна половине ширины',
     ]);
   });
 
@@ -370,5 +371,53 @@ describe('stored shapes', () => {
         draft: createShapeDraft(nextKey),
       }),
     ).toBe('ступень 155 / 110');
+  });
+});
+
+describe('parseItemShape', () => {
+  const draft = draftOf({ kind: 'ARCH', sideCm: '0', riseCm: '62' });
+  const stored = toStoredShape(
+    draft,
+    buildShapeOutline(draft, '124', '').outline!,
+  );
+
+  it('keeps the shape while the item has its sizes', () => {
+    expect(parseItemShape(stored, 124, 62)?.kind).toBe('ARCH');
+  });
+
+  it('draws a rectangle once the sizes were changed elsewhere', () => {
+    expect(parseItemShape(stored, 140, 62)).toBeNull();
+  });
+});
+
+describe('arcs that would bulge past the sides', () => {
+  it('refuses a custom arc taller than half its chord', () => {
+    expect(
+      buildShapeOutline(
+        draftOf({
+          kind: 'CUSTOM',
+          points: [
+            {
+              key: 'a',
+              xCm: '0',
+              heightCm: '100',
+              isArcToNext: true,
+              arcRiseCm: '60',
+            },
+            {
+              key: 'b',
+              xCm: '100',
+              heightCm: '100',
+              isArcToNext: false,
+              arcRiseCm: '',
+            },
+          ],
+        }),
+        '100',
+        '',
+      ).errors,
+    ).toEqual([
+      'Дуга A → B: стрела 60 см больше половины расстояния между точками',
+    ]);
   });
 });

@@ -22,11 +22,11 @@ import {
   type ServiceOption,
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
+import { parseItemShape, toStoredShape } from 'src/opening-shape/opening-shape';
 import {
-  parseStoredShape,
-  toStoredShape,
-} from 'src/opening-shape/opening-shape';
-import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
+  computeItemAreaSquareMeters,
+  railingName,
+} from 'src/pricing/compute-item-area';
 import { roundTo } from 'src/pricing/round';
 import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { joinFullName, type StoredFullName } from 'src/utils/full-name';
@@ -175,11 +175,7 @@ const servicesOfDraft = (
 };
 
 const productName = (isRailing: boolean, designName: string | null) =>
-  isRailing
-    ? designName === null
-      ? 'Перилла'
-      : `Перилла ${designName}`
-    : (designName ?? 'Другая решётка');
+  isRailing ? railingName(designName) : (designName ?? 'Другая решётка');
 
 const openingsOfDraft = (
   draft: MeasurementDraft,
@@ -219,7 +215,9 @@ const openingsOfDraft = (
       : openingHeightCm(opening);
     const outline = openingOutline(opening);
     const shape =
-      isRailing || outline === null ? null : toStoredShape(opening.shape, outline);
+      isRailing || outline === null
+        ? null
+        : toStoredShape(opening.shape, outline);
     const projectionKind = opening.projectionKind;
     const projectionCm =
       projectionKind === 'NONE'
@@ -326,14 +324,19 @@ export const contractDataFromOrder = (
         ? productName(true, item.designName)
         : (item.designName ?? 'Решётка не выбрана'),
       isRailing,
-      shape: isRailing ? null : parseStoredShape(item.shape),
+      shape: isRailing
+        ? null
+        : parseItemShape(item.shape, item.widthCm, item.heightCm),
       widthCm: hasSizes ? item.widthCm : null,
       heightCm: hasSizes ? item.heightCm : null,
       projectionKind,
       projectionCm,
       quantity,
       areaSquareMeters:
-        hasSizes && !isRailing && item.widthCm !== null && item.heightCm !== null
+        hasSizes &&
+        !isRailing &&
+        item.widthCm !== null &&
+        item.heightCm !== null
           ? areaOf(
               item.widthCm,
               item.heightCm,

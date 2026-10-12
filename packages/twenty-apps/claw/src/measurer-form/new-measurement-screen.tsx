@@ -130,6 +130,7 @@ import {
 import {
   formatItemSize,
   formatRailingSize,
+  railingName,
 } from 'src/pricing/compute-item-area';
 import { todayInTashkent } from 'src/pricing/dates';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
@@ -931,7 +932,7 @@ export const NewMeasurement = () => {
     const name = grilleOf(opening)?.name;
 
     if (opening.product === 'RAILING') {
-      return name === undefined ? 'Другие перилла' : `Перилла ${name}`;
+      return railingName(name, 'Другие перилла');
     }
 
     return (

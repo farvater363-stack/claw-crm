@@ -26,6 +26,8 @@ import { Button, Field, Hint, TextInput, usePalette } from 'src/ui/kit';
 import { RADIUS, SPACE, TABULAR_NUMBERS, TYPE } from 'src/ui/tokens';
 import { fetchFieldMetadataId } from 'src/utils/fetch-field-metadata-id';
 import { joinFullName } from 'src/utils/full-name';
+import { isAccessError } from 'src/utils/is-access-error';
+import { parseDecimalInput } from 'src/utils/parse-decimal-input';
 
 const PAGE_SIZE = 200;
 const CARD_MIN_WIDTH_PX = 220;
@@ -114,12 +116,6 @@ const editDraftOf = (opening: SchemeOpening): EditDraft => ({
       : shapeDraftFromStored(opening.shape, nextEditKey),
 });
 
-const parseCm = (value: string): number | null => {
-  const parsed = Number(value.trim().replace(',', '.'));
-
-  return value.trim() === '' || !Number.isFinite(parsed) ? null : parsed;
-};
-
 // What «Сохранить» writes on the item; the recalc then re-prices the order
 // from the new width and height.
 const toItemUpdate = (
@@ -135,8 +131,8 @@ const toItemUpdate = (
     }
   | { errors: string[] } => {
   if (opening.isRailing) {
-    const widthCm = parseCm(draft.widthCm);
-    const heightCm = parseCm(draft.heightCm);
+    const widthCm = parseDecimalInput(draft.widthCm);
+    const heightCm = parseDecimalInput(draft.heightCm);
 
     if (
       widthCm === null ||
@@ -209,7 +205,9 @@ const OpeningEditor = ({
       onSaved();
     } catch (error) {
       setErrors([
-        `Не сохранилось: ${error instanceof Error ? error.message : String(error)}`,
+        isAccessError(error)
+          ? 'У этого входа нет прав менять размеры. Их меняет менеджер или замерщик.'
+          : `Не сохранилось: ${error instanceof Error ? error.message : String(error)}`,
       ]);
       setIsSaving(false);
     }

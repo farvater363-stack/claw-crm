@@ -1,4 +1,5 @@
 import { roundTo } from 'src/pricing/round';
+import { parseDecimalInput } from 'src/utils/parse-decimal-input';
 
 // A проём is a straight sill of the given width under a top line drawn through
 // measured points, left to right. Each piece of the top between two points is
@@ -98,15 +99,7 @@ export const createShapeDraft = (
   ],
 });
 
-const parseNumber = (value: string): number | null => {
-  const trimmed = value.trim().replace(',', '.');
-
-  if (trimmed === '') return null;
-
-  const parsed = Number(trimmed);
-
-  return Number.isFinite(parsed) ? parsed : null;
-};
+const ARC_TOLERANCE_CM = 2;
 
 const formatCm = (value: number): string => String(roundTo(value, 1));
 
@@ -118,7 +111,7 @@ const requirePositive = (
   what: string,
   { allowZero = false }: { allowZero?: boolean } = {},
 ): number | null => {
-  const parsed = parseNumber(value);
+  const parsed = parseDecimalInput(value);
 
   if (parsed === null || parsed < 0 || (!allowZero && parsed === 0)) {
     collected.errors.push(
@@ -174,8 +167,8 @@ const slopeOutline = (
 
   draft.slopePoints.forEach((point, index) => {
     const label = `Точка ${index + 1}`;
-    const xCm = parseNumber(point.xCm);
-    const heightCm = parseNumber(point.heightCm);
+    const xCm = parseDecimalInput(point.xCm);
+    const heightCm = parseDecimalInput(point.heightCm);
 
     if (xCm === null || heightCm === null || heightCm <= 0) {
       collected.errors.push(
@@ -221,9 +214,11 @@ const archOutline = (
 
   if (side === null || rise === null) return null;
 
-  if (rise > widthCm) {
+  // A taller arc bulges past the sides of the opening; a semicircle measured
+  // a centimetre or two over half the width is still a semicircle.
+  if (rise > widthCm / 2 + ARC_TOLERANCE_CM) {
     collected.errors.push(
-      `стрела ${formatCm(rise)} см больше ширины ${formatCm(widthCm)} см. Проверьте стрелу: у полукруга она равна половине ширины`,
+      `стрела ${formatCm(rise)} см больше половины ширины ${formatCm(widthCm)} см. У полукруга стрела равна половине ширины`,
     );
 
     return null;
@@ -252,8 +247,8 @@ const stepOutline = (
   draft.steps.forEach((step, index) => {
     const label = `Ступень ${index + 1}`;
     const isLast = index === draft.steps.length - 1;
-    const xCm = parseNumber(step.xCm);
-    const heightCm = isLast ? right : parseNumber(step.heightCm);
+    const xCm = parseDecimalInput(step.xCm);
+    const heightCm = isLast ? right : parseDecimalInput(step.heightCm);
 
     if (xCm === null) {
       collected.errors.push(
@@ -321,8 +316,8 @@ const customOutline = (
 
   draft.points.forEach((point, index) => {
     const label = `Точка ${pointLetter(index)}`;
-    const xCm = parseNumber(point.xCm);
-    const heightCm = parseNumber(point.heightCm);
+    const xCm = parseDecimalInput(point.xCm);
+    const heightCm = parseDecimalInput(point.heightCm);
     const previous = points[points.length - 1];
 
     if (xCm === null || heightCm === null || heightCm < 0) {
@@ -377,7 +372,7 @@ const customOutline = (
     }
 
     const label = `Дуга ${pointLetter(index)} → ${pointLetter(index + 1)}`;
-    const rise = parseNumber(point.arcRiseCm);
+    const rise = parseDecimalInput(point.arcRiseCm);
     const from = points[index];
     const to = points[index + 1];
 
@@ -387,6 +382,17 @@ const customOutline = (
     } else if (from !== undefined && to !== undefined && from.xCm === to.xCm) {
       collected.errors.push(
         `${label}: точки на одной вертикали, дугу между ними не построить`,
+      );
+      isComplete = false;
+    } else if (
+      from !== undefined &&
+      to !== undefined &&
+      rise >
+        Math.hypot(to.xCm - from.xCm, to.heightCm - from.heightCm) / 2 +
+          ARC_TOLERANCE_CM
+    ) {
+      collected.errors.push(
+        `${label}: стрела ${formatCm(rise)} см больше половины расстояния между точками`,
       );
       isComplete = false;
     }
@@ -606,6 +612,25 @@ export const parseStoredShape = (value: unknown): StoredShape | null => {
       ? (parsed.draft as StoredShape['draft'])
       : (shapeDraftFromOutline(outline) as StoredShape['draft']),
   };
+};
+
+// The saved shape only while it still matches the item's width and height:
+// sizes changed elsewhere (the record table) make the item a plain
+// rectangle again rather than a drawing of the old sizes.
+export const parseItemShape = (
+  value: unknown,
+  widthCm: number | null,
+  heightCm: number | null,
+): StoredShape | null => {
+  const shape = parseStoredShape(value);
+
+  if (shape === null || widthCm === null || heightCm === null) return null;
+
+  const isSameSize =
+    Math.abs(shape.outline.widthCm - widthCm) < 0.05 &&
+    Math.abs(outlineHeightCm(shape.outline) - heightCm) < 0.05;
+
+  return isSameSize ? shape : null;
 };
 
 // Back from what was saved to the chip and the numbers the measurer typed.

@@ -322,9 +322,15 @@ export const planItemPayRows = ({
       isPerRunningMeter: isRailing(item),
     });
     const basis = computeItemUnits(item);
+    // The old single rate pays the order's m² only, which has no railings
     const rate =
-      kept.legacyRate ??
-      (resolved === null ? null : (kept.byPart.get(resolved.part) ?? resolved.rate));
+      kept.legacyRate !== null
+        ? isRailing(item)
+          ? null
+          : kept.legacyRate
+        : resolved === null
+          ? null
+          : (kept.byPart.get(resolved.part) ?? resolved.rate);
     const area =
       basis === null ? null : roundTo(basis * (item.quantity ?? 1), 2);
     const isSpecial = resolved?.part.startsWith('design:') ?? false;

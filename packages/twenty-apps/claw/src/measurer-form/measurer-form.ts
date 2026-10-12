@@ -29,11 +29,8 @@ import {
 } from 'src/pricing/normalize-uzbek-phone';
 import { roundTo } from 'src/pricing/round';
 import { formatDayMonth } from 'src/ui/format';
-import {
-  type FullName,
-  joinFullName,
-  trimFullName,
-} from 'src/utils/full-name';
+import { type FullName, joinFullName, trimFullName } from 'src/utils/full-name';
+import { parseDecimalInput } from 'src/utils/parse-decimal-input';
 
 type District = (typeof DISTRICT_OPTIONS)[number]['value'];
 type Source = (typeof SOURCE_OPTIONS)[number]['value'];
@@ -262,15 +259,7 @@ export const formatUzbekNationalPhone = (raw: string): string => {
   return groups.join(' ');
 };
 
-export const parseDecimalInput = (value: string): number | null => {
-  const trimmed = value.trim().replace(',', '.');
-
-  if (trimmed === '') return null;
-
-  const parsed = Number(trimmed);
-
-  return Number.isFinite(parsed) ? parsed : null;
-};
+export { parseDecimalInput };
 
 // The shape the typed numbers describe, null while they do not describe one.
 export const openingOutline = (opening: OpeningDraft): ShapeOutline | null =>
@@ -483,6 +472,9 @@ export const computeServiceQuantity = (
   if (unit === 'PER_SQUARE_METER' && line.quantity.trim() === '') {
     return openingsAreaSquareMeters > 0 ? openingsAreaSquareMeters : null;
   }
+
+  // The stepper shows 1 before anything is pressed
+  if (unit === 'PER_PIECE' && line.quantity.trim() === '') return 1;
 
   if (typed === null || typed <= 0) return null;
   if (unit === 'PER_PIECE' && !Number.isInteger(typed)) return null;

@@ -3,7 +3,7 @@ import {
   type ProjectionKind,
 } from 'src/constants/select-options';
 import {
-  parseStoredShape,
+  parseItemShape,
   shapeKindLabel,
   type StoredShape,
 } from 'src/opening-shape/opening-shape';
@@ -16,6 +16,7 @@ import {
   computeItemAreaSquareMeters,
   computeRunningMeters,
   formatItemSize,
+  railingName,
 } from 'src/pricing/compute-item-area';
 import { toNumber } from 'src/recalc/load-recalc-input';
 import { formatQuantity } from 'src/ui/format';
@@ -58,9 +59,11 @@ const toProjectionKind = (value: string | null): ProjectionKind | null =>
 export const toSchemeOpenings = (rows: SchemeItemRow[]): SchemeOpening[] =>
   rows.map((row, index) => {
     const isRailing = row.product === 'RAILING';
-    const shape = isRailing ? null : parseStoredShape(row.shape);
     const widthCm = toNumber(row.widthCm);
     const heightCm = toNumber(row.heightCm);
+    const shape = isRailing
+      ? null
+      : parseItemShape(row.shape, widthCm, heightCm);
     const projectionCm = isRailing ? 0 : (toNumber(row.projectionCm) ?? 0);
     // An item saved before the kind existed had its вынос both ways.
     const projectionKind = isRailing
@@ -113,7 +116,5 @@ export const schemeSketchLayout = (opening: SchemeOpening): SketchLayout =>
 
 export const schemeProductName = (opening: SchemeOpening): string =>
   opening.isRailing
-    ? opening.designName === null
-      ? 'Перилла'
-      : `Перилла ${opening.designName}`
+    ? railingName(opening.designName)
     : (opening.designName ?? 'Решётка не выбрана');

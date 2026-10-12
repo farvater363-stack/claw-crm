@@ -132,6 +132,7 @@ export const loadRecalcInput = async (
           id: true,
           name: true,
           grilleKindId: true,
+          product: true,
           pricePerSquareMeter: money,
         },
       },
@@ -248,7 +249,11 @@ export const loadRecalcInput = async (
               : [],
             workshop: {
               masterId,
-              catalog: toWorkshopCatalog({ workshopRates, designs, grilleKinds }),
+              catalog: toWorkshopCatalog({
+                workshopRates,
+                designs,
+                grilleKinds,
+              }),
               kept: keptSquareMeterRates(
                 isOrderInstalled ? accrualNodes : [],
                 masterId,
@@ -293,6 +298,7 @@ export const loadRecalcInput = async (
     })),
     grilles: (designs?.edges ?? []).map(({ node }) => ({
       id: node.id,
+      product: toProduct(node.product),
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
       costPerSquareMeter: grilleCosts.get(node.id) ?? null,
     })),

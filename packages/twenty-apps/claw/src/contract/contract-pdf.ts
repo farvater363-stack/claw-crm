@@ -20,6 +20,7 @@ import {
   PT_SERIF_REGULAR_BASE64,
 } from 'src/contract/contract-fonts';
 import { type ContractRun } from 'src/contract/contract-template';
+import { SKETCH_HEIGHT, SKETCH_WIDTH } from 'src/opening-shape/sketch-layout';
 import { drawSketchLayout, fitSketch } from 'src/opening-shape/sketch-pdf';
 import { sha256 } from 'src/contract/sha256';
 import { formatWhole } from 'src/ui/format';
@@ -527,10 +528,14 @@ export const renderContractPdf = async (
     drawSketchLayout(
       { page, regular: fonts.regular, bold: fonts.bold, clean },
       sketchLayoutOf(opening),
-      { left: left + 4 + (inner - 240 * unit) / 2, top: originTop, unit },
+      {
+        left: left + 4 + (inner - SKETCH_WIDTH * unit) / 2,
+        top: originTop,
+        unit,
+      },
     );
 
-    const captionTop = originTop - 172 * unit - 4;
+    const captionTop = originTop - SKETCH_HEIGHT * unit - 4;
     const caption = wrapRuns(
       [{ text: opening.product, isFilled: true }],
       inner - 12,
