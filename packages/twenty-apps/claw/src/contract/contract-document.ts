@@ -19,6 +19,7 @@ import {
   formatItemSize,
   formatRailingSize,
 } from 'src/pricing/compute-item-area';
+import { roundTo } from 'src/pricing/round';
 import { formatWhole } from 'src/ui/format';
 
 // One проём as the client agrees to it: the спецификация row and its схема.
@@ -42,6 +43,13 @@ export type ContractOpening = {
   shape?: StoredShape | null;
 };
 
+// A visor or a service line as the order stores it: running metres for a
+// visor (length times pieces), the priced quantity for a service.
+export type ContractExtra = {
+  serviceId: string;
+  quantity: number;
+};
+
 export type ContractData = {
   // Null before a new order is saved and numbered
   number: string | null;
@@ -56,7 +64,11 @@ export type ContractData = {
   termDays: number;
   paintColor: string | null;
   openings: ContractOpening[];
+  extras: ContractExtra[];
 };
+
+export type ContractTerms = Pick<ContractData, 'total' | 'openings'> &
+  Partial<Pick<ContractData, 'extras' | 'paintColor'>>;
 
 export type ContractBlock =
   | { kind: 'title'; runs: ContractRun[] }
@@ -248,38 +260,83 @@ export const sketchLayoutOf = (opening: ContractOpening): SketchLayout =>
         shape: opening.shape ?? null,
       });
 
-// What the client agreed to, in a form both the form and the saved order give
-// the same way: section 14.7 asks for a new signature once any of it changes.
-export const contractTermsKey = (data: {
-  total: number;
-  openings: ContractOpening[];
-}): string =>
+// Keys signed before visors, services and the paint colour counted carry no
+// version; they are compared with the terms as those contracts read them.
+export const CONTRACT_TERMS_VERSION = 2;
+
+const openingEntries = (openings: ContractOpening[]): string[] =>
+  openings
+    .filter((opening) => opening.widthCm !== null)
+    .map((opening) => {
+      const hasProjection =
+        opening.projectionKind !== 'NONE' && opening.projectionCm > 0;
+
+      // Appended only when present, so contracts signed before shapes and
+      // railings keep their key.
+      return [
+        opening.designId ?? '',
+        opening.widthCm,
+        opening.heightCm,
+        hasProjection ? opening.projectionKind : 'NONE',
+        hasProjection ? opening.projectionCm : 0,
+        opening.quantity,
+        ...(opening.isRailing === true ? ['RAILING'] : []),
+        ...(opening.shape === null || opening.shape === undefined
+          ? []
+          : [opening.shape.outline]),
+      ];
+    })
+    .map((entry) => JSON.stringify(entry))
+    .sort();
+
+// The terms as a contract signed before version 2 recorded them.
+export const unversionedContractTermsKey = (data: ContractTerms): string =>
   JSON.stringify({
     total: Math.round(data.total),
-    openings: data.openings
-      .filter((opening) => opening.widthCm !== null)
-      .map((opening) => {
-        const hasProjection =
-          opening.projectionKind !== 'NONE' && opening.projectionCm > 0;
-
-        // Appended only when present, so contracts signed before shapes and
-        // railings keep their key.
-        return [
-          opening.designId ?? '',
-          opening.widthCm,
-          opening.heightCm,
-          hasProjection ? opening.projectionKind : 'NONE',
-          hasProjection ? opening.projectionCm : 0,
-          opening.quantity,
-          ...(opening.isRailing === true ? ['RAILING'] : []),
-          ...(opening.shape === null || opening.shape === undefined
-            ? []
-            : [opening.shape.outline]),
-        ];
-      })
-      .map((entry) => JSON.stringify(entry))
-      .sort(),
+    openings: openingEntries(data.openings),
   });
+
+// What the client agreed to, in a form both the form and the saved order give
+// the same way: section 14.7 asks for a new signature once any of it changes.
+export const contractTermsKey = (data: ContractTerms): string => {
+  const extras = (data.extras ?? [])
+    .map((extra) =>
+      JSON.stringify([extra.serviceId, roundTo(extra.quantity, 2)]),
+    )
+    .sort();
+
+  return JSON.stringify({
+    version: CONTRACT_TERMS_VERSION,
+    total: Math.round(data.total),
+    openings: openingEntries(data.openings),
+    extras,
+    paintColor: data.paintColor?.trim() ?? '',
+  });
+};
+
+const isVersionedTermsKey = (termsKey: string): boolean => {
+  try {
+    const parsed: unknown = JSON.parse(termsKey);
+
+    return (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'version' in parsed &&
+      parsed.version === CONTRACT_TERMS_VERSION
+    );
+  } catch {
+    return false;
+  }
+};
+
+// The current terms in the same form as a stored key, so the two compare.
+export const currentTermsKeyLike = (
+  signedTermsKey: string,
+  current: ContractTerms,
+): string =>
+  isVersionedTermsKey(signedTermsKey)
+    ? contractTermsKey(current)
+    : unversionedContractTermsKey(current);
 
 export const plainText = (runs: ContractRun[]): string =>
   runs.map((run) => run.text).join('');

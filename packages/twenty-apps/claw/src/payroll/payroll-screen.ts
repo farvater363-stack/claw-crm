@@ -321,16 +321,36 @@ export const owedLine = (owed: number): { label: string; amount: string } =>
     ? { label: 'Выплачено вперёд', amount: formatMoney(-owed) }
     : { label: 'К выплате', amount: formatMoney(owed) };
 
+export type SummaryUnit = 'м²' | 'п.м.';
+
 export type SquareMeterSummaryRow = {
   key: string;
   label: string;
   isOwn: boolean;
   basis: number;
+  unit: SummaryUnit;
   rate: number;
   amount: number;
 };
 
-// A workshop master's month per row of «Ставки цеха»: how many m² of which kind, at what rate.
+// Only a railing's own row pays per running metre: kind and rule rates are per m².
+export const summaryUnitOf = (part: string | null, catalog: WorkshopCatalog): SummaryUnit =>
+  part?.startsWith('design:') === true &&
+  catalog.designs.find((design) => designPart(design.id) === part)?.product === 'RAILING'
+    ? 'п.м.'
+    : 'м²';
+
+// м² and п.м. are not added together: one total per unit, m² first.
+export const summaryBasisTotals = (rows: SquareMeterSummaryRow[]): { unit: SummaryUnit; basis: number }[] =>
+  (['м²', 'п.м.'] as const).flatMap((unit) => {
+    const ofUnit = rows.filter((row) => row.unit === unit);
+
+    return ofUnit.length === 0
+      ? []
+      : [{ unit, basis: roundTo(ofUnit.reduce((sum, row) => sum + row.basis, 0), 2) }];
+  });
+
+// A workshop master's month per row of «Ставки цеха»: how many m² (п.м. for railings) of which kind, at what rate.
 export const squareMeterSummary = (
   lines: AccrualLine[],
   catalog: WorkshopCatalog,
@@ -349,6 +369,7 @@ export const squareMeterSummary = (
       label: partLabel(line.part, catalog),
       isOwn: isOwnRate(catalog, workerId, line.part, line.rate),
       basis: roundTo((known?.basis ?? 0) + line.basis, 2),
+      unit: summaryUnitOf(line.part, catalog),
       rate: line.rate,
       amount: (known?.amount ?? 0) + line.amount,
     });

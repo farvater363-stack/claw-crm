@@ -51,6 +51,25 @@ export type ContractPdfInput = {
   record: SigningRecord;
 };
 
+// The longest start of `text` that fits `maxWidth` with «…» after it.
+export const ellipsize = (
+  text: string,
+  maxWidth: number,
+  measure: (text: string) => number,
+): string => {
+  if (measure(text) <= maxWidth) return text;
+
+  const characters = Array.from(text);
+
+  for (let length = characters.length - 1; length > 0; length -= 1) {
+    const candidate = `${characters.slice(0, length).join('').trimEnd()}…`;
+
+    if (measure(candidate) <= maxWidth) return candidate;
+  }
+
+  return '…';
+};
+
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
 const MARGIN_X = 56;
@@ -536,14 +555,16 @@ export const renderContractPdf = async (
     );
 
     const captionTop = originTop - SKETCH_HEIGHT * unit - 4;
-    const caption = wrapRuns(
-      [{ text: opening.product, isFilled: true }],
-      inner - 12,
-      8.5,
-    ).slice(0, 2);
 
-    caption.forEach((line, index) =>
-      drawRunLine(line, left + 10, captionTop - (index + 1) * 11, 8.5),
+    // One line: the cell has room under the drawing for the name and the size.
+    drawText(
+      ellipsize(opening.product, inner - 12, (text) =>
+        widthOf(text, fonts.bold, 8.5),
+      ),
+      left + 10,
+      captionTop - 11,
+      fonts.bold,
+      8.5,
     );
 
     const detail = [
@@ -555,14 +576,7 @@ export const renderContractPdf = async (
       .filter(Boolean)
       .join(' · ');
 
-    drawText(
-      detail,
-      left + 10,
-      captionTop - (caption.length + 1) * 11,
-      fonts.regular,
-      8,
-      MUTED,
-    );
+    drawText(detail, left + 10, captionTop - 22, fonts.regular, 8, MUTED);
   }
 
   function drawSignatures() {

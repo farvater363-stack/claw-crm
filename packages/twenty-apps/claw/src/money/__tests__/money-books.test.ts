@@ -62,6 +62,8 @@ const entry = (overrides: Partial<MoneyEntryRecord> = {}): MoneyEntryRecord => (
   orderId: null,
   recurringExpenseId: null,
   countedAmount: null,
+  toWallet: null,
+  recountId: null,
   ...overrides,
 });
 
@@ -290,6 +292,7 @@ describe('lastRecount', () => {
       counted: 8_420_000,
       expected: 8_600_000,
       difference: -180_000,
+      forgotten: 0,
       isOpening: false,
     });
     expect(lastRecount([], 'CASH')).toBeNull();
@@ -372,6 +375,62 @@ describe('recurring expenses', () => {
         '2026-10-31',
       ),
     ).toEqual({ status: 'paid', paidOn: '2026-10-30', amount: 4_000_000 });
+  });
+
+  it('counts a payment made up to a week early for the next due date', () => {
+    const lease = { ...rent, dayOfMonth: 1, createdAt: '2026-08-15T00:00:00Z' };
+    const paid = (date: string) =>
+      entry({
+        id: date,
+        date,
+        createdAt: `${date}T09:00:00Z`,
+        recurringExpenseId: 'rent',
+        amount: 4_000_000,
+      });
+    const onTimeAndEarly = [paid('2026-09-01'), paid('2026-09-29')];
+
+    for (const today of ['2026-10-01', '2026-10-02', '2026-10-03']) {
+      expect(recurringState(lease, onTimeAndEarly, today)).toEqual({
+        status: 'paid',
+        paidOn: '2026-09-29',
+        amount: 4_000_000,
+      });
+    }
+    expect(dueSoon([lease], onTimeAndEarly, '2026-10-02')).toEqual([]);
+    // In September itself the early payment is for October, not September
+    expect(recurringState(lease, onTimeAndEarly, '2026-09-30')).toEqual({
+      status: 'paid',
+      paidOn: '2026-09-01',
+      amount: 4_000_000,
+    });
+    // More than a week early it is still the month it was paid in
+    expect(
+      recurringState(lease, [paid('2026-09-01'), paid('2026-09-23')], '2026-10-02'),
+    ).toEqual({ status: 'due', dueDate: '2026-10-01', daysLeft: -1 });
+  });
+
+  it('counts an early payment for its own month while that month is unpaid', () => {
+    const lease = { ...rent, dayOfMonth: 1, createdAt: '2026-08-01T00:00:00Z' };
+    const late = entry({
+      date: '2026-09-29',
+      createdAt: '2026-09-29T09:00:00Z',
+      recurringExpenseId: 'rent',
+      amount: 4_000_000,
+    });
+
+    expect(recurringState(lease, [late], '2026-10-02')).toEqual({
+      status: 'due',
+      dueDate: '2026-10-01',
+      daysLeft: -1,
+    });
+    // A bill added after September's due date owed nothing for September
+    expect(
+      recurringState(
+        { ...lease, createdAt: '2026-09-15T00:00:00Z' },
+        [late],
+        '2026-10-02',
+      ),
+    ).toEqual({ status: 'paid', paidOn: '2026-09-29', amount: 4_000_000 });
   });
 
   it('owes nothing for a month before the bill was added', () => {

@@ -53,6 +53,10 @@ export type MoneyEntryRecord = {
   orderId: string | null;
   recurringExpenseId: string | null;
   countedAmount: number | null;
+  // On a «Перевод»: where the money went
+  toWallet: Wallet | null;
+  // On a расход written at a recount as forgotten: that recount's line
+  recountId: string | null;
 };
 
 export type WorkerRecord = { id: string; name: string };
@@ -162,6 +166,20 @@ const entryMove = (
         ...into(entry.name ?? 'Начальный остаток', 'recount'),
         flow: 0,
       };
+    case 'TRANSFER':
+      return entry.toWallet === null || entry.toWallet === wallet
+        ? null
+        : {
+            ...base,
+            title: entry.name ?? 'Перевод',
+            source: 'hand',
+            walletText: `${walletLabel(wallet)} → ${walletLabel(entry.toWallet).toLowerCase()}`,
+            changes: [
+              { wallet, amount: -entry.amount },
+              { wallet: entry.toWallet, amount: entry.amount },
+            ],
+            flow: 0,
+          };
     case 'HANDOVER':
       return entry.workerId === null
         ? null
@@ -181,6 +199,70 @@ const entryMove = (
   }
 };
 
+const isRecount = (entry: MoneyEntryRecord) =>
+  (entry.kind === 'COUNT_DIFFERENCE' || entry.kind === 'OPENING_BALANCE') &&
+  entry.countedAmount !== null;
+
+const byTime = (
+  left: { date: string; createdAt: string },
+  right: { date: string; createdAt: string },
+) =>
+  left.date.localeCompare(right.date) ||
+  left.createdAt.localeCompare(right.createdAt);
+
+// A recount sets its wallet to what was counted: its line changes the wallet
+// by the count minus everything before it, so an entry dated before the count
+// and written later does not move the balance away from the count.
+const anchorRecounts = (
+  moves: MoneyMove[],
+  entries: MoneyEntryRecord[],
+): MoneyMove[] => {
+  const recounts = new Map<string, { counted: number; isOpening: boolean }>(
+    entries.flatMap((entry) =>
+      isRecount(entry) && entry.countedAmount !== null
+        ? [
+            [
+              `entry:${entry.id}`,
+              {
+                counted: entry.countedAmount,
+                isOpening: entry.kind === 'OPENING_BALANCE',
+              },
+            ] as const,
+          ]
+        : [],
+    ),
+  );
+  const running = new Map<WalletKey, number>();
+  const anchored = new Map<string, MoneyMove>();
+
+  for (const move of [...moves].sort(byTime)) {
+    const recount = recounts.get(move.key);
+    const wallet = move.changes[0]?.wallet;
+
+    if (recount === undefined || wallet === undefined) {
+      for (const change of move.changes) {
+        running.set(
+          change.wallet,
+          (running.get(change.wallet) ?? 0) + change.amount,
+        );
+      }
+      continue;
+    }
+
+    const difference = recount.counted - (running.get(wallet) ?? 0);
+
+    running.set(wallet, recount.counted);
+    anchored.set(move.key, {
+      ...move,
+      changes: [{ wallet, amount: difference }],
+      flow: recount.isOpening ? 0 : difference,
+      amount: Math.abs(difference),
+    });
+  }
+
+  return moves.map((move) => anchored.get(move.key) ?? move);
+};
+
 export const buildMoneyMoves = ({
   payments,
   payouts,
@@ -196,7 +278,7 @@ export const buildMoneyMoves = ({
   const workerName = (workerId: string | null) =>
     (workerId === null ? null : names.get(workerId)) ?? 'Работник';
 
-  return [
+  const moves = [
     ...payments.map((payment): MoneyMove => {
       const wallet: WalletKey =
         payment.receivedById === null
@@ -239,6 +321,8 @@ export const buildMoneyMoves = ({
       return move === null ? [] : [move];
     }),
   ];
+
+  return anchorRecounts(moves, entries);
 };
 
 export const walletBalances = (
@@ -405,16 +489,17 @@ export type Recount = {
   counted: number;
   expected: number;
   difference: number;
+  // A расход written at this count as forgotten, already in what was expected
+  forgotten: number;
   isOpening: boolean;
 };
 
-const isRecount = (entry: MoneyEntryRecord) =>
-  (entry.kind === 'COUNT_DIFFERENCE' || entry.kind === 'OPENING_BALANCE') &&
-  entry.countedAmount !== null;
-
+// The difference is read from the ledger line when the moves are given: the
+// count against everything written before it, even what was written later.
 export const lastRecount = (
   entries: MoneyEntryRecord[],
   wallet?: Wallet,
+  moves?: MoneyMove[],
 ): Recount | null => {
   const latest = entries
     .filter(
@@ -431,14 +516,45 @@ export const lastRecount = (
 
   if (latest === undefined || latest.countedAmount === null) return null;
 
+  const line = moves?.find((move) => move.key === `entry:${latest.id}`);
+  const lineDifference = line?.changes[0]?.amount ?? latest.amount;
+  const forgotten = entries
+    .filter(
+      (entry) => entry.kind === 'EXPENSE' && entry.recountId === latest.id,
+    )
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const difference = lineDifference - forgotten;
+
   return {
     date: dayOf(latest.date, latest.createdAt),
     wallet: latest.wallet ?? 'CASH',
     counted: latest.countedAmount,
-    expected: latest.countedAmount - latest.amount,
-    difference: latest.amount,
+    expected: latest.countedAmount - difference,
+    difference,
+    forgotten,
     isOpening: latest.kind === 'OPENING_BALANCE',
   };
+};
+
+// A recount and the расход written at it as forgotten go and come back
+// together; an entry written before they were linked goes alone.
+export const linkedEntryIds = (
+  entries: MoneyEntryRecord[],
+  entryId: string,
+): string[] => {
+  const recountId =
+    entries.find((entry) => entry.id === entryId)?.recountId ?? entryId;
+
+  return [
+    entryId,
+    ...entries
+      .filter(
+        (entry) =>
+          entry.id !== entryId &&
+          (entry.id === recountId || entry.recountId === recountId),
+      )
+      .map((entry) => entry.id),
+  ];
 };
 
 export type RecurringRecord = {
@@ -463,8 +579,13 @@ export const dueDateIn = (month: string, dayOfMonth: number | null): string =>
 const daysFrom = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
 
+// Paid this many days before the next month's due date, a bill counts for
+// that month: rent due on the 1st is often paid on the 29th.
+export const EARLY_PAYMENT_DAYS = 7;
+
 // Last month's bill left unpaid stays overdue, and the first payment this
-// month settles it before this month's.
+// month settles it before this month's. A payment made early counts for the
+// next month only once its own month's bill is settled or was never owed.
 export const recurringState = (
   recurring: RecurringRecord,
   entries: MoneyEntryRecord[],
@@ -473,16 +594,50 @@ export const recurringState = (
   const month = today.slice(0, 7);
   const previousMonth = shiftMonth(month, -1);
   const previousDueDate = dueDateIn(previousMonth, recurring.dayOfMonth);
+  const isOwedIn = (target: string) =>
+    recurring.createdAt.slice(0, 10) <= dueDateIn(target, recurring.dayOfMonth);
   const payments = entries
     .filter((entry) => entry.recurringExpenseId === recurring.id)
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-  const paidIn = (target: string) =>
+  const madeIn = (target: string) =>
     payments.filter((entry) =>
       dayOf(entry.date, entry.createdAt).startsWith(target),
     );
+  const firstMonth = payments
+    .map((entry) => dayOf(entry.date, entry.createdAt).slice(0, 7))
+    .sort()[0];
+  // The payments of a month that count for the next one.
+  const forNextMonth = (target: string): MoneyEntryRecord[] => {
+    if (firstMonth === undefined || target < firstMonth) return [];
+
+    const nextDueDate = dueDateIn(shiftMonth(target, 1), recurring.dayOfMonth);
+    const isEarly = (entry: MoneyEntryRecord) => {
+      const daysBefore = daysFrom(
+        dayOf(entry.date, entry.createdAt),
+        nextDueDate,
+      );
+
+      return daysBefore >= 1 && daysBefore <= EARLY_PAYMENT_DAYS;
+    };
+    const made = madeIn(target);
+    const early = made.filter(isEarly);
+    const isSettled =
+      !isOwedIn(target) ||
+      made.length > early.length ||
+      forNextMonth(shiftMonth(target, -1)).length > 0;
+
+    return isSettled ? early : early.slice(1);
+  };
+  const paidIn = (target: string) => {
+    const moved = forNextMonth(target);
+
+    return [
+      ...forNextMonth(shiftMonth(target, -1)),
+      ...madeIn(target).filter((entry) => !moved.includes(entry)),
+    ];
+  };
   const isPreviousUnpaid =
-    recurring.createdAt.slice(0, 10) <= previousDueDate &&
-    paidIn(previousMonth).length === 0;
+    isOwedIn(previousMonth) && paidIn(previousMonth).length === 0;
   const paid = paidIn(month).slice(isPreviousUnpaid ? 1 : 0);
   const first = paid[0];
 

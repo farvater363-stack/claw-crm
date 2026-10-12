@@ -78,6 +78,7 @@ import {
   type OpeningPhoto,
   parseDecimalInput,
   type PaymentDraft,
+  type PaymentPreview,
   resolveTargetOrderId,
   type ScheduledOrder,
   type ServiceDraft,
@@ -173,6 +174,10 @@ type SaveResult = {
   isPaymentFailed: boolean;
   // null when the client did not sign
   contract: 'signed' | 'failed' | null;
+  // The form as it was saved: the result shows what went to the order
+  draft: MeasurementDraft;
+  preview: PaymentPreview;
+  areaSquareMeters: number;
 };
 
 type Step = 'measurement' | 'payment' | 'contract';
@@ -755,8 +760,29 @@ export const NewMeasurement = () => {
       services: current.services.filter((line) => line.key !== key),
     }));
 
-  const updatePayment = (changes: Partial<PaymentDraft>) =>
+  // The save goes out with the form as it was when pressed; a change typed
+  // meanwhile would be shown but never saved.
+  const updatePayment = (changes: Partial<PaymentDraft>) => {
+    if (isSaveInFlight.current) return;
+
     setPayment((current) => applyPaymentChanges(current, changes));
+  };
+
+  const goToStep = (nextStep: Step) => {
+    if (isSaveInFlight.current) return;
+
+    setErrors([]);
+    setSignature([]);
+    setStep(nextStep);
+  };
+
+  const changeSignature = (
+    update: (strokes: SignatureStroke[]) => SignatureStroke[],
+  ) => {
+    if (isSaveInFlight.current) return;
+
+    setSignature(update);
+  };
 
   // «Новый клиент» keeps what is already typed.
   const pickTarget = (value: string) => {
@@ -948,7 +974,8 @@ export const NewMeasurement = () => {
 
     updateOpening(opening.key, {
       product,
-      designId: design !== null && design.product !== product ? '' : opening.designId,
+      designId:
+        design !== null && design.product !== product ? '' : opening.designId,
       ...(product === 'RAILING'
         ? {
             projectionKind: 'NONE',
@@ -1259,6 +1286,9 @@ export const NewMeasurement = () => {
       isServiceFailed,
       isPaymentFailed,
       contract,
+      draft,
+      preview,
+      areaSquareMeters: totalAreaSquareMeters,
     });
   };
 
@@ -1371,23 +1401,33 @@ export const NewMeasurement = () => {
                 ...TABULAR_NUMBERS,
               }}
             >
-              {draftClientName(draft) !== null && (
-                <Fact label="Клиент" value={draftClientName(draft) ?? ''} />
+              {draftClientName(result.draft) !== null && (
+                <Fact
+                  label="Клиент"
+                  value={draftClientName(result.draft) ?? ''}
+                />
               )}
               <Fact
                 label="Площадь"
-                value={formatQuantity(totalAreaSquareMeters, 'м²')}
+                value={formatQuantity(result.areaSquareMeters, 'м²')}
               />
-              {preview.total !== null && preview.balance !== null && (
-                <>
-                  <Fact label="Итого" value={formatMoney(preview.total)} />
-                  <Fact
-                    label="Предоплата"
-                    value={formatMoney(preview.prepayment)}
-                  />
-                  <Fact label="Остаток" value={formatMoney(preview.balance)} />
-                </>
-              )}
+              {result.preview.total !== null &&
+                result.preview.balance !== null && (
+                  <>
+                    <Fact
+                      label="Итого"
+                      value={formatMoney(result.preview.total)}
+                    />
+                    <Fact
+                      label="Предоплата"
+                      value={formatMoney(result.preview.prepayment)}
+                    />
+                    <Fact
+                      label="Остаток"
+                      value={formatMoney(result.preview.balance)}
+                    />
+                  </>
+                )}
             </div>
             <ErrorList
               errors={[
@@ -1474,7 +1514,8 @@ export const NewMeasurement = () => {
                         «Новый замер». */}
                     <PhotoRow
                       photos={
-                        draft.openings[item.openingNumber - 1]?.photos ?? []
+                        result.draft.openings[item.openingNumber - 1]?.photos ??
+                        []
                       }
                       openingNumber={item.openingNumber}
                     />
@@ -1488,6 +1529,11 @@ export const NewMeasurement = () => {
     );
   }
 
+  const backWhileSaving: CSSProperties = {
+    ...linkButton(false),
+    ...(isSaving ? { opacity: 0.5, cursor: 'default' } : {}),
+  };
+
   const header = (
     <div
       style={{
@@ -1500,24 +1546,19 @@ export const NewMeasurement = () => {
       {step === 'contract' ? (
         <button
           type="button"
-          style={linkButton(false)}
-          onClick={() => {
-            setErrors([]);
-            // The client signed for this sum and this prepayment.
-            setSignature([]);
-            setStep('payment');
-          }}
+          style={backWhileSaving}
+          aria-disabled={isSaving}
+          // The client signed for this sum and this prepayment.
+          onClick={() => goToStep('payment')}
         >
           ← К оплате
         </button>
       ) : step === 'payment' ? (
         <button
           type="button"
-          style={linkButton(false)}
-          onClick={() => {
-            setErrors([]);
-            setStep('measurement');
-          }}
+          style={backWhileSaving}
+          aria-disabled={isSaving}
+          onClick={() => goToStep('measurement')}
         >
           ← К замеру
         </button>
@@ -1565,7 +1606,7 @@ export const NewMeasurement = () => {
           blockers={missingClientDetails(data)}
           warnings={missingCompanyDetails(contractTemplate)}
           signature={signature}
-          onSignatureChange={setSignature}
+          onSignatureChange={changeSignature}
         >
           <ErrorList errors={errors} />
           {signature.length > 0 && (
@@ -1594,16 +1635,11 @@ export const NewMeasurement = () => {
         <SectionTitle
           title="Что заказано"
           aside={
-            <Button
-              variant="link"
-              onClick={() => {
-                setErrors([]);
-                setSignature([]);
-                setStep('measurement');
-              }}
-            >
-              Изменить
-            </Button>
+            isSaving ? undefined : (
+              <Button variant="link" onClick={() => goToStep('measurement')}>
+                Изменить
+              </Button>
+            )
           }
         />
         <Card>
@@ -1684,8 +1720,8 @@ export const NewMeasurement = () => {
         <Card>
           <span style={TYPE.rowTitle}>Цену назовёт менеджер</span>
           <span style={{ color: colors.muted }}>
-            В заказе есть решётка, козырёк или услуга без цены, поэтому скидку
-            и предоплату менеджер внесёт сам.
+            В заказе есть решётка, козырёк или услуга без цены, поэтому скидку и
+            предоплату менеджер внесёт сам.
           </span>
         </Card>
       ) : (
@@ -1812,9 +1848,7 @@ export const NewMeasurement = () => {
                 return;
               }
 
-              setErrors([]);
-              setSignature([]);
-              setStep('contract');
+              goToStep('contract');
             }}
           >
             Далее: договор
@@ -1890,7 +1924,9 @@ export const NewMeasurement = () => {
           }}
         >
           <div style={{ display: 'grid', minWidth: 0 }}>
-            <span style={TYPE.title}>{draftClientName(draft) ?? 'Без имени'}</span>
+            <span style={TYPE.title}>
+              {draftClientName(draft) ?? 'Без имени'}
+            </span>
             <span style={{ ...TABULAR_NUMBERS, color: colors.muted }}>
               {draft.clientPhone === ''
                 ? 'Телефона нет'
@@ -2424,45 +2460,51 @@ export const NewMeasurement = () => {
                   }
                 />
                 {!isRailing && (
-                <div style={column(SPACE.sm)}>
-                  <FieldLabel>Вынос</FieldLabel>
-                  <div
-                    style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.sm }}
-                  >
-                    <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-                      <Segmented
-                        label="Вынос"
-                        value={opening.projectionKind}
-                        stackBelowPx={290}
-                        options={PROJECTION_KIND_OPTIONS.map(
-                          ({ value, label }) => ({
-                            value: value as ProjectionKind,
-                            label: label
-                              .replace('Вынос ', '')
-                              .replace(/^./, (letter) => letter.toUpperCase()),
-                          }),
-                        )}
-                        onChange={(projectionKind) =>
-                          updateOpening(opening.key, { projectionKind })
-                        }
-                      />
-                    </div>
-                    {opening.projectionKind !== 'NONE' && (
-                      <div style={{ flex: '0 1 150px', minWidth: 120 }}>
-                        <TextInput
-                          label="Вынос, см"
-                          inputMode="decimal"
-                          suffix="см"
-                          placeholder="0"
-                          value={opening.projectionCm}
-                          onChange={(projectionCm) =>
-                            updateOpening(opening.key, { projectionCm })
+                  <div style={column(SPACE.sm)}>
+                    <FieldLabel>Вынос</FieldLabel>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: SPACE.sm,
+                      }}
+                    >
+                      <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+                        <Segmented
+                          label="Вынос"
+                          value={opening.projectionKind}
+                          stackBelowPx={290}
+                          options={PROJECTION_KIND_OPTIONS.map(
+                            ({ value, label }) => ({
+                              value: value as ProjectionKind,
+                              label: label
+                                .replace('Вынос ', '')
+                                .replace(/^./, (letter) =>
+                                  letter.toUpperCase(),
+                                ),
+                            }),
+                          )}
+                          onChange={(projectionKind) =>
+                            updateOpening(opening.key, { projectionKind })
                           }
                         />
                       </div>
-                    )}
+                      {opening.projectionKind !== 'NONE' && (
+                        <div style={{ flex: '0 1 150px', minWidth: 120 }}>
+                          <TextInput
+                            label="Вынос, см"
+                            inputMode="decimal"
+                            suffix="см"
+                            placeholder="0"
+                            value={opening.projectionCm}
+                            onChange={(projectionCm) =>
+                              updateOpening(opening.key, { projectionCm })
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
                 )}
                 {!isRailing && visorField(opening)}
               </div>
@@ -2513,12 +2555,15 @@ export const NewMeasurement = () => {
                     Эскиз и цена появятся, когда размеры сойдутся.
                   </span>
                 )}
-                {grille !== null && (area !== null || runningMeters !== null) && (
-                  <SummaryLine
-                    label={grille.name}
-                    value={quote === null ? '—' : formatMoney(quote.lineTotal)}
-                  />
-                )}
+                {grille !== null &&
+                  (area !== null || runningMeters !== null) && (
+                    <SummaryLine
+                      label={grille.name}
+                      value={
+                        quote === null ? '—' : formatMoney(quote.lineTotal)
+                      }
+                    />
+                  )}
                 {opening.visorServiceId !== '' && (
                   <SummaryLine
                     label="Козырёк"
@@ -2746,9 +2791,7 @@ export const NewMeasurement = () => {
     <div style={column(SPACE.md)}>
       <SectionTitle
         title="Услуги"
-        aside={
-          <span style={{ color: colors.muted }}>из Цены → Услуги</span>
-        }
+        aside={<span style={{ color: colors.muted }}>из Цены → Услуги</span>}
       />
       <Card>
         {serviceOptions.length === 0 ? (

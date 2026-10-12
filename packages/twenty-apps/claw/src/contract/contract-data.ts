@@ -5,6 +5,7 @@ import {
 } from 'src/constants/select-options';
 import {
   type ContractData,
+  type ContractExtra,
   type ContractOpening,
 } from 'src/contract/contract-document';
 import { type ContractTemplate } from 'src/contract/contract-template';
@@ -24,6 +25,7 @@ import {
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
 import { parseItemShape, toStoredShape } from 'src/opening-shape/opening-shape';
+import { numberOpenings } from 'src/order-sketch/order-sketch';
 import {
   computeItemAreaSquareMeters,
   railingName,
@@ -77,7 +79,8 @@ const areaOf = (
   );
 
 // Days from signing to the order's «Срок»; the contract's own default until
-// one is set, and never less than a day.
+// one is set, and again once it has passed: re-signing a late order must not
+// promise it in a day.
 export const termDaysUntil = (
   signedOn: string,
   deadline: string | null | undefined,
@@ -92,7 +95,7 @@ export const termDaysUntil = (
       MILLISECONDS_PER_DAY,
   );
 
-  return Number.isFinite(days) ? Math.max(days, 1) : defaultTermDays;
+  return Number.isFinite(days) && days > 0 ? days : defaultTermDays;
 };
 
 // What the client signs on «Новый замер»: the form as it stands, the same
@@ -145,7 +148,44 @@ export const contractDataFromDraft = ({
     ...openingsOfDraft(draft, grilles, visorOptions),
     ...servicesOfDraft(draft, serviceOptions),
   ],
+  extras: extrasOfDraft(draft, serviceOptions),
 });
+
+// The visor and service lines the form saves, with the quantities it saves
+// them with, so a contract signed on «Новый замер» matches the saved order.
+const extrasOfDraft = (
+  draft: MeasurementDraft,
+  serviceOptions: ServiceOption[],
+): ContractExtra[] => {
+  const area = computeOpeningsTotalAreaSquareMeters(draft.openings);
+  const visors = draft.openings.flatMap((opening): ContractExtra[] => {
+    const lengthCm = parseDecimalInput(opening.visorLengthCm);
+
+    if (opening.visorServiceId === '' || lengthCm === null) return [];
+
+    return [
+      {
+        serviceId: opening.visorServiceId,
+        quantity: roundTo(
+          (lengthCm / CENTIMETERS_PER_METER) *
+            (parseDecimalInput(opening.quantity) ?? 1),
+          2,
+        ),
+      },
+    ];
+  });
+  const services = draft.services.flatMap((line): ContractExtra[] => {
+    const quantity = computeServiceQuantity(
+      line,
+      serviceOptions.find((option) => option.id === line.serviceId),
+      area,
+    );
+
+    return quantity === null ? [] : [{ serviceId: line.serviceId, quantity }];
+  });
+
+  return [...visors, ...services];
+};
 
 // Each service is a row of its own, as on a saved order.
 const servicesOfDraft = (
@@ -268,6 +308,8 @@ export type StoredOrderForContract = {
   paintColor: string | null;
   items: {
     id: string;
+    // «Проём N» of the form; absent on items saved before it was kept
+    openingNumber?: unknown;
     product?: string | null;
     shape?: unknown;
     widthCm: number | null;
@@ -280,6 +322,7 @@ export type StoredOrderForContract = {
     lineTotal: number | null;
   }[];
   extraServices: {
+    extraServiceId: string | null;
     name: string | null;
     serviceName: string | null;
     // Running metres for a visor, all pieces together
@@ -305,6 +348,7 @@ export const contractDataFromOrder = (
   const serviceName = (
     service: StoredOrderForContract['extraServices'][number],
   ) => service.serviceName ?? service.name ?? 'Услуга';
+  const numbers = numberOpenings(order.items);
   const openings = order.items.map((item, index): ContractOpening => {
     const quantity = item.quantity ?? 1;
     const projectionKind = toProjectionKind(item.projectionKind);
@@ -321,7 +365,7 @@ export const contractDataFromOrder = (
     const isRailing = item.product === 'RAILING';
 
     return {
-      title: `Проём ${index + 1}`,
+      title: `Проём ${numbers[index]}`,
       product: isRailing
         ? productName(true, item.designName)
         : (item.designName ?? 'Решётка не выбрана'),
@@ -404,7 +448,18 @@ export const contractDataFromOrder = (
       template.defaultTermDays,
     ),
     paintColor: order.paintColor,
-    openings: [...openings, ...loose],
+    // In the form's order, as on «Схема» and the photos
+    openings: [
+      ...openings
+        .map((opening, index) => ({ opening, number: numbers[index] }))
+        .sort((left, right) => left.number - right.number)
+        .map(({ opening }) => opening),
+      ...loose,
+    ],
+    extras: order.extraServices.map((service) => ({
+      serviceId: service.extraServiceId ?? '',
+      quantity: service.quantity ?? 0,
+    })),
   };
 };
 

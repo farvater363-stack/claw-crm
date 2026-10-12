@@ -28,6 +28,8 @@ export type NewMoneyEntry = {
   workerId: string | null;
   recurringExpenseId: string | null;
   countedAmount: number | null;
+  toWallet: Wallet | null;
+  recountId: string | null;
 };
 
 const ENTRY_DEFAULTS = {
@@ -37,10 +39,31 @@ const ENTRY_DEFAULTS = {
   workerId: null,
   recurringExpenseId: null,
   countedAmount: null,
+  toWallet: null,
+  recountId: null,
 } as const;
 
-const parseAmount = (raw: string) => {
+// A trillion сум is far past anything the workshop handles: more digits is a
+// slip of the finger.
+export const MAX_MONEY_DIGITS = 12;
+const TOO_MANY_DIGITS = `Не больше ${MAX_MONEY_DIGITS} цифр`;
+
+const parseMoney = (
+  raw: string,
+): { ok: true; value: number | null } | { ok: false; error: string } => {
   const parsed = parseOptionalMoney(raw);
+
+  return parsed.ok &&
+    parsed.value !== null &&
+    parsed.value >= 10 ** MAX_MONEY_DIGITS
+    ? { ok: false, error: TOO_MANY_DIGITS }
+    : parsed;
+};
+
+const parseAmount = (raw: string) => {
+  const parsed = parseMoney(raw);
+
+  if (!parsed.ok && parsed.error === TOO_MANY_DIGITS) return parsed;
 
   return parsed.ok && parsed.value !== null && parsed.value > 0
     ? { ok: true as const, value: parsed.value }
@@ -50,12 +73,13 @@ const parseAmount = (raw: string) => {
 const withComment = (title: string, comment: string | null) =>
   comment === null ? title : `${title}, ${comment}`;
 
-export type RecordDirection = 'EXPENSE' | 'INCOME' | 'OWNER_DRAW';
+export type RecordDirection = 'EXPENSE' | 'INCOME' | 'OWNER_DRAW' | 'TRANSFER';
 
 export const RECORD_DIRECTIONS: { value: RecordDirection; label: string }[] = [
   { value: 'EXPENSE', label: 'Расход' },
   { value: 'INCOME', label: 'Приход' },
   { value: 'OWNER_DRAW', label: 'Взял себе' },
+  { value: 'TRANSFER', label: 'Перевод' },
 ];
 
 export type RecordDraft = {
@@ -63,6 +87,8 @@ export type RecordDraft = {
   amount: string;
   category: ExpenseCategory | '';
   wallet: Wallet;
+  // Only for a «Перевод»: where the money goes from «Откуда»
+  toWallet: Wallet;
   date: string;
   comment: string;
   orderId: string;
@@ -73,19 +99,25 @@ export const emptyRecord = (today: string): RecordDraft => ({
   amount: '',
   category: '',
   wallet: 'CASH',
+  toWallet: 'CARD',
   date: today,
   comment: '',
   orderId: '',
 });
 
-// The name is what the ledger shows: «Бензин, Дамас», «Взял себе».
+// The name is what the ledger shows: «Бензин, Дамас», «Взял себе»,
+// «Перевод · Наличные → карта».
 export const buildRecord = (draft: RecordDraft): Built<NewMoneyEntry> => {
   const errors: Errors = {};
   const amount = parseAmount(draft.amount);
   const isExpense = draft.direction === 'EXPENSE';
+  const isTransfer = draft.direction === 'TRANSFER';
 
   if (!amount.ok) errors.amount = amount.error;
   if (isExpense && draft.category === '') errors.category = 'Выберите, на что';
+  if (isTransfer && draft.toWallet === draft.wallet) {
+    errors.toWallet = 'Выберите другой кошелёк';
+  }
   if (draft.date === '') errors.date = 'Выберите дату';
 
   if (!amount.ok || Object.keys(errors).length > 0) return { ok: false, errors };
@@ -97,7 +129,9 @@ export const buildRecord = (draft: RecordDraft): Built<NewMoneyEntry> => {
       ? expenseCategoryLabel(category)
       : draft.direction === 'INCOME'
         ? 'Приход'
-        : 'Взял себе';
+        : draft.direction === 'OWNER_DRAW'
+          ? 'Взял себе'
+          : `Перевод · ${walletLabel(draft.wallet)} → ${walletLabel(draft.toWallet).toLowerCase()}`;
 
   return {
     ok: true,
@@ -111,6 +145,7 @@ export const buildRecord = (draft: RecordDraft): Built<NewMoneyEntry> => {
       category,
       comment,
       orderId: isExpense && draft.orderId !== '' ? draft.orderId : null,
+      toWallet: isTransfer ? draft.toWallet : null,
     },
   };
 };
@@ -138,7 +173,7 @@ export const recountDifference = (
   draft: RecountDraft,
   expected: number,
 ): number | null => {
-  const counted = parseOptionalMoney(draft.counted);
+  const counted = parseMoney(draft.counted);
 
   return counted.ok && counted.value !== null ? counted.value - expected : null;
 };
@@ -146,22 +181,30 @@ export const recountDifference = (
 // The first count of a wallet sets where it starts. A later one that comes
 // up short is either a расход nobody wrote down, recorded as one, or money
 // not found, which stays as its own line; either way the records then match
-// the count.
+// the count. The forgotten расход points to the recount's line, whose id is
+// given, so the two are deleted together.
 export const buildRecount = ({
   draft,
   expected,
   isFirst,
   today,
+  recountId,
 }: {
   draft: RecountDraft;
   expected: number;
   isFirst: boolean;
   today: string;
+  recountId: string;
 }): Built<NewMoneyEntry[]> => {
-  const counted = parseOptionalMoney(draft.counted);
+  const counted = parseMoney(draft.counted);
 
   if (!counted.ok || counted.value === null) {
-    return { ok: false, errors: { counted: 'Введите, сколько насчитали' } };
+    return {
+      ok: false,
+      errors: {
+        counted: counted.ok ? 'Введите, сколько насчитали' : counted.error,
+      },
+    };
   }
 
   const difference = counted.value - expected;
@@ -207,6 +250,7 @@ export const buildRecount = ({
         date: today,
         category: draft.category,
         comment,
+        recountId,
       },
       recount,
     ],
@@ -364,6 +408,7 @@ export const entryEditMode = (entry: MoneyEntryRecord): EntryEditMode => {
       return entry.recurringExpenseId === null ? 'record' : 'sum';
     case 'INCOME':
     case 'OWNER_DRAW':
+    case 'TRANSFER':
       return 'record';
     case 'COUNT_DIFFERENCE':
     case 'OPENING_BALANCE':
@@ -375,12 +420,16 @@ export const entryEditMode = (entry: MoneyEntryRecord): EntryEditMode => {
 
 export const recordDraftFromEntry = (entry: MoneyEntryRecord): RecordDraft => ({
   direction:
-    entry.kind === 'INCOME' || entry.kind === 'OWNER_DRAW'
+    entry.kind === 'INCOME' ||
+    entry.kind === 'OWNER_DRAW' ||
+    entry.kind === 'TRANSFER'
       ? entry.kind
       : 'EXPENSE',
   amount: formatWhole(Math.abs(entry.amount)),
   category: entry.category ?? '',
   wallet: entry.wallet ?? 'CASH',
+  toWallet:
+    entry.toWallet ?? ((entry.wallet ?? 'CASH') === 'CASH' ? 'CARD' : 'CASH'),
   date: entry.date ?? entry.createdAt.slice(0, 10),
   comment: entry.comment ?? '',
   orderId: entry.orderId ?? '',
@@ -407,7 +456,9 @@ export type EntryChange = {
   wallet: Wallet;
   date: string;
   comment: string | null;
-} & Partial<Pick<NewMoneyEntry, 'kind' | 'name' | 'category' | 'orderId'>>;
+} & Partial<
+  Pick<NewMoneyEntry, 'kind' | 'name' | 'category' | 'orderId' | 'toWallet'>
+>;
 
 export const recordChange = (entry: NewMoneyEntry): EntryChange => ({
   kind: entry.kind,
@@ -418,6 +469,7 @@ export const recordChange = (entry: NewMoneyEntry): EntryChange => ({
   category: entry.category,
   comment: entry.comment,
   orderId: entry.orderId,
+  toWallet: entry.toWallet,
 });
 
 // A handover can grow only by what the worker still holds.

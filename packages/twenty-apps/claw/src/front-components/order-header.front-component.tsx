@@ -534,7 +534,9 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
         {material === null ? null : (
           <Hint text={material.text} tone={material.tone} />
         )}
-        <div style={TABULAR_NUMBERS}>{moneySentence(order)}</div>
+        {order.canSeeMoney ? (
+          <div style={TABULAR_NUMBERS}>{moneySentence(order)}</div>
+        ) : null}
         {failure === null ? null : (
           <ErrorNote text={failure.text} onRetry={failure.retry ?? undefined} />
         )}
@@ -551,7 +553,7 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
           {warning === null ? null : <Hint text={warning} tone="warning" />}
           {/* A link gives way to its open form: the form's own button would
               carry the same words. */}
-          {panel === 'payment' ? null : (
+          {panel === 'payment' || !order.canSeeMoney ? null : (
             <Button variant="link" onClick={() => openPanel('payment')}>
               Принять оплату
             </Button>

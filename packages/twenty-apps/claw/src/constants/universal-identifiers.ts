@@ -145,6 +145,7 @@ export const IDS = {
     metalSize: '51d034f5-e06b-4926-8ae4-43f7ff259f53', // Retired: the metal size is part of the grille; ids are never reused.
     widthCm: 'abaa7141-7102-4792-b4c8-cb96cb2dc87d',
     heightCm: '8de09a33-6105-4653-8493-e7ae5c8535ff',
+    openingNumber: 'e9eab18e-8310-4354-b36f-da29653a7900',
     projectionCm: '1c159580-363d-4e63-a42f-266b0a1996fa',
     projectionKind: 'c856db57-be0e-4ec2-a244-c7e8daa1a9b7',
     quantity: '3439ef21-bb5e-422c-b2f9-e5a31a29ad5b',
@@ -304,6 +305,8 @@ export const IDS = {
     order: '4a7289e1-2f65-4d78-8e84-7751533e9dd7',
     recurringExpense: 'd36556f5-2d46-4a41-a6ba-79194293696c',
     countedAmount: 'a18a1d91-8037-400f-81f5-639b4352a7d3',
+    toWallet: 'b448da41-4bba-4300-8841-dd1a498df8bf',
+    recountId: '0d624657-9866-4248-bc15-a0b21cce0ffc',
   },
   recurringExpense: {
     object: 'b3d6a6d3-b316-414b-b2b7-34ff2f35ac8c',
@@ -372,6 +375,8 @@ export const IDS = {
     manager: '80e85fcd-a9d8-49f0-b9eb-f0ef11c72bdf',
     measurer: '28288544-1381-4ba4-a106-e4a00f12c944',
     workshop: 'd15c1c8c-d736-4d80-82a4-f8dab38341c2',
+    measurerOwnOrders: 'fc994d42-940b-4b76-bfce-c19499a9a383',
+    measurerMeasuringStatuses: '84ace946-7c6f-46e6-be8c-67fffe7bc472',
   },
   view: {
     ordersKanban: 'dfcc304e-6ee3-49be-820a-abc525d06583',

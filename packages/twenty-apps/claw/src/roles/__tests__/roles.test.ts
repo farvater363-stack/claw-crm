@@ -1,4 +1,5 @@
 import {
+  RowLevelPermissionPredicateOperand,
   STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
   SystemPermissionFlag,
 } from 'twenty-sdk/define';
@@ -206,15 +207,46 @@ describe('workshop', () => {
     );
   });
 
-  it('names each order field once', () => {
-    const orderFieldIds = (workshopRole.config.fieldPermissions ?? [])
-      .filter(
-        (permission) =>
-          permission.objectUniversalIdentifier === IDS.order.object,
-      )
-      .map((permission) => permission.fieldUniversalIdentifier);
+  it('names each field once', () => {
+    const fieldIds = (workshopRole.config.fieldPermissions ?? []).map(
+      (permission) => permission.fieldUniversalIdentifier,
+    );
 
-    expect(new Set(orderFieldIds).size).toBe(orderFieldIds.length);
+    expect(new Set(fieldIds).size).toBe(fieldIds.length);
+  });
+
+  // The shared wall login is not trusted with the money or the client's phone.
+  it('reads no sums and no client phone', () => {
+    expect(hiddenFieldIds(workshopRole)).toEqual(
+      expect.arrayContaining([
+        IDS.order.clientPhone,
+        IDS.order.subtotal,
+        IDS.order.discountValue,
+        IDS.order.discount,
+        IDS.order.total,
+        IDS.order.paid,
+        IDS.order.balance,
+        IDS.orderItem.pricePerSquareMeter,
+        IDS.orderItem.lineTotal,
+        IDS.orderExtraService.price,
+        IDS.orderExtraService.lineTotal,
+        IDS.design.pricePerSquareMeter,
+      ]),
+    );
+  });
+
+  it('still reads what the wall shows', () => {
+    for (const fieldId of [
+      IDS.order.name,
+      IDS.order.status,
+      IDS.order.clientFullName,
+      IDS.order.address,
+      IDS.order.areaSquareMeters,
+      IDS.orderItem.areaSquareMeters,
+      IDS.orderItem.quantity,
+    ]) {
+      expect(hiddenFieldIds(workshopRole)).not.toContain(fieldId);
+    }
   });
 
   it('removes and destroys nothing, and reads no more than before', () => {
@@ -525,6 +557,8 @@ describe('client payments', () => {
     });
   });
 
+  // A create is an update in Twenty, and Новый замер retries a payment by
+  // writing the same id again.
   it('lets the measurer record and read payments, not remove them', () => {
     expect(paymentPermission(measurerRole)).toMatchObject({
       canReadObjectRecords: true,
@@ -566,5 +600,73 @@ describe('file uploads', () => {
     expect(workshopRole.config.permissionFlagUniversalIdentifiers).toEqual([
       SystemPermissionFlag.UPLOAD_FILE,
     ]);
+  });
+});
+
+describe('measurer rows', () => {
+  const rules = measurerRole.config.rowLevelPermissionPredicates ?? [];
+
+  it('reads and writes only the orders he measures, while they are measured', () => {
+    expect(rules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          objectUniversalIdentifier: IDS.order.object,
+          fieldUniversalIdentifier: IDS.order.measurer,
+          operand: RowLevelPermissionPredicateOperand.IS,
+          value: {
+            isCurrentWorkspaceMemberSelected: true,
+            selectedRecordIds: [],
+          },
+        }),
+        expect.objectContaining({
+          objectUniversalIdentifier: IDS.order.object,
+          fieldUniversalIdentifier: IDS.order.status,
+          operand: RowLevelPermissionPredicateOperand.IS,
+          value: ['MEASUREMENT_SCHEDULED', 'MEASURED'],
+        }),
+      ]),
+    );
+    // Outside a group the rules are ANDed: both must hold.
+    expect(measurerRole.config.rowLevelPermissionPredicateGroups ?? []).toEqual(
+      [],
+    );
+    expect(
+      rules.every((rule) => rule.predicateGroupUniversalIdentifier == null),
+    ).toBe(true);
+  });
+
+  it('lets Новый замер save the status it writes', () => {
+    const statusRule = rules.find(
+      (rule) => rule.fieldUniversalIdentifier === IDS.order.status,
+    );
+
+    expect(statusRule?.value).toContain('MEASURED');
+  });
+
+  it('gives each rule its own identifier', () => {
+    const ids = rules.map((rule) => rule.universalIdentifier);
+
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('leaves the other roles without rules', () => {
+    for (const role of [managerRole, workshopRole, functionsRole]) {
+      expect(role.config.rowLevelPermissionPredicates ?? []).toEqual([]);
+    }
+  });
+
+  it('reads clients but leaves them to the trigger that makes them', () => {
+    expect(
+      (measurerRole.config.objectPermissions ?? []).find(
+        (permission) =>
+          permission.objectUniversalIdentifier ===
+          STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
+      ),
+    ).toMatchObject({
+      canReadObjectRecords: true,
+      canUpdateObjectRecords: false,
+      canSoftDeleteObjectRecords: false,
+      canDestroyObjectRecords: false,
+    });
   });
 });

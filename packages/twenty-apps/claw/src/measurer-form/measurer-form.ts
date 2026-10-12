@@ -119,6 +119,9 @@ export type OrderItemPayload = {
   projectionCm: number;
   quantity: number;
   notes: string | null;
+  // The form's «Проём N»: a visor alone saves no item, so the items' order
+  // alone would number the later ones differently from their photos
+  openingNumber: number;
 };
 
 // `quantity` is running metres, the unit a visor is priced in.
@@ -271,8 +274,16 @@ export const openingOutline = (opening: OpeningDraft): ShapeOutline | null =>
 // What the price is counted from: a rectangle's height, or a shape's highest
 // point, so an arch costs as the box it fits in.
 export const openingHeightCm = (opening: OpeningDraft): number | null => {
-  if (opening.product === 'RAILING' || opening.shape.kind === 'RECTANGLE') {
+  if (opening.product === 'RAILING') {
     return parseDecimalInput(opening.heightCm);
+  }
+
+  // Rounded as the saved item's height is, so the quote and the contract
+  // match the order.
+  if (opening.shape.kind === 'RECTANGLE') {
+    const heightCm = parseDecimalInput(opening.heightCm);
+
+    return heightCm === null ? null : roundTo(heightCm, 1);
   }
 
   const outline = openingOutline(opening);
@@ -391,10 +402,12 @@ const MIN_SIZE_CM = 10;
 const isBelowMinSize = (sizeCm: number | null) =>
   sizeCm !== null && sizeCm < MIN_SIZE_CM;
 
-// A visor alone: no sizes, so no grille is made for this opening.
+// A visor alone: no sizes, so no grille is made for this opening. A grille
+// picked without sizes is a forgotten size, not a visor alone.
 export const isVisorOnlyOpening = (opening: OpeningDraft): boolean =>
   opening.product === 'GRILLE' &&
   opening.shape.kind === 'RECTANGLE' &&
+  opening.designId === '' &&
   opening.visorServiceId !== '' &&
   opening.widthCm.trim() === '' &&
   opening.heightCm.trim() === '';
@@ -846,7 +859,14 @@ export const buildMeasurementPayload = (
       opening.shape.kind === 'RECTANGLE' &&
       (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0)
     ) {
-      openingErrors.push(`${label}: укажите ширину и высоту больше 0`);
+      openingErrors.push(
+        opening.designId !== '' &&
+          opening.visorServiceId !== '' &&
+          opening.widthCm.trim() === '' &&
+          opening.heightCm.trim() === ''
+          ? `${label}: выбрана решётка — укажите ширину и высоту. Если нужен только козырёк, выберите решётку «Другая».`
+          : `${label}: укажите ширину и высоту больше 0`,
+      );
     } else if (!isVisorOnly && shapeResult !== null && !shapeResult.isValid) {
       openingErrors.push(
         ...shapeResult.errors.map((error) => `${label}: ${error}`),
@@ -912,6 +932,7 @@ export const buildMeasurementPayload = (
         projectionCm,
         quantity: quantity ?? 1,
         notes: emptyToNull(opening.notes),
+        openingNumber: index + 1,
       });
     }
 

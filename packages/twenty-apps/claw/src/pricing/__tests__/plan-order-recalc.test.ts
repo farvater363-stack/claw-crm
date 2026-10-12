@@ -179,6 +179,26 @@ describe('planOrderRecalc', () => {
     });
   });
 
+  it('prices a railing without a height by its length', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [
+          item({
+            id: 'rail',
+            product: 'RAILING',
+            designId: 'railing-1',
+            widthCm: 450,
+            heightCm: null,
+            projectionCm: 0,
+            quantity: 1,
+          }),
+        ],
+      }),
+    );
+
+    expect(plan.itemUpdates[0]?.update).toMatchObject({ lineTotal: 675_000 });
+  });
+
   it('prices a railing per running metre and leaves it out of the area', () => {
     const plan = planOrderRecalc(
       input({
@@ -649,6 +669,44 @@ describe('planOrderRecalc', () => {
       total: 0,
       balance: 0,
     });
+  });
+
+  it('takes a total typed on an order without lines as its new sum', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [],
+        typedTotal: 4_200_000,
+        order: {
+          ...emptyOrder,
+          subtotal: 4_000_000,
+          total: 4_200_000,
+          discount: 0,
+        },
+      }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({ subtotal: 4_200_000 });
+    expect(plan.orderUpdate.total).toBeUndefined();
+  });
+
+  it('keeps the discount when a total is typed on an order without lines', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [],
+        typedTotal: 900_000,
+        order: {
+          ...emptyOrder,
+          subtotal: 1_100_000,
+          discountKind: 'AMOUNT',
+          discountValue: 100_000,
+          discount: 100_000,
+          total: 900_000,
+        },
+      }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({ subtotal: 1_000_000 });
+    expect(plan.orderUpdate.total).toBeUndefined();
   });
 
   it('discounts the stored sum of an order without lines', () => {

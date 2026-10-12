@@ -10,6 +10,10 @@ import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
 
+// Цех may not read sale prices, and every role can read the timeline, so
+// these values are never audit-logged.
+const NOT_AUDIT_LOGGED = { isAuditLogged: false } as const;
+
 export default defineObject({
   universalIdentifier: IDS.orderExtraService.object,
   nameSingular: 'orderExtraService',
@@ -36,8 +40,13 @@ export default defineObject({
       isNullable: true,
       universalSettings: { decimals: 2, dataType: NumberDataType.FLOAT },
     },
-    money(IDS.orderExtraService.price, 'price', 'Цена'),
-    money(IDS.orderExtraService.lineTotal, 'lineTotal', 'Сумма'),
+    money(IDS.orderExtraService.price, 'price', 'Цена', NOT_AUDIT_LOGGED),
+    money(
+      IDS.orderExtraService.lineTotal,
+      'lineTotal',
+      'Сумма',
+      NOT_AUDIT_LOGGED,
+    ),
     money(IDS.orderExtraService.cost, 'cost', 'Себестоимость за ед.'),
     money(IDS.orderExtraService.lineCost, 'lineCost', 'Себестоимость'),
     {

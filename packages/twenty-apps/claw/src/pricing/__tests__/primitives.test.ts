@@ -8,7 +8,9 @@ import {
   addDays,
   computeDaysLate,
   measuredAtOnStatusChange,
+  deadlineOnStartChange,
   installedAtOnStatusChange,
+  productionStartOnStatusChange,
   readyAtOnStatusChange,
   todayInTashkent,
 } from 'src/pricing/dates';
@@ -121,6 +123,58 @@ describe('toStoredUzbekPhone', () => {
     ['12345', null],
   ])('%s -> %s', (raw, expected) => {
     expect(toStoredUzbekPhone(raw)).toBe(expected);
+  });
+});
+
+describe('productionStartOnStatusChange', () => {
+  it('stamps «Начало» when the order goes into production', () => {
+    expect(
+      productionStartOnStatusChange({
+        status: 'PRODUCTION',
+        productionStartDate: null,
+        today: '2026-10-05',
+      }),
+    ).toBe('2026-10-05');
+  });
+
+  it('keeps a start typed by hand and ignores other statuses', () => {
+    expect(
+      productionStartOnStatusChange({
+        status: 'PRODUCTION',
+        productionStartDate: '2026-10-01',
+        today: '2026-10-05',
+      }),
+    ).toBeNull();
+    expect(
+      productionStartOnStatusChange({
+        status: 'MEASURED',
+        productionStartDate: null,
+        today: '2026-10-05',
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('deadlineOnStartChange', () => {
+  const change = (overrides: Partial<Parameters<typeof deadlineOnStartChange>[0]>) =>
+    deadlineOnStartChange({
+      previousStart: '2026-10-01',
+      start: '2026-10-05',
+      deadline: '2026-10-08',
+      deadlineTyped: false,
+      daysAfterStart: 7,
+      ...overrides,
+    });
+
+  it('moves a derived deadline with the start', () => {
+    expect(change({})).toBe('2026-10-12');
+    expect(change({ start: null })).toBeNull();
+  });
+
+  it('keeps a deadline typed by hand', () => {
+    expect(change({ deadline: '2026-10-20' })).toBeUndefined();
+    expect(change({ deadlineTyped: true })).toBeUndefined();
+    expect(change({ deadline: null })).toBeUndefined();
   });
 });
 

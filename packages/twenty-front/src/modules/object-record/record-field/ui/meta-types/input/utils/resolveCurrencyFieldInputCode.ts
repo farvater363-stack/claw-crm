@@ -24,12 +24,26 @@ export const resolveCurrencyFieldInputCode = ({
     '',
   );
 
-  // A field that names its currency takes values in that currency only, so a
-  // value stored or typed in another one is brought back to it.
+  // A field that names its currency takes new values in that currency only. A
+  // value already stored in another one keeps it: changing the code without
+  // converting the amount would change what it is worth.
   if (isNonEmptyString(defaultCurrencyCodeWithoutSQLQuotes)) {
-    const currencyCode = defaultCurrencyCodeWithoutSQLQuotes as CurrencyCode;
+    const fieldCurrencyCode =
+      defaultCurrencyCodeWithoutSQLQuotes as CurrencyCode;
+    const allowedCurrencyCodes =
+      isNonEmptyString(recordCurrencyCode) &&
+      recordCurrencyCode !== fieldCurrencyCode
+        ? [fieldCurrencyCode, recordCurrencyCode]
+        : [fieldCurrencyCode];
+    const currencyCode =
+      isNonEmptyString(draftCurrencyCode) &&
+      allowedCurrencyCodes.includes(draftCurrencyCode)
+        ? draftCurrencyCode
+        : isNonEmptyString(recordCurrencyCode)
+          ? recordCurrencyCode
+          : fieldCurrencyCode;
 
-    return { currencyCode, allowedCurrencyCodes: [currencyCode] };
+    return { currencyCode, allowedCurrencyCodes };
   }
 
   return {

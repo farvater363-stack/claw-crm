@@ -88,6 +88,7 @@ describe('services in the contract', () => {
       items: [],
       extraServices: [
         {
+          extraServiceId: 'delivery',
           name: null,
           serviceName: 'Доставка',
           quantity: 3,
@@ -95,6 +96,7 @@ describe('services in the contract', () => {
           lineTotal: 150_000,
         },
         {
+          extraServiceId: 'removal',
           name: null,
           serviceName: 'Демонтаж',
           quantity: null,

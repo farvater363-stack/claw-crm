@@ -507,6 +507,9 @@ const Stock = () => {
   );
   // Deleted materials still name the purchases and write-offs they were in.
   const historyMaterials = [...shownMaterials, ...data.removedMaterials];
+  const removedMaterialIds = new Set(
+    data.removedMaterials.map((material) => material.id),
+  );
   const onHandById = new Map(
     shownMaterials.map((material) => [material.id, material.onHand ?? 0]),
   );
@@ -1839,7 +1842,7 @@ const Stock = () => {
   };
 
   const renderReportTab = () => {
-    const report = buildStockMonthReport(valued, month);
+    const report = buildStockMonthReport(valued, month, removedMaterialIds);
     const money = (value: number) => formatMoney(value);
     const lines: [string, number, boolean?][] = [
       [`Было на 1 число`, report.opening],
@@ -1859,6 +1862,7 @@ const Stock = () => {
       ['Для цеха', -report.workshopUse],
       ['Вернул поставщику', -report.returned],
       ['Другое', -report.otherOut],
+      ['Удалённые материалы', -report.removed],
     ];
 
     return (
@@ -2083,7 +2087,11 @@ const Stock = () => {
       />
     );
 
-  const monthReport = buildStockMonthReport(valued, month);
+  const monthReport = buildStockMonthReport(
+    valued,
+    month,
+    removedMaterialIds,
+  );
 
   return (
     <Screen

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { type PayrollScreenWorker } from 'src/payroll/load-payroll-data';
-import { type SquareMeterSummaryRow } from 'src/payroll/payroll-screen';
+import { type SquareMeterSummaryRow, summaryBasisTotals } from 'src/payroll/payroll-screen';
 // Type only, as a whole statement: that module imports node:crypto, which must not reach a front component's bundle.
 import type { AccrualLine } from 'src/payroll/plan-order-accruals';
 import { type WorkshopCatalog } from 'src/payroll/workshop-pay';
@@ -747,7 +747,9 @@ export const SquareMeterSummaryTable = ({ rows }: { rows: SquareMeterSummaryRow[
     letterSpacing: '0.04em',
     fontSize: '12px',
   } as const;
-  const totalBasis = rows.reduce((sum, row) => sum + row.basis, 0);
+  const basisTotals = summaryBasisTotals(rows);
+  // With railings in the month each figure says its unit, so п.м. is never read as м².
+  const isMixed = basisTotals.length > 1 || basisTotals[0]?.unit !== 'м²';
   const totalAmount = rows.reduce((sum, row) => sum + row.amount, 0);
 
   return (
@@ -757,7 +759,7 @@ export const SquareMeterSummaryTable = ({ rows }: { rows: SquareMeterSummaryRow[
           За что
         </span>
         <span role="columnheader" style={{ ...heading, textAlign: 'right' }}>
-          м²
+          {isMixed ? 'Объём' : 'м²'}
         </span>
         <span role="columnheader" style={{ ...heading, textAlign: 'right' }}>
           Ставка
@@ -787,7 +789,7 @@ export const SquareMeterSummaryTable = ({ rows }: { rows: SquareMeterSummaryRow[
             ) : null}
           </span>
           <span role="cell" style={number}>
-            {formatQuantity(row.basis, '')}
+            {formatQuantity(row.basis, isMixed ? row.unit : '')}
           </span>
           <span role="cell" style={number}>
             {formatWhole(row.rate)}
@@ -798,9 +800,11 @@ export const SquareMeterSummaryTable = ({ rows }: { rows: SquareMeterSummaryRow[
         </div>
       ))}
       <div role="row" style={{ ...line, borderTop: `2px solid ${colors.text}`, fontWeight: 700 }}>
-        <span role="cell">Итого за м²</span>
+        <span role="cell">{isMixed ? 'Итого' : 'Итого за м²'}</span>
         <span role="cell" style={number}>
-          {formatQuantity(Math.round(totalBasis * 100) / 100, '')}
+          {basisTotals.map(({ unit, basis }) => (
+            <div key={unit}>{formatQuantity(basis, isMixed ? unit : '')}</div>
+          ))}
         </span>
         <span role="cell" />
         <span role="cell" style={number}>

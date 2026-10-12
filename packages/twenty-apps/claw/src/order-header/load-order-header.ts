@@ -31,6 +31,8 @@ export type HeaderOrder = {
   total: number | null;
   paid: number | null;
   balance: number | null;
+  // False for a role that may not read the sums or the phone (the workshop)
+  canSeeMoney: boolean;
   masterId: string | null;
   installerId: string | null;
   cancelReason: string | null;
@@ -93,34 +95,68 @@ const workersOf = (workers: Worker[], category: WorkerCategory): Choice[] =>
       label: joinFullName(worker.fullName) ?? '',
     }));
 
+const ORDER_FIELDS = {
+  id: true,
+  name: true,
+  status: true,
+  clientFullName: { firstName: true, lastName: true },
+  district: true,
+  floor: true,
+  materialState: true,
+  materialNote: true,
+  masterId: true,
+  installerId: true,
+  cancelReason: true,
+} as const;
+
+const MONEY_AND_PHONE_FIELDS = {
+  clientPhone: true,
+  total: MONEY,
+  paid: MONEY,
+  balance: MONEY,
+} as const;
+
+const NO_MONEY = {
+  clientPhone: null,
+  total: null,
+  paid: null,
+  balance: null,
+} as const;
+
+// A role that may not read the sums or the phone is refused the whole query,
+// so it is asked again without them and the header shows the work alone.
+const loadOrderNode = async (client: CoreApiClient, orderId: string) => {
+  const byId = { filter: { id: { eq: orderId } }, first: 1 };
+
+  try {
+    const { orders } = await client.query({
+      orders: {
+        __args: byId,
+        edges: { node: { ...ORDER_FIELDS, ...MONEY_AND_PHONE_FIELDS } },
+      },
+    });
+    const node = orders?.edges[0]?.node;
+
+    return node ? { ...node, canSeeMoney: true } : null;
+  } catch (error) {
+    if (!isAccessError(error)) throw error;
+
+    const { orders } = await client.query({
+      orders: { __args: byId, edges: { node: ORDER_FIELDS } },
+    });
+    const node = orders?.edges[0]?.node;
+
+    return node ? { ...node, ...NO_MONEY, canSeeMoney: false } : null;
+  }
+};
+
 export const loadOrderHeader = async (
   client: CoreApiClient,
   orderId: string,
 ): Promise<OrderHeaderData | null> => {
-  const [{ orders, workspaceMembers }, workers] = await Promise.all([
+  const [node, { workspaceMembers }, workers] = await Promise.all([
+    loadOrderNode(client, orderId),
     client.query({
-      orders: {
-        __args: { filter: { id: { eq: orderId } }, first: 1 },
-        edges: {
-          node: {
-            id: true,
-            name: true,
-            status: true,
-            clientFullName: { firstName: true, lastName: true },
-            clientPhone: true,
-            district: true,
-            floor: true,
-            materialState: true,
-            materialNote: true,
-            total: MONEY,
-            paid: MONEY,
-            balance: MONEY,
-            masterId: true,
-            installerId: true,
-            cancelReason: true,
-          },
-        },
-      },
       workspaceMembers: {
         __args: { first: PAGE_SIZE },
         edges: {
@@ -130,8 +166,6 @@ export const loadOrderHeader = async (
     }),
     loadActiveWorkers(client),
   ]);
-
-  const node = orders?.edges[0]?.node;
 
   if (!node) return null;
 
@@ -151,6 +185,7 @@ export const loadOrderHeader = async (
       total: fromCurrency(node.total),
       paid: fromCurrency(node.paid),
       balance: fromCurrency(node.balance),
+      canSeeMoney: node.canSeeMoney,
       masterId: node.masterId ?? null,
       installerId: node.installerId ?? null,
       cancelReason: node.cancelReason ?? null,

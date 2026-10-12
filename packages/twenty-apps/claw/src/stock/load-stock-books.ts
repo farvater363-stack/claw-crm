@@ -27,6 +27,8 @@ export type StockBooks = {
   payments: SupplierPayment[] | null;
   // Orders material can still go to, newest first
   orders: { id: string; name: string }[];
+  // Deleted materials are no longer on the shelf
+  removedMaterialIds: string[];
 };
 
 const PAGE_SIZE = 200;
@@ -122,52 +124,73 @@ export const loadStockBooks = async (
   client: CoreApiClient,
   canSeePrice: boolean,
 ): Promise<StockBooks> => {
-  const [movementNodes, purchaseNodes, supplierNodes, payments, orderPage] =
-    await Promise.all([
-      loadMovements(client, canSeePrice),
-      fetchAllPages(async (after) => {
-        const { purchases } = await client.query({
-          purchases: {
-            __args: { first: PAGE_SIZE, after },
-            edges: {
-              node: {
-                id: true,
-                date: true,
-                createdAt: true,
-                supplierId: true,
-                comment: true,
-                invoicePhotos: { fileId: true },
-              },
+  const [
+    movementNodes,
+    purchaseNodes,
+    supplierNodes,
+    payments,
+    orderPage,
+    removedMaterialNodes,
+  ] = await Promise.all([
+    loadMovements(client, canSeePrice),
+    fetchAllPages(async (after) => {
+      const { purchases } = await client.query({
+        purchases: {
+          __args: { first: PAGE_SIZE, after },
+          edges: {
+            node: {
+              id: true,
+              date: true,
+              createdAt: true,
+              supplierId: true,
+              comment: true,
+              invoicePhotos: { fileId: true },
             },
-            pageInfo: PAGE_INFO,
           },
-        });
-
-        return purchases;
-      }),
-      fetchAllPages(async (after) => {
-        const { suppliers } = await client.query({
-          suppliers: {
-            __args: { first: PAGE_SIZE, after },
-            edges: { node: { id: true, name: true } },
-            pageInfo: PAGE_INFO,
-          },
-        });
-
-        return suppliers;
-      }),
-      canSeePrice ? loadSupplierPayments(client) : null,
-      client.query({
-        orders: {
-          __args: {
-            first: ORDER_CHOICES,
-            filter: { status: { in: [...ORDERS_TAKING_MATERIAL] } },
-            orderBy: [{ number: 'DescNullsLast' }],
-          },
-          edges: { node: { id: true, name: true } },
+          pageInfo: PAGE_INFO,
         },
-      }),
-    ]);
+      });
+
+      return purchases;
+    }),
+    fetchAllPages(async (after) => {
+      const { suppliers } = await client.query({
+        suppliers: {
+          __args: { first: PAGE_SIZE, after },
+          edges: { node: { id: true, name: true } },
+          pageInfo: PAGE_INFO,
+        },
+      });
+
+      return suppliers;
+    }),
+    canSeePrice ? loadSupplierPayments(client) : null,
+    client.query({
+      orders: {
+        __args: {
+          first: ORDER_CHOICES,
+          filter: { status: { in: [...ORDERS_TAKING_MATERIAL] } },
+          orderBy: [{ number: 'DescNullsLast' }],
+        },
+        edges: { node: { id: true, name: true } },
+      },
+    }),
+    fetchAllPages(async (after) => {
+      const { materials } = await client.query({
+        materials: {
+          __args: {
+            first: PAGE_SIZE,
+            after,
+            filter: { deletedAt: { is: 'NOT_NULL' } },
+          },
+          edges: { node: { id: true } },
+          pageInfo: PAGE_INFO,
+        },
+      });
+
+      return materials;
+    }),
+  ]);
 
   const orderNames: Record<string, string> = {};
   const movements = movementNodes.map((node): LedgerMovement => {
@@ -202,6 +225,7 @@ export const loadStockBooks = async (
   return {
     movements,
     orderNames,
+    removedMaterialIds: removedMaterialNodes.map((node) => node.id),
     purchases: purchaseNodes.map((node) => ({
       id: node.id,
       date: toDate(node.date),
@@ -242,7 +266,10 @@ export const createPurchase = async (
   },
 ): Promise<void> => {
   await client.mutation({
-    createPurchase: { __args: { data: { id, ...data }, upsert: true }, id: true },
+    createPurchase: {
+      __args: { data: { id, ...data }, upsert: true },
+      id: true,
+    },
   });
 };
 

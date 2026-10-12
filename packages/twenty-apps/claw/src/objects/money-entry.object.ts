@@ -173,5 +173,25 @@ export default defineObject({
       'Насчитали',
       NOT_AUDIT_LOGGED,
     ),
+    // On a «Перевод»: the wallet the money went to from «Откуда».
+    {
+      universalIdentifier: moneyEntry.toWallet,
+      type: FieldType.SELECT,
+      name: 'toWallet',
+      label: 'Куда',
+      icon: 'IconArrowsExchange',
+      isNullable: true,
+      options: WALLET_OPTIONS,
+    },
+    // On a расход written at a recount as forgotten: that recount's line, so
+    // the two are deleted and restored together.
+    {
+      universalIdentifier: moneyEntry.recountId,
+      type: FieldType.TEXT,
+      name: 'recountId',
+      label: 'Пересчёт',
+      icon: 'IconCalculator',
+      isNullable: true,
+    },
   ],
 });

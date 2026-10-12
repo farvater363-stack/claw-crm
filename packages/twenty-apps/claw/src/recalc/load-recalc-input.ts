@@ -68,7 +68,7 @@ export const loadRecalcInput = async (
   orderId: string,
   refresh: Pick<
     RecalcInput,
-    'refreshPriceItemIds' | 'refreshPriceExtraServiceLineIds' | 'linesRemoved'
+    'refreshPriceItemIds' | 'refreshPriceExtraServiceLineIds' | 'linesRemoved' | 'typedTotal'
   >,
 ): Promise<RecalcInput | null> => {
   const {

@@ -8,14 +8,20 @@ import { syncOrderClient } from 'src/clients/sync-order-client';
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import {
+  deadlineOnStartChange,
   installedAtOnStatusChange,
   measuredAtOnStatusChange,
+  productionStartOnStatusChange,
   readyAtOnStatusChange,
   todayInTashkent,
 } from 'src/pricing/dates';
 import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
+import { INSTALLATION_DAYS_AFTER_START } from 'src/pricing/plan-order-recalc';
 import { orderNameToRestore } from 'src/recalc/assign-order-number';
+import { clientAfterPhoneChange } from 'src/recalc/link-client-by-phone';
+import { fromCurrency } from 'src/recalc/money';
 import { recalcOrder } from 'src/recalc/recalc-order';
+import { type StoredFullName } from 'src/utils/full-name';
 import { isEnteringWrittenOff } from 'src/warehouse/plan-order-materials';
 
 type UpdatedOrder = {
@@ -26,8 +32,12 @@ type UpdatedOrder = {
   name: string | null;
   number: number | null;
   clientPhone: string | null;
+  clientFullName: StoredFullName;
   clientId: string | null;
   cancelReason: string | null;
+  productionStartDate: string | null;
+  installationDeadline: string | null;
+  total: { amountMicros?: number | string | null } | null;
 };
 
 // Fields that matter to the client alone; the order's own sums do not move.
@@ -65,6 +75,22 @@ const handler = async (
         },
       });
     }
+
+    const movedClientId = await clientAfterPhoneChange(client, {
+      clientId: after.clientId ?? null,
+      clientFullName: after.clientFullName,
+      previousPhone: before.clientPhone ?? null,
+      phone: after.clientPhone ?? null,
+    });
+
+    if (movedClientId !== null) {
+      await client.mutation({
+        updateOrder: {
+          __args: { id: payload.recordId, data: { clientId: movedClientId } },
+          id: true,
+        },
+      });
+    }
   }
 
   const statusChanged = updatedFields.includes('status');
@@ -96,8 +122,28 @@ const handler = async (
       })
     : null;
 
+  const productionStartDate = statusChanged
+    ? productionStartOnStatusChange({
+        status: after.status ?? null,
+        productionStartDate: after.productionStartDate ?? null,
+        today: todayInTashkent(),
+      })
+    : null;
+
+  const installationDeadline = updatedFields.includes('productionStartDate')
+    ? deadlineOnStartChange({
+        previousStart: before.productionStartDate ?? null,
+        start: after.productionStartDate ?? null,
+        deadline: after.installationDeadline ?? null,
+        deadlineTyped: updatedFields.includes('installationDeadline'),
+        daysAfterStart: INSTALLATION_DAYS_AFTER_START,
+      })
+    : undefined;
+
   // One mutation, so INSTALLED does not fire the trigger twice.
   const stamps: Record<string, unknown> = {
+    ...(productionStartDate !== null && { productionStartDate }),
+    ...(installationDeadline !== undefined && { installationDeadline }),
     ...(installedAt !== null && { installedAt }),
     ...(readyAt !== null && { readyAt }),
     ...(measuredAt !== null && { measuredAt }),
@@ -114,6 +160,9 @@ const handler = async (
 
   if (updatedFields.some((field) => !CLIENT_ONLY_FIELDS.includes(field))) {
     await recalcOrder(client, payload.recordId, {
+      typedTotal: updatedFields.includes('total')
+        ? fromCurrency(after.total ?? null)
+        : undefined,
       entersWrittenOff:
         statusChanged &&
         isEnteringWrittenOff({
@@ -162,6 +211,7 @@ export default defineLogicFunction({
       'measurerId',
       'measuredAt',
       'areaSquareMeters',
+      'subtotal',
       'total',
       'costTotal',
       // Recalcs of one order run unlocked, so a late one can write sums computed

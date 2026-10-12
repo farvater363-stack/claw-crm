@@ -47,6 +47,28 @@ const lastNumberAmong = async (
     : Number(lastNumber);
 };
 
+// Two orders saved in the same instant can read the same last number: the one
+// created first keeps it and the other takes the next free one.
+export const hasEarlierOrderWithNumber = async (
+  client: CoreApiClient,
+  orderId: string,
+  number: number,
+): Promise<boolean> => {
+  const { orders } = await client.query({
+    orders: {
+      __args: {
+        filter: { number: { eq: number } },
+        orderBy: [{ createdAt: 'AscNullsLast' }],
+        first: 1,
+      },
+      edges: { node: { id: true } },
+    },
+  });
+  const firstId = orders?.edges[0]?.node?.id;
+
+  return firstId !== undefined && firstId !== orderId;
+};
+
 // A deleted order keeps its number: it can be restored, so the number is not
 // given out again.
 // ponytail: max+1 can duplicate a number when two orders are created in the same instant; switch to a Postgres sequence if volume grows.

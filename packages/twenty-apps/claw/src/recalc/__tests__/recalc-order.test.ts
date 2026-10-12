@@ -20,6 +20,9 @@ vi.mock('src/warehouse/sync-order-materials', () => ({
   syncOrderMaterials: vi.fn(),
 }));
 vi.mock('src/warehouse/recalc-warehouse', () => ({ recalcWarehouse: vi.fn() }));
+vi.mock('src/contract/sync-contract-state', () => ({
+  syncContractState: vi.fn(),
+}));
 
 const client = {} as CoreApiClient;
 

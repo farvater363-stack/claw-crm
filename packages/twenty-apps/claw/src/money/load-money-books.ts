@@ -136,6 +136,8 @@ export const loadMoneyBooks = async (
               orderId: true,
               recurringExpenseId: true,
               countedAmount: MONEY,
+              toWallet: true,
+              recountId: true,
             },
           },
           pageInfo: PAGE_INFO,
@@ -232,6 +234,8 @@ export const loadMoneyBooks = async (
       orderId: node.orderId ?? null,
       recurringExpenseId: node.recurringExpenseId ?? null,
       countedAmount: fromCurrency(node.countedAmount),
+      toWallet: (node.toWallet ?? null) as Wallet | null,
+      recountId: node.recountId || null,
     })),
     workers: workerNodes.map((node) => ({
       id: node.id,
@@ -289,38 +293,36 @@ export const loadReadyOrders = async (
   }));
 };
 
+// Every field is sent, an empty one as null: a retry upserts over the same
+// id and must clear what the first attempt wrote.
+const moneyEntryData = (id: string, entry: NewMoneyEntry) => ({
+  id,
+  kind: entry.kind,
+  name: entry.name,
+  amount: toCurrency(entry.amount),
+  wallet: entry.wallet,
+  date: entry.date,
+  category: entry.category,
+  comment: entry.comment,
+  orderId: entry.orderId,
+  workerId: entry.workerId,
+  recurringExpenseId: entry.recurringExpenseId,
+  toWallet: entry.toWallet,
+  recountId: entry.recountId,
+  countedAmount: toCurrency(entry.countedAmount) ?? {
+    amountMicros: null,
+    currencyCode: 'UZS' as const,
+  },
+});
+
 export const createMoneyEntry = async (
   client: CoreApiClient,
   id: string,
   entry: NewMoneyEntry,
 ): Promise<void> => {
-  const optional = {
-    category: entry.category,
-    comment: entry.comment,
-    orderId: entry.orderId,
-    workerId: entry.workerId,
-    recurringExpenseId: entry.recurringExpenseId,
-  };
-
   await client.mutation({
     createMoneyEntry: {
-      __args: {
-        data: {
-          id,
-          kind: entry.kind,
-          name: entry.name,
-          amount: toCurrency(entry.amount),
-          wallet: entry.wallet,
-          date: entry.date,
-          ...Object.fromEntries(
-            Object.entries(optional).filter(([, value]) => value !== null),
-          ),
-          ...(entry.countedAmount === null
-            ? {}
-            : { countedAmount: toCurrency(entry.countedAmount) }),
-        },
-        upsert: true,
-      },
+      __args: { data: moneyEntryData(id, entry), upsert: true },
       id: true,
     },
   });
@@ -372,21 +374,23 @@ export const updateMoneyEntry = async (
   });
 };
 
-export const deleteMoneyEntry = async (
+// By a filter, so a retry after a lost answer finds nothing left to do
+// rather than failing.
+export const deleteMoneyEntries = async (
   client: CoreApiClient,
-  id: string,
+  ids: string[],
 ): Promise<void> => {
   await client.mutation({
-    deleteMoneyEntry: { __args: { id }, id: true },
+    deleteMoneyEntries: { __args: { filter: { id: { in: ids } } }, id: true },
   });
 };
 
-export const restoreMoneyEntry = async (
+export const restoreMoneyEntries = async (
   client: CoreApiClient,
-  id: string,
+  ids: string[],
 ): Promise<void> => {
   await client.mutation({
-    restoreMoneyEntry: { __args: { id }, id: true },
+    restoreMoneyEntries: { __args: { filter: { id: { in: ids } } }, id: true },
   });
 };
 

@@ -77,6 +77,7 @@ describe('buildRecount', () => {
       expected: 8_600_000,
       isFirst,
       today: TODAY,
+      recountId: 'recount-1',
     });
 
   it('shows the difference once a sum is typed', () => {

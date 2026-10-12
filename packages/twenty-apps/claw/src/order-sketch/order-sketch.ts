@@ -31,6 +31,9 @@ export type SchemeItemRow = {
   projectionKind: string | null;
   quantity: unknown;
   designName: string | null;
+  // The number the measurer's form gave it; absent on items saved before it
+  // was kept, or added later in the order
+  openingNumber?: unknown;
 };
 
 export type SchemeOpening = {
@@ -56,49 +59,70 @@ const toProjectionKind = (value: string | null): ProjectionKind | null =>
   PROJECTION_KIND_OPTIONS.find((option) => option.value === value)?.value ??
   null;
 
-export const toSchemeOpenings = (rows: SchemeItemRow[]): SchemeOpening[] =>
-  rows.map((row, index) => {
-    const isRailing = row.product === 'RAILING';
-    const widthCm = toNumber(row.widthCm);
-    const heightCm = toNumber(row.heightCm);
-    const shape = isRailing
-      ? null
-      : parseItemShape(row.shape, widthCm, heightCm);
-    const projectionCm = isRailing ? 0 : (toNumber(row.projectionCm) ?? 0);
-    // An item saved before the kind existed had its вынос both ways.
-    const projectionKind = isRailing
-      ? 'NONE'
-      : (toProjectionKind(row.projectionKind) ??
-        (projectionCm > 0 ? 'BOTTOM_AND_TOP' : 'NONE'));
-    const hasSizes =
-      widthCm !== null && heightCm !== null && widthCm > 0 && heightCm > 0;
-    const size = { widthCm, heightCm, projectionCm, projectionKind } as {
-      widthCm: number;
-      heightCm: number;
-      projectionCm: number;
-      projectionKind: ProjectionKind;
-    };
+const isOpeningNumber = (value: number | null): value is number =>
+  value !== null && Number.isInteger(value) && value > 0;
 
-    return {
-      id: row.id,
-      title: `Проём ${index + 1}`,
-      designName: row.designName,
-      quantity: toNumber(row.quantity) ?? 1,
-      isRailing,
-      shape,
-      sketch: hasSizes
-        ? {
-            ...size,
-            sizeText: isRailing
-              ? `${widthCm}×${heightCm}`
-              : `${shape === null ? '' : `${shapeKindLabel(shape.kind).toLowerCase()} `}${formatItemSize(size)}`,
-            unitsText: isRailing
-              ? formatQuantity(computeRunningMeters(size.widthCm), 'п.м.')
-              : formatQuantity(computeItemAreaSquareMeters(size), 'м²'),
-          }
-        : null,
-    };
-  });
+// A visor alone takes a number in the form but saves no item, so counting the
+// items would shift every later opening away from its photos' «Проём N».
+// An item without a stored number follows the highest one.
+export const numberOpenings = (
+  rows: { openingNumber?: unknown }[],
+): number[] => {
+  const stored = rows.map((row) => toNumber(row.openingNumber ?? null));
+  let next = Math.max(0, ...stored.filter(isOpeningNumber));
+
+  return stored.map((number) => (isOpeningNumber(number) ? number : ++next));
+};
+
+export const toSchemeOpenings = (rows: SchemeItemRow[]): SchemeOpening[] => {
+  const numbers = numberOpenings(rows);
+
+  return rows
+    .map((row, index) => ({ row, number: numbers[index] }))
+    .sort((left, right) => left.number - right.number)
+    .map(({ row, number }) => {
+      const isRailing = row.product === 'RAILING';
+      const widthCm = toNumber(row.widthCm);
+      const heightCm = toNumber(row.heightCm);
+      const shape = isRailing
+        ? null
+        : parseItemShape(row.shape, widthCm, heightCm);
+      const projectionCm = isRailing ? 0 : (toNumber(row.projectionCm) ?? 0);
+      // An item saved before the kind existed had its вынос both ways.
+      const projectionKind = isRailing
+        ? 'NONE'
+        : (toProjectionKind(row.projectionKind) ??
+          (projectionCm > 0 ? 'BOTTOM_AND_TOP' : 'NONE'));
+      const hasSizes =
+        widthCm !== null && heightCm !== null && widthCm > 0 && heightCm > 0;
+      const size = { widthCm, heightCm, projectionCm, projectionKind } as {
+        widthCm: number;
+        heightCm: number;
+        projectionCm: number;
+        projectionKind: ProjectionKind;
+      };
+
+      return {
+        id: row.id,
+        title: `Проём ${number}`,
+        designName: row.designName,
+        quantity: toNumber(row.quantity) ?? 1,
+        isRailing,
+        shape,
+        sketch: hasSizes
+          ? {
+              ...size,
+              sizeText: isRailing
+                ? `${widthCm}×${heightCm}`
+                : `${shape === null ? '' : `${shapeKindLabel(shape.kind).toLowerCase()} `}${formatItemSize(size)}`,
+              unitsText: isRailing
+                ? formatQuantity(computeRunningMeters(size.widthCm), 'п.м.')
+                : formatQuantity(computeItemAreaSquareMeters(size), 'м²'),
+            }
+          : null,
+      };
+    });
+};
 
 export const schemeSketchLayout = (opening: SchemeOpening): SketchLayout =>
   opening.isRailing

@@ -25,6 +25,8 @@ const entry = (overrides: Partial<MoneyEntryRecord> = {}): MoneyEntryRecord => (
   orderId: 'order-1',
   recurringExpenseId: null,
   countedAmount: null,
+  toWallet: null,
+  recountId: null,
   ...overrides,
 });
 
@@ -36,6 +38,7 @@ describe('changing a money entry', () => {
       amount: '180,000',
       category: 'FUEL',
       wallet: 'CARD',
+      toWallet: 'CASH',
       date: '2026-10-09',
       comment: 'Дамас',
       orderId: 'order-1',
