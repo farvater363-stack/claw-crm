@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyPaymentChanges,
   buildMeasurementPayload,
   buildOpeningPhotoLabel,
   computeDraftTotal,
@@ -245,6 +246,29 @@ describe('buildMeasurementPayload', () => {
       isValid: false,
       errors: ['Проём 2: укажите ширину и высоту больше 0'],
     });
+  });
+
+  it('refuses sizes typed in metres instead of centimetres', () => {
+    const build = (openingDraft: OpeningDraft) =>
+      buildMeasurementPayload(
+        draft({ openings: [openingDraft] }),
+        'member-1',
+        context(),
+      );
+
+    expect(build(opening({ widthCm: '1,4', heightCm: '150' }))).toEqual({
+      isValid: false,
+      errors: ['Проём 1: укажите ширину и высоту в сантиметрах, от 10'],
+    });
+    expect(
+      build(opening({ product: 'RAILING', widthCm: '300', heightCm: '0,9' })),
+    ).toEqual({
+      isValid: false,
+      errors: ['Проём 1: укажите длину и высоту перилл в сантиметрах, от 10'],
+    });
+    expect(build(opening({ widthCm: '10', heightCm: '10' })).isValid).toBe(
+      true,
+    );
   });
 
   it('asks for the centimetres of a вынос that was chosen, and saves none as 0', () => {
@@ -1092,6 +1116,26 @@ describe('copyOpening', () => {
       notes: '',
       photos: [],
     });
+  });
+});
+
+describe('applyPaymentChanges', () => {
+  it('clears the discount when сум turns into %', () => {
+    expect(
+      applyPaymentChanges(
+        payment({ discountKind: 'AMOUNT', discountValue: '50,000' }),
+        { discountKind: 'PERCENT' },
+      ),
+    ).toMatchObject({ discountKind: 'PERCENT', discountValue: '' });
+  });
+
+  it('keeps the discount while the kind stays', () => {
+    expect(
+      applyPaymentChanges(payment({ discountValue: '5' }), {
+        discountKind: 'PERCENT',
+        prepayment: '100 000',
+      }),
+    ).toMatchObject({ discountValue: '5', prepayment: '100 000' });
   });
 });
 

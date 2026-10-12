@@ -174,6 +174,7 @@ export const loadMoneyBooks = async (
               wallet: true,
               category: true,
               isActive: true,
+              createdAt: true,
             },
           },
           pageInfo: PAGE_INFO,
@@ -244,6 +245,7 @@ export const loadMoneyBooks = async (
       wallet: (node.wallet ?? null) as Wallet | null,
       category: (node.category ?? null) as ExpenseCategory | null,
       isActive: node.isActive !== false,
+      createdAt: String(node.createdAt),
     })),
     accruals: accrualNodes.map((node) => ({
       orderId: node.orderId ?? null,

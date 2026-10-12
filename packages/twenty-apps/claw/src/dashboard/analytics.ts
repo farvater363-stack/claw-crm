@@ -135,7 +135,9 @@ export const periodRanges = (
   const cutoff = minDay(end, addDays(today, 1));
   const isOngoing = cutoff < end;
   const previousStart = addMonths(start, -length);
-  const previousEnd = isOngoing ? addMonths(cutoff, -length) : start;
+  // The same last day a period back, not the day after today shifted: that
+  // would lose the 30th of a shorter month.
+  const previousEnd = isOngoing ? addDays(addMonths(today, -length), 1) : start;
   const lastMonth = addMonths(end, -1);
 
   const label =

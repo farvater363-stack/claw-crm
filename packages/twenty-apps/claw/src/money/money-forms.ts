@@ -420,11 +420,29 @@ export const recordChange = (entry: NewMoneyEntry): EntryChange => ({
   orderId: entry.orderId,
 });
 
-export const buildEntrySum = (draft: EntrySumDraft): Built<EntryChange> => {
+// A handover can grow only by what the worker still holds.
+export const entrySumLimit = (
+  entry: MoneyEntryRecord,
+  holders: { workerId: string; amount: number }[],
+): number | null => {
+  if (entry.kind !== 'HANDOVER' || entry.workerId === null) return null;
+
+  const holder = holders.find((item) => item.workerId === entry.workerId);
+
+  return (holder?.amount ?? 0) + entry.amount;
+};
+
+export const buildEntrySum = (
+  draft: EntrySumDraft,
+  limit: number | null = null,
+): Built<EntryChange> => {
   const errors: Errors = {};
   const amount = parseAmount(draft.amount);
 
   if (!amount.ok) errors.amount = amount.error;
+  else if (limit !== null && amount.value > limit) {
+    errors.amount = `У него только ${formatMoney(limit)}`;
+  }
   if (draft.date === '') errors.date = 'Выберите дату';
 
   if (!amount.ok || Object.keys(errors).length > 0)

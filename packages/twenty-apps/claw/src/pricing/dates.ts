@@ -1,4 +1,5 @@
 import {
+  isInstalled,
   isMeasured,
   isStatusIn,
   READY_AT_STATUSES,
@@ -50,6 +51,29 @@ export const readyAtOnStatusChange = ({
   !isStatusIn(READY_AT_STATUSES, previousStatus)
     ? today
     : null;
+
+// The installation pay is dated by it, so an order taken back from installed and
+// installed again moves to the day it really was installed, unless that date was
+// typed in the same change.
+export const installedAtOnStatusChange = ({
+  status,
+  previousStatus,
+  installedAt,
+  installedAtTyped,
+  today,
+}: {
+  status: string | null;
+  previousStatus: string | null;
+  installedAt: string | null;
+  installedAtTyped: boolean;
+  today: string;
+}): string | null => {
+  if (!isInstalled(status) || installedAt === today) return null;
+
+  if (installedAt === null) return today;
+
+  return !isInstalled(previousStatus) && !installedAtTyped ? today : null;
+};
 
 // Stamped once. The measurer's pay is dated by it, so a later correction of the
 // status must not move it.

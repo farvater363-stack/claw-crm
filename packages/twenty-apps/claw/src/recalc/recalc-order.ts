@@ -14,12 +14,14 @@ export const recalcOrder = async (
     refreshPriceItemIds?: string[];
     refreshPriceExtraServiceLineIds?: string[];
     entersWrittenOff?: boolean;
+    linesRemoved?: boolean;
   } = {},
 ): Promise<void> => {
   const refresh = {
     refreshPriceItemIds: options.refreshPriceItemIds ?? [],
     refreshPriceExtraServiceLineIds:
       options.refreshPriceExtraServiceLineIds ?? [],
+    linesRemoved: options.linesRemoved,
   };
   const input = await loadRecalcInput(client, orderId, refresh);
 

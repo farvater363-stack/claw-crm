@@ -13,6 +13,7 @@ import {
   computeOpeningsTotalAreaSquareMeters,
   computeOpeningVisorTotal,
   computeServiceLineTotal,
+  computeServiceQuantity,
   type GrilleOption,
   isVisorOnlyOpening,
   type MeasurementDraft,
@@ -154,9 +155,10 @@ const servicesOfDraft = (
   const area = computeOpeningsTotalAreaSquareMeters(draft.openings);
 
   return draft.services.map((line): ContractOpening => {
-    const name =
-      serviceOptions.find((option) => option.id === line.serviceId)?.name ??
-      'Услуга';
+    const option = serviceOptions.find(
+      (candidate) => candidate.id === line.serviceId,
+    );
+    const name = option?.name ?? 'Услуга';
 
     return {
       title: name,
@@ -165,7 +167,7 @@ const servicesOfDraft = (
       heightCm: null,
       projectionKind: 'NONE',
       projectionCm: 0,
-      quantity: 1,
+      quantity: computeServiceQuantity(line, option, area) ?? 1,
       areaSquareMeters: null,
       visorText: null,
       lineTotal: computeServiceLineTotal(line, serviceOptions, area),
@@ -378,7 +380,7 @@ export const contractDataFromOrder = (
       heightCm: null,
       projectionKind: 'NONE',
       projectionCm: 0,
-      quantity: 1,
+      quantity: service.quantity ?? 1,
       areaSquareMeters: null,
       visorText: null,
       lineTotal: service.lineTotal,

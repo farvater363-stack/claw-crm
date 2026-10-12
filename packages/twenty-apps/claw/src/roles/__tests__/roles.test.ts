@@ -391,7 +391,7 @@ describe('grille prices and composition', () => {
 });
 
 describe('functions role', () => {
-  it('soft-deletes only what the order sync, the accrual sync and the screens remove, and destroys nothing', () => {
+  it('soft-deletes only what the order sync, the accrual sync, a deleted order and the screens remove, and destroys nothing', () => {
     const permissions = functionsRole.config.objectPermissions ?? [];
 
     expect(functionsRole.config.canSoftDeleteAllObjectRecords).toBe(false);
@@ -416,6 +416,7 @@ describe('functions role', () => {
         IDS.moneyEntry.object,
         IDS.purchase.object,
         IDS.masterPayment.object,
+        IDS.orderPayment.object,
       ].sort(),
     );
     expect(

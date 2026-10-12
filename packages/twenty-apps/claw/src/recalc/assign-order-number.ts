@@ -23,24 +23,45 @@ export const orderNameToRestore = ({
     ? formatOrderName(number)
     : null;
 
-// ponytail: max+1 can duplicate a number when two orders are created in the same instant; switch to a Postgres sequence if volume grows.
-export const assignOrderNumber = async (
+const lastNumberAmong = async (
   client: CoreApiClient,
-): Promise<{ number: number; name: string }> => {
+  deleted: boolean,
+): Promise<number | null> => {
   const { orders } = await client.query({
     orders: {
       __args: {
-        filter: { number: { is: 'NOT_NULL' } },
+        filter: {
+          number: { is: 'NOT_NULL' },
+          ...(deleted && { deletedAt: { is: 'NOT_NULL' } }),
+        },
         orderBy: [{ number: 'DescNullsLast' }],
         first: 1,
       },
       edges: { node: { number: true } },
     },
   });
-
   const lastNumber = orders?.edges[0]?.node?.number;
+
+  return lastNumber === null || lastNumber === undefined
+    ? null
+    : Number(lastNumber);
+};
+
+// A deleted order keeps its number: it can be restored, so the number is not
+// given out again.
+// ponytail: max+1 can duplicate a number when two orders are created in the same instant; switch to a Postgres sequence if volume grows.
+export const assignOrderNumber = async (
+  client: CoreApiClient,
+): Promise<{ number: number; name: string }> => {
+  const [lastLive, lastDeleted] = await Promise.all([
+    lastNumberAmong(client, false),
+    lastNumberAmong(client, true),
+  ]);
+  const numbers = [lastLive, lastDeleted].filter(
+    (value): value is number => value !== null,
+  );
   const number = nextOrderNumber(
-    lastNumber === null || lastNumber === undefined ? null : Number(lastNumber),
+    numbers.length > 0 ? Math.max(...numbers) : null,
   );
 
   return { number, name: formatOrderName(number) };

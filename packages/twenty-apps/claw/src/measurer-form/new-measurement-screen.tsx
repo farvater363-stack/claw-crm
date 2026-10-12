@@ -45,6 +45,7 @@ import {
 } from 'src/contract/contract-template';
 import { ContractSigning } from 'src/contract/contract-view';
 import {
+  applyPaymentChanges,
   buildMeasurementPayload,
   buildOpeningPhotoLabel,
   computeDraftTotal,
@@ -755,7 +756,7 @@ export const NewMeasurement = () => {
     }));
 
   const updatePayment = (changes: Partial<PaymentDraft>) =>
-    setPayment((current) => ({ ...current, ...changes }));
+    setPayment((current) => applyPaymentChanges(current, changes));
 
   // «Новый клиент» keeps what is already typed.
   const pickTarget = (value: string) => {
@@ -1238,7 +1239,10 @@ export const NewMeasurement = () => {
           number: contractNumberOf(orderName),
         },
         signature,
-        signedBy: userId === null ? '—' : await loadSignerName(userId),
+        signedBy:
+          userId === null
+            ? '—'
+            : await loadSignerName(userId).catch(() => '—'),
       }).then(
         (): SaveResult['contract'] => 'signed',
         (): SaveResult['contract'] => 'failed',
@@ -1265,6 +1269,10 @@ export const NewMeasurement = () => {
 
     try {
       await save();
+    } catch (error) {
+      setErrors([
+        `Сохранение не завершено. Данные формы на месте, попробуйте ещё раз. (${describeError(error)})`,
+      ]);
     } finally {
       isSaveInFlight.current = false;
       setIsSaving(false);
@@ -1860,10 +1868,12 @@ export const NewMeasurement = () => {
   }));
   const isScheduledClient =
     target !== '' && target !== NEW_CLIENT_TARGET && scheduledOrders.length > 0;
+  const measurementDate =
+    draft.measurementDate === '' ? null : new Date(draft.measurementDate);
   const measurementTime = describeMeasurementTime(
-    draft.measurementDate === ''
+    measurementDate === null || Number.isNaN(measurementDate.getTime())
       ? null
-      : new Date(draft.measurementDate).toISOString(),
+      : measurementDate.toISOString(),
     today,
   );
 

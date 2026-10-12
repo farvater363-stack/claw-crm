@@ -9,6 +9,9 @@ import { money } from 'src/objects/money-field';
 
 const { recurringExpense } = IDS;
 
+// Every role can read the timeline, so amounts are never audit-logged.
+const NOT_AUDIT_LOGGED = { isAuditLogged: false } as const;
+
 // Rent, salaries and the like: due on the same day every month. Paying one
 // writes a money entry linked to it, which is how a month counts as paid.
 export default defineObject({
@@ -27,7 +30,7 @@ export default defineObject({
       label: 'Название',
       icon: 'IconAbc',
     },
-    money(recurringExpense.amount, 'amount', 'Сумма в месяц'),
+    money(recurringExpense.amount, 'amount', 'Сумма в месяц', NOT_AUDIT_LOGGED),
     {
       universalIdentifier: recurringExpense.dayOfMonth,
       type: FieldType.NUMBER,

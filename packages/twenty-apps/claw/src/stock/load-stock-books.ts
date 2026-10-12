@@ -247,20 +247,25 @@ export const createPurchase = async (
 };
 
 export type PurchaseLineEntry = {
+  // The form line it came from: a retried save writes it under the same id
+  key: string;
   // The stored line a changed purchase keeps
   movementId?: string;
   materialId: string;
   quantity: number;
-  // Null for a role that may not write prices; the field is then not sent
+  // Null when left empty, and always for a role that may not write prices
   unitPrice: number | null;
 };
 
-// No name is sent: the stock recalc writes the movement's name itself.
+// No name is sent: the stock recalc writes the movement's name itself. A role
+// that may not write prices sends no price; for one that may, a bare null
+// would leave a price cleared on edit as it was, so the amount is nulled.
 export const createPurchaseLine = async (
   client: CoreApiClient,
   id: string,
   purchase: { id: string; date: string },
   line: PurchaseLineEntry,
+  canWritePrice: boolean,
 ): Promise<void> => {
   const data = {
     id,
@@ -274,10 +279,15 @@ export const createPurchaseLine = async (
   await client.mutation({
     createStockMovement: {
       __args: {
-        data:
-          line.unitPrice === null
-            ? data
-            : { ...data, unitPrice: toCurrency(line.unitPrice) },
+        data: canWritePrice
+          ? {
+              ...data,
+              unitPrice: toCurrency(line.unitPrice) ?? {
+                amountMicros: null,
+                currencyCode: 'UZS',
+              },
+            }
+          : data,
         upsert: true,
       },
       id: true,
@@ -329,6 +339,9 @@ export type SupplierPaymentEntry = {
   comment: string | null;
 };
 
+export const supplierPaymentName = (supplierName: string | null) =>
+  `Оплата поставщику${supplierName ? ` · ${supplierName}` : ''}`;
+
 export const createSupplierPayment = async (
   client: CoreApiClient,
   id: string,
@@ -354,6 +367,43 @@ export const createSupplierPayment = async (
         },
         upsert: true,
       },
+      id: true,
+    },
+  });
+};
+
+// The payments made with a purchase follow it to its new supplier, or the
+// debt would stay on the old one.
+export const moveSupplierPayments = async (
+  client: CoreApiClient,
+  ids: string[],
+  supplier: { id: string | null; name: string | null },
+): Promise<void> => {
+  if (ids.length === 0) return;
+
+  await client.mutation({
+    updateMoneyEntries: {
+      __args: {
+        filter: { id: { in: ids } },
+        data: {
+          supplierId: supplier.id,
+          name: supplierPaymentName(supplier.name),
+        },
+      },
+      id: true,
+    },
+  });
+};
+
+export const deleteSupplierPayments = async (
+  client: CoreApiClient,
+  ids: string[],
+): Promise<void> => {
+  if (ids.length === 0) return;
+
+  await client.mutation({
+    deleteMoneyEntries: {
+      __args: { filter: { id: { in: ids } } },
       id: true,
     },
   });
@@ -437,15 +487,7 @@ export const deletePurchase = async (
   client: CoreApiClient,
   removal: PurchaseRemoval,
 ): Promise<void> => {
-  if (removal.paymentIds.length > 0) {
-    await client.mutation({
-      deleteMoneyEntries: {
-        __args: { filter: { id: { in: removal.paymentIds } } },
-        id: true,
-      },
-    });
-  }
-
+  await deleteSupplierPayments(client, removal.paymentIds);
   await deleteStockMovements(client, removal.movementIds);
 
   if (removal.purchaseId !== null) {

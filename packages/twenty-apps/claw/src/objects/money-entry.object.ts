@@ -15,6 +15,9 @@ import { money } from 'src/objects/money-field';
 
 const { moneyEntry } = IDS;
 
+// Every role can read the timeline, so amounts are never audit-logged.
+const NOT_AUDIT_LOGGED = { isAuditLogged: false } as const;
+
 // Money the app does not already know from orders, pay and purchases: rent,
 // fuel, what the owner took, what a supplier was paid. The amount is positive
 // and the kind says which way it went, except for a recount and an opening
@@ -53,7 +56,7 @@ export default defineObject({
       defaultValue: "'EXPENSE'",
       options: MONEY_ENTRY_KIND_OPTIONS,
     },
-    money(moneyEntry.amount, 'amount', 'Сумма'),
+    money(moneyEntry.amount, 'amount', 'Сумма', NOT_AUDIT_LOGGED),
     {
       universalIdentifier: moneyEntry.wallet,
       type: FieldType.SELECT,
@@ -164,6 +167,11 @@ export default defineObject({
     },
     // On a recount: the cash counted. What the records said is this minus
     // the amount.
-    money(moneyEntry.countedAmount, 'countedAmount', 'Насчитали'),
+    money(
+      moneyEntry.countedAmount,
+      'countedAmount',
+      'Насчитали',
+      NOT_AUDIT_LOGGED,
+    ),
   ],
 });

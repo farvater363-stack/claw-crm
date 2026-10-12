@@ -133,6 +133,8 @@ export type RecalcInput = {
   today: string;
   refreshPriceItemIds: string[];
   refreshPriceExtraServiceLineIds: string[];
+  // Its last line was just removed: it is not an imported order without lines.
+  linesRemoved?: boolean;
 };
 
 export type RecalcPlan = {
@@ -310,7 +312,9 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
     planItem(item, input.grilles, input.refreshPriceItemIds.includes(item.id)),
   );
 
-  const hasLines = input.items.length + input.extraServiceLines.length > 0;
+  const hasLines =
+    input.items.length + input.extraServiceLines.length > 0 ||
+    input.linesRemoved === true;
   const itemsAreaSquareMeters = roundTo(
     sumTreatingNullAsZero(
       plannedItems.map(

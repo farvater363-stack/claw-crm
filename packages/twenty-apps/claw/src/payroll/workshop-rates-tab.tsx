@@ -245,9 +245,10 @@ export const WorkshopRatesTab = ({
     }
 
     setError(null);
-    void run(() =>
-      saveWorkshopRate(new CoreApiClient(), recordOf(row, null, rate, row.usual.record?.id ?? randomUuid())),
-    );
+
+    const record = recordOf(row, null, rate, row.usual.record?.id ?? randomUuid());
+
+    void run(() => saveWorkshopRate(new CoreApiClient(), record));
   };
 
   const removeSpecial = (row: RateRow) => {
@@ -288,7 +289,10 @@ export const WorkshopRatesTab = ({
     }
 
     setError(null);
-    void run(() => saveWorkshopRate(new CoreApiClient(), recordOf(row, masterId, rate, own?.id ?? randomUuid())));
+
+    const record = recordOf(row, masterId, rate, own?.id ?? randomUuid());
+
+    void run(() => saveWorkshopRate(new CoreApiClient(), record));
   };
 
   const saveRaise = (raw: string, raiseOwn: boolean) => {

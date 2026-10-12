@@ -5,19 +5,23 @@ import { toProduct } from 'src/constants/select-options';
 import {
   ACCRUAL_SELECTION,
   ALL_PAY_RULES_QUERY,
+  readAllPayRules,
   toAccrualLine,
-  toPayRules,
 } from 'src/payroll/pay-records';
 import {
   type AccrualLine,
   planOrderAccruals,
 } from 'src/payroll/plan-order-accruals';
-import { toWorkshopCatalog, WORKSHOP_CATALOG_QUERY } from 'src/payroll/workshop-records';
+import {
+  readWorkshopCatalog,
+  WORKSHOP_CATALOG_QUERY,
+} from 'src/payroll/workshop-records';
 import { todayInTashkent } from 'src/pricing/dates';
 import { toNumber } from 'src/recalc/load-recalc-input';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
+import { PAGE_INFO, withRemainingPages } from 'src/utils/fetch-all-pages';
 
-// ponytail: every worker and every line of the order in one page of 200; filter by the order's people and page when the shop outgrows it.
+// ponytail: every line of the order in one page of 200; page when an order outgrows it.
 const PAGE_SIZE = 200;
 
 const money = { amountMicros: true } as const;
@@ -91,14 +95,32 @@ export const syncOrderAccruals = async (
     masters: {
       __args: { first: PAGE_SIZE },
       edges: { node: { id: true, loginId: true } },
+      pageInfo: PAGE_INFO,
     },
   });
   const order = orders?.edges[0]?.node;
 
   if (!order) return false;
 
-  const workers = (masters?.edges ?? []).map(({ node }) => node);
-  const rules = toPayRules((payRules?.edges ?? []).map(({ node }) => node));
+  const [allWorkers, rules, catalog] = await Promise.all([
+    withRemainingPages<{ id: string; loginId?: string | null }>(
+      masters,
+      async (after) => {
+        const { masters: page } = await client.query({
+          masters: {
+            __args: { first: PAGE_SIZE, after },
+            edges: { node: { id: true, loginId: true } },
+            pageInfo: PAGE_INFO,
+          },
+        });
+
+        return page;
+      },
+    ),
+    readAllPayRules(client, payRules),
+    readWorkshopCatalog(client, { workshopRates, designs, grilleKinds }),
+  ]);
+  const workers = allWorkers.edges.map(({ node }) => node);
   const status = order.status ?? null;
   const masterId = order.masterId ?? null;
   const existing = (payAccruals?.edges ?? []).flatMap(
@@ -153,7 +175,7 @@ export const syncOrderAccruals = async (
     },
     rules,
     existing,
-    catalog: toWorkshopCatalog({ workshopRates, designs, grilleKinds }),
+    catalog,
   });
 
   for (const line of plan.upserts) {

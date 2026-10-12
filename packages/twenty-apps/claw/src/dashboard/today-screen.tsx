@@ -954,8 +954,6 @@ export const TodayScreen = () => {
             }
             onChange={(draft) => {
               if (isRecording) return;
-              // A changed form is another attempt: its retry must not overwrite the last one.
-              expenseAttemptId.current = null;
               setExpense({ draft, errors: expense.errors });
             }}
             onPickPhotos={setExpensePhotos}
@@ -971,8 +969,6 @@ export const TodayScreen = () => {
             error={paymentError}
             isBusy={isPaying}
             onChange={(change) => {
-              // A changed form is another attempt: its retry must not overwrite the last one.
-              paymentAttemptId.current = null;
               setPayment((current) =>
                 current === null ? null : { ...current, ...change },
               );

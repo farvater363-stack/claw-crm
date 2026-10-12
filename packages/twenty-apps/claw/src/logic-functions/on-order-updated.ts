@@ -5,10 +5,10 @@ import {
 } from 'twenty-sdk/define';
 
 import { syncOrderClient } from 'src/clients/sync-order-client';
-import { isInstalled } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import {
+  installedAtOnStatusChange,
   measuredAtOnStatusChange,
   readyAtOnStatusChange,
   todayInTashkent,
@@ -69,12 +69,15 @@ const handler = async (
 
   const statusChanged = updatedFields.includes('status');
 
-  const installedAt =
-    statusChanged &&
-    isInstalled(after.status ?? null) &&
-    (after.installedAt ?? null) === null
-      ? todayInTashkent()
-      : null;
+  const installedAt = statusChanged
+    ? installedAtOnStatusChange({
+        status: after.status ?? null,
+        previousStatus: before.status ?? null,
+        installedAt: after.installedAt ?? null,
+        installedAtTyped: updatedFields.includes('installedAt'),
+        today: todayInTashkent(),
+      })
+    : null;
 
   const readyAt = statusChanged
     ? readyAtOnStatusChange({

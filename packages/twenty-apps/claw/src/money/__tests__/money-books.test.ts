@@ -305,6 +305,7 @@ describe('recurring expenses', () => {
     wallet: 'CASH',
     category: 'RENT',
     isActive: true,
+    createdAt: '2026-10-01T00:00:00Z',
   };
   const salary: RecurringRecord = {
     ...rent,
@@ -337,6 +338,50 @@ describe('recurring expenses', () => {
       tone: 'danger',
       text: 'просрочено на 3 дня',
     });
+  });
+
+  it('keeps last month’s unpaid bill overdue until a payment settles it', () => {
+    const lease = { ...rent, dayOfMonth: 30, createdAt: '2026-08-01T00:00:00Z' };
+    const paid = (date: string) =>
+      entry({
+        id: date,
+        date,
+        createdAt: `${date}T09:00:00Z`,
+        recurringExpenseId: 'rent',
+        amount: 4_000_000,
+      });
+
+    expect(recurringState(lease, [], '2026-10-01')).toEqual({
+      status: 'due',
+      dueDate: '2026-09-30',
+      daysLeft: -1,
+    });
+    expect(
+      dueSoon([lease], [], '2026-10-01').map((row) => row.item.id),
+    ).toEqual(['rent']);
+    expect(
+      recurringState(lease, [paid('2026-10-02')], '2026-10-03'),
+    ).toEqual({ status: 'due', dueDate: '2026-10-30', daysLeft: 27 });
+    expect(
+      recurringState(lease, [paid('2026-09-30')], '2026-10-01'),
+    ).toEqual({ status: 'due', dueDate: '2026-10-30', daysLeft: 29 });
+    expect(
+      recurringState(
+        lease,
+        [paid('2026-10-02'), paid('2026-10-30')],
+        '2026-10-31',
+      ),
+    ).toEqual({ status: 'paid', paidOn: '2026-10-30', amount: 4_000_000 });
+  });
+
+  it('owes nothing for a month before the bill was added', () => {
+    expect(
+      recurringState(
+        { ...rent, dayOfMonth: 30, createdAt: '2026-10-01T00:00:00Z' },
+        [],
+        '2026-10-01',
+      ),
+    ).toEqual({ status: 'due', dueDate: '2026-10-30', daysLeft: 29 });
   });
 
   it('moves a day past the end of a short month to its last day', () => {

@@ -8,6 +8,7 @@ import {
   addDays,
   computeDaysLate,
   measuredAtOnStatusChange,
+  installedAtOnStatusChange,
   readyAtOnStatusChange,
   todayInTashkent,
 } from 'src/pricing/dates';
@@ -120,6 +121,40 @@ describe('toStoredUzbekPhone', () => {
     ['12345', null],
   ])('%s -> %s', (raw, expected) => {
     expect(toStoredUzbekPhone(raw)).toBe(expected);
+  });
+});
+
+describe('installedAtOnStatusChange', () => {
+  const today = '2026-10-10';
+  const stamp = (
+    status: string | null,
+    previousStatus: string | null,
+    installedAt: string | null,
+    installedAtTyped = false,
+  ) =>
+    installedAtOnStatusChange({
+      status,
+      previousStatus,
+      installedAt,
+      installedAtTyped,
+      today,
+    });
+
+  it('stamps the first installation', () => {
+    expect(stamp('INSTALLED', 'PRODUCTION', null)).toBe(today);
+  });
+
+  it('moves the date when an order taken back is installed again', () => {
+    expect(stamp('INSTALLED', 'PRODUCTION', '2026-09-28')).toBe(today);
+  });
+
+  it('keeps a date typed in the same change', () => {
+    expect(stamp('INSTALLED', 'PRODUCTION', '2026-10-05', true)).toBeNull();
+  });
+
+  it('leaves an installed order and an order that is not installed alone', () => {
+    expect(stamp('INSTALLED', 'INSTALLED', '2026-09-28')).toBeNull();
+    expect(stamp('PRODUCTION', 'INSTALLED', '2026-09-28')).toBeNull();
   });
 });
 

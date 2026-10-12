@@ -36,8 +36,8 @@ describe('buildPurchaseEntry', () => {
         newSupplierName: null,
         comment: null,
         lines: [
-          { materialId: 'profile', quantity: 90, unitPrice: 22_000 },
-          { materialId: 'paint', quantity: 20, unitPrice: 38_000 },
+          { key: 'a', materialId: 'profile', quantity: 90, unitPrice: 22_000 },
+          { key: 'b', materialId: 'paint', quantity: 20, unitPrice: 38_000 },
         ],
         payment: { amount: 2_740_000, wallet: 'CASH' },
       },

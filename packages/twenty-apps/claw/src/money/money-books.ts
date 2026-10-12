@@ -7,6 +7,7 @@ import {
   WALLET_OPTIONS,
   type Wallet,
 } from 'src/constants/select-options';
+import { shiftMonth } from 'src/payroll/payroll-month';
 import { formatDayMonth } from 'src/ui/format';
 import { daysWord } from 'src/workshop/workshop-board';
 
@@ -448,6 +449,7 @@ export type RecurringRecord = {
   wallet: Wallet | null;
   category: ExpenseCategory | null;
   isActive: boolean;
+  createdAt: string;
 };
 
 export type RecurringState =
@@ -461,20 +463,36 @@ export const dueDateIn = (month: string, dayOfMonth: number | null): string =>
 const daysFrom = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
 
+// Last month's bill left unpaid stays overdue, and the first payment this
+// month settles it before this month's.
 export const recurringState = (
   recurring: RecurringRecord,
   entries: MoneyEntryRecord[],
   today: string,
 ): RecurringState => {
   const month = today.slice(0, 7);
-  const paid = entries
-    .filter(
-      (entry) =>
-        entry.recurringExpenseId === recurring.id &&
-        dayOf(entry.date, entry.createdAt).startsWith(month),
-    )
+  const previousMonth = shiftMonth(month, -1);
+  const previousDueDate = dueDateIn(previousMonth, recurring.dayOfMonth);
+  const payments = entries
+    .filter((entry) => entry.recurringExpenseId === recurring.id)
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  const paidIn = (target: string) =>
+    payments.filter((entry) =>
+      dayOf(entry.date, entry.createdAt).startsWith(target),
+    );
+  const isPreviousUnpaid =
+    recurring.createdAt.slice(0, 10) <= previousDueDate &&
+    paidIn(previousMonth).length === 0;
+  const paid = paidIn(month).slice(isPreviousUnpaid ? 1 : 0);
   const first = paid[0];
+
+  if (isPreviousUnpaid && paidIn(month).length === 0) {
+    return {
+      status: 'due',
+      dueDate: previousDueDate,
+      daysLeft: daysFrom(today, previousDueDate),
+    };
+  }
 
   if (first !== undefined) {
     return {
@@ -489,7 +507,7 @@ export const recurringState = (
   return { status: 'due', dueDate, daysLeft: daysFrom(today, dueDate) };
 };
 
-// The ones «Сегодня» lists: due within these days or already late this month.
+// The ones «Сегодня» lists: due within these days or already late.
 export const DUE_SOON_DAYS = 3;
 
 export const dueSoon = (

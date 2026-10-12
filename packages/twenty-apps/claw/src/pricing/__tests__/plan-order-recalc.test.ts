@@ -628,6 +628,29 @@ describe('planOrderRecalc', () => {
     });
   });
 
+  it('empties the sums when the last line of the order is removed', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [],
+        linesRemoved: true,
+        order: {
+          ...emptyOrder,
+          areaSquareMeters: 2,
+          subtotal: 1_000_000,
+          total: 1_000_000,
+          balance: 1_000_000,
+        },
+      }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({
+      areaSquareMeters: 0,
+      subtotal: 0,
+      total: 0,
+      balance: 0,
+    });
+  });
+
   it('discounts the stored sum of an order without lines', () => {
     const plan = planOrderRecalc(
       input({

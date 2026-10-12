@@ -45,6 +45,7 @@ import {
   emptyRecount,
   emptyRecurring,
   entryEditMode,
+  entrySumLimit,
   entrySumDraft,
   type EntrySumDraft,
   type HandoverDraft,
@@ -687,7 +688,11 @@ const Money = () => {
     current: Extract<OpenSheet, { kind: 'editEntry' }>,
     draft: EntrySumDraft,
   ) => {
-    const built = buildEntrySum(draft);
+    const entry = books.entries.find((one) => one.id === current.entryId);
+    const built = buildEntrySum(
+      draft,
+      entry === undefined ? null : entrySumLimit(entry, holders),
+    );
 
     setSheet({ ...current, draft, errors: built.ok ? {} : built.errors });
 
