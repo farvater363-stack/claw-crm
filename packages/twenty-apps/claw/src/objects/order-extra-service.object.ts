@@ -9,6 +9,7 @@ import {
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
+import { readableThroughOrder } from 'src/objects/readable-through-order';
 
 // Цех may not read sale prices, and every role can read the timeline, so
 // these values are never audit-logged.
@@ -22,6 +23,7 @@ export default defineObject({
   labelPlural: 'Услуги в заказе',
   icon: 'IconTool',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.orderExtraService.name,
+  ...readableThroughOrder(IDS.orderExtraService.order),
   fields: withoutAuditOfAdminOnlyFields([
     {
       universalIdentifier: IDS.orderExtraService.name,

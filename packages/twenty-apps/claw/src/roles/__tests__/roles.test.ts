@@ -1,4 +1,5 @@
 import {
+  MetadataReadability,
   RowLevelPermissionPredicateOperand,
   STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
   SystemPermissionFlag,
@@ -8,9 +9,13 @@ import { describe, expect, it } from 'vitest';
 import { IDS } from 'src/constants/universal-identifiers';
 import loginOnMasterField from 'src/fields/login-on-master.field';
 import designObject from 'src/objects/design.object';
+import orderExtraServiceObject from 'src/objects/order-extra-service.object';
+import orderItemObject from 'src/objects/order-item.object';
+import orderPaymentObject from 'src/objects/order-payment.object';
 import orderObject from 'src/objects/order.object';
 import payAccrualObject from 'src/objects/pay-accrual.object';
 import payRuleObject from 'src/objects/pay-rule.object';
+import signedContractObject from 'src/objects/signed-contract.object';
 import functionsRole from 'src/roles/functions.role';
 import managerRole from 'src/roles/manager.role';
 import measurerRole from 'src/roles/measurer.role';
@@ -311,9 +316,7 @@ describe('warehouse access', () => {
     expect(updatableObjectIds(managerRole)).toEqual(
       expect.arrayContaining([IDS.supplier.object, IDS.purchase.object]),
     );
-    expect(readableObjectIds(managerRole)).not.toContain(
-      IDS.moneyEntry.object,
-    );
+    expect(readableObjectIds(managerRole)).not.toContain(IDS.moneyEntry.object);
   });
 
   it.each([managerRole, measurerRole, workshopRole])(
@@ -642,6 +645,29 @@ describe('measurer rows', () => {
 
     expect(statusRule?.value).toContain('MEASURED');
   });
+
+  it.each([
+    orderItemObject,
+    orderExtraServiceObject,
+    orderPaymentObject,
+    signedContractObject,
+  ])(
+    'limits what hangs off an order the same way as the order',
+    ({ config }) => {
+      const [parentFieldId] =
+        config.readabilityParentFieldUniversalIdentifiers ?? [];
+      const parentField = config.fields.find(
+        (field) => field.universalIdentifier === parentFieldId,
+      );
+
+      expect(config.readability).toBe(MetadataReadability.INHERITED);
+      expect(config.readabilityParentFieldUniversalIdentifiers).toHaveLength(1);
+      expect(parentField).toMatchObject({
+        name: 'order',
+        relationTargetObjectMetadataUniversalIdentifier: IDS.order.object,
+      });
+    },
+  );
 
   it('gives each rule its own identifier', () => {
     const ids = rules.map((rule) => rule.universalIdentifier);

@@ -7,6 +7,7 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
+import { readableThroughOrder } from 'src/objects/readable-through-order';
 
 const { signedContract } = IDS;
 
@@ -36,6 +37,7 @@ export default defineObject({
   labelPlural: 'Подписанные договоры',
   icon: 'IconSignature',
   labelIdentifierFieldMetadataUniversalIdentifier: signedContract.name,
+  ...readableThroughOrder(signedContract.order),
   fields: [
     text(signedContract.name, 'name', 'Название', 'IconAbc'),
     {

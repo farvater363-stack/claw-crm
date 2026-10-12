@@ -13,6 +13,7 @@ import {
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
+import { readableThroughOrder } from 'src/objects/readable-through-order';
 
 // Цех may not read sale prices, and every role can read the timeline, so
 // these values are never audit-logged.
@@ -39,6 +40,7 @@ export default defineObject({
   labelPlural: 'Позиции',
   icon: 'IconRuler',
   labelIdentifierFieldMetadataUniversalIdentifier: IDS.orderItem.name,
+  ...readableThroughOrder(IDS.orderItem.order),
   fields: withoutAuditOfAdminOnlyFields([
     {
       universalIdentifier: IDS.orderItem.name,

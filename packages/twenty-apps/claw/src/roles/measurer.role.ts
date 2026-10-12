@@ -68,8 +68,8 @@ export default defineRole({
   canBeAssignedToApiKeys: false,
   objectPermissions: [
     createAndEdit(IDS.order.object),
-    // Rules can only look at the record's own fields, and lines and payments
-    // have no measurer of their own, so these are not limited to his orders.
+    // Lines, services, payments and contracts inherit their order's
+    // readability, so the order rules below limit these too.
     createAndEdit(IDS.orderItem.object),
     createAndEdit(IDS.orderExtraService.object),
     // Twenty has no create right apart from update: a payment the measurer
