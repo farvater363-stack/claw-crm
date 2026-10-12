@@ -1,3 +1,4 @@
+import { toProduct } from 'src/constants/select-options';
 import { fromCurrency } from 'src/recalc/money';
 import {
   type WorkshopCatalog,
@@ -22,7 +23,7 @@ export const WORKSHOP_CATALOG_QUERY = {
   },
   designs: {
     __args: { first: PAGE_SIZE },
-    edges: { node: { id: true, name: true, grilleKindId: true } },
+    edges: { node: { id: true, name: true, grilleKindId: true, product: true } },
   },
   grilleKinds: {
     __args: { first: PAGE_SIZE },
@@ -65,7 +66,12 @@ export const toWorkshopCatalog = ({
   grilleKinds,
 }: {
   workshopRates: Page<WorkshopRateNode>;
-  designs: Page<{ id: string; name?: string | null; grilleKindId?: string | null }>;
+  designs: Page<{
+    id: string;
+    name?: string | null;
+    grilleKindId?: string | null;
+    product?: string | null;
+  }>;
   grilleKinds: Page<{ id: string; name?: string | null }>;
 }): WorkshopCatalog => ({
   rates: toWorkshopRates((workshopRates?.edges ?? []).map(({ node }) => node)),
@@ -73,6 +79,7 @@ export const toWorkshopCatalog = ({
     id: node.id,
     name: node.name ?? '',
     grilleKindId: node.grilleKindId ?? null,
+    product: toProduct(node.product),
   })),
   kinds: (grilleKinds?.edges ?? []).map(({ node }) => ({
     id: node.id,

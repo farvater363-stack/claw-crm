@@ -8,6 +8,14 @@ import {
 } from 'react';
 
 import { type ProjectionKind } from 'src/constants/select-options';
+import {
+  layoutOpeningSketch,
+  layoutRailingSketch,
+  SKETCH_HEIGHT,
+  SKETCH_WIDTH,
+  type SketchInput,
+  type SketchLayout,
+} from 'src/opening-shape/sketch-layout';
 import { TextInput, usePalette } from 'src/ui/kit';
 import {
   CONTROL_HEIGHT,
@@ -23,10 +31,12 @@ const WIDTH_POLL_INTERVAL_MS = 500;
 
 // Children of a flex row take the whole line each while the row is narrower
 // than this, and share it above.
-const stackBelow = (widthPx: number): CSSProperties => ({
-  flex: `1 1 calc((${widthPx}px - 100%) * 999)`,
-  minWidth: 0,
-});
+// Without a width the buttons keep their text width and wrap to a new line
+// instead of squeezing over each other.
+const stackBelow = (widthPx: number): CSSProperties =>
+  widthPx === 0
+    ? { flex: '1 1 auto' }
+    : { flex: `1 1 calc((${widthPx}px - 100%) * 999)`, minWidth: 0 };
 
 export type SignaturePoint = { x: number; y: number };
 export type SignatureStroke = SignaturePoint[];
@@ -492,17 +502,44 @@ export const OpeningSketch = ({
   heightCm,
   projectionKind,
   projectionCm,
+  shape = null,
 }: {
   widthCm: number | null;
   heightCm: number | null;
   projectionKind: ProjectionKind;
   projectionCm: number;
-}) => {
+  shape?: SketchInput['shape'];
+}) => (
+  <SketchDrawing
+    layout={layoutOpeningSketch({
+      widthCm,
+      heightCm,
+      projectionKind,
+      projectionCm,
+      shape,
+    })}
+  />
+);
+
+export const RailingSketch = ({
+  lengthCm,
+  heightCm,
+}: {
+  lengthCm: number | null;
+  heightCm: number | null;
+}) => <SketchDrawing layout={layoutRailingSketch({ lengthCm, heightCm })} />;
+
+export const SketchDrawing = ({ layout }: { layout: SketchLayout }) => {
   const colors = usePalette();
 
-  if (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0) {
+  if (layout.placeholder !== null) {
     return (
-      <svg viewBox="0 0 240 172" width="100%" role="img" aria-label="Эскиз">
+      <svg
+        viewBox={`0 0 ${SKETCH_WIDTH} ${SKETCH_HEIGHT}`}
+        width="100%"
+        role="img"
+        aria-label={layout.ariaLabel}
+      >
         <rect
           x="50"
           y="20"
@@ -521,112 +558,119 @@ export const OpeningSketch = ({
           fontSize="12"
           fill={colors.muted}
         >
-          Введите размеры
+          {layout.placeholder}
         </text>
       </svg>
     );
   }
 
-  const scale = Math.min(140 / widthCm, 120 / heightCm);
-  const frontWidth = widthCm * scale;
-  const frontHeight = heightCm * scale;
-  const left = 30 + (140 - frontWidth) / 2;
-  const top = 18 + (120 - frontHeight) / 2;
-  const bottom = top + frontHeight;
-  const wall = 200;
-  const depth = Math.min(projectionCm * scale, 32);
-  const hasProjection = projectionKind !== 'NONE' && projectionCm > 0;
-  const profile =
-    projectionKind === 'BOTTOM'
-      ? `M${wall} ${top}L${wall + depth} ${bottom}L${wall} ${bottom}`
-      : `M${wall} ${top}H${wall + depth}V${bottom}H${wall}`;
+  const { side } = layout;
 
   return (
     <svg
-      viewBox="0 0 240 172"
+      viewBox={`0 0 ${SKETCH_WIDTH} ${SKETCH_HEIGHT}`}
       width="100%"
       role="img"
-      aria-label={`Эскиз: ${widthCm} на ${heightCm} см`}
+      aria-label={layout.ariaLabel}
     >
-      <rect
-        x={left}
-        y={top}
-        width={frontWidth}
-        height={frontHeight}
-        fill={colors.accentTint}
-        stroke={colors.text}
-        strokeWidth="2"
-      />
-      <text
-        x={left + frontWidth / 2}
-        y={bottom + 18}
-        textAnchor="middle"
-        fontSize="12"
-        fontWeight="600"
-        fill={colors.text}
-      >
-        {`${widthCm} см`}
-      </text>
-      <text
-        x={left - 8}
-        y={top + frontHeight / 2}
-        textAnchor="middle"
-        fontSize="12"
-        fontWeight="600"
-        fill={colors.text}
-        transform={`rotate(-90 ${left - 8} ${top + frontHeight / 2})`}
-      >
-        {`${heightCm} см`}
-      </text>
-      <line
-        x1={wall - 2}
-        y1={top - 6}
-        x2={wall - 2}
-        y2={bottom + 6}
-        stroke={colors.muted}
-        strokeWidth="1"
-        strokeDasharray="2 3"
-      />
-      {hasProjection ? (
+      {layout.framePath !== null && (
         <path
-          d={profile}
-          fill={colors.accentTint}
-          stroke={colors.accent}
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-        />
-      ) : (
-        <line
-          x1={wall}
-          y1={top}
-          x2={wall}
-          y2={bottom}
-          stroke={colors.accent}
-          strokeWidth="3"
+          d={layout.framePath}
+          fill="none"
+          stroke={colors.muted}
+          strokeWidth="1"
+          strokeDasharray="4 4"
         />
       )}
-      {/* Two short lines: «вынос 100 см» on one runs off the right edge. */}
-      <text
-        x={wall + 12}
-        y={bottom + 16}
-        textAnchor="middle"
-        fontSize="11"
-        fill={colors.muted}
-      >
-        {hasProjection ? 'вынос' : 'сбоку'}
-      </text>
-      {hasProjection ? (
+      {layout.shapePath !== null && (
+        <path
+          d={layout.shapePath}
+          fill={colors.accentTint}
+          stroke={colors.text}
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+      )}
+      {layout.guides.map((guide, index) => (
+        <line
+          key={`guide-${index}`}
+          {...guide}
+          stroke={colors.muted}
+          strokeWidth="1"
+          strokeDasharray="2 3"
+        />
+      ))}
+      {layout.bars.map(({ line, isThick }, index) => (
+        <line
+          key={`bar-${index}`}
+          {...line}
+          stroke={colors.accent}
+          strokeWidth={isThick ? 3 : 1.5}
+          strokeLinecap="round"
+        />
+      ))}
+      {layout.markers.map((marker) => (
+        <g key={`marker-${marker.label}`}>
+          <circle cx={marker.x} cy={marker.y} r="6" fill={colors.accent} />
+          <text
+            x={marker.x}
+            y={marker.y + 3.5}
+            textAnchor="middle"
+            fontSize="9"
+            fontWeight="700"
+            fill={colors.onAccent}
+          >
+            {marker.label}
+          </text>
+        </g>
+      ))}
+      {side !== null && (
+        <>
+          <line
+            x1={side.wallX - 2}
+            y1={side.top - 6}
+            x2={side.wallX - 2}
+            y2={side.bottom + 6}
+            stroke={colors.muted}
+            strokeWidth="1"
+            strokeDasharray="2 3"
+          />
+          {side.profilePath === null ? (
+            <line
+              x1={side.wallX}
+              y1={side.top}
+              x2={side.wallX}
+              y2={side.bottom}
+              stroke={colors.accent}
+              strokeWidth="3"
+            />
+          ) : (
+            <path
+              d={side.profilePath}
+              fill={colors.accentTint}
+              stroke={colors.accent}
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+          )}
+        </>
+      )}
+      {layout.texts.map((label, index) => (
         <text
-          x={wall + 12}
-          y={bottom + 29}
-          textAnchor="middle"
-          fontSize="11"
-          fontWeight="600"
-          fill={colors.text}
+          key={`text-${index}`}
+          x={label.x}
+          y={label.y}
+          textAnchor={label.anchor}
+          fontSize={label.size}
+          fontWeight={label.isBold ? 600 : 400}
+          fill={label.isMuted ? colors.muted : colors.text}
+          transform={
+            label.isRotated ? `rotate(-90 ${label.x} ${label.y})` : undefined
+          }
         >
-          {`${projectionCm} см`}
+          {label.text}
         </text>
-      ) : null}
+      ))}
     </svg>
   );
 };

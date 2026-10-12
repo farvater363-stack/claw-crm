@@ -156,6 +156,7 @@ describe('planItemPayRows', () => {
         rate: 55_000,
         amount: 115_500,
         isOwn: true,
+        unit: 'м²',
       },
       {
         id: 'item-2',
@@ -165,8 +166,31 @@ describe('planItemPayRows', () => {
         rate: 80_000,
         amount: 240_000,
         isOwn: false,
+        unit: 'м²',
       },
     ]);
+  });
+
+  it('pays a railing per running metre of its length, by its own row only', () => {
+    const rows = planItemPayRows({
+      catalog: CATALOG,
+      masterId: 'master-2',
+      items: [
+        { id: 'rail', designId: 'sun', product: 'RAILING', widthCm: 450, areaSquareMeters: null, quantity: 2 },
+        { id: 'kind-only', designId: 'vine', product: 'RAILING', widthCm: 300, areaSquareMeters: null, quantity: 1 },
+      ],
+      ruleRate: 20_000,
+      kept: NO_KEPT_RATES,
+    });
+
+    expect(rows[0]).toMatchObject({
+      rowLabel: 'перилла, за п.м.',
+      areaSquareMeters: 9,
+      unit: 'п.м.',
+      rate: 80_000,
+      amount: 720_000,
+    });
+    expect(rows[1]).toMatchObject({ areaSquareMeters: 3, rate: null, amount: null });
   });
 
   it("drops «своя» from a kept rate that is no longer the master's own", () => {

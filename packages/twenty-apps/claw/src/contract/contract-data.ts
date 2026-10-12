@@ -10,14 +10,23 @@ import {
 import { type ContractTemplate } from 'src/contract/contract-template';
 import {
   computeOpeningQuote,
+  computeOpeningsTotalAreaSquareMeters,
   computeOpeningVisorTotal,
+  computeServiceLineTotal,
   type GrilleOption,
   isVisorOnlyOpening,
   type MeasurementDraft,
+  openingHeightCm,
+  openingOutline,
   parseDecimalInput,
+  type ServiceOption,
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
-import { computeItemAreaSquareMeters } from 'src/pricing/compute-item-area';
+import { parseItemShape, toStoredShape } from 'src/opening-shape/opening-shape';
+import {
+  computeItemAreaSquareMeters,
+  railingName,
+} from 'src/pricing/compute-item-area';
 import { roundTo } from 'src/pricing/round';
 import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { joinFullName, type StoredFullName } from 'src/utils/full-name';
@@ -91,6 +100,7 @@ export const contractDataFromDraft = ({
   draft,
   grilles,
   visorOptions,
+  serviceOptions,
   subtotal,
   discount,
   total,
@@ -102,6 +112,7 @@ export const contractDataFromDraft = ({
   draft: MeasurementDraft;
   grilles: GrilleOption[];
   visorOptions: VisorOption[];
+  serviceOptions: ServiceOption[];
   subtotal: number | null;
   discount: number;
   total: number;
@@ -129,7 +140,49 @@ export const contractDataFromDraft = ({
   prepayment,
   termDays: template.defaultTermDays,
   paintColor: null,
-  openings: draft.openings.map((opening, index): ContractOpening => {
+  openings: [
+    ...openingsOfDraft(draft, grilles, visorOptions),
+    ...servicesOfDraft(draft, serviceOptions),
+  ],
+});
+
+// Each service is a row of its own, as on a saved order.
+const servicesOfDraft = (
+  draft: MeasurementDraft,
+  serviceOptions: ServiceOption[],
+): ContractOpening[] => {
+  const area = computeOpeningsTotalAreaSquareMeters(draft.openings);
+
+  return draft.services.map((line): ContractOpening => {
+    const name =
+      serviceOptions.find((option) => option.id === line.serviceId)?.name ??
+      'Услуга';
+
+    return {
+      title: name,
+      product: name,
+      widthCm: null,
+      heightCm: null,
+      projectionKind: 'NONE',
+      projectionCm: 0,
+      quantity: 1,
+      areaSquareMeters: null,
+      visorText: null,
+      lineTotal: computeServiceLineTotal(line, serviceOptions, area),
+      designId: null,
+    };
+  });
+};
+
+const productName = (isRailing: boolean, designName: string | null) =>
+  isRailing ? railingName(designName) : (designName ?? 'Другая решётка');
+
+const openingsOfDraft = (
+  draft: MeasurementDraft,
+  grilles: GrilleOption[],
+  visorOptions: VisorOption[],
+): ContractOpening[] =>
+  draft.openings.map((opening, index): ContractOpening => {
     const visor =
       visorOptions.find((option) => option.id === opening.visorServiceId) ??
       null;
@@ -155,8 +208,16 @@ export const contractDataFromDraft = ({
       };
     }
 
+    const isRailing = opening.product === 'RAILING';
     const widthCm = parseDecimalInput(opening.widthCm);
-    const heightCm = parseDecimalInput(opening.heightCm);
+    const heightCm = isRailing
+      ? parseDecimalInput(opening.heightCm)
+      : openingHeightCm(opening);
+    const outline = openingOutline(opening);
+    const shape =
+      isRailing || outline === null
+        ? null
+        : toStoredShape(opening.shape, outline);
     const projectionKind = opening.projectionKind;
     const projectionCm =
       projectionKind === 'NONE'
@@ -166,16 +227,17 @@ export const contractDataFromDraft = ({
 
     return {
       title: `Проём ${index + 1}`,
-      product:
-        grilles.find((grille) => grille.id === opening.designId)?.name ??
-        'Другая решётка',
+      product: productName(
+        isRailing,
+        grilles.find((grille) => grille.id === opening.designId)?.name ?? null,
+      ),
       widthCm,
       heightCm,
       projectionKind,
       projectionCm,
       quantity,
       areaSquareMeters:
-        widthCm === null || heightCm === null
+        widthCm === null || heightCm === null || isRailing
           ? null
           : areaOf(widthCm, heightCm, projectionCm, projectionKind, quantity),
       visorText,
@@ -184,9 +246,10 @@ export const contractDataFromDraft = ({
           ? null
           : grilleTotal + visorTotal,
       designId: opening.designId === '' ? null : opening.designId,
+      isRailing,
+      shape,
     };
-  }),
-});
+  });
 
 export type StoredOrderForContract = {
   name: string | null;
@@ -203,6 +266,8 @@ export type StoredOrderForContract = {
   paintColor: string | null;
   items: {
     id: string;
+    product?: string | null;
+    shape?: unknown;
     widthCm: number | null;
     heightCm: number | null;
     projectionCm: number | null;
@@ -251,17 +316,27 @@ export const contractDataFromOrder = (
       item.heightCm !== null &&
       item.widthCm > 0 &&
       item.heightCm > 0;
+    const isRailing = item.product === 'RAILING';
 
     return {
       title: `Проём ${index + 1}`,
-      product: item.designName ?? 'Решётка не выбрана',
+      product: isRailing
+        ? productName(true, item.designName)
+        : (item.designName ?? 'Решётка не выбрана'),
+      isRailing,
+      shape: isRailing
+        ? null
+        : parseItemShape(item.shape, item.widthCm, item.heightCm),
       widthCm: hasSizes ? item.widthCm : null,
       heightCm: hasSizes ? item.heightCm : null,
       projectionKind,
       projectionCm,
       quantity,
       areaSquareMeters:
-        hasSizes && item.widthCm !== null && item.heightCm !== null
+        hasSizes &&
+        !isRailing &&
+        item.widthCm !== null &&
+        item.heightCm !== null
           ? areaOf(
               item.widthCm,
               item.heightCm,

@@ -1,6 +1,5 @@
 import fontkit from '@pdf-lib/fontkit';
 import {
-  degrees,
   LineCapStyle,
   type PDFFont,
   type PDFImage,
@@ -14,12 +13,15 @@ import {
   type ContractDocument,
   type ContractOpening,
   describeOpeningSize,
+  sketchLayoutOf,
 } from 'src/contract/contract-document';
 import {
   PT_SERIF_BOLD_BASE64,
   PT_SERIF_REGULAR_BASE64,
 } from 'src/contract/contract-fonts';
 import { type ContractRun } from 'src/contract/contract-template';
+import { SKETCH_HEIGHT, SKETCH_WIDTH } from 'src/opening-shape/sketch-layout';
+import { drawSketchLayout, fitSketch } from 'src/opening-shape/sketch-pdf';
 import { sha256 } from 'src/contract/sha256';
 import { formatWhole } from 'src/ui/format';
 
@@ -67,7 +69,6 @@ const SEAL_BOX = { width: 150, height: 80 };
 const INK = rgb(0.11, 0.13, 0.11);
 const MUTED = rgb(0.38, 0.42, 0.39);
 const RULE = rgb(0.75, 0.77, 0.74);
-const ACCENT = rgb(0.18, 0.36, 0.31);
 const FILL = rgb(0.88, 0.92, 0.9);
 
 // Characters the cut-down font lacks, swapped for the nearest it has.
@@ -95,6 +96,16 @@ const makeSanitizer = (font: PDFFont) => {
         supported.has(character.codePointAt(0) ?? 0) ? character : '?',
       )
       .join('');
+};
+
+// The contract's typeface, for any printed sheet of the app.
+export const embedPrintFonts = async (pdf: PDFDocument) => {
+  pdf.registerFontkit(fontkit);
+
+  const regular = await pdf.embedFont(fromBase64(PT_SERIF_REGULAR_BASE64));
+  const bold = await pdf.embedFont(fromBase64(PT_SERIF_BOLD_BASE64));
+
+  return { regular, bold, clean: makeSanitizer(regular) };
 };
 
 export const sha256Hex = async (
@@ -510,116 +521,21 @@ export const renderContractPdf = async (
 
     drawText(title, left + 10, top - 16, fonts.bold, 9);
 
-    const widthCm = opening.widthCm ?? 0;
-    const heightCm = opening.heightCm ?? 0;
     // A 240 × 172 drawing, as on screen, fitted to the cell.
-    const unit = Math.min(inner / 240, 110 / 172);
-    const originX = left + 4 + (inner - 240 * unit) / 2;
+    const unit = fitSketch(inner, 110);
     const originTop = top - 22;
-    const at = (x: number, y: number) => ({
-      x: originX + x * unit,
-      y: originTop - y * unit,
-    });
-    const scale = Math.min(140 / widthCm, 120 / heightCm);
-    const frontWidth = widthCm * scale;
-    const frontHeight = heightCm * scale;
-    const frontLeft = 30 + (140 - frontWidth) / 2;
-    const frontTop = 18 + (120 - frontHeight) / 2;
-    const bottom = frontTop + frontHeight;
-    const wall = 200;
-    const depth = Math.min(opening.projectionCm * scale, 32);
-    const hasProjection =
-      opening.projectionKind !== 'NONE' && opening.projectionCm > 0;
 
-    page.drawRectangle({
-      ...at(frontLeft, bottom),
-      width: frontWidth * unit,
-      height: frontHeight * unit,
-      color: FILL,
-      borderColor: INK,
-      borderWidth: 1,
-    });
-
-    const widthLabel = `${widthCm}`;
-    const labelSize = 8;
-    const widthLabelAt = at(frontLeft + frontWidth / 2, bottom + 14);
-
-    drawText(
-      widthLabel,
-      widthLabelAt.x - widthOf(widthLabel, fonts.bold, labelSize) / 2,
-      widthLabelAt.y,
-      fonts.bold,
-      labelSize,
+    drawSketchLayout(
+      { page, regular: fonts.regular, bold: fonts.bold, clean },
+      sketchLayoutOf(opening),
+      {
+        left: left + 4 + (inner - SKETCH_WIDTH * unit) / 2,
+        top: originTop,
+        unit,
+      },
     );
 
-    const heightLabel = `${heightCm}`;
-    const heightLabelAt = at(frontLeft - 6, frontTop + frontHeight / 2);
-
-    page.drawText(clean(heightLabel), {
-      x: heightLabelAt.x,
-      y: heightLabelAt.y - widthOf(heightLabel, fonts.bold, labelSize) / 2,
-      font: fonts.bold,
-      size: labelSize,
-      color: INK,
-      rotate: degrees(90),
-    });
-
-    for (let y = frontTop - 6; y < bottom + 6; y += 5) {
-      page.drawLine({
-        start: at(wall - 2, y),
-        end: at(wall - 2, Math.min(y + 2, bottom + 6)),
-        thickness: 0.5,
-        color: MUTED,
-      });
-    }
-
-    if (hasProjection) {
-      const points =
-        opening.projectionKind === 'BOTTOM'
-          ? [
-              [wall, frontTop],
-              [wall + depth, bottom],
-              [wall, bottom],
-            ]
-          : [
-              [wall, frontTop],
-              [wall + depth, frontTop],
-              [wall + depth, bottom],
-              [wall, bottom],
-            ];
-
-      points.slice(1).forEach(([x, y], index) => {
-        const [fromX, fromY] = points[index];
-
-        page.drawLine({
-          start: at(fromX, fromY),
-          end: at(x, y),
-          thickness: 1.6,
-          color: ACCENT,
-        });
-      });
-    } else {
-      page.drawLine({
-        start: at(wall, frontTop),
-        end: at(wall, bottom),
-        thickness: 2,
-        color: ACCENT,
-      });
-    }
-
-    const sideLabel = hasProjection ? `вынос ${opening.projectionCm}` : 'сбоку';
-    const sideLabelAt = at(wall + 12, bottom + 14);
-
-    drawText(
-      sideLabel,
-      sideLabelAt.x - widthOf(sideLabel, fonts.regular, 7.5) / 2,
-      sideLabelAt.y,
-      fonts.regular,
-      7.5,
-      MUTED,
-    );
-
-    const captionTop = originTop - 172 * unit - 4;
+    const captionTop = originTop - SKETCH_HEIGHT * unit - 4;
     const caption = wrapRuns(
       [{ text: opening.product, isFilled: true }],
       inner - 12,

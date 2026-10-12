@@ -9,6 +9,7 @@ import {
   computeOpeningsTotalAreaSquareMeters,
   computePaymentPreview,
   computeOpeningVisorTotal,
+  computeServiceQuantity,
   copyOpening,
   createEmptyOpening,
   describePhotoUploadFailure,
@@ -41,6 +42,7 @@ const context = (
   payment: EMPTY_PAYMENT_DRAFT,
   subtotal: null,
   today: '2026-10-05',
+  serviceOptions: [],
   ...overrides,
 });
 
@@ -84,6 +86,7 @@ const draft = (overrides: Partial<MeasurementDraft>): MeasurementDraft => ({
       quantity: '2',
     }),
   ],
+  services: [],
   ...overrides,
 });
 
@@ -203,9 +206,12 @@ describe('buildMeasurementPayload', () => {
           projectionCm: 30,
           quantity: 2,
           notes: 'угловое',
+          product: 'GRILLE',
+          shape: null,
         },
       ],
       visors: [],
+      services: [],
       firstPayment: null,
     });
   });
@@ -997,7 +1003,7 @@ describe('toOrderUpdateData', () => {
     expect(Object.keys(data)).not.toContain('comment');
   });
 
-  it('keeps the manager\'s client name when the form has none, and trims a typed one', () => {
+  it("keeps the manager's client name when the form has none, and trims a typed one", () => {
     const empty = buildMeasurementPayload(
       draft({ clientFirstName: ' ', clientLastName: '' }),
       'member-1',
@@ -1086,5 +1092,34 @@ describe('copyOpening', () => {
       notes: '',
       photos: [],
     });
+  });
+});
+
+describe('computeServiceQuantity', () => {
+  const perPiece = {
+    id: 'service',
+    name: 'Доставка',
+    unit: 'PER_PIECE' as const,
+    price: 50_000,
+  };
+
+  it('counts one piece until the stepper is pressed, as it shows', () => {
+    expect(
+      computeServiceQuantity(
+        { key: 'line', serviceId: 'service', quantity: '' },
+        perPiece,
+        0,
+      ),
+    ).toBe(1);
+  });
+
+  it('refuses a part of a piece', () => {
+    expect(
+      computeServiceQuantity(
+        { key: 'line', serviceId: 'service', quantity: '1,5' },
+        perPiece,
+        0,
+      ),
+    ).toBeNull();
   });
 });

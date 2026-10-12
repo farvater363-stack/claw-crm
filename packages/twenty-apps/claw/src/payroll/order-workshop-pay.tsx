@@ -3,6 +3,7 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { useSelectedRecordIds } from 'twenty-sdk/front-component';
 
 import { isInstalled } from 'src/constants/order-status-sets';
+import { toProduct } from 'src/constants/select-options';
 import { ACCRUAL_SELECTION, PAY_RULE_SELECTION, toAccrualLine, toPayRules } from 'src/payroll/pay-records';
 import { masterRuleRate } from 'src/payroll/pay-rules';
 import {
@@ -48,7 +49,15 @@ const loadOrderPay = async (orderId: string): Promise<OrderPay> => {
         orderBy: [{ createdAt: 'AscNullsLast' }],
       },
       edges: {
-        node: { id: true, name: true, designId: true, areaSquareMeters: true, quantity: true },
+        node: {
+          id: true,
+          name: true,
+          designId: true,
+          areaSquareMeters: true,
+          quantity: true,
+          product: true,
+          widthCm: true,
+        },
       },
     },
     payAccruals: {
@@ -79,6 +88,8 @@ const loadOrderPay = async (orderId: string): Promise<OrderPay> => {
     designId: node.designId ?? null,
     areaSquareMeters: node.areaSquareMeters === null || node.areaSquareMeters === undefined ? null : Number(node.areaSquareMeters),
     quantity: node.quantity === null || node.quantity === undefined ? null : Number(node.quantity),
+    product: toProduct(node.product),
+    widthCm: node.widthCm === null || node.widthCm === undefined ? null : Number(node.widthCm),
     sizeText: node.name ?? null,
   }));
   const rows = planItemPayRows({
@@ -123,7 +134,10 @@ const OrderWorkshopPayOf = ({ orderId }: { orderId: string }) => {
   if (pay.masterName === null) return <p style={note}>Мастер цеха не выбран</p>;
   if (pay.rows.length === 0) return <p style={note}>В заказе пока нет проёмов</p>;
 
-  const area = pay.rows.reduce((sum, row) => sum + (row.areaSquareMeters ?? 0), 0);
+  const totalOf = (unit: ItemPayRow['unit']) =>
+    pay.rows.reduce((sum, row) => sum + (row.unit === unit ? (row.areaSquareMeters ?? 0) : 0), 0);
+  const area = totalOf('м²');
+  const runningMeters = totalOf('п.м.');
   const counted = pay.rows.reduce((sum, row) => sum + (row.amount ?? 0), 0);
   const total = pay.earned ?? counted;
 
@@ -165,8 +179,8 @@ const OrderWorkshopPayOf = ({ orderId }: { orderId: string }) => {
                 row.areaSquareMeters === null
                   ? 'размеры не указаны'
                   : row.rate === null
-                    ? `${formatQuantity(row.areaSquareMeters, 'м²')}, ставки нет`
-                    : `${formatQuantity(row.areaSquareMeters, 'м²')} × ${formatWhole(row.rate)}`,
+                    ? `${formatQuantity(row.areaSquareMeters, row.unit)}, ставки нет`
+                    : `${formatQuantity(row.areaSquareMeters, row.unit)} × ${formatWhole(row.rate)}`,
               ]
                 .filter(Boolean)
                 .join(' · ')}
@@ -202,7 +216,15 @@ const OrderWorkshopPayOf = ({ orderId }: { orderId: string }) => {
           ...TABULAR_NUMBERS,
         }}
       >
-        <span>{`Цеху за заказ · ${formatQuantity(Math.round(area * 100) / 100, 'м²')}`}</span>
+        <span>
+          {[
+            'Цеху за заказ',
+            area > 0 || runningMeters === 0 ? formatQuantity(Math.round(area * 100) / 100, 'м²') : null,
+            runningMeters > 0 ? formatQuantity(Math.round(runningMeters * 100) / 100, 'п.м.') : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </span>
         <span>{formatMoney(total)}</span>
       </div>
       <p style={{ ...note, marginTop: SPACE.sm }}>

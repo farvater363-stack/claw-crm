@@ -72,6 +72,7 @@ describe('loadRecalcInput', () => {
     expect(input?.grilles).toEqual([
       {
         id: 'grille-1',
+        product: 'GRILLE',
         pricePerSquareMeter: 450_000,
         costPerSquareMeter: 100_500,
       },

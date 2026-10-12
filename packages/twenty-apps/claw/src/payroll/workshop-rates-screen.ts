@@ -80,7 +80,7 @@ export const buildRateRows = (
       rowOf({
         key: designPart(design.id),
         label: design.name,
-        note: null,
+        note: design.product === 'RAILING' ? 'перилла, ставка за п.м.' : null,
         grilleKindId: null,
         designId: design.id,
         records: catalog.rates.filter((rate) => rate.designId === design.id),

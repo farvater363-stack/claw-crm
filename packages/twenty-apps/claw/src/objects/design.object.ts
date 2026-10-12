@@ -5,7 +5,7 @@ import {
   RelationType,
 } from 'twenty-sdk/define';
 
-import { METAL_OPTIONS } from 'src/constants/select-options';
+import { METAL_OPTIONS, PRODUCT_OPTIONS } from 'src/constants/select-options';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
@@ -25,6 +25,15 @@ export default defineObject({
       name: 'name',
       label: 'Название',
       icon: 'IconAbc',
+    },
+    {
+      universalIdentifier: IDS.design.product,
+      type: FieldType.SELECT,
+      name: 'product',
+      label: 'Изделие',
+      icon: 'IconBox',
+      defaultValue: "'GRILLE'",
+      options: PRODUCT_OPTIONS,
     },
     {
       universalIdentifier: IDS.design.photos,
@@ -61,7 +70,11 @@ export default defineObject({
         joinColumnName: 'grilleKindId',
       },
     },
-    money(IDS.design.pricePerSquareMeter, 'pricePerSquareMeter', 'Цена за м²'),
+    money(
+      IDS.design.pricePerSquareMeter,
+      'pricePerSquareMeter',
+      'Цена за м² (у перилл за п.м.)',
+    ),
     money(
       IDS.design.materialCostPerSquareMeter,
       'materialCostPerSquareMeter',

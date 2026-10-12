@@ -61,6 +61,8 @@ export const loadOrderContract = async (
         edges: {
           node: {
             id: true,
+            product: true,
+            shape: true,
             widthCm: true,
             heightCm: true,
             projectionCm: true,
@@ -131,6 +133,8 @@ export const loadOrderContract = async (
       paintColor: order.paintColor ?? null,
       items: (orderItems?.edges ?? []).map(({ node }) => ({
         id: node.id,
+        product: node.product ?? null,
+        shape: node.shape ?? null,
         widthCm: toNumber(node.widthCm),
         heightCm: toNumber(node.heightCm),
         projectionCm: toNumber(node.projectionCm),

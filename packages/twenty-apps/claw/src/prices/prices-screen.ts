@@ -1,6 +1,7 @@
 import {
   type ExtraServiceKind,
   type ExtraServiceUnit,
+  type Product,
 } from 'src/constants/select-options';
 import { parseDecimalInput } from 'src/measurer-form/measurer-form';
 import { computeMaterialCost } from 'src/prices/material-cost';
@@ -21,7 +22,7 @@ export type CompositionLine = {
 
 export type PriceRow = {
   id: string;
-  section: 'GRILLE' | 'VISOR' | 'SERVICE';
+  section: 'GRILLE' | 'RAILING' | 'VISOR' | 'SERVICE';
   name: string;
   price: number | null;
   unit: PriceUnit;
@@ -37,6 +38,7 @@ export type PriceRow = {
 
 export type PriceSections = {
   grilles: PriceRow[];
+  railings: PriceRow[];
   visors: PriceRow[];
   services: PriceRow[];
 };
@@ -44,6 +46,8 @@ export type PriceSections = {
 export type BuildPriceSectionsInput = {
   grilles: {
     id: string;
+    // Missing on designs loaded before railings: those are grilles
+    product?: Product | null;
     name: string | null;
     metal: string | null;
     price: number | null;
@@ -79,6 +83,11 @@ export const UNIT_TEXT: Record<PriceUnit, string> = {
   PER_PIECE: 'за шт',
   FIXED: 'за заказ',
 };
+
+// Grilles and railings are both designs: priced, pictured and composed alike,
+// per m² and per п.м.
+export const isDesignRow = (row: Pick<PriceRow, 'section'>): boolean =>
+  row.section === 'GRILLE' || row.section === 'RAILING';
 
 const byName = (left: PriceRow, right: PriceRow) =>
   left.name.localeCompare(right.name, 'ru', { numeric: true });
@@ -186,22 +195,27 @@ export const buildPriceSections = ({
     ),
   );
 
+  const designRows = grilles.map((grille) => {
+    const isRailing = grille.product === 'RAILING';
+
+    return toRow(
+      {
+        id: grille.id,
+        section: isRailing ? 'RAILING' : 'GRILLE',
+        name: grille.name ?? '',
+        price: grille.price,
+        unit: isRailing ? 'PER_RUNNING_METER' : 'PER_SQUARE_METER',
+        photoUrl: grille.photoUrl,
+        metal: grille.metal,
+      },
+      compositionOf('designId', grille.id),
+    );
+  });
+
   return {
-    grilles: grilles
-      .map((grille) =>
-        toRow(
-          {
-            id: grille.id,
-            section: 'GRILLE',
-            name: grille.name ?? '',
-            price: grille.price,
-            unit: 'PER_SQUARE_METER',
-            photoUrl: grille.photoUrl,
-            metal: grille.metal,
-          },
-          compositionOf('designId', grille.id),
-        ),
-      )
+    grilles: designRows.filter((row) => row.section === 'GRILLE').sort(byName),
+    railings: designRows
+      .filter((row) => row.section === 'RAILING')
       .sort(byName),
     visors: serviceRows.filter((row) => row.section === 'VISOR').sort(byName),
     services: serviceRows

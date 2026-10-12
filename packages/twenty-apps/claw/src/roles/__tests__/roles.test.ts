@@ -127,7 +127,7 @@ describe('workshop', () => {
 
   // Walks every identifier of the order, so a field added later is read-only
   // for the workshop until somebody classifies it here.
-  it('may change only the status, the stage and the finished photos of an order', () => {
+  it('may change only the status, the stage, the finished photos and the printed scheme of an order', () => {
     const limited = new Set([
       ...hiddenFieldIds(workshopRole),
       ...readOnlyFieldIds(workshopRole),
@@ -157,6 +157,7 @@ describe('workshop', () => {
       IDS.order.status,
       IDS.order.productionStage,
       IDS.order.finishedPhotos,
+      IDS.order.schemePdf,
       // Twenty writes the author itself on every update, through the same
       // check as the caller's fields, and overwrites whatever the caller sent:
       // locked, «Готово» would be refused; open, it still cannot be falsified.

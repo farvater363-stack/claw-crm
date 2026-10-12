@@ -2,8 +2,13 @@ import {
   type DeadlineState,
   type DiscountKind,
   type ExtraServiceUnit,
+  type Product,
   type ProjectionKind,
 } from 'src/constants/select-options';
+import {
+  parseItemShape,
+  shapeKindLabel,
+} from 'src/opening-shape/opening-shape';
 import {
   applyLatePenalty,
   computeMasterBasePay,
@@ -21,13 +26,17 @@ import { computeDeadlineState } from 'src/pricing/compute-deadline-state';
 import { computeDiscount } from 'src/pricing/compute-discount';
 import {
   computeItemAreaSquareMeters,
+  computeItemUnits,
   formatItemSize,
+  formatRailingSize,
 } from 'src/pricing/compute-item-area';
 import { addDays, computeDaysLate } from 'src/pricing/dates';
 import { roundTo } from 'src/pricing/round';
 
 export type GrillePrice = {
   id: string;
+  // Missing on designs loaded before railings: those are grilles
+  product?: Product | null;
   pricePerSquareMeter: number | null;
   costPerSquareMeter: number | null;
 };
@@ -35,6 +44,10 @@ export type GrillePrice = {
 export type ItemSnapshot = {
   id: string;
   name: string | null;
+  // Missing on items saved before railings: those are grilles
+  product?: Product | null;
+  // The saved outline of a non-rectangular проём, drawn and named from
+  shape?: unknown;
   designId: string | null;
   widthCm: number | null;
   heightCm: number | null;
@@ -153,6 +166,24 @@ const multiplyOrNull = (...values: (number | null)[]): number | null =>
         ),
       );
 
+const describeItemSize = (
+  item: ItemSnapshot,
+  size: Parameters<typeof formatItemSize>[0],
+): string => {
+  if (item.product === 'RAILING') {
+    return formatRailingSize({
+      lengthCm: size.widthCm,
+      heightCm: size.heightCm,
+    });
+  }
+
+  const shape = parseItemShape(item.shape, size.widthCm, size.heightCm);
+
+  return shape === null
+    ? formatItemSize(size)
+    : `${shapeKindLabel(shape.kind).toLowerCase()} ${formatItemSize(size)}`;
+};
+
 const planItem = (
   item: ItemSnapshot,
   grilles: GrillePrice[],
@@ -165,12 +196,23 @@ const planItem = (
     projectionCm: item.projectionCm ?? 0,
     projectionKind: item.projectionKind,
   };
-  const areaSquareMeters = hasDimensions
-    ? computeItemAreaSquareMeters(size)
-    : null;
-  const name = hasDimensions ? formatItemSize(size) : item.name;
+  const isRailing = item.product === 'RAILING';
+  const areaSquareMeters =
+    hasDimensions && !isRailing ? computeItemAreaSquareMeters(size) : null;
+  const units = computeItemUnits({
+    product: item.product,
+    widthCm: hasDimensions ? size.widthCm : null,
+    areaSquareMeters,
+  });
+  const name = hasDimensions ? describeItemSize(item, size) : item.name;
 
-  const entry = grilles.find((grille) => grille.id === item.designId) ?? null;
+  // A grille's per-m² price never prices a railing's metres, nor the reverse
+  const entry =
+    grilles.find(
+      (grille) =>
+        grille.id === item.designId &&
+        (grille.product ?? 'GRILLE') === (item.product ?? 'GRILLE'),
+    ) ?? null;
   const pricePerSquareMeter =
     shouldRefreshPrice || item.pricePerSquareMeter === null
       ? (entry?.pricePerSquareMeter ??
@@ -189,8 +231,8 @@ const planItem = (
     areaSquareMeters,
     pricePerSquareMeter,
     costPerSquareMeter,
-    lineTotal: multiplyOrNull(areaSquareMeters, quantity, pricePerSquareMeter),
-    lineCost: multiplyOrNull(areaSquareMeters, quantity, costPerSquareMeter),
+    lineTotal: multiplyOrNull(units, quantity, pricePerSquareMeter),
+    lineCost: multiplyOrNull(units, quantity, costPerSquareMeter),
   };
 };
 

@@ -7,6 +7,7 @@ import { uploadFile } from 'twenty-sdk/front-component';
 import {
   EXTRA_SERVICE_UNIT_OPTIONS,
   materialUnitLabel,
+  toProduct,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { materialUnitPrice } from 'src/prices/material-cost';
@@ -14,6 +15,7 @@ import {
   type BuildPriceSectionsInput,
   buildPriceSections,
   type CompositionLine,
+  isDesignRow,
   parseOptionalMoney,
   parsePositiveNumber,
   type PriceRow,
@@ -84,6 +86,15 @@ const SECTIONS = [
     title: 'Решётки',
     addText: '+ Добавить решётку',
     newName: 'Новая решётка',
+    product: 'GRILLE',
+    service: null,
+  },
+  {
+    key: 'railings',
+    title: 'Перилла',
+    addText: '+ Добавить перилла',
+    newName: 'Новые перилла',
+    product: 'RAILING',
     service: null,
   },
   {
@@ -91,6 +102,7 @@ const SECTIONS = [
     title: 'Козырьки',
     addText: '+ Добавить козырёк',
     newName: 'Новый козырёк',
+    product: null,
     service: { kind: 'VISOR', unit: 'PER_RUNNING_METER' },
   },
   {
@@ -98,6 +110,7 @@ const SECTIONS = [
     title: 'Услуги',
     addText: '+ Добавить услугу',
     newName: 'Новая услуга',
+    product: null,
     service: { kind: 'SERVICE', unit: 'FIXED' },
   },
 ] as const;
@@ -167,6 +180,7 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
           node: {
             id: true,
             name: true,
+            product: true,
             metal: true,
             pricePerSquareMeter: MONEY,
             photos: PHOTO,
@@ -239,6 +253,7 @@ const loadPricesData = async (client: CoreApiClient): Promise<PricesData> => {
   const source: BuildPriceSectionsInput = {
     grilles: designNodes.map((node) => ({
       id: node.id,
+      product: toProduct(node.product),
       name: node.name ?? null,
       metal: node.metal ?? null,
       price: fromCurrency(node.pricePerSquareMeter),
@@ -310,7 +325,7 @@ const updateRow = (
   grilleData: CoreSchema.DesignUpdateInput,
   serviceData: CoreSchema.ExtraServiceUpdateInput,
 ) =>
-  row.section === 'GRILLE'
+  isDesignRow(row)
     ? new CoreApiClient().mutation({
         updateDesign: { __args: { id: row.id, data: grilleData }, id: true },
       })
@@ -367,7 +382,7 @@ const Prices = () => {
   ) =>
     patchData(({ source }) => ({
       source:
-        row.section === 'GRILLE'
+        isDesignRow(row)
           ? {
               ...source,
               grilles: source.grilles.map((grille) =>
@@ -508,7 +523,9 @@ const Prices = () => {
           ? (
               await client.mutation({
                 createDesign: {
-                  __args: { data: { name: section.newName } },
+                  __args: {
+                    data: { name: section.newName, product: section.product },
+                  },
                   id: true,
                 },
               })
@@ -538,7 +555,7 @@ const Prices = () => {
     void run(row.id, `remove:${row.id}`, async () => {
       const entry = { id: row.id, section: row.section };
 
-      await (row.section === 'GRILLE'
+      await (isDesignRow(row)
         ? new CoreApiClient().mutation({
             deleteDesign: { __args: { id: row.id }, id: true },
           })
@@ -563,7 +580,7 @@ const Prices = () => {
 
   const restoreRow = (entry: Pick<PriceRow, 'id' | 'section'>) =>
     void run('undo', `restore:${entry.id}`, async () => {
-      await (entry.section === 'GRILLE'
+      await (isDesignRow(entry)
         ? new CoreApiClient().mutation({
             restoreDesign: { __args: { id: entry.id }, id: true },
           })
@@ -645,7 +662,7 @@ const Prices = () => {
   const renderComposition = (row: PriceRow, data: PricesData) => {
     const newKey = `${row.id}:newLine`;
     const owner =
-      row.section === 'GRILLE'
+      isDesignRow(row)
         ? { designId: row.id }
         : { extraServiceId: row.id };
     const available = data.materials.filter(
@@ -919,7 +936,7 @@ const Prices = () => {
             }
           />
         </Field>
-        {row.section === 'GRILLE' ? (
+        {isDesignRow(row) ? (
           <>
             {moneyField(
               row,
@@ -988,10 +1005,14 @@ const Prices = () => {
     );
   };
 
-  // Grilles are chosen by their look, so they are tiles. An open grille takes
-  // the place of the grid: under fifteen tiles its fields would be off screen.
-  const renderGrilleTiles = (data: PricesData) => {
-    const grilles = [...data.sections.grilles].sort(
+  // Grilles and railings are chosen by their look, so they are tiles. An open
+  // one takes the place of the grid: under fifteen tiles its fields would be
+  // off screen.
+  const renderDesignTiles = (
+    data: PricesData,
+    key: 'grilles' | 'railings',
+  ) => {
+    const grilles = [...data.sections[key]].sort(
       (left, right) =>
         Number(left.id === newRowId) - Number(right.id === newRowId),
     );
@@ -1003,7 +1024,8 @@ const Prices = () => {
           <>
             <Wrap>
               <Button variant="link" onClick={() => showRow(null)}>
-                <span aria-hidden>‹</span> Все решётки
+                <span aria-hidden>‹</span>{' '}
+                {key === 'grilles' ? 'Все решётки' : 'Все перилла'}
               </Button>
             </Wrap>
             {renderOpenRow(open, data)}
@@ -1079,10 +1101,12 @@ const Prices = () => {
             </>
           }
         >
-          {section.key === 'grilles' ? renderGrilleTiles(data) : null}
+          {section.product === null
+            ? null
+            : renderDesignTiles(data, section.key)}
           {/* A row just added stays next to the button that added it, not
               where its placeholder name would sort. */}
-          {[...(section.key === 'grilles' ? [] : data.sections[section.key])]
+          {[...(section.product === null ? data.sections[section.key] : [])]
             .sort(
               (left, right) =>
                 Number(left.id === newRowId) - Number(right.id === newRowId),
@@ -1126,6 +1150,6 @@ const Prices = () => {
 export default defineFrontComponent({
   universalIdentifier: IDS.prices.frontComponent,
   name: 'prices',
-  description: 'Прайс: решётки, козырьки и услуги, их цены и состав',
+  description: 'Прайс: решётки, перилла, козырьки и услуги, их цены и состав',
   component: Prices,
 });

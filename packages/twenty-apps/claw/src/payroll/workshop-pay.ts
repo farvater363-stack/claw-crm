@@ -1,3 +1,5 @@
+import { type Product } from 'src/constants/select-options';
+import { computeItemUnits } from 'src/pricing/compute-item-area';
 import { roundTo } from 'src/pricing/round';
 
 export type WorkshopRate = {
@@ -12,6 +14,7 @@ export type WorkshopDesign = {
   id: string;
   name: string;
   grilleKindId: string | null;
+  product?: Product | null;
 };
 
 export type WorkshopKind = { id: string; name: string };
@@ -26,7 +29,14 @@ export type WorkshopItem = {
   designId: string | null;
   areaSquareMeters: number | null;
   quantity: number | null;
+  // A railing is paid per running metre of its length
+  product?: Product | null;
+  widthCm?: number | null;
 };
+
+const isRailing = (item: WorkshopItem) => item.product === 'RAILING';
+
+
 
 // What a master is paid per m² on one order, one line per row of the table.
 export type SquareMeterPart = {
@@ -113,11 +123,14 @@ export const resolveWorkshopRate = ({
   designId,
   masterId,
   ruleRate,
+  isPerRunningMeter = false,
 }: {
   catalog: WorkshopCatalog;
   designId: string | null;
   masterId: string;
   ruleRate: number | null;
+  // Kind and rule rates are per m², so a railing is paid only by its own row
+  isPerRunningMeter?: boolean;
 }): ResolvedRate | null => {
   const design = catalog.designs.find((entry) => entry.id === designId);
   const kind = catalog.kinds.find((entry) => entry.id === design?.grilleKindId);
@@ -130,9 +143,17 @@ export const resolveWorkshopRate = ({
     );
 
     if (rate !== null) {
-      return { part: designPart(design.id), label: `«${design.name}»`, rate };
+      return {
+        part: designPart(design.id),
+        label: isPerRunningMeter
+          ? `«${design.name}», п.м.`
+          : `«${design.name}»`,
+        rate,
+      };
     }
   }
+
+  if (isPerRunningMeter) return null;
 
   if (kind !== undefined) {
     const rate = findRowRate(
@@ -203,12 +224,14 @@ export const planSquareMeterParts = ({
       designId: item.designId,
       masterId,
       ruleRate,
+      isPerRunningMeter: isRailing(item),
     });
+    const basis = computeItemUnits(item);
 
     // A проём with no size yet adds no area, as it adds none to the order's.
-    if (resolved === null || item.areaSquareMeters === null) continue;
+    if (resolved === null || basis === null) continue;
 
-    const area = item.areaSquareMeters * (item.quantity ?? 1);
+    const area = basis * (item.quantity ?? 1);
     const known = parts.get(resolved.part);
 
     parts.set(resolved.part, {
@@ -265,7 +288,9 @@ export type ItemPayRow = {
   designName: string | null;
   // «Кованая», «Кованая, особая решётка», «Вид не указан»
   rowLabel: string;
+  // Running metres for a railing
   areaSquareMeters: number | null;
+  unit: 'м²' | 'п.м.';
   rate: number | null;
   amount: number | null;
   isOwn: boolean;
@@ -294,14 +319,20 @@ export const planItemPayRows = ({
       designId: item.designId,
       masterId,
       ruleRate,
+      isPerRunningMeter: isRailing(item),
     });
+    const basis = computeItemUnits(item);
+    // The old single rate pays the order's m² only, which has no railings
     const rate =
-      kept.legacyRate ??
-      (resolved === null ? null : (kept.byPart.get(resolved.part) ?? resolved.rate));
+      kept.legacyRate !== null
+        ? isRailing(item)
+          ? null
+          : kept.legacyRate
+        : resolved === null
+          ? null
+          : (kept.byPart.get(resolved.part) ?? resolved.rate);
     const area =
-      item.areaSquareMeters === null
-        ? null
-        : roundTo(item.areaSquareMeters * (item.quantity ?? 1), 2);
+      basis === null ? null : roundTo(basis * (item.quantity ?? 1), 2);
     const isSpecial = resolved?.part.startsWith('design:') ?? false;
 
     return {
@@ -310,10 +341,13 @@ export const planItemPayRows = ({
       rowLabel:
         kept.legacyRate !== null || resolved?.part === RULE_PART
           ? 'старая ставка мастера'
-          : [kind?.name ?? NO_KIND_LABEL, isSpecial ? 'особая решётка' : null]
+          : isRailing(item)
+            ? 'перилла, за п.м.'
+            : [kind?.name ?? NO_KIND_LABEL, isSpecial ? 'особая решётка' : null]
               .filter(Boolean)
               .join(', '),
       areaSquareMeters: area,
+      unit: isRailing(item) ? 'п.м.' : 'м²',
       rate,
       amount: area === null || rate === null ? null : Math.round(area * rate),
       isOwn:
