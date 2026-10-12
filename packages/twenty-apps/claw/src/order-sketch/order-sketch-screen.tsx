@@ -71,6 +71,7 @@ const loadScheme = async (orderId: string): Promise<Scheme> => {
           projectionCm: true,
           projectionKind: true,
           quantity: true,
+          openingNumber: true,
           design: { name: true },
         },
       },
@@ -97,6 +98,7 @@ const loadScheme = async (orderId: string): Promise<Scheme> => {
         projectionKind: node.projectionKind ?? null,
         quantity: node.quantity,
         designName: node.design?.name ?? null,
+        openingNumber: node.openingNumber ?? null,
       })),
     ),
   };

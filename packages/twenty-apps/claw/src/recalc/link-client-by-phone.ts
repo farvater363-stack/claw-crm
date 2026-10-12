@@ -58,3 +58,43 @@ export const linkClientByPhone = async (
 
   return createPerson?.id ?? null;
 };
+
+// An order whose phone is corrected moves to the client of the new number, but
+// only while it is linked by the old number: a client chosen by hand stays.
+export const clientAfterPhoneChange = async (
+  client: CoreApiClient,
+  order: {
+    clientId: string | null;
+    clientFullName: StoredFullName;
+    previousPhone: string | null;
+    phone: string | null;
+  },
+): Promise<string | null> => {
+  const previousNumber = order.previousPhone
+    ? normalizeUzbekPhone(order.previousPhone)
+    : null;
+  const number = order.phone ? normalizeUzbekPhone(order.phone) : null;
+
+  if (number === null || number === previousNumber) return null;
+
+  if (order.clientId !== null) {
+    const { people } = await client.query({
+      people: {
+        __args: { filter: { id: { eq: order.clientId } }, first: 1 },
+        edges: { node: { phones: { primaryPhoneNumber: true } } },
+      },
+    });
+    const linkedPhone =
+      people?.edges[0]?.node?.phones?.primaryPhoneNumber ?? null;
+    const linkedNumber = linkedPhone ? normalizeUzbekPhone(linkedPhone) : null;
+
+    if (linkedNumber === null || linkedNumber !== previousNumber) return null;
+  }
+
+  const clientId = await linkClientByPhone(client, {
+    clientFullName: order.clientFullName,
+    clientPhone: order.phone,
+  });
+
+  return clientId !== order.clientId ? clientId : null;
+};

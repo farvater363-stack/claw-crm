@@ -133,6 +133,10 @@ export type RecalcInput = {
   today: string;
   refreshPriceItemIds: string[];
   refreshPriceExtraServiceLineIds: string[];
+  // Its last line was just removed: it is not an imported order without lines.
+  linesRemoved?: boolean;
+  // «Итого» as just typed by hand; on an order without lines it moves the sum.
+  typedTotal?: number | null;
 };
 
 export type RecalcPlan = {
@@ -144,7 +148,7 @@ export type RecalcPlan = {
   }[];
 };
 
-const INSTALLATION_DAYS_AFTER_START = 7;
+export const INSTALLATION_DAYS_AFTER_START = 7;
 
 const diff = <TRecord extends object>(
   current: TRecord,
@@ -199,9 +203,10 @@ const planItem = (
   const isRailing = item.product === 'RAILING';
   const areaSquareMeters =
     hasDimensions && !isRailing ? computeItemAreaSquareMeters(size) : null;
+  // A railing is priced by its length alone, so a missing height must not zero it
   const units = computeItemUnits({
     product: item.product,
-    widthCm: hasDimensions ? size.widthCm : null,
+    widthCm: hasDimensions || isRailing ? item.widthCm : null,
     areaSquareMeters,
   });
   const name = hasDimensions ? describeItemSize(item, size) : item.name;
@@ -310,7 +315,9 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
     planItem(item, input.grilles, input.refreshPriceItemIds.includes(item.id)),
   );
 
-  const hasLines = input.items.length + input.extraServiceLines.length > 0;
+  const hasLines =
+    input.items.length + input.extraServiceLines.length > 0 ||
+    input.linesRemoved === true;
   const itemsAreaSquareMeters = roundTo(
     sumTreatingNullAsZero(
       plannedItems.map(
@@ -335,11 +342,16 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
     : order.areaSquareMeters;
   // An order without lines keeps its stored sums. One saved before the discount
   // existed has only a total, which is then its sum before the discount.
+  // A typed «Итого» is what is left after the discount, so the sum before it
+  // is that plus the discount; the recalc's own write of the total gives back
+  // the same sum.
   const subtotal = hasLines
     ? sumTreatingNullAsZero(
         [...plannedItems, ...plannedLines].map((line) => line.lineTotal),
       )
-    : (order.subtotal ?? order.total);
+    : input.typedTotal !== undefined && input.typedTotal !== null
+      ? input.typedTotal + (order.discount ?? 0)
+      : (order.subtotal ?? order.total);
   const discount =
     subtotal !== null
       ? computeDiscount({

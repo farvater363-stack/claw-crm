@@ -220,3 +220,7 @@ export const createPayment = async (client: CoreApiClient, id: string, data: Pay
 export const removePayment = async (client: CoreApiClient, id: string): Promise<void> => {
   await client.mutation({ deleteMasterPayment: { __args: { id }, id: true } });
 };
+
+export const restorePayment = async (client: CoreApiClient, id: string): Promise<void> => {
+  await client.mutation({ restoreMasterPayment: { __args: { id }, id: true } });
+};

@@ -35,7 +35,9 @@ export const loadWorkshopCatalog = async (
       const { designs: page } = await client.query({
         designs: {
           __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, name: true, grilleKindId: true } },
+          edges: {
+            node: { id: true, name: true, grilleKindId: true, product: true },
+          },
           pageInfo: PAGE_INFO,
         },
       });

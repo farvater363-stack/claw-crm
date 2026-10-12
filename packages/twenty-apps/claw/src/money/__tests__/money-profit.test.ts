@@ -21,6 +21,8 @@ const entry = (overrides: Partial<MoneyEntryRecord>): MoneyEntryRecord => ({
   orderId: null,
   recurringExpenseId: null,
   countedAmount: null,
+  toWallet: null,
+  recountId: null,
   ...overrides,
 });
 
@@ -37,6 +39,7 @@ const stock = (overrides: Partial<StockMonthReport>): StockMonthReport => ({
   workshopUse: 0,
   returned: 0,
   otherOut: 0,
+  removed: 0,
   closing: 0,
   losses: 0,
   hasUnpriced: false,

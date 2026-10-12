@@ -111,6 +111,7 @@ export const buildPurchaseEntry = (
     else if (!price.ok) errors[line.key] = price.error;
     else {
       lines.push({
+        key: line.key,
         materialId: line.materialId,
         quantity: quantity.value,
         unitPrice: price.value,

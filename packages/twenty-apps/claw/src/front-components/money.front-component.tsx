@@ -10,11 +10,11 @@ import { IDS } from 'src/constants/universal-identifiers';
 import { useElementWidth } from 'src/measurer-form/measurer-form-ui';
 import {
   createMoneyEntry,
-  deleteMoneyEntry,
+  deleteMoneyEntries,
   loadMoneyBooks,
   loadReadyOrders,
   type MoneyBooks,
-  restoreMoneyEntry,
+  restoreMoneyEntries,
   saveRecurringExpense,
   stopRecurringExpense,
   updateMoneyEntry,
@@ -26,6 +26,7 @@ import {
   type LedgerFilter,
   ledgerDays,
   lastRecount,
+  linkedEntryIds,
   type MoneyMove,
   monthFlow,
   type RecurringRecord,
@@ -45,6 +46,7 @@ import {
   emptyRecount,
   emptyRecurring,
   entryEditMode,
+  entrySumLimit,
   entrySumDraft,
   type EntrySumDraft,
   type HandoverDraft,
@@ -312,7 +314,7 @@ const Money = () => {
   );
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
   const [failures, setFailures] = useState<Record<string, () => void>>({});
-  const [removedEntryId, setRemovedEntryId] = useState<string | null>(null);
+  const [removedEntryIds, setRemovedEntryIds] = useState<string[] | null>(null);
   const { ref: widthRef, width } = useElementWidth();
   const inFlight = useRef(new Set<string>());
   const attemptIds = useRef<Record<string, string>>({});
@@ -439,7 +441,7 @@ const Money = () => {
   const holders = cashHolders(books);
   const flow = monthFlow(moves, month);
   const isWide = width >= TWO_COLUMNS_FROM;
-  const cashRecount = lastRecount(books.entries, 'CASH');
+  const cashRecount = lastRecount(books.entries, 'CASH', moves);
   const activeRecurring = books.recurring
     .filter((item) => item.isActive)
     .sort((left, right) => (left.dayOfMonth ?? 1) - (right.dayOfMonth ?? 1));
@@ -504,15 +506,20 @@ const Money = () => {
     });
   };
 
+  // The count is of today: what is dated later comes after it.
   const recountContext = (wallet: Wallet) => ({
-    expected: balances.get(wallet) ?? 0,
+    expected:
+      walletBalances(moves.filter((move) => move.date <= today)).get(wallet) ??
+      0,
     isFirst: lastRecount(books.entries, wallet) === null,
   });
 
   const saveRecount = (draft: RecountDraft) => {
+    const recountId = attemptId('recount:line');
     const built = buildRecount({
       draft,
       today,
+      recountId,
       ...recountContext(draft.wallet),
     });
 
@@ -523,8 +530,13 @@ const Money = () => {
     void run('recount', async () => {
       const client = new CoreApiClient();
 
-      for (const [index, entry] of built.data.entries()) {
-        await createMoneyEntry(client, attemptId(`recount:${index}`), entry);
+      // The forgotten расход is written first, so the count comes after it.
+      for (const entry of built.data) {
+        await createMoneyEntry(
+          client,
+          entry.kind === 'EXPENSE' ? attemptId('recount:expense') : recountId,
+          entry,
+        );
       }
 
       await finishSave('recount');
@@ -655,7 +667,9 @@ const Money = () => {
       note:
         entry.recurringExpenseId !== null
           ? 'Оплата постоянного расхода.'
-          : ENTRY_NOTES[entry.kind ?? ''],
+          : linkedEntryIds(books.entries, entry.id).length > 1
+            ? `${ENTRY_NOTES[entry.kind ?? ''] ?? ''} Забытый расход, внесённый при этом пересчёте, удалится вместе с ней.`.trim()
+            : ENTRY_NOTES[entry.kind ?? ''],
       draft: mode === 'remove' ? null : entrySumDraft(entry),
       errors: {},
     });
@@ -687,7 +701,11 @@ const Money = () => {
     current: Extract<OpenSheet, { kind: 'editEntry' }>,
     draft: EntrySumDraft,
   ) => {
-    const built = buildEntrySum(draft);
+    const entry = books.entries.find((one) => one.id === current.entryId);
+    const built = buildEntrySum(
+      draft,
+      entry === undefined ? null : entrySumLimit(entry, holders),
+    );
 
     setSheet({ ...current, draft, errors: built.ok ? {} : built.errors });
 
@@ -699,25 +717,28 @@ const Money = () => {
     });
   };
 
-  const removeEntry = (entryId: string) =>
+  const removeEntry = (entryId: string) => {
+    const entryIds = linkedEntryIds(books.entries, entryId);
+
     void run(DELETE_KEY, async () => {
-      await deleteMoneyEntry(new CoreApiClient(), entryId);
+      await deleteMoneyEntries(new CoreApiClient(), entryIds);
       setSheet(null);
-      setRemovedEntryId(entryId);
+      setRemovedEntryIds(entryIds);
       setTimeout(
         () =>
-          setRemovedEntryId((current) =>
-            current === entryId ? null : current,
+          setRemovedEntryIds((current) =>
+            current === entryIds ? null : current,
           ),
         UNDO_MS,
       );
       await reload();
     });
+  };
 
-  const restoreEntry = (entryId: string) =>
+  const restoreEntries = (entryIds: string[]) =>
     void run('undo', async () => {
-      await restoreMoneyEntry(new CoreApiClient(), entryId);
-      setRemovedEntryId(null);
+      await restoreMoneyEntries(new CoreApiClient(), entryIds);
+      setRemovedEntryIds(null);
       await reload();
     });
 
@@ -884,7 +905,11 @@ const Money = () => {
       stock:
         stock === null
           ? null
-          : buildStockMonthReport(valueStockMovements(stock.movements), month),
+          : buildStockMonthReport(
+              valueStockMovements(stock.movements),
+              month,
+              new Set(stock.removedMaterialIds),
+            ),
     });
     const minus = (amount: number) => signed(-amount);
     const rows: StatementRow[] = [
@@ -1138,7 +1163,13 @@ const Money = () => {
                     },
                   ]}
                 />
-                <MutedNote text="Обычно это забытый расход. Его можно внести при пересчёте или списать как «Не нашли»." />
+                <MutedNote
+                  text={
+                    cashRecount.forgotten > 0
+                      ? `Разницу внесли как забытый расход: ${formatMoney(cashRecount.forgotten)}.`
+                      : 'Обычно это забытый расход. Его можно внести при пересчёте или списать как «Не нашли».'
+                  }
+                />
               </>
             )}
           </Inside>
@@ -1342,10 +1373,12 @@ const Money = () => {
         {tab === 'regular' ? renderRegular() : null}
       </div>
       {failureNote('undo')}
-      {removedEntryId !== null ? (
+      {removedEntryIds !== null ? (
         <UndoBar
-          text="Запись удалена."
-          onUndo={() => restoreEntry(removedEntryId)}
+          text={
+            removedEntryIds.length > 1 ? 'Записи удалены.' : 'Запись удалена.'
+          }
+          onUndo={() => restoreEntries(removedEntryIds)}
         />
       ) : null}
       {renderSheet()}

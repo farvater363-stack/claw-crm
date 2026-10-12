@@ -262,6 +262,14 @@ describe('input checks', () => {
 
   it('treats an empty price as no price', () => {
     expect(parseOptionalMoney('')).toEqual({ ok: true, value: null });
+    expect(parseOptionalMoney('999999999999')).toEqual({
+      ok: true,
+      value: 999_999_999_999,
+    });
+    expect(parseOptionalMoney('1000000000000')).toEqual({
+      ok: false,
+      error: 'Не больше 12 цифр',
+    });
     expect(parseOptionalMoney('  ')).toEqual({ ok: true, value: null });
   });
 

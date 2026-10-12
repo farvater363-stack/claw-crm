@@ -32,7 +32,8 @@ import {
 import { ContractSigning } from 'src/contract/contract-view';
 import {
   loadOrderContract,
-  type OrderContract,
+  loadSignedContractPdfUrl,
+  type OrderContract as LoadedOrderContract,
   type SignedContractRecord,
 } from 'src/contract/load-order-contract';
 import { todayInTashkent } from 'src/pricing/dates';
@@ -47,7 +48,7 @@ import {
 } from 'src/ui/kit';
 import { RADIUS, SPACE, TABULAR_NUMBERS, TYPE } from 'src/ui/tokens';
 
-type Loaded = { contract: OrderContract; template: ContractTemplate };
+type Loaded = { contract: LoadedOrderContract; template: ContractTemplate };
 
 const describeError = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -299,16 +300,24 @@ const OrderContractOf = ({ orderId }: { orderId: string }) => {
       }}
     />
   ) : null;
-  const share = (signing: SignedContractRecord) => {
-    if (signing.pdfUrl === null) return;
+  const share = async (signing: SignedContractRecord) => {
+    try {
+      const url = await loadSignedContractPdfUrl(signing.id);
 
-    void copyToClipboard(signing.pdfUrl).then(() =>
-      enqueueSnackbar({
+      if (url === null) throw new Error('PDF не найден в заказе');
+
+      await copyToClipboard(url);
+      await enqueueSnackbar({
         message:
           'Ссылка на PDF скопирована: вставьте её в Telegram клиенту. Ссылка действует сутки.',
         variant: 'success',
-      }),
-    );
+      });
+    } catch (error) {
+      await enqueueSnackbar({
+        message: `Ссылка не скопировалась: ${describeError(error)}. Откройте PDF и отправьте файл клиенту.`,
+        variant: 'error',
+      });
+    }
   };
 
   if (signingForm !== null) {
@@ -427,7 +436,7 @@ const OrderContractOf = ({ orderId }: { orderId: string }) => {
               >
                 Открыть PDF
               </a>
-              <Button onClick={() => share(current)}>Поделиться</Button>
+              <Button onClick={() => void share(current)}>Поделиться</Button>
             </div>
           )}
         </>

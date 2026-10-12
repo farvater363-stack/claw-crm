@@ -16,7 +16,7 @@ const handler = async (
   const orderId = payload.properties.before?.orderId;
 
   if (orderId) {
-    await recalcOrder(createRecalcClient(), orderId);
+    await recalcOrder(createRecalcClient(), orderId, { linesRemoved: true });
   }
 };
 

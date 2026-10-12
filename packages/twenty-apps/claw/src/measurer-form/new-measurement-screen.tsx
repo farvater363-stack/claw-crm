@@ -68,6 +68,7 @@ import {
   WRAP,
 } from 'src/measurer-form/measurement-parts';
 import {
+  applyPaymentChanges,
   buildMeasurementPayload,
   buildOpeningPhotoLabel,
   computeDraftTotal,
@@ -102,6 +103,7 @@ import {
   type OpeningPhoto,
   parseDecimalInput,
   type PaymentDraft,
+  type PaymentPreview,
   resolveTargetOrderId,
   type ScheduledOrder,
   type ServiceDraft,
@@ -195,6 +197,10 @@ type SaveResult = {
   isPaymentFailed: boolean;
   // null when the client did not sign
   contract: 'signed' | 'failed' | null;
+  // The form as it was saved: the result shows what went to the order
+  draft: MeasurementDraft;
+  preview: PaymentPreview;
+  areaSquareMeters: number;
 };
 
 type Usage = { grilles: Map<string, number>; visors: Map<string, number> };
@@ -846,8 +852,21 @@ export const NewMeasurement = () => {
       services: current.services.filter((line) => line.key !== key),
     }));
 
-  const updatePayment = (changes: Partial<PaymentDraft>) =>
-    setPayment((current) => ({ ...current, ...changes }));
+  // The save goes out with the form as it was when pressed; a change typed
+  // meanwhile would be shown but never saved.
+  const updatePayment = (changes: Partial<PaymentDraft>) => {
+    if (isSaveInFlight.current) return;
+
+    setPayment((current) => applyPaymentChanges(current, changes));
+  };
+
+  const changeSignature = (
+    update: (strokes: SignatureStroke[]) => SignatureStroke[],
+  ) => {
+    if (isSaveInFlight.current) return;
+
+    setSignature(update);
+  };
 
   const emptyClient = {
     clientFirstName: '',
@@ -1372,6 +1391,8 @@ export const NewMeasurement = () => {
   };
 
   const goBackTo = (backStep: Step) => {
+    if (isSaveInFlight.current) return;
+
     setErrors([]);
     setActivePadId(null);
     // The client signed for this sum and this prepayment.
@@ -1624,7 +1645,8 @@ export const NewMeasurement = () => {
           number: contractNumberOf(orderName),
         },
         signature,
-        signedBy: userId === null ? '—' : await loadSignerName(userId),
+        signedBy:
+          userId === null ? '—' : await loadSignerName(userId).catch(() => '—'),
       }).then(
         (): SaveResult['contract'] => 'signed',
         (): SaveResult['contract'] => 'failed',
@@ -1641,6 +1663,9 @@ export const NewMeasurement = () => {
       isServiceFailed,
       isPaymentFailed,
       contract,
+      draft,
+      preview,
+      areaSquareMeters: totalAreaSquareMeters,
     });
   };
 
@@ -1651,6 +1676,10 @@ export const NewMeasurement = () => {
 
     try {
       await save();
+    } catch (error) {
+      setErrors([
+        `Сохранение не завершено. Данные формы на месте, попробуйте ещё раз. (${describeError(error)})`,
+      ]);
     } finally {
       isSaveInFlight.current = false;
       setIsSaving(false);
@@ -1751,23 +1780,33 @@ export const NewMeasurement = () => {
                 ...TABULAR_NUMBERS,
               }}
             >
-              {draftClientName(draft) !== null && (
-                <Fact label="Клиент" value={draftClientName(draft) ?? ''} />
+              {draftClientName(result.draft) !== null && (
+                <Fact
+                  label="Клиент"
+                  value={draftClientName(result.draft) ?? ''}
+                />
               )}
               <Fact
                 label="Площадь"
-                value={formatQuantity(totalAreaSquareMeters, 'м²')}
+                value={formatQuantity(result.areaSquareMeters, 'м²')}
               />
-              {preview.total !== null && preview.balance !== null && (
-                <>
-                  <Fact label="Итого" value={formatMoney(preview.total)} />
-                  <Fact
-                    label="Предоплата"
-                    value={formatMoney(preview.prepayment)}
-                  />
-                  <Fact label="Остаток" value={formatMoney(preview.balance)} />
-                </>
-              )}
+              {result.preview.total !== null &&
+                result.preview.balance !== null && (
+                  <>
+                    <Fact
+                      label="Итого"
+                      value={formatMoney(result.preview.total)}
+                    />
+                    <Fact
+                      label="Предоплата"
+                      value={formatMoney(result.preview.prepayment)}
+                    />
+                    <Fact
+                      label="Остаток"
+                      value={formatMoney(result.preview.balance)}
+                    />
+                  </>
+                )}
             </div>
             <ErrorList
               errors={[
@@ -1854,7 +1893,8 @@ export const NewMeasurement = () => {
                         «Новый замер». */}
                     <PhotoRow
                       photos={
-                        draft.openings[item.openingNumber - 1]?.photos ?? []
+                        result.draft.openings[item.openingNumber - 1]?.photos ??
+                        []
                       }
                       openingNumber={item.openingNumber}
                     />
@@ -2958,7 +2998,7 @@ export const NewMeasurement = () => {
             blockers={missingClientDetails(data)}
             warnings={missingCompanyDetails(contractTemplate)}
             signature={signature}
-            onSignatureChange={setSignature}
+            onSignatureChange={changeSignature}
           >
             <ErrorList errors={errors} />
             <button
@@ -2987,7 +3027,9 @@ export const NewMeasurement = () => {
         </div>
         {bottomBar(
           <>
-            <Button onClick={() => goBackTo('payment')}>← К оплате</Button>
+            {isSaving ? null : (
+              <Button onClick={() => goBackTo('payment')}>← К оплате</Button>
+            )}
             {totalBlock(
               formatMoney(preview.total ?? 0),
               `предоплата ${formatMoney(preview.prepayment)}`,
@@ -3011,9 +3053,11 @@ export const NewMeasurement = () => {
       <EditorCard
         title="Что заказано"
         aside={
-          <Button variant="link" onClick={() => goBackTo('measurement')}>
-            Изменить
-          </Button>
+          isSaving ? undefined : (
+            <Button variant="link" onClick={() => goBackTo('measurement')}>
+              Изменить
+            </Button>
+          )
         }
       >
         <div style={column(0)}>
@@ -3244,7 +3288,11 @@ export const NewMeasurement = () => {
         })}
         {bottomBar(
           <>
-            <Button onClick={() => goBackTo('measurement')}>← К замеру</Button>
+            {isSaving ? null : (
+              <Button onClick={() => goBackTo('measurement')}>
+                ← К замеру
+              </Button>
+            )}
             {totalBlock(
               preview.total === null ? totalText : formatMoney(preview.total),
               preview.balance === null

@@ -51,6 +51,8 @@ export default defineLogicFunction({
       'pricePerSquareMeter',
       'costPerSquareMeter',
       'orderId',
+      // An upsert that brings a deleted item back arrives as an update.
+      'deletedAt',
     ],
   },
   handler,

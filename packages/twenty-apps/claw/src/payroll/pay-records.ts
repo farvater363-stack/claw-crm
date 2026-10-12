@@ -1,3 +1,5 @@
+import { type CoreApiClient } from 'twenty-client-sdk/core';
+
 import {
   ACCRUAL_METHOD_OPTIONS,
   PAY_METHOD_OPTIONS,
@@ -7,6 +9,7 @@ import { type KeptRate, type PayRule } from 'src/payroll/pay-rules';
 // Type only, as a whole statement: that module imports node:crypto, which must not reach a front component's bundle.
 import type { AccrualLine } from 'src/payroll/plan-order-accruals';
 import { fromCurrency } from 'src/recalc/money';
+import { PAGE_INFO, withRemainingPages } from 'src/utils/fetch-all-pages';
 
 export const PAY_RULE_SELECTION = {
   id: true,
@@ -19,11 +22,26 @@ export const PAY_RULE_SELECTION = {
 
 // The recalc and the accrual sync read the rules through this one query, so of
 // two rules of one method both pick the same first one.
-// ponytail: every rule in one page of 200; filter by the order's people and page when workers times rules passes it.
 export const ALL_PAY_RULES_QUERY = {
   __args: { first: 200 },
   edges: { node: PAY_RULE_SELECTION },
+  pageInfo: PAGE_INFO,
 } as const;
+
+export const readAllPayRules = async (
+  client: CoreApiClient,
+  firstPage: Parameters<typeof withRemainingPages<PayRuleNode>>[0],
+): Promise<PayRule[]> => {
+  const allRules = await withRemainingPages(firstPage, async (after) => {
+    const { payRules: page } = await client.query({
+      payRules: { ...ALL_PAY_RULES_QUERY, __args: { first: 200, after } },
+    });
+
+    return page;
+  });
+
+  return toPayRules(allRules.edges.map(({ node }) => node));
+};
 
 type Money = { amountMicros?: number | string | null } | null;
 

@@ -8,6 +8,7 @@ import {
 import { PAYMENT_METHOD_OPTIONS } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
+import { readableThroughOrder } from 'src/objects/readable-through-order';
 
 const { orderPayment } = IDS;
 
@@ -19,6 +20,7 @@ export default defineObject({
   labelPlural: 'Оплаты',
   icon: 'IconCash',
   labelIdentifierFieldMetadataUniversalIdentifier: orderPayment.name,
+  ...readableThroughOrder(orderPayment.order),
   fields: [
     {
       universalIdentifier: orderPayment.name,

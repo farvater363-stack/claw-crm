@@ -19,6 +19,7 @@ import {
   type PayrollScreenWorker,
   removePayment,
   removePayRule,
+  restorePayment,
   savePayRule,
   saveWorker,
   updateWorker,
@@ -83,6 +84,7 @@ import {
   StaticRow,
   TabStrip,
   TextInput,
+  UndoBar,
   Wrap,
 } from 'src/ui/kit';
 import { SPACE, TYPE } from 'src/ui/tokens';
@@ -111,6 +113,8 @@ type NewRule = { method: PayMethod; work: PayWork | null; value: string };
 type NewWorker = FullName & { categories: WorkerCategory[]; copyFrom: string };
 
 const SAVED_TICK_MS = 2_000;
+const UNDO_MS = 10_000;
+const UNDO_KEY = 'undo';
 const NO_ACCESS = 'Доступно только владельцу';
 const LOAD_FAILED = 'Не удалось загрузить ЗП. Проверьте интернет и нажмите "Повторить"';
 const SAVE_FAILED = 'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
@@ -155,6 +159,7 @@ const Payroll = () => {
   // What was chosen in a select or a checkbox, shown until the server's answer is read back.
   const [pendingChanges, setPendingChanges] = useState<Record<string, WorkerChange>>({});
   const [savedKey, setSavedKey] = useState<string | null>(null);
+  const [removedPaymentId, setRemovedPaymentId] = useState<string | null>(null);
   const [busyKeys, setBusyKeys] = useState<string[]>([]);
   const [failures, setFailures] = useState<Record<string, { isDenied: boolean; retry: () => void }>>({});
   // State read inside a handler is the one of the render that made the handler;
@@ -704,7 +709,25 @@ const Payroll = () => {
     );
   };
 
-  const renderPaymentEdit = (row: PayrollRow, edit: PaymentEdit) => {
+  const showRemovedPayment = (paymentId: string) => {
+    setRemovedPaymentId(paymentId);
+
+    const timer = setTimeout(() => {
+      timers.current.delete(timer);
+      setRemovedPaymentId((current) => (current === paymentId ? null : current));
+    }, UNDO_MS);
+
+    timers.current.add(timer);
+  };
+
+  const restoreRemovedPayment = (paymentId: string) =>
+    void run(
+      UNDO_KEY,
+      () => restorePayment(new CoreApiClient(), paymentId),
+      () => setRemovedPaymentId((current) => (current === paymentId ? null : current)),
+    );
+
+    const renderPaymentEdit = (row: PayrollRow, edit: PaymentEdit) => {
     const key = `${edit.id}:edit`;
     const removeKey = `${edit.id}:remove`;
     const close = () => {
@@ -784,7 +807,10 @@ const Payroll = () => {
             void run(
               removeKey,
               () => removePayment(new CoreApiClient(), edit.id),
-              () => setPaymentEdit(null),
+              () => {
+                setPaymentEdit(null);
+                showRemovedPayment(edit.id);
+              },
             )
           }
         />
@@ -1249,6 +1275,9 @@ const Payroll = () => {
           </StaticRow>
         )}
       </Section>
+      {removedPaymentId === null ? null : (
+        <UndoBar text="Выплата удалена." onUndo={() => restoreRemovedPayment(removedPaymentId)} />
+      )}
     </Screen>
   );
 };

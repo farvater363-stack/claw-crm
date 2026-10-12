@@ -6,6 +6,19 @@ export const deleteNormsOfMaterial = async (
   client: CoreApiClient,
   materialId: string,
 ): Promise<void> => {
+  // The job runs after the event: a material brought back by then keeps its rows.
+  const { materials } = await client.query({
+    materials: {
+      __args: {
+        filter: { id: { eq: materialId }, deletedAt: { is: 'NOT_NULL' } },
+        first: 1,
+      },
+      edges: { node: { id: true } },
+    },
+  });
+
+  if ((materials?.edges ?? []).length === 0) return;
+
   await client.mutation({
     deleteMaterialNorms: {
       __args: { filter: { materialId: { eq: materialId } } },

@@ -156,10 +156,9 @@ export const buildProfit = ({
     { label: 'Взял себе', amount: -sumOf(ofKind('OWNER_DRAW')) },
     { label: 'Вложил', amount: sumOf(ofKind('OWNER_DEPOSIT')) },
     { label: 'Другие приходы', amount: sumOf(ofKind('INCOME')) },
-    {
-      label: 'Разница при пересчёте кассы',
-      amount: sumOf(ofKind('COUNT_DIFFERENCE')),
-    },
+    // From the ledger, where a recount's difference is the count against
+    // everything written before it
+    { label: 'Разница при пересчёте кассы', amount: flowOf('recount') },
   ].filter((line) => line.amount !== 0);
 
   const withoutMaterial = orders.filter((order) => order.material === 0).length;

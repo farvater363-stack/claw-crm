@@ -53,4 +53,5 @@ export const SAMPLE_CONTRACT_DATA: ContractData = {
       designId: 'design-arm13',
     },
   ],
+  extras: [],
 };

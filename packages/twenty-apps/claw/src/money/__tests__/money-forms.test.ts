@@ -77,6 +77,7 @@ describe('buildRecount', () => {
       expected: 8_600_000,
       isFirst,
       today: TODAY,
+      recountId: 'recount-1',
     });
 
   it('shows the difference once a sum is typed', () => {
@@ -155,6 +156,7 @@ describe('recurring expenses', () => {
     wallet: 'ACCOUNT',
     category: 'RENT',
     isActive: true,
+    createdAt: '2026-10-01T00:00:00Z',
   };
 
   it('needs a day of the month that exists', () => {

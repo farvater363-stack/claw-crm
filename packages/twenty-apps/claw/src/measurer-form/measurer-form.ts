@@ -119,6 +119,9 @@ export type OrderItemPayload = {
   projectionCm: number;
   quantity: number;
   notes: string | null;
+  // The form's «Проём N»: a visor alone saves no item, so the items' order
+  // alone would number the later ones differently from their photos
+  openingNumber: number;
 };
 
 // `quantity` is running metres, the unit a visor is priced in.
@@ -287,8 +290,16 @@ export const openingOutline = (opening: OpeningDraft): ShapeOutline | null =>
 // What the price is counted from: a rectangle's height, or a shape's highest
 // point, so an arch costs as the box it fits in.
 export const openingHeightCm = (opening: OpeningDraft): number | null => {
-  if (opening.product === 'RAILING' || opening.shape.kind === 'RECTANGLE') {
+  if (opening.product === 'RAILING') {
     return parseDecimalInput(opening.heightCm);
+  }
+
+  // Rounded as the saved item's height is, so the quote and the contract
+  // match the order.
+  if (opening.shape.kind === 'RECTANGLE') {
+    const heightCm = parseDecimalInput(opening.heightCm);
+
+    return heightCm === null ? null : roundTo(heightCm, 1);
   }
 
   const outline = openingOutline(opening);
@@ -400,14 +411,19 @@ export const computeOpeningQuote = (
 };
 
 const CENTIMETERS_PER_METER = 100;
-// The length used to be typed in metres: «2,5» out of habit must not be saved
-// as two and a half centimetres.
-const MIN_VISOR_LENGTH_CM = 10;
+// Sizes used to be typed in metres: «2,5» out of habit must not be saved as
+// two and a half centimetres.
+const MIN_SIZE_CM = 10;
 
-// A visor alone: no sizes, so no grille is made for this opening.
+const isBelowMinSize = (sizeCm: number | null) =>
+  sizeCm !== null && sizeCm < MIN_SIZE_CM;
+
+// A visor alone: no sizes, so no grille is made for this opening. A grille
+// picked without sizes is a forgotten size, not a visor alone.
 export const isVisorOnlyOpening = (opening: OpeningDraft): boolean =>
   opening.product === 'GRILLE' &&
   opening.shape.kind === 'RECTANGLE' &&
+  opening.designId === '' &&
   opening.visorServiceId !== '' &&
   opening.widthCm.trim() === '' &&
   opening.heightCm.trim() === '';
@@ -416,7 +432,7 @@ export const isVisorOnlyOpening = (opening: OpeningDraft): boolean =>
 const computeVisorRunningMeters = (opening: OpeningDraft): number | null => {
   const lengthCm = parseDecimalInput(opening.visorLengthCm);
 
-  if (lengthCm === null || lengthCm < MIN_VISOR_LENGTH_CM) return null;
+  if (lengthCm === null || lengthCm < MIN_SIZE_CM) return null;
 
   return roundTo(
     (lengthCm / CENTIMETERS_PER_METER) *
@@ -553,6 +569,19 @@ export const EMPTY_PAYMENT_DRAFT: PaymentDraft = {
   method: 'CASH',
   comment: '',
 };
+
+// «50 000» сум regrouped to «50,000» would read as 50 % once the kind flips.
+export const applyPaymentChanges = (
+  current: PaymentDraft,
+  changes: Partial<PaymentDraft>,
+): PaymentDraft => ({
+  ...current,
+  ...(changes.discountKind !== undefined &&
+  changes.discountKind !== current.discountKind
+    ? { discountValue: '' }
+    : {}),
+  ...changes,
+});
 
 export type PaymentPreview = {
   subtotal: number | null;
@@ -836,15 +865,37 @@ export const buildMeasurementPayload = (
     ) {
       openingErrors.push(`${label}: укажите длину и высоту перилл больше 0`);
     } else if (
+      isRailing &&
+      (isBelowMinSize(widthCm) || isBelowMinSize(heightCm))
+    ) {
+      openingErrors.push(
+        `${label}: укажите длину и высоту перилл в сантиметрах, от ${MIN_SIZE_CM}`,
+      );
+    } else if (
       !isRailing &&
       !isVisorOnly &&
       opening.shape.kind === 'RECTANGLE' &&
       (widthCm === null || heightCm === null || widthCm <= 0 || heightCm <= 0)
     ) {
-      openingErrors.push(`${label}: укажите ширину и высоту больше 0`);
+      openingErrors.push(
+        opening.designId !== '' &&
+          opening.visorServiceId !== '' &&
+          opening.widthCm.trim() === '' &&
+          opening.heightCm.trim() === ''
+          ? `${label}: выбрана решётка — укажите ширину и высоту. Если нужен только козырёк, выберите решётку «Другая».`
+          : `${label}: укажите ширину и высоту больше 0`,
+      );
     } else if (!isVisorOnly && shapeResult !== null && !shapeResult.isValid) {
       openingErrors.push(
         ...shapeResult.errors.map((error) => `${label}: ${error}`),
+      );
+    } else if (
+      !isRailing &&
+      !isVisorOnly &&
+      (isBelowMinSize(widthCm) || isBelowMinSize(heightCm))
+    ) {
+      openingErrors.push(
+        `${label}: укажите ширину и высоту в сантиметрах, от ${MIN_SIZE_CM}`,
       );
     } else if (!isVisorOnly && hasProjection && projectionCm <= 0) {
       openingErrors.push(`${label}: укажите вынос в сантиметрах`);
@@ -864,7 +915,7 @@ export const buildMeasurementPayload = (
 
     if (opening.visorServiceId !== '' && visorRunningMeters === null) {
       openingErrors.push(
-        `${label}: укажите длину козырька в сантиметрах, от ${MIN_VISOR_LENGTH_CM}`,
+        `${label}: укажите длину козырька в сантиметрах, от ${MIN_SIZE_CM}`,
       );
     }
 
@@ -899,6 +950,7 @@ export const buildMeasurementPayload = (
         projectionCm,
         quantity: quantity ?? 1,
         notes: emptyToNull(opening.notes),
+        openingNumber: index + 1,
       });
     }
 

@@ -22,6 +22,10 @@ import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
 
+// Цех may not read sale prices, and every role can read the timeline, so
+// these values are never audit-logged.
+const NOT_AUDIT_LOGGED = { isAuditLogged: false } as const;
+
 const text = (
   universalIdentifier: string,
   name: string,
@@ -188,7 +192,7 @@ export default defineObject({
       'Площадь, м²',
       'IconRuler',
     ),
-    money(IDS.order.subtotal, 'subtotal', 'Сумма'),
+    money(IDS.order.subtotal, 'subtotal', 'Сумма', NOT_AUDIT_LOGGED),
     {
       universalIdentifier: IDS.order.discountKind,
       type: FieldType.SELECT,
@@ -204,10 +208,10 @@ export default defineObject({
       'Скидка',
       'IconDiscount2',
     ),
-    money(IDS.order.discount, 'discount', 'Скидка, сум'),
-    money(IDS.order.total, 'total', 'Итого'),
-    money(IDS.order.paid, 'paid', 'Оплачено'),
-    money(IDS.order.balance, 'balance', 'Остаток'),
+    money(IDS.order.discount, 'discount', 'Скидка, сум', NOT_AUDIT_LOGGED),
+    money(IDS.order.total, 'total', 'Итого', NOT_AUDIT_LOGGED),
+    money(IDS.order.paid, 'paid', 'Оплачено', NOT_AUDIT_LOGGED),
+    money(IDS.order.balance, 'balance', 'Остаток', NOT_AUDIT_LOGGED),
     money(IDS.order.costTotal, 'costTotal', 'Себестоимость'),
     money(IDS.order.margin, 'margin', 'Маржа'),
     decimal(

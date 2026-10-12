@@ -276,8 +276,8 @@ export type ExpenseCategory =
 export const expenseCategoryLabel = (
   category: string | null | undefined,
 ): string =>
-  EXPENSE_CATEGORY_OPTIONS.find((option) => option.value === category)
-    ?.label ?? 'Другое';
+  EXPENSE_CATEGORY_OPTIONS.find((option) => option.value === category)?.label ??
+  'Другое';
 
 export const DISCOUNT_KIND_OPTIONS = toOptions([
   ['PERCENT', '%', 'gray'],
@@ -319,6 +319,7 @@ export type AccrualMethod = (typeof ACCRUAL_METHOD_OPTIONS)[number]['value'];
 export const CONTRACT_STATE_OPTIONS = toOptions([
   ['NONE', 'Не подписан', 'gray'],
   ['SIGNED', 'Подписан', 'green'],
+  ['CHANGED', 'Изменился после подписи', 'red'],
 ] as const);
 
 export type ContractState = (typeof CONTRACT_STATE_OPTIONS)[number]['value'];

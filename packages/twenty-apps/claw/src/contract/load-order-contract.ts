@@ -61,6 +61,7 @@ export const loadOrderContract = async (
         edges: {
           node: {
             id: true,
+            openingNumber: true,
             product: true,
             shape: true,
             widthCm: true,
@@ -85,6 +86,7 @@ export const loadOrderContract = async (
             name: true,
             quantity: true,
             orderItemId: true,
+            extraServiceId: true,
             extraService: { name: true },
             lineTotal: MONEY,
           },
@@ -133,6 +135,7 @@ export const loadOrderContract = async (
       paintColor: order.paintColor ?? null,
       items: (orderItems?.edges ?? []).map(({ node }) => ({
         id: node.id,
+        openingNumber: node.openingNumber ?? null,
         product: node.product ?? null,
         shape: node.shape ?? null,
         widthCm: toNumber(node.widthCm),
@@ -145,6 +148,7 @@ export const loadOrderContract = async (
         lineTotal: fromCurrency(node.lineTotal),
       })),
       extraServices: (orderExtraServices?.edges ?? []).map(({ node }) => ({
+        extraServiceId: node.extraServiceId ?? null,
         name: node.name ?? null,
         serviceName: node.extraService?.name ?? null,
         quantity: toNumber(node.quantity),
@@ -167,4 +171,19 @@ export const loadOrderContract = async (
       total: fromCurrency(node.total),
     })),
   };
+};
+
+// File links expire after a day, so a link handed to the client is fetched
+// just before it is copied rather than taken from the page as it loaded.
+export const loadSignedContractPdfUrl = async (
+  signedContractId: string,
+): Promise<string | null> => {
+  const { signedContracts } = await new CoreApiClient().query({
+    signedContracts: {
+      __args: { filter: { id: { eq: signedContractId } }, first: 1 },
+      edges: { node: { pdf: { url: true } } },
+    },
+  });
+
+  return signedContracts?.edges[0]?.node?.pdf?.[0]?.url ?? null;
 };

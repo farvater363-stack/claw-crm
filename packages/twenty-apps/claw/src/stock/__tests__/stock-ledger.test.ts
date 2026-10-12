@@ -127,8 +127,56 @@ describe('buildStockMonthReport', () => {
         report.otherOut -
         report.workshopUse -
         report.returned +
-        report.recount,
+        report.recount -
+        report.removed,
     ).toBe(report.closing);
+  });
+
+  it('leaves a deleted material out of what the shelf is worth, not out of the month', () => {
+    const withDeleted = valueStockMovements([
+      movement({ quantity: 100, unitPrice: 10_000, date: '2026-09-10' }),
+      movement({
+        materialId: 'old-pipe',
+        quantity: 10,
+        unitPrice: 5_000,
+        date: '2026-09-12',
+      }),
+      movement({
+        materialId: 'old-pipe',
+        quantity: 4,
+        unitPrice: 5_000,
+        date: '2026-10-02',
+        purchaseId: 'purchase-1',
+      }),
+      movement({
+        materialId: 'old-pipe',
+        kind: 'WRITE_OFF',
+        quantity: -6,
+        date: '2026-10-03',
+        orderId: 'order-1',
+      }),
+    ]);
+    const report = buildStockMonthReport(
+      withDeleted,
+      '2026-10',
+      new Set(['old-pipe']),
+    );
+
+    expect(report).toMatchObject({
+      opening: 1_000_000,
+      received: 20_000,
+      toOrders: 30_000,
+      removed: -10_000,
+      closing: 1_000_000,
+    });
+    expect(
+      report.opening + report.received - report.toOrders - report.removed,
+    ).toBe(report.closing);
+    expect(buildStockMonthReport(withDeleted, '2026-10')).toMatchObject({
+      opening: 1_050_000,
+      removed: 0,
+      closing: 1_040_000,
+    });
   });
 
   it('lists each material by quantity', () => {

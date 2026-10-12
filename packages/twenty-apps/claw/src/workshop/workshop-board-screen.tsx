@@ -71,6 +71,9 @@ const NO_RIGHTS = 'Нет прав на этот шаг';
 const SOME_PHOTOS_FAILED =
   'Не все фото загрузились. Добавьте недостающие ещё раз.';
 
+const photosNotAttachedNote = (orderName: string) =>
+  `Заказ ${orderName} уже ушёл дальше, фото не прикреплены`;
+
 class SomePhotosFailedError extends Error {}
 
 // uploadFile needs this workspace's id for order.finishedPhotos, which
@@ -824,6 +827,8 @@ export const WorkshopBoard = () => {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<WriteError | null>(null);
+  // Board-wide: the order it is about has left the board by the time it is read.
+  const [photosNote, setPhotosNote] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
   // The timer, a write and «Повторить» all read, and a slow answer may come
@@ -956,6 +961,7 @@ export const WorkshopBoard = () => {
   const addPhotos = (order: WorkshopOrder, files: File[]) => {
     if (files.length === 0) return;
 
+    setPhotosNote(null);
     void write(order.id, async () => {
       const fieldMetadataId = await fetchFinishedPhotosFieldMetadataId();
       const uploaded: FinishedPhoto[] = [];
@@ -983,6 +989,14 @@ export const WorkshopBoard = () => {
         uploaded.length > 0
           ? await addFinishedPhotos(new CoreApiClient(), order.id, uploaded)
           : 'saved';
+
+      // Nothing was attached, so a partial upload is beside the point; the
+      // reload that follows every write takes the order off the board.
+      if (saved === 'moved') {
+        setPhotosNote(photosNotAttachedNote(order.name));
+
+        return saved;
+      }
 
       if (uploaded.length < files.length) throw new SomePhotosFailedError();
 
@@ -1231,6 +1245,7 @@ export const WorkshopBoard = () => {
         {loadError !== null ? (
           <ErrorNote text={loadError} onRetry={() => void load()} />
         ) : null}
+        {photosNote !== null ? <Hint tone="warning" text={photosNote} /> : null}
 
         {openOrder !== null ? (
           <OrderView

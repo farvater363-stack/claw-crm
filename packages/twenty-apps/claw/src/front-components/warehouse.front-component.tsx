@@ -16,12 +16,15 @@ import {
   createSupplierPayment,
   deletePurchase,
   deleteStockMovements,
+  deleteSupplierPayments,
   loadStockBooks,
+  moveSupplierPayments,
   type PurchaseRemoval,
   renameSupplier,
   restorePurchase,
   restoreStockMovements,
   type StockBooks,
+  supplierPaymentName,
   updateStockOut,
 } from 'src/stock/load-stock-books';
 import {
@@ -168,6 +171,7 @@ const SAVED_TICK_MS = 2_000;
 const SETTLE_REFETCH_MS = [2_000, 6_000];
 const HISTORY_LINES = 5;
 const UNDO_MS = 10_000;
+const LINE_ATTEMPT = 'purchase:line:';
 const UNNAMED = 'Без названия';
 const SAVE_FAILED =
   'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
@@ -317,6 +321,25 @@ const Stock = () => {
         ([key]) => !key.startsWith(prefix),
       ),
     );
+  };
+
+  // Lines an earlier try of the form wrote and the form no longer has: left
+  // stored, they would count on the shelf a second time.
+  const dropLinesOfEarlierTries = async (
+    client: CoreApiClient,
+    lineKeys: string[],
+  ) => {
+    const dropped = Object.keys(attemptIds.current).filter(
+      (key) =>
+        key.startsWith(LINE_ATTEMPT) &&
+        !lineKeys.includes(key.slice(LINE_ATTEMPT.length)),
+    );
+
+    await deleteStockMovements(
+      client,
+      dropped.map((key) => attemptIds.current[key]),
+    );
+    dropped.forEach((key) => delete attemptIds.current[key]);
   };
 
   const newLineKey = () => {
@@ -484,6 +507,9 @@ const Stock = () => {
   );
   // Deleted materials still name the purchases and write-offs they were in.
   const historyMaterials = [...shownMaterials, ...data.removedMaterials];
+  const removedMaterialIds = new Set(
+    data.removedMaterials.map((material) => material.id),
+  );
   const onHandById = new Map(
     shownMaterials.map((material) => [material.id, material.onHand ?? 0]),
   );
@@ -513,16 +539,33 @@ const Stock = () => {
     historyMaterials.find((material) => material.id === materialId)?.name ||
     UNNAMED;
 
+  // Only the payments made with the purchase; one from «Отдать долг» that
+  // covers it belongs to no purchase and stays.
+  const paymentIdsOf = (purchaseId: string) =>
+    payments
+      .filter((payment) => payment.purchaseId === purchaseId)
+      .map((payment) => payment.id);
+
   const closeSheet = () => {
     if (sheet === null) return;
 
     // A save on its way cannot be called back, so it is not left half seen.
     if (inFlight.current.has(sheet.kind)) return;
 
+    // A failed save may have written part of the record; the list shows that
+    // part, so the next try is not made on top of it unseen.
+    const hadFailure = failures[sheet.kind] !== undefined;
+
     setFailures((current) => dropKey(current, sheet.kind));
     forgetAttempts(`${sheet.kind}:`);
     setSheet(null);
     setPhotos([]);
+
+    if (hadFailure) {
+      void readList().then((next) => {
+        if (next !== null) setLoad(next);
+      });
+    }
   };
 
   const openPurchase = (
@@ -599,6 +642,8 @@ const Stock = () => {
   // The purchase and its lines are written again; a line taken out of the form
   // is deleted. Payments stay as they are.
   const saveChangedPurchase = (purchaseId: string, purchase: PurchaseEntry) => {
+    const storedSupplierId =
+      books.purchases.find((one) => one.id === purchaseId)?.supplierId ?? null;
     const storedLineIds = books.movements
       .filter((movement) => movement.purchaseId === purchaseId)
       .map((movement) => movement.id);
@@ -639,14 +684,27 @@ const Stock = () => {
         comment: purchase.comment,
       });
 
-      for (const [index, line] of purchase.lines.entries()) {
+      if (supplierId !== storedSupplierId) {
+        await moveSupplierPayments(client, paymentIdsOf(purchaseId), {
+          id: supplierId,
+          name: supplierName,
+        });
+      }
+
+      for (const line of purchase.lines) {
         await createPurchaseLine(
           client,
-          line.movementId ?? attemptId(`purchase:line:${index}`),
+          line.movementId ?? attemptId(`${LINE_ATTEMPT}${line.key}`),
           { id: purchaseId, date: purchase.date },
           line,
+          canSeeMoney,
         );
       }
+
+      await dropLinesOfEarlierTries(
+        client,
+        purchase.lines.map((line) => line.key),
+      );
 
       await deleteStockMovements(
         client,
@@ -712,11 +770,7 @@ const Stock = () => {
         : books.movements
             .filter((movement) => movement.purchaseId === purchase.id)
             .map((movement) => movement.id),
-      paymentIds: purchase.isLoose
-        ? []
-        : (books.payments ?? [])
-            .filter((payment) => payment.purchaseId === purchase.id)
-            .map((payment) => payment.id),
+      paymentIds: purchase.isLoose ? [] : paymentIdsOf(purchase.id),
     };
 
     removeHistory(
@@ -797,18 +851,31 @@ const Stock = () => {
         comment: purchase.comment,
       });
 
-      for (const [index, line] of purchase.lines.entries()) {
+      for (const line of purchase.lines) {
         await createPurchaseLine(
           client,
-          attemptId(`purchase:line:${index}`),
+          attemptId(`${LINE_ATTEMPT}${line.key}`),
           { id: purchaseId, date: purchase.date },
           line,
+          canSeeMoney,
         );
+      }
+
+      await dropLinesOfEarlierTries(
+        client,
+        purchase.lines.map((line) => line.key),
+      );
+
+      const triedPaymentId = attemptIds.current['purchase:payment'];
+
+      if (purchase.payment === null && triedPaymentId !== undefined) {
+        await deleteSupplierPayments(client, [triedPaymentId]);
+        delete attemptIds.current['purchase:payment'];
       }
 
       if (purchase.payment !== null) {
         await createSupplierPayment(client, attemptId('purchase:payment'), {
-          name: `Оплата поставщику${supplierName ? ` · ${supplierName}` : ''}`,
+          name: supplierPaymentName(supplierName),
           amount: purchase.payment.amount,
           wallet: purchase.payment.wallet,
           date: purchase.date,
@@ -1581,7 +1648,8 @@ const Stock = () => {
                         <DeleteAction
                           text="Удалить приход"
                           question={
-                            purchase.paid > 0
+                            !purchase.isLoose &&
+                            paymentIdsOf(purchase.id).length > 0
                               ? 'Удалить приход? Материал уйдёт со склада, оплата за него удалится из «Деньги».'
                               : 'Удалить приход? Материал уйдёт со склада.'
                           }
@@ -1774,7 +1842,7 @@ const Stock = () => {
   };
 
   const renderReportTab = () => {
-    const report = buildStockMonthReport(valued, month);
+    const report = buildStockMonthReport(valued, month, removedMaterialIds);
     const money = (value: number) => formatMoney(value);
     const lines: [string, number, boolean?][] = [
       [`Было на 1 число`, report.opening],
@@ -1794,6 +1862,7 @@ const Stock = () => {
       ['Для цеха', -report.workshopUse],
       ['Вернул поставщику', -report.returned],
       ['Другое', -report.otherOut],
+      ['Удалённые материалы', -report.removed],
     ];
 
     return (
@@ -2018,7 +2087,11 @@ const Stock = () => {
       />
     );
 
-  const monthReport = buildStockMonthReport(valued, month);
+  const monthReport = buildStockMonthReport(
+    valued,
+    month,
+    removedMaterialIds,
+  );
 
   return (
     <Screen
