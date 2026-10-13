@@ -13,6 +13,7 @@ import {
   computeServiceQuantity,
   copyOpening,
   createEmptyOpening,
+  createOpeningLike,
   describePhotoUploadFailure,
   draftFromScheduledOrder,
   EMPTY_PAYMENT_DRAFT,
@@ -1234,5 +1235,63 @@ describe('computeServiceQuantity', () => {
         0,
       ),
     ).toBeNull();
+  });
+});
+
+describe('computeServiceQuantity for a fixed-price service', () => {
+  const fixed = {
+    id: 'service',
+    name: 'Демонтаж',
+    unit: 'FIXED' as const,
+    price: 150_000,
+  };
+
+  it('counts once until the stepper is pressed, then as many times as set', () => {
+    expect(
+      computeServiceQuantity(
+        { key: 'line', serviceId: 'service', quantity: '' },
+        fixed,
+        0,
+      ),
+    ).toBe(1);
+    expect(
+      computeServiceQuantity(
+        { key: 'line', serviceId: 'service', quantity: '2' },
+        fixed,
+        0,
+      ),
+    ).toBe(2);
+  });
+});
+
+describe('createOpeningLike', () => {
+  it('carries the build of the previous проём over, not its sizes', () => {
+    const previous = opening({
+      designId: 'rhomb',
+      widthCm: '150',
+      heightCm: '120',
+      projectionKind: 'BOTTOM',
+      projectionCm: '10',
+      isVisorWanted: true,
+      visorServiceId: 'polycarbonate',
+      visorLengthCm: '150',
+      notes: 'замок справа',
+    });
+    const next = createOpeningLike(previous, 'next', 'next-visor');
+
+    expect(next).toMatchObject({
+      key: 'next',
+      visorKey: 'next-visor',
+      designId: 'rhomb',
+      widthCm: '',
+      heightCm: '',
+      projectionKind: 'BOTTOM',
+      projectionCm: '10',
+      isVisorWanted: true,
+      visorServiceId: 'polycarbonate',
+      visorLengthCm: '',
+      notes: '',
+      quantity: '1',
+    });
   });
 });

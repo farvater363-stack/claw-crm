@@ -219,6 +219,22 @@ export const copyOpening = (
   photos: [],
 });
 
+// «+ Проём»: the next window is usually of the same build, so the product,
+// grille, вынос and visor carry over; its sizes are measured anew.
+export const createOpeningLike = (
+  previous: OpeningDraft,
+  key: string,
+  visorKey: string,
+): OpeningDraft => ({
+  ...createEmptyOpening(key, visorKey),
+  product: previous.product,
+  designId: previous.designId,
+  projectionKind: previous.projectionKind,
+  projectionCm: previous.projectionCm,
+  isVisorWanted: previous.isVisorWanted,
+  visorServiceId: previous.visorServiceId,
+});
+
 export const takePhotosWithinLimit = <TPhoto>(
   current: TPhoto[],
   picked: TPhoto[],
@@ -473,6 +489,10 @@ const SERVICE_UNIT_TEXT: Record<ExtraServiceUnit, string> = {
 export const serviceUnitText = (unit: ExtraServiceUnit | null): string =>
   SERVICE_UNIT_TEXT[unit ?? 'FIXED'];
 
+// Counted with a stepper: a fixed-price service taken twice is paid twice.
+export const isCountedServiceUnit = (unit: ExtraServiceUnit | null): boolean =>
+  unit === null || unit === 'FIXED' || unit === 'PER_PIECE';
+
 // null while the measurer still has to type it.
 export const computeServiceQuantity = (
   line: ServiceDraft,
@@ -480,9 +500,7 @@ export const computeServiceQuantity = (
   openingsAreaSquareMeters: number,
 ): number | null => {
   const unit = option?.unit ?? 'FIXED';
-
-  if (unit === 'FIXED') return 1;
-
+  const isCounted = isCountedServiceUnit(unit);
   const typed = parseDecimalInput(line.quantity);
 
   if (unit === 'PER_SQUARE_METER' && line.quantity.trim() === '') {
@@ -490,10 +508,10 @@ export const computeServiceQuantity = (
   }
 
   // The stepper shows 1 before anything is pressed
-  if (unit === 'PER_PIECE' && line.quantity.trim() === '') return 1;
+  if (isCounted && line.quantity.trim() === '') return 1;
 
   if (typed === null || typed <= 0) return null;
-  if (unit === 'PER_PIECE' && !Number.isInteger(typed)) return null;
+  if (isCounted && !Number.isInteger(typed)) return null;
 
   return roundTo(typed, 2);
 };
@@ -964,7 +982,7 @@ export const buildMeasurementPayload = (
 
     if (quantity === null) {
       errors.push(
-        option?.unit === 'PER_PIECE'
+        isCountedServiceUnit(option?.unit ?? null)
           ? `Услуга «${name}»: количество должно быть целым числом от 1`
           : `Услуга «${name}»: укажите ${option?.unit === 'PER_RUNNING_METER' ? 'длину в п.м.' : 'площадь в м²'}`,
       );

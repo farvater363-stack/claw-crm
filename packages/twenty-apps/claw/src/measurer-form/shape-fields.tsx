@@ -56,6 +56,85 @@ const RemoveButton = ({
   </Button>
 );
 
+type SizeId =
+  'width' | 'height' | 'left' | 'right' | 'center' | 'side' | 'rise';
+
+// One number of the outline, typed on the pad on «Новый замер».
+export type ShapeSize = {
+  id: SizeId;
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+};
+
+// The order the pad's «Далее» walks them in.
+const SIZE_ORDER: Record<ShapeKind, SizeId[]> = {
+  RECTANGLE: ['width', 'height'],
+  SLOPE: ['width', 'left', 'right', 'center'],
+  ARCH: ['width', 'side', 'rise'],
+  STEP: ['width', 'left', 'right'],
+  CUSTOM: ['width'],
+};
+
+type ShapeSizeInput = {
+  shape: ShapeDraft;
+  widthCm: string;
+  heightCm: string;
+  onShapeChange: (shape: ShapeDraft) => void;
+  onWidthChange: (widthCm: string) => void;
+  onHeightChange: (heightCm: string) => void;
+};
+
+const sizesById = ({
+  shape,
+  widthCm,
+  heightCm,
+  onShapeChange,
+  onWidthChange,
+  onHeightChange,
+}: ShapeSizeInput): Record<SizeId, ShapeSize> => {
+  const update = (changes: Partial<ShapeDraft>) =>
+    onShapeChange({ ...shape, ...changes });
+  const size = (
+    id: SizeId,
+    label: string,
+    value: string,
+    onChange: (value: string) => void,
+    placeholder = '0',
+  ): ShapeSize => ({ id, label, placeholder, value, onChange });
+
+  return {
+    width: size('width', 'Ширина', widthCm, onWidthChange),
+    height: size('height', 'Высота', heightCm, onHeightChange),
+    left: size('left', 'Высота слева', shape.leftCm, (leftCm) =>
+      update({ leftCm }),
+    ),
+    right: size('right', 'Высота справа', shape.rightCm, (rightCm) =>
+      update({ rightCm }),
+    ),
+    center: size(
+      'center',
+      'По центру, если есть',
+      shape.centerCm,
+      (centerCm) => update({ centerCm }),
+      'нет',
+    ),
+    side: size('side', 'Высота боковин', shape.sideCm, (sideCm) =>
+      update({ sideCm }),
+    ),
+    rise: size('rise', 'Стрела арки', shape.riseCm, (riseCm) =>
+      update({ riseCm }),
+    ),
+  };
+};
+
+export const shapeSizes = (input: ShapeSizeInput): ShapeSize[] => {
+  const byId = sizesById(input);
+
+  return SIZE_ORDER[input.shape.kind].map((id) => byId[id]);
+};
+
 const PointRow = ({
   title,
   point,
@@ -114,15 +193,12 @@ export const ShapeFields = ({
   onShapeChange,
   onWidthChange,
   onHeightChange,
-}: {
-  shape: ShapeDraft;
-  widthCm: string;
-  heightCm: string;
+  renderSize,
+}: ShapeSizeInput & {
   nextKey: () => string;
   liveErrors: string[];
-  onShapeChange: (shape: ShapeDraft) => void;
-  onWidthChange: (widthCm: string) => void;
-  onHeightChange: (heightCm: string) => void;
+  // Draws the outline's numbers as pad fields; without it they are inputs
+  renderSize?: (size: ShapeSize) => ReactNode;
 }) => {
   const colors = usePalette();
   const update = (changes: Partial<ShapeDraft>) =>
@@ -133,32 +209,36 @@ export const ShapeFields = ({
     changes: Partial<TItem>,
   ) => items.map((item) => (item.key === key ? { ...item, ...changes } : item));
 
-  const widthField = (
-    <Field label="Ширина">
-      <CmInput
-        label="Ширина, см"
-        isLarge
-        value={widthCm}
-        onChange={onWidthChange}
-      />
-    </Field>
-  );
+  const byId = sizesById({
+    shape,
+    widthCm,
+    heightCm,
+    onShapeChange,
+    onWidthChange,
+    onHeightChange,
+  });
+  const sizeField = (id: SizeId) => {
+    const size = byId[id];
+
+    return renderSize ? (
+      renderSize(size)
+    ) : (
+      <Field label={size.label}>
+        <CmInput
+          label={`${size.label}, см`}
+          isLarge={id === 'width' || id === 'height'}
+          placeholder={size.placeholder}
+          value={size.value}
+          onChange={size.onChange}
+        />
+      </Field>
+    );
+  };
+  const widthField = sizeField('width');
   const heightPair = (
     <>
-      <Field label="Высота слева">
-        <CmInput
-          label="Высота слева, см"
-          value={shape.leftCm}
-          onChange={(leftCm) => update({ leftCm })}
-        />
-      </Field>
-      <Field label="Высота справа">
-        <CmInput
-          label="Высота справа, см"
-          value={shape.rightCm}
-          onChange={(rightCm) => update({ rightCm })}
-        />
-      </Field>
+      {sizeField('left')}
+      {sizeField('right')}
     </>
   );
 
@@ -166,28 +246,14 @@ export const ShapeFields = ({
     RECTANGLE: () => (
       <div style={PAIR}>
         {widthField}
-        <Field label="Высота">
-          <CmInput
-            label="Высота, см"
-            isLarge
-            value={heightCm}
-            onChange={onHeightChange}
-          />
-        </Field>
+        {sizeField('height')}
       </div>
     ),
     SLOPE: () => (
       <>
         <div style={PAIR}>
           {widthField}
-          <Field label="По центру, если есть">
-            <CmInput
-              label="Высота по центру, см"
-              placeholder="нет"
-              value={shape.centerCm}
-              onChange={(centerCm) => update({ centerCm })}
-            />
-          </Field>
+          {sizeField('center')}
           {heightPair}
         </div>
         {shape.slopePoints.length > 0 && (
@@ -241,20 +307,8 @@ export const ShapeFields = ({
       <>
         <div style={PAIR}>
           {widthField}
-          <Field label="Высота боковин">
-            <CmInput
-              label="Высота боковин, см"
-              value={shape.sideCm}
-              onChange={(sideCm) => update({ sideCm })}
-            />
-          </Field>
-          <Field label="Стрела арки">
-            <CmInput
-              label="Стрела арки, см"
-              value={shape.riseCm}
-              onChange={(riseCm) => update({ riseCm })}
-            />
-          </Field>
+          {sizeField('side')}
+          {sizeField('rise')}
         </div>
         <span style={{ ...TYPE.label, color: colors.muted }}>
           Боковины 0, если арка стоит прямо на подоконнике. Стрела: от линии
