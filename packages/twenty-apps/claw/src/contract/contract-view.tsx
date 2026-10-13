@@ -14,6 +14,7 @@ import {
   SignaturePad,
   type SignatureStroke,
   SketchDrawing,
+  useElementHeight,
   useElementWidth,
 } from 'src/measurer-form/measurer-form-ui';
 import { formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
@@ -33,6 +34,15 @@ const PAPER_HEIGHT_NARROW_PX = 440;
 // The client reads on the measurer's tablet at arm's length
 const LARGE_TEXT = { fontSize: '19px', lineHeight: '30px' };
 const SIGNATURE_HEIGHT_PX = 280;
+// Inside a room the screen gives: neither box may end under what covers the
+// screen's edge, where the contract's last page and the signature's line
+// would never be seen
+const PAPER_MIN_HEIGHT_PX = 280;
+const SIGNATURE_MIN_HEIGHT_PX = 160;
+// The font button and the «Прочитано» line with its bar, over the contract
+const PAPER_CHROME_HEIGHT_PX = 100;
+// The tick over the signature, «Подписано» under it, and the gaps between
+const SIGNING_CHROME_HEIGHT_PX = 160;
 
 const Runs = ({ runs }: { runs: ContractRun[] }) => (
   <>
@@ -395,8 +405,10 @@ export const SigningPanel = ({
   onAgreeChange,
   signature,
   onSignatureChange,
+  padHeight = SIGNATURE_HEIGHT_PX,
   children,
 }: {
+  padHeight?: number;
   isUnlocked: boolean;
   lockedText: string;
   isAgreed: boolean;
@@ -423,7 +435,7 @@ export const SigningPanel = ({
         <>
           <SignaturePad
             strokes={signature}
-            height={SIGNATURE_HEIGHT_PX}
+            height={padHeight}
             onChange={onSignatureChange}
           />
           {signature.length > 0 ? (
@@ -549,10 +561,14 @@ export const ContractSigning = ({
   warnings,
   signature,
   onSignatureChange,
+  roomHeight,
   children,
 }: {
   document: ContractDocument;
   data: ContractData;
+  // The height the screen can show at once, where the screen knows it; the
+  // contract's box and the signature are then sized to fit it
+  roomHeight?: number;
   // Missing order details: signing stays locked while any is listed
   blockers: string[];
   // Company details the owner has not filled yet; signing still works
@@ -568,7 +584,26 @@ export const ContractSigning = ({
   const [isRead, setIsRead] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
   const [isLargeText, setIsLargeText] = useState(true);
+  const summary = useElementHeight();
   const isSideBySide = page.width >= SIDE_BY_SIDE_MIN_WIDTH;
+  const paperHeight =
+    roomHeight === undefined
+      ? isSideBySide
+        ? PAPER_HEIGHT_WIDE_PX
+        : PAPER_HEIGHT_NARROW_PX
+      : Math.max(PAPER_MIN_HEIGHT_PX, roomHeight - PAPER_CHROME_HEIGHT_PX);
+  // Beside the contract the signature shares the room with the summary over
+  // it; under the contract the page scrolls to it anyway
+  const padHeight =
+    roomHeight === undefined || !isSideBySide || summary.height === 0
+      ? SIGNATURE_HEIGHT_PX
+      : Math.min(
+          SIGNATURE_HEIGHT_PX,
+          Math.max(
+            SIGNATURE_MIN_HEIGHT_PX,
+            roomHeight - summary.height - SIGNING_CHROME_HEIGHT_PX,
+          ),
+        );
 
   return (
     <div
@@ -591,20 +626,26 @@ export const ContractSigning = ({
         <ContractPaper
           document={document}
           isLargeText={isLargeText}
-          height={isSideBySide ? PAPER_HEIGHT_WIDE_PX : PAPER_HEIGHT_NARROW_PX}
+          height={paperHeight}
           onReadToEnd={() => setIsRead(true)}
         />
       </div>
       <div style={{ display: 'grid', gap: SPACE.md, minWidth: 0 }}>
-        <ContractSummary data={data} />
-        {warnings.length > 0 ? (
-          <Hint
-            tone="warning"
-            isSmall
-            text={`В договоре не заполнено: ${warnings.join(', ')}. Владелец заполняет это на экране «Договор».`}
-          />
-        ) : null}
+        <div
+          ref={summary.ref}
+          style={{ display: 'grid', gap: SPACE.md, minWidth: 0 }}
+        >
+          <ContractSummary data={data} />
+          {warnings.length > 0 ? (
+            <Hint
+              tone="warning"
+              isSmall
+              text={`В договоре не заполнено: ${warnings.join(', ')}. Владелец заполняет это на экране «Договор».`}
+            />
+          ) : null}
+        </div>
         <SigningPanel
+          padHeight={padHeight}
           isUnlocked={isRead && blockers.length === 0}
           lockedText={
             blockers.length > 0

@@ -11,103 +11,9 @@ import {
   type MeasurementDraft,
   UZBEK_PHONE_PREFIX,
 } from 'src/measurer-form/measurer-form';
-import {
-  ChoiceChips,
-  FieldLabel,
-  TextArea,
-} from 'src/measurer-form/measurer-form-ui';
+import { ChoiceChips, TextArea } from 'src/measurer-form/measurer-form-ui';
 import { Button, Field, TextInput, usePalette } from 'src/ui/kit';
-import {
-  CONTROL_HEIGHT,
-  RADIUS,
-  SPACE,
-  TABULAR_NUMBERS,
-  TYPE,
-} from 'src/ui/tokens';
-
-const FloorStepper = ({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) => {
-  const colors = usePalette();
-  const floor = Number.parseInt(value, 10);
-  const step = (delta: number) => {
-    if (Number.isNaN(floor)) {
-      onChange(delta > 0 ? '1' : '');
-
-      return;
-    }
-
-    const next = floor + delta;
-
-    onChange(next < 1 ? '' : String(next));
-  };
-  const button: CSSProperties = {
-    width: CONTROL_HEIGHT + SPACE.sm,
-    minHeight: CONTROL_HEIGHT + SPACE.xs,
-    background: colors.panel,
-    border: 'none',
-    color: colors.accent,
-    font: 'inherit',
-    fontSize: '24px',
-    cursor: 'pointer',
-  };
-
-  return (
-    <div style={{ display: 'grid', gap: SPACE.xs, justifyItems: 'start' }}>
-      <FieldLabel>Этаж</FieldLabel>
-      <div
-        style={{
-          display: 'inline-flex',
-          alignItems: 'stretch',
-          border: `1px solid ${colors.border}`,
-          borderRadius: RADIUS.control,
-          overflow: 'hidden',
-          background: colors.surface,
-        }}
-      >
-        <button
-          type="button"
-          aria-label="Этаж ниже"
-          style={button}
-          onClick={() => step(-1)}
-        >
-          −
-        </button>
-        <input
-          inputMode="numeric"
-          aria-label="Этаж"
-          value={value}
-          placeholder="—"
-          onChange={(event) => onChange(event.target.value.replace(/\D/g, ''))}
-          style={{
-            width: 64,
-            border: 'none',
-            outline: 'none',
-            background: 'transparent',
-            color: colors.text,
-            font: 'inherit',
-            ...TYPE.rowTitle,
-            fontSize: '22px',
-            textAlign: 'center',
-            ...TABULAR_NUMBERS,
-          }}
-        />
-        <button
-          type="button"
-          aria-label="Этаж выше"
-          style={button}
-          onClick={() => step(1)}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  );
-};
+import { RADIUS, SPACE } from 'src/ui/tokens';
 
 // The client's details, phone first: it is the one thing the order cannot be
 // saved without, and it finds a client the CRM already knows.
@@ -202,10 +108,14 @@ export const ClientFields = ({
             onChange={(addressLine) => onChange({ addressLine })}
           />
         </Field>
-        <FloorStepper
-          value={draft.floor}
-          onChange={(floor) => onChange({ floor })}
-        />
+        <Field label="Этаж">
+          <TextInput
+            label="Этаж"
+            inputMode="numeric"
+            value={draft.floor}
+            onChange={(floor) => onChange({ floor })}
+          />
+        </Field>
       </div>
       <ChoiceChips
         label="Откуда узнал"

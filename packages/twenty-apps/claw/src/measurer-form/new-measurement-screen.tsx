@@ -597,6 +597,7 @@ export const NewMeasurement = () => {
   const page = useElementWidth();
   const header = useElementHeight();
   const footer = useElementHeight();
+  const screen = useElementHeight();
   const [draft, setDraft] = useState<MeasurementDraft>(createEmptyDraft);
   const [grilles, setGrilles] = useState<GrilleOption[]>([]);
   const [visorOptions, setVisorOptions] = useState<VisorOption[]>([]);
@@ -1844,6 +1845,21 @@ export const NewMeasurement = () => {
         ...TYPE.body,
       }}
     >
+      {/* As tall as the screen: the sandbox gives a height in pixels only for
+          an element it has measured */}
+      <div
+        ref={screen.ref}
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: 0,
+          height: '100cqh',
+          visibility: 'hidden',
+          pointerEvents: 'none',
+        }}
+      />
       {topBar}
       <div
         style={{
@@ -1958,12 +1974,18 @@ export const NewMeasurement = () => {
           warnings={missingCompanyDetails(contractTemplate)}
           signature={signature}
           onSignatureChange={changeSignature}
+          // Between the two bars, so the contract's end and the signature are
+          // not under the lower one; a phone's bar is not stuck there
+          roomHeight={
+            page.width >= COLUMNS_MIN_WIDTH && screen.height > 0
+              ? screen.height -
+                header.height -
+                footer.height -
+                2 * (isTwoPane ? SPACE.xl : SPACE.lg)
+              : undefined
+          }
         >
           <ErrorList errors={errors} />
-          <span style={{ ...TYPE.label, color: colors.muted, ...WRAP }}>
-            Передайте планшет клиенту. Заказ, оплата и подписанный PDF
-            сохранятся одним нажатием внизу.
-          </span>
         </ContractSigning>
       </div>,
       <>
