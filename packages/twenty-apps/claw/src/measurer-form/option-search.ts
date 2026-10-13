@@ -44,7 +44,9 @@ export const rankByUse = <TOption extends Option>(
   );
 
 // What is already used in this замер comes before what is ordered most, so
-// the next window of the same house is one tap.
+// the next window of the same house is one tap. A new catalogue fills up by
+// name. The chosen option is always among the tiles, and a tap never moves
+// a tile.
 export const pickQuickOptions = <TOption extends Option>({
   options,
   uses,
@@ -61,12 +63,20 @@ export const pickQuickOptions = <TOption extends Option>({
   const usedHere = usedHereIds.flatMap((id) =>
     options.filter((option) => option.id === id),
   );
+  const ranked = [
+    ...usedHere,
+    ...rankByUse(options, uses),
+    ...sortByName(options),
+  ].filter(
+    (option, index, all) =>
+      all.findIndex((candidate) => candidate.id === option.id) === index,
+  );
+  const quick = ranked.slice(0, limit);
+  const chosen = ranked.find((option) => option.id === chosenId);
 
-  return [...usedHere, ...rankByUse(options, uses)]
-    .filter(
-      (option, index, all) =>
-        option.id !== chosenId &&
-        all.findIndex((candidate) => candidate.id === option.id) === index,
-    )
-    .slice(0, limit);
+  if (chosen === undefined || quick.includes(chosen) || limit === 0) {
+    return quick;
+  }
+
+  return [...quick.slice(0, limit - 1), chosen];
 };

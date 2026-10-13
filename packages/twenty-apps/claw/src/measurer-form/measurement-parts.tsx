@@ -240,14 +240,22 @@ export const ReceiptLine = ({
     <div
       style={{
         display: 'flex',
+        flexWrap: 'wrap',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
-        gap: SPACE.md,
+        gap: `${SPACE.xs}px ${SPACE.md}px`,
         padding: `${SPACE.md}px 0`,
         borderBottom: `1px dashed ${colors.border}`,
       }}
     >
-      <span style={{ display: 'grid', ...WRAP }}>
+      <span
+        style={{
+          display: 'grid',
+          flex: '1 1 160px',
+          minWidth: 0,
+          overflowWrap: 'break-word',
+        }}
+      >
         <span style={{ fontWeight: 600 }}>{title}</span>
         <span
           style={{ ...TYPE.label, ...TABULAR_NUMBERS, color: colors.muted }}
@@ -256,7 +264,12 @@ export const ReceiptLine = ({
         </span>
       </span>
       <span
-        style={{ ...TABULAR_NUMBERS, fontWeight: 600, whiteSpace: 'nowrap' }}
+        style={{
+          marginLeft: 'auto',
+          ...TABULAR_NUMBERS,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+        }}
       >
         {amount}
       </span>

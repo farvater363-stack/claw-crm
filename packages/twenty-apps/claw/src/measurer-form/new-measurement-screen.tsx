@@ -150,7 +150,11 @@ import {
   shapeKindLabel,
   buildShapeOutline,
 } from 'src/opening-shape/opening-shape';
-import { formatSketchCm } from 'src/opening-shape/sketch-layout';
+import {
+  formatSketchCm,
+  SKETCH_HEIGHT,
+  SKETCH_WIDTH,
+} from 'src/opening-shape/sketch-layout';
 import {
   formatItemSize,
   formatRailingSize,
@@ -215,6 +219,10 @@ const QUICK_GRILLE_COUNT = 5;
 const THREE_COLUMNS_MIN_WIDTH = 900;
 // Below this the side columns are narrower, to leave the editor its room
 const ROOMY_MIN_WIDTH = 1100;
+const SKETCH_MAX_WIDTH = 300;
+const SKETCH_MIN_WIDTH = 150;
+// The number pad, the summary lines under the sketch and the gaps between
+const PAD_AND_SUMMARY_HEIGHT_PX = 520;
 // Narrower than this (a tablet upright, a phone) the pad docks at the bottom
 const TOOL_BESIDE_MIN_WIDTH = 680;
 // The sketch fits beside the docked pad from this width
@@ -609,11 +617,11 @@ const initialsOf = (name: string | null): string =>
 const shortProblem = (error: string): string => {
   const text = error.replace(/^Проём \d+: /, '');
 
-  if (/ширину и высоту|длину и высоту/.test(text)) return 'нужны размеры';
   if (text.includes('длину козырька')) return 'нужна длина козырька';
   if (text.includes('выберите козырёк')) return 'выберите козырёк';
-  if (text.includes('вынос')) return 'нужен вынос';
+  if (text.startsWith('укажите вынос')) return 'нужен вынос';
   if (text.includes('количество')) return 'проверьте количество';
+  if (/укажите|ширин|высот|размер/.test(text)) return 'нужны размеры';
 
   return text;
 };
@@ -629,6 +637,7 @@ export const NewMeasurement = () => {
   const page = useElementWidth();
   const header = useElementHeight();
   const footer = useElementHeight();
+  const screen = useElementHeight();
   const [draft, setDraft] = useState<MeasurementDraft>(createEmptyDraft);
   const [grilles, setGrilles] = useState<GrilleOption[]>([]);
   const [visorOptions, setVisorOptions] = useState<VisorOption[]>([]);
@@ -668,6 +677,11 @@ export const NewMeasurement = () => {
     () => draft.openings[0]?.key ?? SERVICES_KEY,
   );
   const [activePadId, setActivePadId] = useState<string | null>(null);
+  const lastPadPress = useRef<{
+    id: string;
+    renderedValue: string;
+    value: string;
+  } | null>(null);
   const [copiedNotice, setCopiedNotice] = useState<{
     openingKey: string;
     fromNumber: number;
@@ -880,6 +894,17 @@ export const NewMeasurement = () => {
     measurementDate: toDateTimeLocalInputValue(new Date()),
   } as const;
 
+  // The first thing measured is the width, so the pad is ready for it.
+  const startMeasuring = () => {
+    const opening = draft.openings.find(
+      (candidate) => candidate.key === selectedKey,
+    );
+
+    if (opening !== undefined && opening.widthCm === '') {
+      setActivePadId(`${opening.key}:width`);
+    }
+  };
+
   const pickVisit = (orderId: string) => {
     const order = scheduledOrders.find((candidate) => candidate.id === orderId);
 
@@ -888,6 +913,7 @@ export const NewMeasurement = () => {
     setTarget(order.id);
     setClientMatch(null);
     updateDraft(draftFromScheduledOrder(order));
+    startMeasuring();
   };
 
   // A new client starts blank, unless the measurer is coming back to one
@@ -1304,12 +1330,30 @@ export const NewMeasurement = () => {
   const activeTarget = activeIndex === -1 ? null : padTargets[activeIndex];
   const nextTarget =
     activeIndex === -1 ? null : (padTargets[activeIndex + 1] ?? null);
+  const isSketchDocked =
+    layout === 'narrow' &&
+    activeTarget !== null &&
+    page.width >= DOCK_SKETCH_MIN_WIDTH;
+  // Taps can arrive faster than the screen re-renders, and each one would
+  // then start from the same old value and drop the digit before it.
   const pressPadKey = (key: PadKey) => {
-    if (activeTarget !== null) {
-      activeTarget.onChange(
-        applyPadKey(activeTarget.value, key, activeTarget.kind),
-      );
-    }
+    if (activeTarget === null) return;
+
+    const pending = lastPadPress.current;
+    const base =
+      pending !== null &&
+      pending.id === activeTarget.id &&
+      pending.renderedValue === activeTarget.value
+        ? pending.value
+        : activeTarget.value;
+    const value = applyPadKey(base, key, activeTarget.kind);
+
+    lastPadPress.current = {
+      id: activeTarget.id,
+      renderedValue: activeTarget.value,
+      value,
+    };
+    activeTarget.onChange(value);
   };
   const goToNextField = () => setActivePadId(nextTarget?.id ?? null);
   const padField = (
@@ -1322,7 +1366,13 @@ export const NewMeasurement = () => {
   ) => (
     <PadField
       key={padTarget.id}
-      target={padTarget}
+      target={{
+        ...padTarget,
+        onChange: (value) => {
+          lastPadPress.current = null;
+          padTarget.onChange(value);
+        },
+      }}
       isActive={activePadId === padTarget.id}
       isWrong={options.isWrong}
       isLarge={options.isLarge}
@@ -1368,7 +1418,8 @@ export const NewMeasurement = () => {
         ? targets.find((candidate) => candidate.id.endsWith(':projection'))
         : short === 'нужна длина козырька'
           ? targets.find((candidate) => candidate.id.endsWith(':visor'))
-          : targets.find((candidate) => candidate.value.trim() === '');
+          : (targets.find((candidate) => candidate.value.trim() === '') ??
+            targets[0]);
 
     setSelectedKey(opening.key);
     setPicker(null);
@@ -1737,6 +1788,7 @@ export const NewMeasurement = () => {
   });
 
   const shell: CSSProperties = {
+    position: 'relative',
     boxSizing: 'border-box',
     width: '100%',
     color: colors.text,
@@ -2103,7 +2155,8 @@ export const NewMeasurement = () => {
     <div
       ref={header.ref}
       style={{
-        position: 'sticky',
+        // A phone keeps its short screen for the fields and the pad
+        position: layout === 'narrow' ? 'relative' : 'sticky',
         top: 0,
         // Above the fields that scroll under it
         zIndex: 2,
@@ -2175,7 +2228,7 @@ export const NewMeasurement = () => {
     </nav>
   );
 
-  const sketchOf = (opening: OpeningDraft) => {
+  const sketchOf = (opening: OpeningDraft, maxWidth = SKETCH_MAX_WIDTH) => {
     const isRailing = opening.product === 'RAILING';
     const outline = isRailing ? null : openingOutline(opening);
     const visor = visorOf(opening);
@@ -2186,7 +2239,7 @@ export const NewMeasurement = () => {
         style={{
           display: 'grid',
           gap: 0,
-          maxWidth: 300,
+          maxWidth,
           width: '100%',
           margin: '0 auto',
         }}
@@ -2237,7 +2290,7 @@ export const NewMeasurement = () => {
     );
   };
 
-  const sketchPanel = (opening: OpeningDraft) => {
+  const sketchPanel = (opening: OpeningDraft, sketchMaxWidth?: number) => {
     const total = openingTotal(opening);
     const runningMeters = computeOpeningRunningMeters(opening);
     const area = openingArea(opening);
@@ -2256,7 +2309,7 @@ export const NewMeasurement = () => {
           borderRadius: RADIUS.card,
         }}
       >
-        {sketchOf(opening)}
+        {sketchOf(opening, sketchMaxWidth)}
         {runningMeters !== null && (
           <SummaryLine
             label="Длина"
@@ -2652,7 +2705,7 @@ export const NewMeasurement = () => {
             Размеры введите заново.
           </div>
         ) : null}
-        {layout === 'narrow' ? sketchPanel(opening) : null}
+        {layout === 'narrow' && !isSketchDocked ? sketchPanel(opening) : null}
         <EditorCard title="Размеры">
           <div style={{ maxWidth: 400 }}>
             <Segmented
@@ -2920,6 +2973,7 @@ export const NewMeasurement = () => {
             sketch !== null && page.width >= DOCK_SKETCH_MIN_WIDTH
               ? 'minmax(0, 1fr) minmax(0, 1fr)'
               : 'minmax(0, 1fr)',
+          alignItems: 'start',
           gap: SPACE.md,
           padding: `${SPACE.md}px ${SPACE.lg}px 0`,
         }}
@@ -2931,12 +2985,20 @@ export const NewMeasurement = () => {
 
   const page3 = (columns: {
     list?: ReactNode;
+    // The receipt reads lines of text, so it shares the width with the form
+    isListWide?: boolean;
     main: ReactNode;
     tool: ReactNode;
   }) => {
+    const listTrack =
+      columns.list === undefined
+        ? ''
+        : columns.isListWide === true
+          ? 'minmax(0, 1fr) '
+          : `${LIST_WIDTH[room]}px `;
     const gridTemplateColumns =
       layout === 'wide'
-        ? `${columns.list === undefined ? '' : `${LIST_WIDTH[room]}px `}minmax(0, 1fr) ${TOOL_WIDTH[room]}px`
+        ? `${listTrack}minmax(0, 1fr) ${TOOL_WIDTH[room]}px`
         : layout === 'medium'
           ? `minmax(0, 1fr) ${TOOL_WIDTH.tight}px`
           : 'minmax(0, 1fr)';
@@ -2972,10 +3034,7 @@ export const NewMeasurement = () => {
       onClose={() => setIsClientSheetOpen(false)}
       onDone={() => {
         setIsClientSheetOpen(false);
-
-        if (selectedOpening !== null && selectedOpening.widthCm === '') {
-          setActivePadId(`${selectedOpening.key}:width`);
-        }
+        startMeasuring();
 
         setErrors((current) =>
           current.filter((error) => !isClientError(error)),
@@ -3001,27 +3060,9 @@ export const NewMeasurement = () => {
             onSignatureChange={changeSignature}
           >
             <ErrorList errors={errors} />
-            <button
-              type="button"
-              disabled={signature.length === 0}
-              style={{
-                ...primaryButton(signature.length === 0),
-                width: '100%',
-                opacity: isSaving ? 0.6 : 1,
-              }}
-              aria-busy={isSaving}
-              onClick={handleSave}
-            >
-              {isSaving ? 'Сохранение…' : 'Подписать и сохранить'}
-            </button>
-            <span
-              style={{
-                ...TYPE.label,
-                color: colors.muted,
-                textAlign: 'center',
-              }}
-            >
-              Заказ, оплата и подписанный PDF сохраняются одним нажатием.
+            <span style={{ ...TYPE.label, color: colors.muted, ...WRAP }}>
+              Передайте планшет клиенту. Заказ, оплата и подписанный PDF
+              сохранятся одним нажатием внизу.
             </span>
           </ContractSigning>
         </div>
@@ -3034,9 +3075,18 @@ export const NewMeasurement = () => {
               formatMoney(preview.total ?? 0),
               `предоплата ${formatMoney(preview.prepayment)}`,
             )}
-            <span style={{ color: colors.muted, ...WRAP }}>
-              Передайте планшет клиенту
-            </span>
+            <button
+              type="button"
+              disabled={signature.length === 0}
+              style={{
+                ...primaryButton(signature.length === 0),
+                opacity: isSaving ? 0.6 : 1,
+              }}
+              aria-busy={isSaving}
+              onClick={handleSave}
+            >
+              {isSaving ? 'Сохранение…' : 'Подписать и сохранить'}
+            </button>
           </>,
         )}
       </div>
@@ -3268,6 +3318,7 @@ export const NewMeasurement = () => {
         {topBar}
         {page3({
           list: <div style={column(SPACE.lg)}>{receipt}</div>,
+          isListWide: true,
           main:
             layout === 'wide' ? (
               paymentForm
@@ -3367,9 +3418,28 @@ export const NewMeasurement = () => {
   const otherErrors = errors.filter(
     (error) => !/^Проём \d+:/.test(error) && !error.startsWith('Услуга '),
   );
+  // The pad must stay whole beside the sketch on a short landscape tablet, so
+  // the sketch gives up height first.
+  const toolSketchWidth =
+    screen.height === 0
+      ? SKETCH_MAX_WIDTH
+      : Math.max(
+          SKETCH_MIN_WIDTH,
+          Math.min(
+            SKETCH_MAX_WIDTH,
+            ((screen.height -
+              header.height -
+              footer.height -
+              2 * SPACE.lg -
+              PAD_AND_SUMMARY_HEIGHT_PX) *
+              SKETCH_WIDTH) /
+              SKETCH_HEIGHT,
+          ),
+        );
+
   const measurementTool =
     selectedOpening !== null
-      ? sketchPanel(selectedOpening)
+      ? sketchPanel(selectedOpening, toolSketchWidth)
       : summaryPanel([
           {
             label: 'Площадь всех проёмов',
@@ -3383,6 +3453,19 @@ export const NewMeasurement = () => {
 
   return (
     <div ref={page.ref} style={shell}>
+      <div
+        ref={screen.ref}
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: 0,
+          height: '100cqh',
+          visibility: 'hidden',
+          pointerEvents: 'none',
+        }}
+      />
       {topBar}
       {loadError !== null ? (
         <div style={{ padding: `${SPACE.lg}px ${SPACE.lg}px 0` }}>
