@@ -16,7 +16,7 @@ import {
   FieldLabel,
   TextArea,
 } from 'src/measurer-form/measurer-form-ui';
-import { Button, Field, Sheet, TextInput, usePalette } from 'src/ui/kit';
+import { Button, Field, TextInput, usePalette } from 'src/ui/kit';
 import {
   CONTROL_HEIGHT,
   RADIUS,
@@ -24,134 +24,6 @@ import {
   TABULAR_NUMBERS,
   TYPE,
 } from 'src/ui/tokens';
-
-export type VisitChoice = {
-  id: string;
-  when: string;
-  title: string;
-  address: string;
-  phone: string;
-};
-
-// «Чей замер?»: the visits the manager booked for today and later, and a new
-// client met without a booking.
-export const VisitChooser = ({
-  visits,
-  isLoading,
-  onPick,
-  onNewClient,
-}: {
-  visits: VisitChoice[];
-  isLoading: boolean;
-  onPick: (id: string) => void;
-  onNewClient: () => void;
-}) => {
-  const colors = usePalette();
-  const card: CSSProperties = {
-    display: 'grid',
-    alignContent: 'start',
-    gap: SPACE.xs,
-    minHeight: 132,
-    padding: SPACE.lg,
-    background: colors.surface,
-    border: `1px solid ${colors.border}`,
-    borderRadius: RADIUS.card + SPACE.xs,
-    color: colors.text,
-    font: 'inherit',
-    textAlign: 'left',
-    cursor: 'pointer',
-    ...WRAP,
-  };
-
-  return (
-    <div style={{ display: 'grid', gap: SPACE.lg, minWidth: 0 }}>
-      <div style={{ display: 'grid', gap: SPACE.xs }}>
-        <h2
-          style={{
-            margin: 0,
-            ...TYPE.title,
-            fontSize: '26px',
-            lineHeight: '32px',
-          }}
-        >
-          Чей замер?
-        </h2>
-        <span style={{ color: colors.muted }}>
-          Выберите запись менеджера или добавьте нового клиента.
-        </span>
-      </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
-          gap: SPACE.md,
-        }}
-      >
-        {visits.map((visit) => (
-          <button
-            key={visit.id}
-            type="button"
-            onClick={() => onPick(visit.id)}
-            style={card}
-          >
-            <span
-              style={{ ...TYPE.label, fontWeight: 600, color: colors.accent }}
-            >
-              {visit.when}
-            </span>
-            <span style={{ ...TYPE.title }}>{visit.title}</span>
-            <span style={{ ...TYPE.label, color: colors.muted }}>
-              {visit.address}
-            </span>
-            <span
-              style={{ ...TYPE.label, ...TABULAR_NUMBERS, color: colors.muted }}
-            >
-              {visit.phone}
-            </span>
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={onNewClient}
-          style={{
-            ...card,
-            alignContent: 'center',
-            justifyItems: 'center',
-            textAlign: 'center',
-            background: colors.accentTint,
-            border: `2px dashed ${colors.accent}`,
-            color: colors.accent,
-          }}
-        >
-          <span
-            aria-hidden
-            style={{
-              display: 'grid',
-              placeItems: 'center',
-              width: CONTROL_HEIGHT,
-              height: CONTROL_HEIGHT,
-              borderRadius: '50%',
-              background: colors.accent,
-              color: colors.onAccent,
-              fontSize: '28px',
-              lineHeight: 1,
-            }}
-          >
-            +
-          </span>
-          <span style={TYPE.title}>Новый клиент</span>
-          <span style={{ ...TYPE.label, color: colors.muted }}>
-            Без записи менеджера
-          </span>
-        </button>
-      </div>
-      {isLoading ? (
-        <span style={{ color: colors.muted }}>Загружаем записи…</span>
-      ) : null}
-    </div>
-  );
-};
 
 const FloorStepper = ({
   value,
@@ -239,29 +111,18 @@ const FloorStepper = ({
 
 // The client's details, phone first: it is the one thing the order cannot be
 // saved without, and it finds a client the CRM already knows.
-export const ClientSheet = ({
+export const ClientFields = ({
   draft,
-  isNew,
   match,
   phoneError,
-  canChooseOther,
   onChange,
   onTakeMatch,
-  onClose,
-  onDone,
-  onOtherClient,
 }: {
   draft: MeasurementDraft;
-  isNew: boolean;
   match: ClientMatch | null;
   phoneError: string | null;
-  // Other visits are booked: «Другой клиент» goes back to them
-  canChooseOther: boolean;
   onChange: (changes: Partial<MeasurementDraft>) => void;
   onTakeMatch: () => void;
-  onClose: () => void;
-  onDone: () => void;
-  onOtherClient: () => void;
 }) => {
   const colors = usePalette();
   const pair: CSSProperties = {
@@ -272,32 +133,7 @@ export const ClientSheet = ({
   };
 
   return (
-    <Sheet
-      title={isNew ? 'Новый клиент' : 'Клиент'}
-      onClose={onClose}
-      footer={
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: SPACE.sm,
-          }}
-        >
-          {canChooseOther ? (
-            <Button variant="link" onClick={onOtherClient}>
-              ← Другой клиент
-            </Button>
-          ) : (
-            <span />
-          )}
-          <Button variant="primary" onClick={onDone}>
-            {isNew ? 'Начать замер →' : 'Готово'}
-          </Button>
-        </div>
-      }
-    >
+    <>
       <Field label="Телефон · обязательно" error={phoneError}>
         <TextInput
           label="Телефон"
@@ -330,9 +166,7 @@ export const ClientSheet = ({
           <span style={{ flex: '1 1 220px', ...WRAP }}>
             Этот номер уже есть: <strong>{describeClientMatch(match)}</strong>
           </span>
-          <Button variant="primary" onClick={onTakeMatch}>
-            Взять его данные
-          </Button>
+          <Button onClick={onTakeMatch}>Взять его данные</Button>
         </div>
       ) : null}
       <div style={pair}>
@@ -394,6 +228,6 @@ export const ClientSheet = ({
         value={draft.comment}
         onChange={(comment) => onChange({ comment })}
       />
-    </Sheet>
+    </>
   );
 };

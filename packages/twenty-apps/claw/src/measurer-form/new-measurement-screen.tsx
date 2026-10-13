@@ -24,6 +24,7 @@ import {
   PROJECTION_KIND_OPTIONS,
   type Product,
   type ProjectionKind,
+  SOURCE_OPTIONS,
   toProduct,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -48,23 +49,18 @@ import {
   draftFromClientMatch,
   findClientByPhone,
 } from 'src/measurer-form/client-match';
-import { ClientSheet, VisitChooser } from 'src/measurer-form/client-sheet';
+import { ClientFields } from 'src/measurer-form/client-fields';
 import {
   ALL_KINDS,
-  EditorCard,
   GrillePicker,
-  ListItem,
-  OptionTile,
   PhotoRow,
   PhotoThumbnail,
   type Picker,
-  QUICK_VISOR_COUNT,
   QuickButton,
   ReceiptLine,
   type Step,
-  StepTabs,
+  STEPS,
   thumbnailBox,
-  VisorPicker,
   WRAP,
 } from 'src/measurer-form/measurement-parts';
 import {
@@ -89,7 +85,6 @@ import {
   describePhotoUploadFailure,
   draftFromScheduledOrder,
   EMPTY_PAYMENT_DRAFT,
-  formatUzbekNationalPhone,
   type GrilleOption,
   isCountedServiceUnit,
   isVisorOnlyOpening,
@@ -117,44 +112,31 @@ import {
   type VisorOption,
 } from 'src/measurer-form/measurer-form';
 import {
-  BigNumber,
-  Card,
+  DisclosureRow,
   ErrorList,
   Fact,
   FieldLabel,
+  NoteBox,
   OpeningSketch,
   QuantityStepper,
   RailingSketch,
-  SectionTitle,
+  RailItem,
   Segmented,
+  SettingRow,
   type SignatureStroke,
+  StepTrail,
   SummaryLine,
   TextArea,
-  TileGrid,
   useElementHeight,
   useElementWidth,
 } from 'src/measurer-form/measurer-form-ui';
-import {
-  NumberPad,
-  PadField,
-  type PadTarget,
-} from 'src/measurer-form/number-pad';
-import { applyPadKey, type PadKey } from 'src/measurer-form/pad-input';
-import {
-  countUses,
-  pickQuickOptions,
-  sortByName,
-} from 'src/measurer-form/option-search';
-import { ShapeFields, shapeSizes } from 'src/measurer-form/shape-fields';
+import { countUses, sortByName } from 'src/measurer-form/option-search';
+import { ShapeFields } from 'src/measurer-form/shape-fields';
 import {
   shapeKindLabel,
   buildShapeOutline,
 } from 'src/opening-shape/opening-shape';
-import {
-  formatSketchCm,
-  SKETCH_HEIGHT,
-  SKETCH_WIDTH,
-} from 'src/opening-shape/sketch-layout';
+import { formatSketchCm } from 'src/opening-shape/sketch-layout';
 import {
   formatItemSize,
   formatRailingSize,
@@ -167,12 +149,13 @@ import { formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
 import {
   Button,
   Field,
-  PhotoTile,
   SelectInput,
   TextInput,
+  Thumbnail,
   usePalette,
 } from 'src/ui/kit';
 import {
+  COLUMNS_MIN_WIDTH,
   CONTROL_HEIGHT,
   RADIUS,
   SPACE,
@@ -207,28 +190,21 @@ type SaveResult = {
   areaSquareMeters: number;
 };
 
-type Usage = { grilles: Map<string, number>; visors: Map<string, number> };
-
 const ORDER_NAME_POLL_ATTEMPTS = 20;
 const ORDER_NAME_POLL_INTERVAL_MS = 750;
 const THUMBNAIL_MAX_SIDE_PX = 160;
 const USAGE_SAMPLE_SIZE = 500;
-const QUICK_GRILLE_COUNT = 5;
-// List | editor | sketch and pad from this page width (a tablet on its side
-// beside Twenty's menu); narrower, the list is a strip on top.
-const THREE_COLUMNS_MIN_WIDTH = 900;
-// Below this the side columns are narrower, to leave the editor its room
-const ROOMY_MIN_WIDTH = 1100;
+// A list beside its pane from this page width (a tablet held upright)
+const TWO_PANE_MIN_WIDTH = 720;
+// The sketch beside the проём's sizes from this page width (a tablet on its
+// side beside Twenty's menu)
+const SKETCH_BESIDE_MIN_WIDTH = 920;
 const SKETCH_MAX_WIDTH = 300;
-const SKETCH_MIN_WIDTH = 150;
-// The number pad, the summary lines under the sketch and the gaps between
-const PAD_AND_SUMMARY_HEIGHT_PX = 520;
-// Narrower than this (a tablet upright, a phone) the pad docks at the bottom
-const TOOL_BESIDE_MIN_WIDTH = 680;
-// The sketch fits beside the docked pad from this width
-const DOCK_SKETCH_MIN_WIDTH = 560;
-const LIST_WIDTH = { roomy: 250, tight: 210 };
-const TOOL_WIDTH = { roomy: 300, tight: 270 };
+const SKETCH_PANEL_WIDTH = 280;
+const VISITS_WIDTH = 288;
+const RAIL_WIDTH = 232;
+const CLIENT_MAX_WIDTH = 760;
+const RESULT_MAX_WIDTH = 760;
 const SERVICES_KEY = 'services';
 const PREPAYMENT_SHARES = [
   { label: '30%', share: 0.3 },
@@ -310,41 +286,47 @@ const loadFormContext = async (userId: string) => {
 
   return {
     measurerId: workspaceMembers?.edges[0]?.node?.id ?? null,
-    grilles: (designs?.edges ?? []).map(({ node }): GrilleOption => ({
-      id: node.id,
-      product: toProduct(node.product),
-      name: node.name ?? '',
-      kindName: node.grilleKind?.name ?? null,
-      photoUrl: node.photos?.[0]?.url ?? null,
-      pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
-    })),
+    grilles: (designs?.edges ?? []).map(
+      ({ node }): GrilleOption => ({
+        id: node.id,
+        product: toProduct(node.product),
+        name: node.name ?? '',
+        kindName: node.grilleKind?.name ?? null,
+        photoUrl: node.photos?.[0]?.url ?? null,
+        pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
+      }),
+    ),
     visorOptions: sortByName<VisorOption>(
       services
         .filter((node) => node.kind === 'VISOR')
-        .map((node): VisorOption => ({
-          id: node.id,
-          name: node.name ?? '',
-          price: fromCurrency(node.price),
-        })),
+        .map(
+          (node): VisorOption => ({
+            id: node.id,
+            name: node.name ?? '',
+            price: fromCurrency(node.price),
+          }),
+        ),
     ),
     // Every service in Цены → Услуги, whatever is added there later.
     serviceOptions: sortByName<ServiceOption>(
       services
         .filter((node) => node.kind !== 'VISOR')
-        .map((node): ServiceOption => ({
-          id: node.id,
-          name: node.name ?? '',
-          unit: (node.unit ?? null) as ExtraServiceUnit | null,
-          price: fromCurrency(node.price),
-        })),
+        .map(
+          (node): ServiceOption => ({
+            id: node.id,
+            name: node.name ?? '',
+            unit: (node.unit ?? null) as ExtraServiceUnit | null,
+            price: fromCurrency(node.price),
+          }),
+        ),
     ),
   };
 };
 
-// How often each grille and visor went into recent orders, for the quick
-// picks. Without it the pickers still list everything by name.
-const loadUsage = async (): Promise<Usage> => {
-  const { orderItems, orderExtraServices } = await new CoreApiClient().query({
+// How often each grille went into recent orders, for «Часто берут». Without
+// it the catalogue still lists everything by name.
+const loadGrilleUses = async (): Promise<Map<string, number>> => {
+  const { orderItems } = await new CoreApiClient().query({
     orderItems: {
       __args: {
         first: USAGE_SAMPLE_SIZE,
@@ -352,25 +334,11 @@ const loadUsage = async (): Promise<Usage> => {
       },
       edges: { node: { designId: true } },
     },
-    orderExtraServices: {
-      __args: {
-        first: USAGE_SAMPLE_SIZE,
-        orderBy: [{ createdAt: 'DescNullsLast' }],
-      },
-      edges: { node: { extraServiceId: true } },
-    },
   });
 
-  return {
-    grilles: countUses(
-      (orderItems?.edges ?? []).map(({ node }) => node.designId ?? null),
-    ),
-    visors: countUses(
-      (orderExtraServices?.edges ?? []).map(
-        ({ node }) => node.extraServiceId ?? null,
-      ),
-    ),
-  };
+  return countUses(
+    (orderItems?.edges ?? []).map(({ node }) => node.designId ?? null),
+  );
 };
 
 const SCHEDULED_ORDERS_LIMIT = 50;
@@ -588,7 +556,7 @@ const describeSize = (opening: OpeningDraft): string | null => {
 };
 
 // Only contradictions while typing: «укажите …» for a field not reached yet
-// would turn the card red before the measurer is done.
+// would mark the проём wrong before the measurer is done.
 const liveShapeErrors = (opening: OpeningDraft): string[] =>
   opening.product === 'RAILING' || opening.shape.kind === 'RECTANGLE'
     ? []
@@ -605,15 +573,7 @@ const quantityOf = (opening: OpeningDraft) =>
 const errorsOf = (errors: string[], openingNumber: number) =>
   errors.filter((error) => error.startsWith(`Проём ${openingNumber}:`));
 
-const initialsOf = (name: string | null): string =>
-  (name ?? '')
-    .split(' ')
-    .filter((word) => word !== '')
-    .slice(0, 2)
-    .map((word) => word[0].toUpperCase())
-    .join('') || '?';
-
-// Short enough for a badge on the проём in the list
+// Short enough for the line of the проём in the list
 const shortProblem = (error: string): string => {
   const text = error.replace(/^Проём \d+: /, '');
 
@@ -626,10 +586,10 @@ const shortProblem = (error: string): string => {
   return text;
 };
 
+// A проём's or a service's own line may carry these words: «Подъём на этаж»
 const isClientError = (error: string) =>
+  !/^(Проём \d+:|Услуга )/.test(error) &&
   /телефон|Этаж|дату замера|чей это замер/i.test(error);
-
-type Layout = 'wide' | 'medium' | 'narrow';
 
 export const NewMeasurement = () => {
   const colors = usePalette();
@@ -637,15 +597,13 @@ export const NewMeasurement = () => {
   const page = useElementWidth();
   const header = useElementHeight();
   const footer = useElementHeight();
-  const screen = useElementHeight();
   const [draft, setDraft] = useState<MeasurementDraft>(createEmptyDraft);
   const [grilles, setGrilles] = useState<GrilleOption[]>([]);
   const [visorOptions, setVisorOptions] = useState<VisorOption[]>([]);
   const [serviceOptions, setServiceOptions] = useState<ServiceOption[]>([]);
-  const [usage, setUsage] = useState<Usage>({
-    grilles: new Map(),
-    visors: new Map(),
-  });
+  const [grilleUses, setGrilleUses] = useState<Map<string, number>>(
+    () => new Map(),
+  );
   const [measurerId, setMeasurerId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -661,7 +619,7 @@ export const NewMeasurement = () => {
   // What «Чей замер» holds: '' until the measurer chooses
   const [target, setTarget] = useState('');
   const [saveIds, setSaveIds] = useState(createSaveIds);
-  const [step, setStep] = useState<Step>('measurement');
+  const [step, setStep] = useState<Step>('client');
   const [signature, setSignature] = useState<SignatureStroke[]>([]);
   const [contractTemplate, setContractTemplate] =
     useState<ContractTemplate | null>(null);
@@ -670,18 +628,15 @@ export const NewMeasurement = () => {
     null,
   );
   const [isLeaving, setIsLeaving] = useState(false);
-  const [isClientSheetOpen, setIsClientSheetOpen] = useState(false);
+  // A booked client is shown as a card until the measurer corrects them
+  const [isEditingClient, setIsEditingClient] = useState(false);
   const [clientMatch, setClientMatch] = useState<ClientMatch | null>(null);
   // The проём in the editor, or SERVICES_KEY for «Услуги»
   const [selectedKey, setSelectedKey] = useState<string>(
     () => draft.openings[0]?.key ?? SERVICES_KEY,
   );
-  const [activePadId, setActivePadId] = useState<string | null>(null);
-  const lastPadPress = useRef<{
-    id: string;
-    renderedValue: string;
-    value: string;
-  } | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isExtrasOpen, setIsExtrasOpen] = useState(false);
   const [copiedNotice, setCopiedNotice] = useState<{
     openingKey: string;
     fromNumber: number;
@@ -733,15 +688,14 @@ export const NewMeasurement = () => {
         } else if (orders.length === 0) {
           // Nothing booked: the visit can only be a new client.
           setTarget(NEW_CLIENT_TARGET);
-          setIsClientSheetOpen(true);
         }
       })
       .catch((error: unknown) =>
         setLoadError(`Не удалось загрузить форму: ${describeError(error)}`),
       );
 
-    loadUsage()
-      .then(setUsage)
+    loadGrilleUses()
+      .then(setGrilleUses)
       .catch(() => undefined);
 
     loadContractTemplate()
@@ -770,14 +724,16 @@ export const NewMeasurement = () => {
       ),
     }));
 
+  // What was open inside the pane belongs to the проём that was in it.
   const selectOpening = (key: string) => {
     setSelectedKey(key);
-    setActivePadId(null);
     setPicker(null);
+    setIsMenuOpen(false);
+    setIsExtrasOpen(false);
   };
 
   // The next window is usually of the same build: what it is made of carries
-  // over, the sizes start empty and the pad waits on the width.
+  // over, the sizes start empty.
   const addOpening = () => {
     const previous = draft.openings[draft.openings.length - 1];
     const opening =
@@ -789,9 +745,7 @@ export const NewMeasurement = () => {
       ...current,
       openings: [...current.openings, opening],
     }));
-    setSelectedKey(opening.key);
-    setActivePadId(`${opening.key}:width`);
-    setPicker(null);
+    selectOpening(opening.key);
     setCopiedNotice(
       previous === undefined
         ? null
@@ -836,20 +790,13 @@ export const NewMeasurement = () => {
   const addService = (serviceId: string) => {
     if (serviceId === '') return;
 
-    const line: ServiceDraft = { key: randomUuid(), serviceId, quantity: '' };
-    const option = serviceOptions.find(
-      (candidate) => candidate.id === serviceId,
-    );
-
     setDraft((current) => ({
       ...current,
-      services: [...current.services, line],
+      services: [
+        ...current.services,
+        { key: randomUuid(), serviceId, quantity: '' },
+      ],
     }));
-    setActivePadId(
-      option !== undefined && !isCountedServiceUnit(option.unit)
-        ? `service:${line.key}`
-        : null,
-    );
   };
 
   const updateService = (key: string, quantity: string) =>
@@ -894,43 +841,34 @@ export const NewMeasurement = () => {
     measurementDate: toDateTimeLocalInputValue(new Date()),
   } as const;
 
-  // The first thing measured is the width, so the pad is ready for it.
-  const startMeasuring = () => {
-    const opening = draft.openings.find(
-      (candidate) => candidate.key === selectedKey,
-    );
-
-    if (opening !== undefined && opening.widthCm === '') {
-      setActivePadId(`${opening.key}:width`);
-    }
-  };
-
   const pickVisit = (orderId: string) => {
     const order = scheduledOrders.find((candidate) => candidate.id === orderId);
 
-    if (order === undefined) return;
+    // Tapping the visit already chosen must not undo what was corrected in it
+    if (order === undefined || order.id === target) return;
 
     setTarget(order.id);
     setClientMatch(null);
-    updateDraft(draftFromScheduledOrder(order));
-    startMeasuring();
+    lookedUpPhone.current = null;
+    setIsEditingClient(false);
+    setErrors([]);
+    // A visit without a date takes now, not the date of the one picked before
+    updateDraft({
+      measurementDate: toDateTimeLocalInputValue(new Date()),
+      ...draftFromScheduledOrder(order),
+    });
   };
 
-  // A new client starts blank, unless the measurer is coming back to one
-  // they were already typing.
+  // A new client starts blank; tapping «Новый клиент» again keeps what is
+  // typed.
   const startNewClient = () => {
     if (target !== NEW_CLIENT_TARGET) updateDraft(emptyClient);
 
     setTarget(NEW_CLIENT_TARGET);
     setClientMatch(null);
+    setIsEditingClient(false);
+    setErrors([]);
     lookedUpPhone.current = null;
-    setIsClientSheetOpen(true);
-  };
-
-  const chooseOtherClient = () => {
-    setIsClientSheetOpen(false);
-    setClientMatch(null);
-    setTarget('');
   };
 
   const changeClient = (changes: Partial<MeasurementDraft>) => {
@@ -1032,19 +970,19 @@ export const NewMeasurement = () => {
     setPayment(EMPTY_PAYMENT_DRAFT);
     setSaveIds(createSaveIds());
     setTarget(remainingOrders.length === 0 ? NEW_CLIENT_TARGET : '');
-    setIsClientSheetOpen(remainingOrders.length === 0);
+    setIsEditingClient(false);
     setClientMatch(null);
     lookedUpPhone.current = null;
     setErrors([]);
     setResult(null);
     setPhotoLimitNotice(null);
-    setStep('measurement');
+    setStep('client');
     setSignature([]);
     setIsLeaving(false);
-    setSelectedKey(fresh.openings[0].key);
-    setActivePadId(null);
+    // The form is no longer opened for the order it was started from
+    setOpenedFromOrderId(null);
+    selectOpening(fresh.openings[0].key);
     setCopiedNotice(null);
-    setPicker(null);
   };
 
   const totalAreaSquareMeters = computeOpeningsTotalAreaSquareMeters(
@@ -1080,13 +1018,8 @@ export const NewMeasurement = () => {
         opening.visorServiceId !== '' ||
         opening.photos.length > 0,
     );
-  const layout: Layout =
-    page.width >= THREE_COLUMNS_MIN_WIDTH
-      ? 'wide'
-      : page.width >= TOOL_BESIDE_MIN_WIDTH
-        ? 'medium'
-        : 'narrow';
-  const room = page.width >= ROOMY_MIN_WIDTH ? 'roomy' : 'tight';
+  const isTwoPane = page.width >= TWO_PANE_MIN_WIDTH;
+  const isSketchBeside = page.width >= SKETCH_BESIDE_MIN_WIDTH;
   const grilleOf = (opening: OpeningDraft) =>
     grilles.find((grille) => grille.id === opening.designId) ?? null;
   const visorOf = (opening: OpeningDraft) =>
@@ -1167,9 +1100,7 @@ export const NewMeasurement = () => {
           }
         : {}),
     });
-    setActivePadId(null);
-
-    if (picker?.openingKey === opening.key) setPicker(null);
+    setPicker(null);
   };
   // The visor's length follows the width until the measurer types their own.
   const changeWidth = (key: string, widthCm: string) =>
@@ -1181,25 +1112,19 @@ export const NewMeasurement = () => {
         ? { visorLengthCm: widthCm }
         : {}),
     }));
-  const chooseVisor = (opening: OpeningDraft, visorServiceId: string) => {
+  const chooseVisor = (opening: OpeningDraft, visorServiceId: string) =>
     updateOpening(opening.key, (current) => ({
       isVisorWanted: true,
       visorServiceId,
       visorLengthCm:
         current.visorLengthCm === '' ? current.widthCm : current.visorLengthCm,
     }));
-    setPicker(null);
-  };
-  const dropVisor = (opening: OpeningDraft) => {
+  const dropVisor = (opening: OpeningDraft) =>
     updateOpening(opening.key, {
       isVisorWanted: false,
       visorServiceId: '',
       visorLengthCm: '',
     });
-    setPicker(null);
-
-    if (activePadId === `${opening.key}:visor`) setActivePadId(null);
-  };
 
   const livePayload = buildMeasurementPayload(draft, measurerId ?? '', {
     orderId: null,
@@ -1226,230 +1151,6 @@ export const NewMeasurement = () => {
   const selectedOpening =
     selectedIndex === -1 ? null : draft.openings[selectedIndex];
   const isServicesSelected = selectedOpening === null;
-
-  const openingPadTargets = (opening: OpeningDraft): PadTarget[] => {
-    const cm = (
-      id: string,
-      label: string,
-      value: string,
-      onChange: (value: string) => void,
-    ): PadTarget => ({
-      id: `${opening.key}:${id}`,
-      label,
-      unit: 'см',
-      kind: 'decimal',
-      value,
-      onChange,
-    });
-    const sizes =
-      opening.product === 'RAILING'
-        ? [
-            cm('width', 'Длина', opening.widthCm, (value) =>
-              changeWidth(opening.key, value),
-            ),
-            cm('height', 'Высота', opening.heightCm, (heightCm) =>
-              updateOpening(opening.key, { heightCm }),
-            ),
-          ]
-        : shapeSizes({
-            shape: opening.shape,
-            widthCm: opening.widthCm,
-            heightCm: opening.heightCm,
-            onShapeChange: (shape) => updateOpening(opening.key, { shape }),
-            onWidthChange: (value) => changeWidth(opening.key, value),
-            onHeightChange: (heightCm) =>
-              updateOpening(opening.key, { heightCm }),
-          }).map((size) => cm(size.id, size.label, size.value, size.onChange));
-
-    return [
-      ...sizes,
-      ...(opening.product === 'GRILLE' && opening.projectionKind !== 'NONE'
-        ? [
-            cm('projection', 'Вынос', opening.projectionCm, (projectionCm) =>
-              updateOpening(opening.key, { projectionCm }),
-            ),
-          ]
-        : []),
-      ...(opening.visorServiceId === ''
-        ? []
-        : [
-            cm(
-              'visor',
-              'Длина козырька',
-              opening.visorLengthCm,
-              (visorLengthCm) => updateOpening(opening.key, { visorLengthCm }),
-            ),
-          ]),
-    ];
-  };
-  const servicePadTargets: PadTarget[] = draft.services.flatMap((line) => {
-    const option = serviceOptionOf(line);
-
-    if (option === undefined || isCountedServiceUnit(option.unit)) return [];
-
-    return [
-      {
-        id: `service:${line.key}`,
-        label: `${option.name}: ${option.unit === 'PER_SQUARE_METER' ? 'площадь' : 'длина'}`,
-        unit: serviceUnitLabel(option.unit),
-        kind: 'decimal' as const,
-        value: line.quantity,
-        onChange: (quantity: string) => updateService(line.key, quantity),
-      },
-    ];
-  });
-  const paymentPadTargets: PadTarget[] = [
-    {
-      id: 'discount',
-      label: 'Скидка',
-      unit: payment.discountKind === 'PERCENT' ? '%' : 'сум',
-      kind: payment.discountKind === 'PERCENT' ? 'decimal' : 'money',
-      value: payment.discountValue,
-      onChange: (discountValue) => updatePayment({ discountValue }),
-    },
-    {
-      id: 'prepayment',
-      label: 'Предоплата',
-      unit: 'сум',
-      kind: 'money',
-      value: payment.prepayment,
-      onChange: (prepayment) => updatePayment({ prepayment }),
-    },
-  ];
-  const padTargets: PadTarget[] =
-    step === 'payment'
-      ? paymentPadTargets
-      : step === 'contract'
-        ? []
-        : selectedOpening !== null
-          ? openingPadTargets(selectedOpening)
-          : servicePadTargets;
-  const activeIndex = padTargets.findIndex(
-    (candidate) => candidate.id === activePadId,
-  );
-  const activeTarget = activeIndex === -1 ? null : padTargets[activeIndex];
-  const nextTarget =
-    activeIndex === -1 ? null : (padTargets[activeIndex + 1] ?? null);
-  const isSketchDocked =
-    layout === 'narrow' &&
-    activeTarget !== null &&
-    page.width >= DOCK_SKETCH_MIN_WIDTH;
-  // Taps can arrive faster than the screen re-renders, and each one would
-  // then start from the same old value and drop the digit before it.
-  const pressPadKey = (key: PadKey) => {
-    if (activeTarget === null) return;
-
-    const pending = lastPadPress.current;
-    const base =
-      pending !== null &&
-      pending.id === activeTarget.id &&
-      pending.renderedValue === activeTarget.value
-        ? pending.value
-        : activeTarget.value;
-    const value = applyPadKey(base, key, activeTarget.kind);
-
-    lastPadPress.current = {
-      id: activeTarget.id,
-      renderedValue: activeTarget.value,
-      value,
-    };
-    activeTarget.onChange(value);
-  };
-  const goToNextField = () => setActivePadId(nextTarget?.id ?? null);
-  const padField = (
-    padTarget: PadTarget,
-    options: {
-      isWrong?: boolean;
-      isLarge?: boolean;
-      placeholder?: string;
-    } = {},
-  ) => (
-    <PadField
-      key={padTarget.id}
-      target={{
-        ...padTarget,
-        onChange: (value) => {
-          lastPadPress.current = null;
-          padTarget.onChange(value);
-        },
-      }}
-      isActive={activePadId === padTarget.id}
-      isWrong={options.isWrong}
-      isLarge={options.isLarge}
-      placeholder={options.placeholder}
-      onActivate={() => setActivePadId(padTarget.id)}
-      onEnter={goToNextField}
-    />
-  );
-  const numberPad = (
-    <NumberPad
-      target={activeTarget}
-      nextLabel={nextTarget === null ? null : nextTarget.label.toLowerCase()}
-      onKey={pressPadKey}
-      onNext={goToNextField}
-      onDone={() => setActivePadId(null)}
-    />
-  );
-
-  const goToProblem = (problem: string) => {
-    if (isClientError(problem)) {
-      if (target === '' && scheduledOrders.length > 0) return;
-
-      setIsClientSheetOpen(true);
-
-      return;
-    }
-
-    if (problem.startsWith('Услуга ')) {
-      selectOpening(SERVICES_KEY);
-
-      return;
-    }
-
-    const openingNumber = Number(/^Проём (\d+):/.exec(problem)?.[1] ?? 0);
-    const opening = draft.openings[openingNumber - 1];
-
-    if (opening === undefined) return;
-
-    const short = shortProblem(problem);
-    const targets = openingPadTargets(opening);
-    const field =
-      short === 'нужен вынос'
-        ? targets.find((candidate) => candidate.id.endsWith(':projection'))
-        : short === 'нужна длина козырька'
-          ? targets.find((candidate) => candidate.id.endsWith(':visor'))
-          : (targets.find((candidate) => candidate.value.trim() === '') ??
-            targets[0]);
-
-    setSelectedKey(opening.key);
-    setPicker(null);
-    setActivePadId(field?.id ?? null);
-  };
-
-  // The payment has its own screen, so the sizes are checked before it opens.
-  const goToPayment = () => {
-    setErrors(liveErrors);
-    setPicker(null);
-
-    if (liveErrors.length === 0) {
-      setActivePadId(null);
-      setStep('payment');
-
-      return;
-    }
-
-    goToProblem(liveErrors[0]);
-  };
-
-  const goBackTo = (backStep: Step) => {
-    if (isSaveInFlight.current) return;
-
-    setErrors([]);
-    setActivePadId(null);
-    // The client signed for this sum and this prepayment.
-    setSignature([]);
-    setStep(backStep);
-  };
 
   // The scheduled order already has its number; a new one gets it on saving.
   const contractData = (template: ContractTemplate) => {
@@ -1749,6 +1450,80 @@ export const NewMeasurement = () => {
       ? '/objects/orders'
       : `/object/order/${openedFromOrderId}`;
 
+  const isContractReady = contractTemplate !== null && preview.total !== null;
+  // An error of the last «Далее» that is fixed by now is no longer shown
+  const standingErrors = errors.filter((error) => liveErrors.includes(error));
+
+  // A step opens only when the ones before it are filled; going back is free.
+  const openStep = (next: Step) => {
+    if (isSaveInFlight.current) return;
+
+    const from = STEPS.findIndex((item) => item.key === step);
+    const to = STEPS.findIndex((item) => item.key === next);
+
+    if (to === from) return;
+
+    setPicker(null);
+    setIsMenuOpen(false);
+    setIsLeaving(false);
+
+    if (to <= from) {
+      setErrors([]);
+      // The client signed for this sum and this prepayment.
+      setSignature([]);
+      setStep(next);
+
+      return;
+    }
+
+    const clientErrors = liveErrors.filter(isClientError);
+
+    if (clientErrors.length > 0) {
+      // Until the visit is chosen there is no client to ask a phone of
+      setErrors(target === '' ? clientErrors.slice(0, 1) : clientErrors);
+      setStep('client');
+      // The phone is typed in the client's fields, not on their card
+      setIsEditingClient(target !== '');
+
+      return;
+    }
+
+    if (next !== 'openings' && liveErrors.length > 0) {
+      const firstWrongOpening = draft.openings.find(
+        (_, index) => errorsOf(liveErrors, index + 1).length > 0,
+      );
+
+      setErrors(liveErrors);
+      setStep('openings');
+      selectOpening(firstWrongOpening?.key ?? SERVICES_KEY);
+
+      return;
+    }
+
+    if (next === 'contract') {
+      if (!isContractReady) {
+        setErrors([]);
+        setStep('payment');
+
+        return;
+      }
+
+      if (Object.keys(preview.errors).length > 0) {
+        setErrors(['Сначала исправьте скидку или предоплату.']);
+        setStep('payment');
+
+        return;
+      }
+
+      setSignature([]);
+    }
+
+    setErrors([]);
+    setStep(next);
+  };
+
+  const hairline = `1px solid ${colors.border}`;
+
   const linkButton = (isPrimary: boolean): CSSProperties => ({
     display: 'inline-flex',
     font: 'inherit',
@@ -1759,25 +1534,26 @@ export const NewMeasurement = () => {
     padding: `0 ${SPACE.lg}px`,
     borderRadius: RADIUS.control,
     background: isPrimary ? colors.accent : 'transparent',
-    border: isPrimary ? 'none' : `1px solid ${colors.border}`,
+    border: isPrimary ? 'none' : hairline,
     color: isPrimary ? colors.onAccent : colors.text,
     fontWeight: 600,
     textDecoration: 'none',
     textAlign: 'center',
   });
 
-  const primaryButton = (isFaded = false): CSSProperties => ({
-    minHeight: CONTROL_HEIGHT + SPACE.sm,
-    padding: `${SPACE.xs}px ${SPACE.xl}px`,
-    background: isFaded ? colors.panel : colors.accent,
+  const backStyle: CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    minHeight: CONTROL_HEIGHT,
+    padding: `0 ${SPACE.sm}px 0 0`,
+    background: 'transparent',
     border: 'none',
-    borderRadius: RADIUS.control + SPACE.xs,
-    color: isFaded ? colors.muted : colors.onAccent,
+    color: colors.muted,
     font: 'inherit',
-    ...TYPE.rowTitle,
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
     cursor: 'pointer',
-    ...WRAP,
-  });
+  };
 
   const column = (gap: number = SPACE.xl): CSSProperties => ({
     display: 'grid',
@@ -1787,43 +1563,57 @@ export const NewMeasurement = () => {
     minWidth: 0,
   });
 
-  const shell: CSSProperties = {
-    position: 'relative',
-    boxSizing: 'border-box',
-    width: '100%',
-    color: colors.text,
-    fontFamily: 'inherit',
-    ...TYPE.body,
+  const pane: CSSProperties = {
+    ...column(SPACE.lg),
+    padding: isTwoPane ? SPACE.xl : SPACE.lg,
   };
 
-  const frame = (children: ReactNode) => (
-    <div ref={page.ref} style={{ width: '100%' }}>
-      <div
-        style={{ ...shell, maxWidth: 860, margin: '0 auto', padding: SPACE.lg }}
-      >
-        {children}
-      </div>
-    </div>
-  );
+  const headRow: CSSProperties = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACE.md,
+  };
+
+  const paneTitle: CSSProperties = { margin: 0, ...TYPE.title };
 
   if (result !== null) {
-    return frame(
-      <>
-        <div style={{ ...column(), maxWidth: 820, margin: '0 auto' }}>
-          <div>
-            <a href={leaveHref} style={linkButton(false)}>
-              ← Назад
-            </a>
-          </div>
-          <Card padding={SPACE.xl}>
-            <span style={{ color: colors.success, fontWeight: 600 }}>
-              {result.contract === 'signed'
-                ? '✓ Замер сохранён, договор подписан, PDF в заказе'
-                : '✓ Замер сохранён'}
-            </span>
-            <h2 style={{ margin: 0, fontSize: '32px', lineHeight: '38px' }}>
-              Заказ {result.orderName ?? '(номер появится через минуту)'}
-            </h2>
+    const savedClientName = draftClientName(result.draft);
+
+    return (
+      <div ref={page.ref} style={{ width: '100%' }}>
+        <div
+          style={{
+            boxSizing: 'border-box',
+            width: '100%',
+            padding: isTwoPane ? SPACE.lg : SPACE.sm,
+            color: colors.text,
+            fontFamily: 'inherit',
+            ...TYPE.body,
+          }}
+        >
+          <div
+            style={{
+              ...column(),
+              maxWidth: RESULT_MAX_WIDTH,
+              margin: '0 auto',
+              padding: SPACE.xl,
+              background: colors.surface,
+              border: hairline,
+              borderRadius: RADIUS.card,
+            }}
+          >
+            <div style={column(SPACE.xs)}>
+              <span style={{ color: colors.success, fontWeight: 600 }}>
+                {result.contract === 'signed'
+                  ? '✓ Замер сохранён, договор подписан, PDF в заказе'
+                  : '✓ Замер сохранён'}
+              </span>
+              <h2 style={{ margin: 0, fontSize: '32px', lineHeight: '38px' }}>
+                Заказ {result.orderName ?? '(номер появится через минуту)'}
+              </h2>
+            </div>
             <div
               style={{
                 display: 'flex',
@@ -1832,11 +1622,8 @@ export const NewMeasurement = () => {
                 ...TABULAR_NUMBERS,
               }}
             >
-              {draftClientName(result.draft) !== null && (
-                <Fact
-                  label="Клиент"
-                  value={draftClientName(result.draft) ?? ''}
-                />
+              {savedClientName !== null && (
+                <Fact label="Клиент" value={savedClientName} />
               )}
               <Fact
                 label="Площадь"
@@ -1906,43 +1693,38 @@ export const NewMeasurement = () => {
               >
                 Открыть заказ
               </a>
+              <Button onClick={resetForm}>Новый замер</Button>
               <a href="/objects/orders" style={linkButton(false)}>
                 К списку заказов
               </a>
-              <Button onClick={resetForm}>Новый замер</Button>
             </div>
-          </Card>
-          {result.items.length > 0 && (
-            <div style={column(SPACE.md)}>
-              <SectionTitle title="Фото проёмов" />
-              <Card>
+            {result.items.length > 0 && (
+              <div style={column(0)}>
+                <FieldLabel>Фото проёмов</FieldLabel>
                 {result.items.map((item) => (
-                  <div key={item.id} style={column(SPACE.sm)}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: SPACE.md,
-                      }}
-                    >
+                  <div
+                    key={item.id}
+                    style={{
+                      ...column(SPACE.sm),
+                      padding: `${SPACE.md}px 0`,
+                      borderBottom: hairline,
+                    }}
+                  >
+                    <div style={headRow}>
                       <span>
                         <strong>Проём {item.openingNumber}</strong>:{' '}
                         {item.label}
                         {item.photoCount > 0 && `, фото: ${item.photoCount}`}
                       </span>
-                      <button
-                        type="button"
-                        aria-label={`Добавить фото: проём ${item.openingNumber}`}
-                        style={linkButton(false)}
+                      <Button
+                        variant="link"
+                        label={`Добавить фото: проём ${item.openingNumber}`}
                         onClick={() => openItemForPhotos(item.id)}
                       >
                         Добавить фото
-                      </button>
+                      </Button>
                     </div>
-                    {/* The photos picked in the form, which stays filled until
-                        «Новый замер». */}
+                    {/* The photos picked in the form, as they were saved. */}
                     <PhotoRow
                       photos={
                         result.draft.openings[item.openingNumber - 1]?.photos ??
@@ -1952,11 +1734,11 @@ export const NewMeasurement = () => {
                     />
                   </div>
                 ))}
-              </Card>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
-      </>,
+      </div>
     );
   }
 
@@ -1967,268 +1749,634 @@ export const NewMeasurement = () => {
   ]
     .filter((part) => part !== null && part !== '')
     .join(', ');
-  const isChoosingVisit =
-    step === 'measurement' && target === '' && scheduledOrders.length > 0;
-  const hasClient = target !== '' || scheduledOrders.length === 0;
-
-  const clientChip = hasClient ? (
-    <button
-      type="button"
-      onClick={() => {
-        setActivePadId(null);
-        setIsClientSheetOpen(true);
-      }}
-      style={{
-        flex: '1 1 240px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: SPACE.md,
-        maxWidth: 460,
-        minHeight: CONTROL_HEIGHT + SPACE.xs,
-        padding: `${SPACE.xs}px ${SPACE.md}px ${SPACE.xs}px ${SPACE.xs}px`,
-        background: colors.surface,
-        border: `1px solid ${liveErrors.some(isClientError) && errors.some(isClientError) ? colors.danger : colors.border}`,
-        borderRadius: CONTROL_HEIGHT,
-        color: colors.text,
-        font: 'inherit',
-        textAlign: 'left',
-        cursor: 'pointer',
-        minWidth: 0,
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          flex: 'none',
-          display: 'grid',
-          placeItems: 'center',
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
-          background: colors.accentTint,
-          color: colors.accent,
-          fontWeight: 700,
-        }}
-      >
-        {initialsOf(clientName)}
-      </span>
-      <span style={{ display: 'grid', ...WRAP }}>
-        <span style={{ fontWeight: 600 }}>{clientName ?? 'Клиент'}</span>
-        <span
-          style={{ ...TYPE.label, ...TABULAR_NUMBERS, color: colors.muted }}
-        >
-          {[
-            draft.clientPhone === ''
-              ? 'нет телефона'
-              : `${UZBEK_PHONE_PREFIX} ${draft.clientPhone}`,
-            clientAddress,
-          ]
-            .filter((part) => part !== '')
-            .join(' · ')}
-        </span>
-      </span>
-    </button>
-  ) : null;
-
-  const backControl = isLeaving ? (
-    <span
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        gap: SPACE.sm,
-      }}
-    >
-      <span>Выйти без сохранения? Введённое пропадёт.</span>
-      <a href={leaveHref} style={linkButton(false)}>
-        Выйти
-      </a>
-      <Button onClick={() => setIsLeaving(false)}>Остаться</Button>
-    </span>
-  ) : isDirty ? (
-    <Button label="Назад" onClick={() => setIsLeaving(true)}>
-      ←
-    </Button>
-  ) : (
-    <a href={leaveHref} aria-label="Назад" style={linkButton(false)}>
-      ←
-    </a>
-  );
-
-  const listItems = (isCard: boolean) => {
-    const servicesSummary = draft.services
-      .map((line) => serviceOptionOf(line)?.name ?? 'Услуга')
-      .join(', ');
-    const addButton = (
-      <button
-        key="add"
-        type="button"
-        onClick={addOpening}
-        style={{
-          flex: isCard ? '0 0 140px' : undefined,
-          minHeight: isCard ? undefined : CONTROL_HEIGHT + SPACE.lg,
-          margin: isCard ? 0 : SPACE.md,
-          background: 'transparent',
-          border: `2px dashed ${colors.border}`,
-          borderRadius: RADIUS.card,
-          color: colors.accent,
-          font: 'inherit',
-          ...TYPE.rowTitle,
-          cursor: 'pointer',
-        }}
-      >
-        + Проём
-      </button>
-    );
-
-    return [
-      ...draft.openings.map((opening, index) => {
-        const total = openingTotal(opening);
-        const size = describeSize(opening);
-
-        return (
-          <ListItem
-            key={opening.key}
-            badge={String(index + 1)}
-            title={describeGrille(opening)}
-            detail={[
-              size ?? 'нет размеров',
-              quantityOf(opening) > 1 ? `${opening.quantity} шт` : null,
-              opening.visorServiceId === '' ? null : 'козырёк',
-            ]
-              .filter((part) => part !== null)
-              .join(' · ')}
-            amount={total === null ? '—' : formatMoney(total)}
-            problem={problemOf(index + 1)}
-            isSelected={opening.key === selectedKey}
-            isCard={isCard}
-            onClick={() => selectOpening(opening.key)}
-          />
-        );
-      }),
-      addButton,
-      <ListItem
-        key={SERVICES_KEY}
-        badge="+"
-        title={
-          draft.services.length === 0
-            ? 'Услуги'
-            : `Услуги · ${draft.services.length}`
-        }
-        detail={
-          servicesSummary === '' ? 'демонтаж, покраска…' : servicesSummary
-        }
-        amount={
-          draft.services.length === 0
-            ? ''
-            : servicesTotal === null
-              ? '—'
-              : formatMoney(servicesTotal)
-        }
-        problem={
-          liveErrors.some((error) => error.startsWith('Услуга '))
-            ? 'нужно количество'
-            : null
-        }
-        isSelected={isServicesSelected}
-        isCard={isCard}
-        onClick={() => selectOpening(SERVICES_KEY)}
-      />,
-    ];
-  };
-
-  // The strip of проёмы under the top bar when the list has no column of its own
-  const openingStrip = () => (
-    <div
-      style={{
-        display: 'flex',
-        gap: SPACE.sm,
-        overflowX: 'auto',
-        paddingBottom: SPACE.xs,
-      }}
-    >
-      {listItems(true)}
-    </div>
-  );
+  const previousStep = STEPS[STEPS.findIndex((item) => item.key === step) - 1];
 
   const topBar = (
     <div
       ref={header.ref}
       style={{
-        // A phone keeps its short screen for the fields and the pad
-        position: layout === 'narrow' ? 'relative' : 'sticky',
+        // A phone keeps its short screen for the fields
+        position: isTwoPane ? 'sticky' : 'relative',
         top: 0,
         // Above the fields that scroll under it
         zIndex: 2,
-        display: 'grid',
-        gap: SPACE.sm,
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: `${SPACE.xs}px ${SPACE.md}px`,
         padding: `${SPACE.sm}px ${SPACE.lg}px`,
         background: colors.surface,
-        borderBottom: `1px solid ${colors.border}`,
+        borderBottom: hairline,
       }}
     >
+      {isLeaving ? (
+        <>
+          <span style={{ flex: '1 1 200px' }}>
+            Выйти без сохранения? Введённое пропадёт.
+          </span>
+          <a href={leaveHref} style={linkButton(false)}>
+            Выйти
+          </a>
+          <Button onClick={() => setIsLeaving(false)}>Остаться</Button>
+        </>
+      ) : (
+        <>
+          {previousStep !== undefined ? (
+            <button
+              type="button"
+              style={backStyle}
+              onClick={() => openStep(previousStep.key)}
+            >
+              ← Назад
+            </button>
+          ) : isDirty ? (
+            <button
+              type="button"
+              style={backStyle}
+              onClick={() => setIsLeaving(true)}
+            >
+              ← Назад
+            </button>
+          ) : (
+            <a href={leaveHref} style={backStyle}>
+              ← Назад
+            </a>
+          )}
+          <h2 style={{ margin: 0, ...TYPE.rowTitle, whiteSpace: 'nowrap' }}>
+            Новый замер
+          </h2>
+          {step !== 'client' && clientName !== null && (
+            <span
+              style={{
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: colors.muted,
+              }}
+            >
+              {clientName}
+            </span>
+          )}
+          <div style={{ marginLeft: 'auto' }}>
+            <StepTrail steps={STEPS} current={step} onOpen={openStep} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  // One white surface from the top bar to the bar of the step's actions, which
+  // stays in reach under a long проём.
+  const shell = (body: ReactNode, actions: ReactNode) => (
+    <div
+      ref={page.ref}
+      style={{
+        position: 'relative',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        minHeight: '100cqh',
+        background: colors.surface,
+        color: colors.text,
+        fontFamily: 'inherit',
+        ...TYPE.body,
+      }}
+    >
+      {topBar}
       <div
         style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr)',
+          flex: 1,
+          minWidth: 0,
+        }}
+      >
+        {body}
+      </div>
+      <div
+        ref={footer.ref}
+        style={{
+          // A phone has Twenty's own navigation floating over the bottom
+          // edge, and the bar would hang above it over the fields
+          position: page.width >= COLUMNS_MIN_WIDTH ? 'sticky' : 'static',
+          bottom: 0,
+          zIndex: 2,
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           gap: SPACE.md,
+          padding: `${SPACE.md}px ${SPACE.lg}px`,
+          background: colors.surface,
+          borderTop: hairline,
         }}
       >
-        {step === 'measurement' ? backControl : null}
-        {isLeaving ? null : (
-          <>
-            <h2 style={{ margin: 0, ...TYPE.title }}>Новый замер</h2>
-            {clientChip}
-            <div style={{ marginLeft: 'auto' }}>
-              <StepTabs step={step} onBack={goBackTo} />
-            </div>
-          </>
-        )}
+        {actions}
       </div>
-      {layout !== 'wide' && step === 'measurement' && !isChoosingVisit
-        ? openingStrip()
-        : null}
     </div>
   );
 
-  const stickyColumn = (extra: CSSProperties = {}): CSSProperties => ({
-    position: 'sticky',
-    top: header.height + SPACE.lg,
-    maxHeight: `calc(100cqh - ${header.height + footer.height + 2 * SPACE.lg}px)`,
-    overflowY: 'auto',
-    ...column(SPACE.md),
-    ...extra,
-  });
-
-  const openingList = (
-    <nav
-      aria-label="Проёмы"
-      style={stickyColumn({
-        gap: 0,
-        background: colors.surface,
-        border: `1px solid ${colors.border}`,
-        borderRadius: RADIUS.card,
-      })}
+  // A list on the left and what is chosen in it on the right; the list goes
+  // above on a screen too narrow for both.
+  const split = (side: ReactNode, sideWidth: number, main: ReactNode) => (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: isTwoPane
+          ? `${sideWidth}px minmax(0, 1fr)`
+          : 'minmax(0, 1fr)',
+      }}
     >
       <div
-        style={{
-          padding: `${SPACE.md}px ${SPACE.md}px ${SPACE.sm}px`,
-          ...TYPE.label,
-          fontWeight: 600,
-          letterSpacing: '0.05em',
-          textTransform: 'uppercase',
-          color: colors.muted,
-          borderBottom: `1px solid ${colors.border}`,
-        }}
+        style={
+          isTwoPane ? { borderRight: hairline } : { borderBottom: hairline }
+        }
       >
-        Проёмы · {draft.openings.length}
+        <div
+          style={{
+            ...column(SPACE.xs),
+            padding: SPACE.md,
+            ...(isTwoPane
+              ? {
+                  position: 'sticky',
+                  top: header.height,
+                  maxHeight: `calc(100cqh - ${header.height + footer.height}px)`,
+                  overflowY: 'auto',
+                }
+              : {}),
+          }}
+        >
+          {side}
+        </div>
       </div>
-      {listItems(false)}
-    </nav>
+      {main}
+    </div>
   );
 
-  const sketchOf = (opening: OpeningDraft, maxWidth = SKETCH_MAX_WIDTH) => {
+  // What the bar under a step says: its errors, or a quiet summary.
+  const barNote = (list: string[], summary = '') => (
+    <div
+      role={list.length > 0 ? 'alert' : undefined}
+      style={{
+        flex: '1 1 220px',
+        display: 'grid',
+        color: list.length > 0 ? colors.danger : colors.muted,
+        ...TABULAR_NUMBERS,
+        ...WRAP,
+      }}
+    >
+      {list.length > 0
+        ? list.map((error) => <span key={error}>{error}</span>)
+        : summary}
+    </div>
+  );
+
+  const barTotal = (amount: string) => (
+    <span style={{ ...TYPE.rowTitle, ...TABULAR_NUMBERS, ...WRAP }}>
+      {amount}
+    </span>
+  );
+
+  // Without a size there is no sum yet; without a price there never will be
+  const totalText =
+    draftTotal !== null
+      ? formatMoney(draftTotal)
+      : liveErrors.some((error) => /^Проём \d+:/.test(error))
+        ? '—'
+        : 'Цену назовёт менеджер';
+
+  if (step === 'contract' && contractTemplate !== null) {
+    const data = contractData(contractTemplate);
+
+    return shell(
+      <div style={pane}>
+        <ContractSigning
+          document={buildContractDocument(contractTemplate, data)}
+          data={data}
+          blockers={missingClientDetails(data)}
+          warnings={missingCompanyDetails(contractTemplate)}
+          signature={signature}
+          onSignatureChange={changeSignature}
+        >
+          <ErrorList errors={errors} />
+          <span style={{ ...TYPE.label, color: colors.muted, ...WRAP }}>
+            Передайте планшет клиенту. Заказ, оплата и подписанный PDF
+            сохранятся одним нажатием внизу.
+          </span>
+        </ContractSigning>
+      </div>,
+      <>
+        {barNote([], `предоплата ${formatMoney(preview.prepayment)}`)}
+        {barTotal(formatMoney(preview.total ?? 0))}
+        <button
+          type="button"
+          disabled={signature.length === 0}
+          aria-busy={isSaving}
+          onClick={handleSave}
+          style={{
+            minHeight: CONTROL_HEIGHT,
+            padding: `0 ${SPACE.lg}px`,
+            background: signature.length === 0 ? colors.panel : colors.accent,
+            border: 'none',
+            borderRadius: RADIUS.control,
+            color: signature.length === 0 ? colors.muted : colors.onAccent,
+            font: 'inherit',
+            fontWeight: 600,
+            opacity: isSaving ? 0.6 : 1,
+            cursor: 'pointer',
+          }}
+        >
+          {isSaving ? 'Сохранение…' : 'Подписать и сохранить'}
+        </button>
+      </>,
+    );
+  }
+
+  if (step === 'payment' || step === 'contract') {
+    const prepaymentShareOf = (share: number) =>
+      share === 0 ? '' : formatWhole(Math.round((preview.total ?? 0) * share));
+    const receipt = (
+      <div
+        style={{
+          ...pane,
+          ...(isTwoPane
+            ? { borderRight: hairline }
+            : { borderBottom: hairline }),
+        }}
+      >
+        <div style={headRow}>
+          <h3 style={paneTitle}>Заказ</h3>
+          {isSaving ? null : (
+            <Button variant="link" onClick={() => openStep('openings')}>
+              Изменить
+            </Button>
+          )}
+        </div>
+        <div style={column(0)}>
+          {draft.openings.flatMap((opening, index) => {
+            const quote = computeOpeningQuote(opening, grilles);
+            const visor = visorOf(opening);
+            const visorTotal = computeOpeningVisorTotal(opening, visorOptions);
+            const lines: ReactNode[] = [];
+
+            if (!isVisorOnlyOpening(opening)) {
+              lines.push(
+                <ReceiptLine
+                  key={opening.key}
+                  title={`Проём ${index + 1} · ${describeGrille(opening)}`}
+                  detail={`${describeSize(opening) ?? ''}${quantityOf(opening) > 1 ? `, ${opening.quantity} шт` : ''}${opening.product === 'RAILING' ? '' : ` · ${formatQuantity(openingArea(opening) ?? 0, 'м²')}`}`}
+                  amount={quote === null ? '—' : formatMoney(quote.lineTotal)}
+                />,
+              );
+            }
+
+            if (visor !== null) {
+              lines.push(
+                <ReceiptLine
+                  key={opening.visorKey}
+                  title={`${/^козырёк/i.test(visor.name) ? '' : 'Козырёк '}${visor.name}${isVisorOnlyOpening(opening) ? '' : ` · проём ${index + 1}`}`}
+                  detail={
+                    visor.price === null
+                      ? 'цена не задана'
+                      : `${opening.visorLengthCm} см × ${opening.quantity} шт · ${formatMoney(visor.price)} за п.м.`
+                  }
+                  amount={visorTotal === null ? '—' : formatMoney(visorTotal)}
+                />,
+              );
+            }
+
+            return lines;
+          })}
+          {draft.services.map((line) => {
+            const lineTotal = computeServiceLineTotal(
+              line,
+              serviceOptions,
+              totalAreaSquareMeters,
+            );
+
+            return (
+              <ReceiptLine
+                key={line.key}
+                title={serviceOptionOf(line)?.name ?? 'Услуга'}
+                detail={describeServiceLine(line)}
+                amount={lineTotal === null ? '—' : formatMoney(lineTotal)}
+              />
+            );
+          })}
+          <div style={{ paddingTop: SPACE.md }}>
+            <SummaryLine
+              label="Сумма"
+              value={
+                preview.subtotal === null ? '—' : formatMoney(preview.subtotal)
+              }
+            />
+          </div>
+        </div>
+      </div>
+    );
+
+    const paymentPane = (
+      <div style={pane}>
+        <h3 style={paneTitle}>Оплата</h3>
+        {preview.subtotal === null ||
+        preview.total === null ||
+        preview.balance === null ? (
+          <div style={column(SPACE.xs)}>
+            <span style={{ fontWeight: 600 }}>Цену назовёт менеджер</span>
+            <span style={{ color: colors.muted }}>
+              В заказе есть решётка, козырёк или услуга без цены, поэтому скидку
+              и предоплату менеджер внесёт сам.
+            </span>
+          </div>
+        ) : (
+          <>
+            <Field label="Скидка" error={preview.errors.discountValue}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) 140px',
+                  gap: SPACE.sm,
+                }}
+              >
+                <TextInput
+                  label="Скидка"
+                  inputMode="decimal"
+                  isMoney={payment.discountKind === 'AMOUNT'}
+                  value={payment.discountValue}
+                  placeholder="0"
+                  onChange={(discountValue) => updatePayment({ discountValue })}
+                />
+                <Segmented
+                  label="Скидка в"
+                  value={payment.discountKind}
+                  options={DISCOUNT_KIND_OPTIONS.map(({ value, label }) => ({
+                    value: value as DiscountKind,
+                    label,
+                  }))}
+                  onChange={(discountKind) => updatePayment({ discountKind })}
+                />
+              </div>
+            </Field>
+            <div style={column(SPACE.sm)}>
+              <Field label="Предоплата" error={preview.errors.prepayment}>
+                <TextInput
+                  label="Предоплата"
+                  inputMode="numeric"
+                  isMoney
+                  suffix="сум"
+                  placeholder="0"
+                  value={payment.prepayment}
+                  onChange={(prepayment) => updatePayment({ prepayment })}
+                />
+              </Field>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.sm }}>
+                {PREPAYMENT_SHARES.map(({ label, share }) => (
+                  <QuickButton
+                    key={label}
+                    label={label}
+                    isChosen={payment.prepayment === prepaymentShareOf(share)}
+                    onClick={() =>
+                      updatePayment({ prepayment: prepaymentShareOf(share) })
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+            <div style={column(SPACE.xs)}>
+              <FieldLabel>Способ</FieldLabel>
+              <Segmented
+                label="Способ"
+                value={payment.method}
+                options={PAYMENT_METHOD_OPTIONS.map(({ value, label }) => ({
+                  value: value as PaymentMethod,
+                  label,
+                }))}
+                onChange={(method) => updatePayment({ method })}
+              />
+            </div>
+            <Field label="Комментарий к оплате">
+              <TextInput
+                label="Комментарий к оплате"
+                value={payment.comment}
+                onChange={(comment) => updatePayment({ comment })}
+              />
+            </Field>
+            <div
+              style={{
+                ...column(SPACE.xs),
+                paddingTop: SPACE.md,
+                borderTop: hairline,
+              }}
+            >
+              {preview.discount > 0 && (
+                <SummaryLine
+                  label="Скидка"
+                  value={`−${formatMoney(preview.discount)}`}
+                />
+              )}
+              <SummaryLine label="Итого" value={formatMoney(preview.total)} />
+              <SummaryLine
+                label="Предоплата"
+                value={formatMoney(preview.prepayment)}
+              />
+              <SummaryLine
+                label="Остаток"
+                value={formatMoney(preview.balance)}
+                isTotal
+              />
+            </div>
+          </>
+        )}
+        <span style={{ ...TYPE.label, color: colors.muted }}>
+          {isContractReady
+            ? 'Без договора заказ сохранится со статусом «Не подписан»; подписать можно позже из заказа.'
+            : preview.total === null
+              ? 'Договор подпишет менеджер, когда у заказа будет цена.'
+              : 'Договор загружается…'}
+        </span>
+      </div>
+    );
+
+    return shell(
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isTwoPane
+            ? 'minmax(0, 1fr) minmax(0, 1fr)'
+            : 'minmax(0, 1fr)',
+        }}
+      >
+        {receipt}
+        {paymentPane}
+      </div>,
+      <>
+        {barNote(errors)}
+        <Button
+          variant={isContractReady ? 'quiet' : 'primary'}
+          isBusy={isSaving}
+          busyText="Сохранение…"
+          onClick={handleSave}
+        >
+          Сохранить без договора
+        </Button>
+        {isContractReady && (
+          <Button
+            variant="primary"
+            isWideOnPhone
+            onClick={() => openStep('contract')}
+          >
+            Далее: договор
+          </Button>
+        )}
+      </>,
+    );
+  }
+
+  if (step === 'client') {
+    // Opened from an order's card, the form is for that order alone
+    const hasVisits = scheduledOrders.length > 0 && openedFromOrderId === null;
+    const isScheduledClient = target !== '' && target !== NEW_CLIENT_TARGET;
+    // The typed value as it is: a date still being typed is not a date yet
+    const measurementTime = describeMeasurementTime(
+      draft.measurementDate === '' ? null : draft.measurementDate,
+      today,
+    );
+
+    const visits = (
+      <>
+        <div style={{ padding: `${SPACE.sm}px ${SPACE.md}px 0` }}>
+          <FieldLabel>Чей замер</FieldLabel>
+        </div>
+        {scheduledOrders.map((order) => (
+          <RailItem
+            key={order.id}
+            title={joinFullName(order.clientFullName) ?? order.name}
+            aside={
+              describeMeasurementTime(order.measurementDate, today) ??
+              'Без даты'
+            }
+            detail={
+              [
+                findLabel(DISTRICT_OPTIONS, order.district ?? ''),
+                order.addressLine,
+                order.floor === null ? null : `${order.floor} эт.`,
+              ]
+                .filter((part) => part !== null && part !== '')
+                .join(', ') || order.name
+            }
+            isSelected={order.id === target}
+            onSelect={() => pickVisit(order.id)}
+          />
+        ))}
+        <RailItem
+          title="+ Новый клиент"
+          detail="Без записи менеджера"
+          isSelected={target === NEW_CLIENT_TARGET}
+          onSelect={startNewClient}
+        />
+      </>
+    );
+
+    const clientFields = (
+      <ClientFields
+        draft={draft}
+        match={clientMatch}
+        phoneError={
+          standingErrors.find((error) => error.includes('телефон')) ?? null
+        }
+        onChange={changeClient}
+        onTakeMatch={takeClientMatch}
+      />
+    );
+
+    const details = (
+      <div style={pane}>
+        {measurerId === null && loadError === null ? (
+          // Until the booked visits are known, a phone typed here would be
+          // taken for a new client's
+          <span style={{ color: colors.muted }}>Загружаем записи…</span>
+        ) : target === '' && hasVisits ? (
+          <span style={{ color: colors.muted }}>
+            Выберите запись менеджера в списке или «Новый клиент».
+          </span>
+        ) : isScheduledClient && !isEditingClient ? (
+          <>
+            <div style={headRow}>
+              <h3 style={paneTitle}>{clientName ?? 'Без имени'}</h3>
+              <Button variant="link" onClick={() => setIsEditingClient(true)}>
+                Изменить
+              </Button>
+            </div>
+            <div style={column(0)}>
+              <SettingRow label="Телефон">
+                <span style={TABULAR_NUMBERS}>
+                  {draft.clientPhone === ''
+                    ? 'нет телефона'
+                    : `${UZBEK_PHONE_PREFIX} ${draft.clientPhone}`}
+                </span>
+              </SettingRow>
+              <SettingRow label="Адрес">{clientAddress || '—'}</SettingRow>
+              <SettingRow label="Этаж">{draft.floor || '—'}</SettingRow>
+              <SettingRow label="Откуда узнал">
+                {findLabel(SOURCE_OPTIONS, draft.source) ?? '—'}
+              </SettingRow>
+              <SettingRow label="Дата замера">
+                {measurementTime ?? '—'}
+              </SettingRow>
+            </div>
+            {draft.comment.trim() !== '' && (
+              <NoteBox title="Комментарий менеджера" text={draft.comment} />
+            )}
+          </>
+        ) : (
+          <>
+            <div style={headRow}>
+              <h3 style={paneTitle}>
+                {isScheduledClient ? 'Клиент' : 'Новый клиент'}
+              </h3>
+              {isScheduledClient && (
+                <Button
+                  variant="link"
+                  onClick={() => setIsEditingClient(false)}
+                >
+                  Готово
+                </Button>
+              )}
+            </div>
+            {clientFields}
+          </>
+        )}
+      </div>
+    );
+
+    return shell(
+      <>
+        {loadError !== null && (
+          <div style={{ padding: `${SPACE.lg}px ${SPACE.lg}px 0` }}>
+            <ErrorList errors={[loadError]} />
+          </div>
+        )}
+        {hasVisits ? (
+          split(visits, VISITS_WIDTH, details)
+        ) : (
+          <div style={{ maxWidth: CLIENT_MAX_WIDTH }}>{details}</div>
+        )}
+      </>,
+      <>
+        {barNote(standingErrors.filter(isClientError))}
+        <Button
+          variant="primary"
+          isWideOnPhone
+          onClick={() => openStep('openings')}
+        >
+          Начать замер
+        </Button>
+      </>,
+    );
+  }
+
+  const sketchOf = (opening: OpeningDraft) => {
     const isRailing = opening.product === 'RAILING';
     const outline = isRailing ? null : openingOutline(opening);
     const visor = visorOf(opening);
@@ -2238,8 +2386,7 @@ export const NewMeasurement = () => {
       <div
         style={{
           display: 'grid',
-          gap: 0,
-          maxWidth,
+          maxWidth: SKETCH_MAX_WIDTH,
           width: '100%',
           margin: '0 auto',
         }}
@@ -2290,412 +2437,95 @@ export const NewMeasurement = () => {
     );
   };
 
-  const sketchPanel = (opening: OpeningDraft, sketchMaxWidth?: number) => {
-    const total = openingTotal(opening);
-    const runningMeters = computeOpeningRunningMeters(opening);
-    const area = openingArea(opening);
-    const isShaped =
-      opening.product === 'GRILLE' && opening.shape.kind !== 'RECTANGLE';
-    const outline =
-      opening.product === 'RAILING' ? null : openingOutline(opening);
-    const times = quantityOf(opening) > 1 ? ` × ${opening.quantity}` : '';
-
-    return (
-      <div
-        style={{
-          ...column(SPACE.sm),
-          padding: SPACE.md,
-          background: colors.panel,
-          borderRadius: RADIUS.card,
-        }}
-      >
-        {sketchOf(opening, sketchMaxWidth)}
-        {runningMeters !== null && (
-          <SummaryLine
-            label="Длина"
-            value={`${formatQuantity(runningMeters, 'п.м.')}${times}`}
-          />
-        )}
-        {area !== null && (
-          <SummaryLine
-            label={isShaped ? 'Площадь по габариту' : 'Площадь'}
-            value={`${formatQuantity(computeOpeningAreaSquareMeters(opening) ?? 0, 'м²')}${times}`}
-          />
-        )}
-        {isShaped && outline === null && (
-          <span style={{ ...TYPE.label, color: colors.muted }}>
-            Эскиз и цена появятся, когда размеры сойдутся.
-          </span>
-        )}
-        <SummaryLine
-          label="Проём"
-          value={
-            total === null
-              ? opening.designId === ''
-                ? 'Цену назовёт менеджер'
-                : '—'
-              : formatMoney(total)
-          }
-        />
-      </div>
-    );
-  };
-
-  const summaryPanel = (lines: { label: string; value: string }[]) => (
-    <div
-      style={{
-        ...column(SPACE.xs),
-        padding: SPACE.md,
-        background: colors.panel,
-        borderRadius: RADIUS.card,
-      }}
-    >
-      {lines.map((line) => (
-        <SummaryLine key={line.label} label={line.label} value={line.value} />
-      ))}
-    </div>
-  );
-
-  const pairStyle: CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 170px), 1fr))',
-    gap: SPACE.md,
-  };
-
-  const grilleCard = (opening: OpeningDraft) => {
-    const isRailing = opening.product === 'RAILING';
-    const choices = grilles.filter(
-      (option) => option.product === opening.product,
-    );
-    const isOpen =
-      picker?.openingKey === opening.key && picker.kind === 'grille';
-    const quick = pickQuickOptions({
-      options: choices,
-      uses: usage.grilles,
-      usedHereIds: draft.openings
-        .filter((other) => other.key !== opening.key)
-        .map((other) => other.designId),
-      chosenId: opening.designId,
-      limit: QUICK_GRILLE_COUNT,
-    });
-    const quote = computeOpeningQuote(opening, grilles);
-
-    return (
-      <EditorCard
-        title={isRailing ? 'Перилла' : 'Решётка'}
-        aside={quote === null ? undefined : formatMoney(quote.lineTotal)}
-      >
-        {isOpen && picker !== null ? (
-          <GrillePicker
-            grilles={choices}
-            uses={usage.grilles}
-            chosenId={opening.designId}
-            picker={picker}
-            onPickerChange={setPicker}
-            onPick={(designId) => {
-              updateOpening(opening.key, { designId });
-              setPicker(null);
-            }}
-          />
-        ) : (
-          <>
-            <TileGrid>
-              {quick.map((option) => (
-                <PhotoTile
-                  key={option.id}
-                  name={option.name}
-                  photoUrl={option.photoUrl}
-                  isSelected={option.id === opening.designId}
-                  onSelect={() =>
-                    updateOpening(opening.key, { designId: option.id })
-                  }
-                  caption={
-                    option.pricePerSquareMeter === null
-                      ? 'без цены'
-                      : `${formatMoney(option.pricePerSquareMeter)} / ${isRailing ? 'п.м.' : 'м²'}`
-                  }
-                />
-              ))}
-              <OptionTile
-                title={
-                  isRailing ? 'Все перилла и поиск →' : 'Все решётки и поиск →'
-                }
-                isLink
-                onClick={() =>
-                  setPicker({
-                    openingKey: opening.key,
-                    kind: 'grille',
-                    query: '',
-                    grilleKind: ALL_KINDS,
-                  })
-                }
-              />
-            </TileGrid>
-            {opening.designId === '' ? (
-              <span style={{ ...TYPE.label, color: colors.muted }}>
-                Не выбрана: цену назовёт менеджер.
-              </span>
-            ) : null}
-          </>
-        )}
-      </EditorCard>
-    );
-  };
-
-  const visorCard = (opening: OpeningDraft) => {
-    const visor = visorOf(opening);
-    const isOpen =
-      picker?.openingKey === opening.key && picker.kind === 'visor';
-    const quick = pickQuickOptions({
-      options: visorOptions,
-      uses: usage.visors,
-      usedHereIds: draft.openings
-        .filter((other) => other.key !== opening.key)
-        .map((other) => other.visorServiceId),
-      chosenId: opening.visorServiceId,
-      limit: QUICK_VISOR_COUNT,
-    });
-    const visorTotal = computeOpeningVisorTotal(opening, visorOptions);
-    const lengthTarget = openingPadTargets(opening).find((candidate) =>
-      candidate.id.endsWith(':visor'),
-    );
-
-    return (
-      <EditorCard
-        title="Козырёк"
-        aside={
-          visor === null || visorTotal === null
-            ? undefined
-            : formatMoney(visorTotal)
-        }
-      >
-        {isOpen && picker !== null ? (
-          <VisorPicker
-            visors={visorOptions}
-            uses={usage.visors}
-            chosenId={opening.visorServiceId}
-            picker={picker}
-            onPickerChange={setPicker}
-            onPick={(visorServiceId) => chooseVisor(opening, visorServiceId)}
-          />
-        ) : (
-          <TileGrid>
-            <OptionTile
-              title="Не нужен"
-              isSelected={!opening.isVisorWanted}
-              onClick={() => dropVisor(opening)}
-            />
-            {quick.map((option) => (
-              <OptionTile
-                key={option.id}
-                title={option.name}
-                subtitle={
-                  option.price === null
-                    ? 'без цены'
-                    : `${formatMoney(option.price)} / п.м.`
-                }
-                isSelected={option.id === opening.visorServiceId}
-                onClick={() => chooseVisor(opening, option.id)}
-              />
-            ))}
-            <OptionTile
-              title="Все козырьки →"
-              isLink
-              onClick={() =>
-                setPicker({
-                  openingKey: opening.key,
-                  kind: 'visor',
-                  query: '',
-                  grilleKind: ALL_KINDS,
-                })
-              }
-            />
-          </TileGrid>
-        )}
-        {lengthTarget !== undefined ? (
-          <div style={pairStyle}>
-            {padField(lengthTarget, {
-              isWrong: errorsOf(errors, selectedIndex + 1).some((error) =>
-                error.includes('длину козырька'),
-              ),
-            })}
-            <span
-              style={{
-                ...TYPE.label,
-                color: colors.muted,
-                alignSelf: 'center',
-              }}
-            >
-              Сначала равна ширине проёма, можно изменить.
-            </span>
-          </div>
-        ) : null}
-        {isVisorOnlyOpening(opening) ? (
-          <span style={{ ...TYPE.label, color: colors.muted }}>
-            Без ширины и высоты сохранится только козырёк, без решётки.
-          </span>
-        ) : null}
-      </EditorCard>
-    );
-  };
-
-  const photosCard = (opening: OpeningDraft, openingNumber: number) => (
-    <EditorCard title="Фото и заметки">
-      <div style={column(SPACE.sm)}>
-        <FieldLabel>
-          Фото · {opening.photos.length} из {MAX_PHOTOS_PER_OPENING}
-        </FieldLabel>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.sm }}>
-          {opening.photos.map((photo, photoIndex) => (
-            <PhotoThumbnail
-              key={photo.key}
-              photo={photo}
-              alt={`Фото ${photoIndex + 1}, проём ${openingNumber}`}
-              onRemove={() => removePhoto(opening.key, photo.key)}
-              removeLabel={`Удалить фото ${photoIndex + 1}, проём ${openingNumber}`}
-            />
-          ))}
-          {opening.photos.length < MAX_PHOTOS_PER_OPENING && (
-            <label
-              style={{
-                ...thumbnailBox,
-                display: 'grid',
-                placeContent: 'center',
-                justifyItems: 'center',
-                border: `2px dashed ${colors.border}`,
-                color: colors.accent,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              <span style={{ fontSize: '26px', lineHeight: 1 }}>+</span>
-              Фото
-              {/* No capture attribute: tablets then offer both the
-                  camera and the gallery. Re-keyed per pick so choosing
-                  the same file again still fires onChange. */}
-              <input
-                key={photoPickCount}
-                type="file"
-                accept="image/*"
-                multiple
-                aria-label={`Добавить фото, проём ${openingNumber}`}
-                style={{
-                  height: 1,
-                  opacity: 0,
-                  overflow: 'hidden',
-                  position: 'absolute',
-                  width: 1,
-                }}
-                onChange={(event) =>
-                  addPhotos(opening, Array.from(event.target.files ?? []))
-                }
-              />
-            </label>
-          )}
-        </div>
-        {photoLimitNotice?.openingKey === opening.key && (
-          <span role="status" style={{ color: colors.danger }}>
-            Не больше {MAX_PHOTOS_PER_OPENING} фото на проём: лишние (
-            {photoLimitNotice.skippedCount}) не добавлены.
-          </span>
-        )}
-      </div>
-      <TextArea
-        label="Заметки"
-        value={opening.notes}
-        placeholder="Например: решётка открывается, замок справа"
-        onChange={(notes) => updateOpening(opening.key, { notes })}
-      />
-    </EditorCard>
-  );
-
-  const openingEditor = (opening: OpeningDraft, index: number) => {
+  const openingPane = (opening: OpeningDraft, index: number) => {
     const openingNumber = index + 1;
-    const ownErrors = errorsOf(errors, openingNumber);
+    const ownErrors = errorsOf(standingErrors, openingNumber);
+    const total = openingTotal(opening);
+    const area = openingArea(opening);
+    const grille = grilleOf(opening);
+    const visorTotal = computeOpeningVisorTotal(opening, visorOptions);
     const isRailing = opening.product === 'RAILING';
-    const targets = openingPadTargets(opening);
-    const targetOf = (suffix: string) =>
-      targets.find((candidate) => candidate.id === `${opening.key}:${suffix}`);
-    const isSizeWrong = ownErrors.some(
-      (error) => !error.includes('козыр') && !error.includes('вынос'),
-    );
-    const sizeField = (suffix: string) => {
-      const sizeTarget = targetOf(suffix);
-
-      return sizeTarget === undefined
-        ? null
-        : padField(sizeTarget, {
-            isWrong: isSizeWrong && sizeTarget.value.trim() === '',
-            placeholder: suffix === 'center' ? 'нет' : '—',
-          });
-    };
-    const projectionTarget = targetOf('projection');
-    const previous = draft.openings[index - 1];
-    const next = draft.openings[index + 1];
-    const navButton: CSSProperties = {
-      minWidth: CONTROL_HEIGHT,
+    const isShaped = !isRailing && opening.shape.kind !== 'RECTANGLE';
+    const outline = isRailing ? null : openingOutline(opening);
+    const runningMeters = computeOpeningRunningMeters(opening);
+    const times = quantityOf(opening) > 1 ? ` × ${opening.quantity}` : '';
+    const designCount = grilles.filter(
+      (option) => option.product === opening.product,
+    ).length;
+    const extras = [
+      opening.photos.length > 0 ? `фото ${opening.photos.length}` : null,
+      opening.notes.trim() !== '' ? 'заметка' : null,
+    ]
+      .filter((part) => part !== null)
+      .join(', ');
+    const menuItem: CSSProperties = {
       minHeight: CONTROL_HEIGHT,
-      background: colors.surface,
-      border: `1px solid ${colors.border}`,
+      padding: `0 ${SPACE.md}px`,
+      background: 'transparent',
+      border: 'none',
       borderRadius: RADIUS.control,
       color: colors.text,
       font: 'inherit',
-      fontSize: '20px',
+      textAlign: 'left',
       cursor: 'pointer',
     };
 
     return (
-      <div style={column(SPACE.lg)}>
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: SPACE.sm,
-          }}
-        >
-          <button
-            type="button"
-            aria-label="Предыдущий проём"
-            disabled={previous === undefined}
-            style={{ ...navButton, opacity: previous === undefined ? 0.4 : 1 }}
-            onClick={() => previous && selectOpening(previous.key)}
+      <section
+        key={opening.key}
+        aria-label={`Проём ${openingNumber}`}
+        style={pane}
+      >
+        <div style={{ ...headRow, position: 'relative' }}>
+          <h3 style={paneTitle}>Проём {openingNumber}</h3>
+          <Button
+            label="Действия с проёмом"
+            onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
           >
-            ‹
-          </button>
-          <h3 style={{ margin: 0, flex: '1 1 auto', ...TYPE.title }}>
-            Проём {openingNumber}
-          </h3>
-          <Button onClick={() => duplicateOpening(opening)}>Копировать</Button>
-          {draft.openings.length > 1 ? (
-            <button
-              type="button"
+            ⋯
+          </Button>
+          {isMenuOpen && (
+            <div
               style={{
-                ...linkButton(false),
-                border: 'none',
-                color: colors.danger,
+                position: 'absolute',
+                top: CONTROL_HEIGHT + SPACE.xs,
+                right: 0,
+                // Above the inputs under it
+                zIndex: 1,
+                display: 'grid',
+                minWidth: 220,
+                padding: SPACE.xs,
+                background: colors.surface,
+                border: hairline,
+                borderRadius: RADIUS.card,
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
               }}
-              onClick={() => removeOpening(opening.key)}
             >
-              Удалить
-            </button>
-          ) : null}
-          <button
-            type="button"
-            aria-label="Следующий проём"
-            disabled={next === undefined}
-            style={{ ...navButton, opacity: next === undefined ? 0.4 : 1 }}
-            onClick={() => next && selectOpening(next.key)}
-          >
-            ›
-          </button>
+              <button
+                type="button"
+                style={menuItem}
+                onClick={() => duplicateOpening(opening)}
+              >
+                Копировать проём
+              </button>
+              {draft.openings.length > 1 && (
+                <button
+                  type="button"
+                  style={{ ...menuItem, color: colors.danger }}
+                  onClick={() => removeOpening(opening.key)}
+                >
+                  Удалить проём
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {copiedNotice?.openingKey === opening.key ? (
           <div
             role="status"
             style={{
               padding: `${SPACE.sm}px ${SPACE.md}px`,
-              background: colors.accentTint,
+              background: colors.panel,
               borderRadius: RADIUS.control,
               ...TYPE.label,
               ...WRAP,
@@ -2705,839 +2535,591 @@ export const NewMeasurement = () => {
             Размеры введите заново.
           </div>
         ) : null}
-        {layout === 'narrow' && !isSketchDocked ? sketchPanel(opening) : null}
-        <EditorCard title="Размеры">
-          <div style={{ maxWidth: 400 }}>
-            <Segmented
-              label="Изделие"
-              value={opening.product}
-              options={[
-                { value: 'GRILLE', label: 'Решётка' },
-                { value: 'RAILING', label: 'Перилла' },
-              ]}
-              onChange={(product) => changeProduct(opening, product)}
-            />
-          </div>
-          {isRailing ? (
-            <div style={pairStyle}>
-              {sizeField('width')}
-              {sizeField('height')}
-            </div>
-          ) : (
-            <ShapeFields
-              shape={opening.shape}
-              widthCm={opening.widthCm}
-              heightCm={opening.heightCm}
-              nextKey={createShapePointKey}
-              liveErrors={liveShapeErrors(opening)}
-              onShapeChange={(shape) => updateOpening(opening.key, { shape })}
-              onWidthChange={(widthCm) => changeWidth(opening.key, widthCm)}
-              onHeightChange={(heightCm) =>
-                updateOpening(opening.key, { heightCm })
-              }
-              renderSize={(size) => sizeField(size.id)}
-            />
-          )}
-          {isRailing ? null : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isSketchBeside
+              ? `minmax(0, 1fr) ${SKETCH_PANEL_WIDTH}px`
+              : 'minmax(0, 1fr)',
+            gap: SPACE.xl,
+            alignItems: 'start',
+          }}
+        >
+          <div style={column(SPACE.lg)}>
             <div style={column(SPACE.sm)}>
-              <FieldLabel>Вынос</FieldLabel>
+              <FieldLabel>Изделие</FieldLabel>
+              <div style={{ maxWidth: 360 }}>
+                <Segmented
+                  label="Изделие"
+                  value={opening.product}
+                  options={[
+                    { value: 'GRILLE', label: 'Решётка' },
+                    { value: 'RAILING', label: 'Перилла' },
+                  ]}
+                  onChange={(product) => changeProduct(opening, product)}
+                />
+              </div>
+            </div>
+            {isRailing ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                  gap: SPACE.md,
+                }}
+              >
+                <Field label="Длина">
+                  <TextInput
+                    label="Длина, см"
+                    inputMode="decimal"
+                    isLarge
+                    suffix="см"
+                    placeholder="0"
+                    value={opening.widthCm}
+                    onChange={(widthCm) => changeWidth(opening.key, widthCm)}
+                  />
+                </Field>
+                <Field label="Высота">
+                  <TextInput
+                    label="Высота, см"
+                    inputMode="decimal"
+                    isLarge
+                    suffix="см"
+                    placeholder="0"
+                    value={opening.heightCm}
+                    onChange={(heightCm) =>
+                      updateOpening(opening.key, { heightCm })
+                    }
+                  />
+                </Field>
+              </div>
+            ) : (
+              <ShapeFields
+                shape={opening.shape}
+                widthCm={opening.widthCm}
+                heightCm={opening.heightCm}
+                nextKey={createShapePointKey}
+                liveErrors={liveShapeErrors(opening)}
+                onShapeChange={(shape) => updateOpening(opening.key, { shape })}
+                onWidthChange={(widthCm) => changeWidth(opening.key, widthCm)}
+                onHeightChange={(heightCm) =>
+                  updateOpening(opening.key, { heightCm })
+                }
+              />
+            )}
+            <ErrorList errors={ownErrors} />
+          </div>
+          <div
+            style={{
+              ...column(SPACE.sm),
+              padding: SPACE.md,
+              background: colors.panel,
+              borderRadius: RADIUS.card,
+            }}
+          >
+            {sketchOf(opening)}
+            {runningMeters !== null && (
+              <SummaryLine
+                label="Длина"
+                value={`${formatQuantity(runningMeters, 'п.м.')}${times}`}
+              />
+            )}
+            {area !== null && (
+              <SummaryLine
+                label={isShaped ? 'Площадь по габариту' : 'Площадь'}
+                value={`${formatQuantity(computeOpeningAreaSquareMeters(opening) ?? 0, 'м²')}${times}`}
+              />
+            )}
+            {isShaped && outline === null && (
+              <span style={{ ...TYPE.label, color: colors.muted }}>
+                Эскиз и цена появятся, когда размеры сойдутся.
+              </span>
+            )}
+            {opening.visorServiceId !== '' && (
+              <SummaryLine
+                label="Козырёк"
+                value={
+                  visorTotal === null ? 'нужна длина' : formatMoney(visorTotal)
+                }
+              />
+            )}
+            <div style={{ paddingTop: SPACE.sm, borderTop: hairline }}>
+              <SummaryLine
+                label="Проём"
+                value={
+                  total === null
+                    ? opening.designId === ''
+                      ? 'Цену назовёт менеджер'
+                      : '—'
+                    : formatMoney(total)
+                }
+              />
+            </div>
+          </div>
+        </div>
+        <div style={column(0)}>
+          <DisclosureRow
+            label="Рисунок"
+            value={
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: SPACE.md,
+                  minWidth: 0,
+                }}
+              >
+                <span style={{ display: 'grid', textAlign: 'right', ...WRAP }}>
+                  <span style={{ fontWeight: 600 }}>
+                    {grille?.name ?? 'Другая'}
+                  </span>
+                  <span
+                    style={{
+                      ...TYPE.label,
+                      ...TABULAR_NUMBERS,
+                      color: colors.muted,
+                    }}
+                  >
+                    {grille === null
+                      ? `цену назовёт менеджер · выбрать из ${designCount}`
+                      : [
+                          grille.kindName,
+                          grille.pricePerSquareMeter === null
+                            ? 'без цены'
+                            : `${formatMoney(grille.pricePerSquareMeter)} за ${isRailing ? 'п.м.' : 'м²'}`,
+                        ]
+                          .filter((part) => part !== null)
+                          .join(' · ')}
+                  </span>
+                </span>
+                <Thumbnail photoUrl={grille?.photoUrl ?? null} />
+              </span>
+            }
+            onToggle={() => {
+              setIsMenuOpen(false);
+              setPicker({ query: '', grilleKind: ALL_KINDS });
+            }}
+          />
+          {!isRailing && (
+            <SettingRow label="Вынос">
+              {opening.projectionKind !== 'NONE' && (
+                <div style={{ width: 130 }}>
+                  <TextInput
+                    label="Вынос, см"
+                    inputMode="decimal"
+                    suffix="см"
+                    placeholder="0"
+                    value={opening.projectionCm}
+                    onChange={(projectionCm) =>
+                      updateOpening(opening.key, { projectionCm })
+                    }
+                  />
+                </div>
+              )}
               <Segmented
                 label="Вынос"
                 value={opening.projectionKind}
-                stackBelowPx={300}
                 options={PROJECTION_KIND_OPTIONS.map(({ value, label }) => ({
                   value: value as ProjectionKind,
                   label: label
                     .replace('Вынос ', '')
                     .replace(/^./, (letter) => letter.toUpperCase()),
                 }))}
-                onChange={(projectionKind) => {
-                  updateOpening(opening.key, { projectionKind });
-                  setActivePadId(
-                    projectionKind === 'NONE'
-                      ? null
-                      : `${opening.key}:projection`,
-                  );
-                }}
+                onChange={(projectionKind) =>
+                  updateOpening(opening.key, { projectionKind })
+                }
               />
-              {projectionTarget !== undefined ? (
-                <div style={pairStyle}>
-                  {padField(projectionTarget, {
-                    isWrong: ownErrors.some((error) => error.includes('вынос')),
-                  })}
-                  <span
+            </SettingRow>
+          )}
+          {!isRailing && opening.projectionKind !== 'NONE' && (
+            <span
+              style={{
+                ...TYPE.label,
+                color: colors.muted,
+                paddingBottom: SPACE.sm,
+              }}
+            >
+              Насколько решётка выходит за проём с каждой стороны. Площадь
+              считается с выносом.
+            </span>
+          )}
+          <SettingRow label="Одинаковых">
+            <QuantityStepper
+              label="Количество одинаковых"
+              isLabelShown={false}
+              value={opening.quantity}
+              onChange={(quantity) => updateOpening(opening.key, { quantity })}
+            />
+          </SettingRow>
+          {!isRailing && (
+            <SettingRow label="Козырёк">
+              {opening.visorServiceId !== '' && (
+                <div style={{ width: 150 }}>
+                  <TextInput
+                    label="Длина козырька, см"
+                    inputMode="decimal"
+                    suffix="см"
+                    placeholder="длина"
+                    value={opening.visorLengthCm}
+                    onChange={(visorLengthCm) =>
+                      updateOpening(opening.key, { visorLengthCm })
+                    }
+                  />
+                </div>
+              )}
+              <div style={{ ...column(0), maxWidth: 300 }}>
+                <SelectInput
+                  label="Козырёк"
+                  value={opening.visorServiceId}
+                  options={[
+                    { value: '', label: 'Не нужен' },
+                    ...visorOptions.map((option) => ({
+                      value: option.id,
+                      label:
+                        option.price === null
+                          ? `${option.name} · без цены`
+                          : `${option.name} · ${formatMoney(option.price)} за п.м.`,
+                    })),
+                  ]}
+                  onChange={(visorServiceId) =>
+                    visorServiceId === ''
+                      ? dropVisor(opening)
+                      : chooseVisor(opening, visorServiceId)
+                  }
+                />
+              </div>
+            </SettingRow>
+          )}
+          {!isRailing && opening.visorServiceId !== '' && (
+            <span
+              style={{
+                ...TYPE.label,
+                color: colors.muted,
+                paddingBottom: SPACE.sm,
+              }}
+            >
+              {isVisorOnlyOpening(opening)
+                ? 'Без ширины и высоты сохранится только козырёк, без решётки.'
+                : 'Длина козырька сначала равна ширине проёма, её можно изменить.'}
+            </span>
+          )}
+          <DisclosureRow
+            label="Фото и заметка"
+            value={extras === '' ? 'Добавить' : extras}
+            isOpen={isExtrasOpen}
+            onToggle={() => setIsExtrasOpen((isOpen) => !isOpen)}
+          >
+            <div style={column(SPACE.sm)}>
+              <FieldLabel>
+                Фото · {opening.photos.length} из {MAX_PHOTOS_PER_OPENING}
+              </FieldLabel>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.sm }}>
+                {opening.photos.map((photo, photoIndex) => (
+                  <PhotoThumbnail
+                    key={photo.key}
+                    photo={photo}
+                    alt={`Фото ${photoIndex + 1}, проём ${openingNumber}`}
+                    onRemove={() => removePhoto(opening.key, photo.key)}
+                    removeLabel={`Удалить фото ${photoIndex + 1}, проём ${openingNumber}`}
+                  />
+                ))}
+                {opening.photos.length < MAX_PHOTOS_PER_OPENING && (
+                  <label
                     style={{
-                      ...TYPE.label,
-                      color: colors.muted,
-                      alignSelf: 'center',
+                      ...thumbnailBox,
+                      display: 'grid',
+                      placeContent: 'center',
+                      justifyItems: 'center',
+                      border: `1px dashed ${colors.border}`,
+                      color: colors.accent,
+                      fontWeight: 600,
+                      cursor: 'pointer',
                     }}
                   >
-                    Насколько решётка выходит за проём с каждой стороны. Площадь
-                    считается с выносом.
-                  </span>
-                </div>
-              ) : null}
+                    <span style={{ fontSize: '26px', lineHeight: 1 }}>+</span>
+                    Фото
+                    {/* No capture attribute: tablets then offer both the
+                        camera and the gallery. Re-keyed per pick so choosing
+                        the same file again still fires onChange. */}
+                    <input
+                      key={photoPickCount}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      aria-label={`Добавить фото, проём ${openingNumber}`}
+                      style={{
+                        height: 1,
+                        opacity: 0,
+                        overflow: 'hidden',
+                        position: 'absolute',
+                        width: 1,
+                      }}
+                      onChange={(event) =>
+                        addPhotos(opening, Array.from(event.target.files ?? []))
+                      }
+                    />
+                  </label>
+                )}
+              </div>
+              {photoLimitNotice?.openingKey === opening.key && (
+                <span role="status" style={{ color: colors.danger }}>
+                  Не больше {MAX_PHOTOS_PER_OPENING} фото на проём: лишние (
+                  {photoLimitNotice.skippedCount}) не добавлены.
+                </span>
+              )}
             </div>
-          )}
-          <QuantityStepper
-            label="Одинаковых"
-            value={opening.quantity}
-            onChange={(quantity) => updateOpening(opening.key, { quantity })}
-          />
-        </EditorCard>
-        {grilleCard(opening)}
-        {isRailing ? null : visorCard(opening)}
-        {photosCard(opening, openingNumber)}
-        <ErrorList errors={ownErrors} />
-      </div>
+            <TextArea
+              label="Заметки"
+              value={opening.notes}
+              placeholder="Например: решётка открывается, замок справа"
+              onChange={(notes) => updateOpening(opening.key, { notes })}
+            />
+          </DisclosureRow>
+        </div>
+      </section>
     );
   };
 
-  const serviceErrors = errors.filter((error) => error.startsWith('Услуга '));
-  const servicesEditor = (
-    <div style={column(SPACE.lg)}>
-      <h3 style={{ margin: 0, ...TYPE.title }}>Услуги</h3>
-      <EditorCard
-        title="Из Цены → Услуги"
-        aside={
-          draft.services.length === 0 || servicesTotal === null
-            ? undefined
-            : formatMoney(servicesTotal)
-        }
-      >
-        {serviceOptions.length === 0 ? (
-          <span style={{ color: colors.muted }}>
-            В «Ценах» пока нет услуг. Их добавляет владелец: Цены → Услуги.
-          </span>
-        ) : (
-          <div style={column(SPACE.xs)}>
-            <Field label="Добавить услугу">
-              <SelectInput
-                label="Добавить услугу"
-                value=""
-                options={[
-                  { value: '', label: 'Выберите услугу' },
-                  ...serviceOptions.map((option) => ({
-                    value: option.id,
-                    label:
-                      option.price === null
-                        ? `${option.name} · цена не задана`
-                        : `${option.name} · ${formatMoney(option.price)} ${serviceUnitText(option.unit)}`,
-                  })),
-                ]}
-                onChange={addService}
-              />
-            </Field>
-            <span style={{ ...TYPE.label, color: colors.muted }}>
-              Одну услугу можно добавить несколько раз, например покраску
-              отдельно для решёток и для перил. У каждой строки свой счёт.
-            </span>
+  const designPane = (opening: OpeningDraft, index: number, open: Picker) => (
+    <section aria-label={`Рисунок, проём ${index + 1}`} style={pane}>
+      <GrillePicker
+        heading={
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.md }}>
+            <Button label="Назад к проёму" onClick={() => setPicker(null)}>
+              ←
+            </Button>
+            <h3 style={paneTitle}>Рисунок · проём {index + 1}</h3>
           </div>
-        )}
-        {draft.services.map((line) => {
-          const option = serviceOptionOf(line);
-          const unit = option?.unit ?? 'FIXED';
-          const lineTotal = computeServiceLineTotal(
-            line,
-            serviceOptions,
-            totalAreaSquareMeters,
-          );
-          const name = option?.name ?? 'Услуга';
-          const lineTarget = servicePadTargets.find(
-            (candidate) => candidate.id === `service:${line.key}`,
-          );
-
-          return (
-            <div
-              key={line.key}
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(auto-fit, minmax(min(100%, 160px), 1fr))',
-                alignItems: 'center',
-                gap: SPACE.md,
-                paddingTop: SPACE.md,
-                borderTop: `1px solid ${colors.border}`,
-              }}
-            >
-              <span style={{ display: 'grid', ...WRAP }}>
-                <span style={{ fontWeight: 600 }}>{name}</span>
-                <span style={{ ...TYPE.label, color: colors.muted }}>
-                  {option?.price == null
-                    ? 'цена не задана · назовёт менеджер'
-                    : `${formatMoney(option.price)} ${serviceUnitText(unit)}`}
-                </span>
-              </span>
-              {lineTarget === undefined ? (
-                <QuantityStepper
-                  label="Количество"
-                  value={line.quantity === '' ? '1' : line.quantity}
-                  onChange={(quantity) => updateService(line.key, quantity)}
-                />
-              ) : (
-                padField(
-                  {
-                    ...lineTarget,
-                    label:
-                      unit === 'PER_SQUARE_METER' && line.quantity === ''
-                        ? 'Площадь, как у проёмов'
-                        : unit === 'PER_SQUARE_METER'
-                          ? 'Площадь'
-                          : 'Длина',
-                  },
-                  {
-                    isLarge: false,
-                    isWrong: serviceErrors.some((error) =>
-                      error.includes(`«${name}»`),
-                    ),
-                    placeholder:
-                      unit === 'PER_SQUARE_METER'
-                        ? formatQuantity(totalAreaSquareMeters, '').trim()
-                        : '—',
-                  },
-                )
-              )}
-              <span
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  gap: SPACE.sm,
-                  ...TABULAR_NUMBERS,
-                }}
-              >
-                <strong>
-                  {lineTotal === null ? '—' : formatMoney(lineTotal)}
-                </strong>
-                <Button
-                  label={`Убрать услугу «${name}»`}
-                  onClick={() => removeService(line.key)}
-                >
-                  ×
-                </Button>
-              </span>
-            </div>
-          );
-        })}
-        <ErrorList errors={serviceErrors} />
-      </EditorCard>
-    </div>
+        }
+        stickyTop={isTwoPane ? header.height : 0}
+        grilles={grilles.filter((option) => option.product === opening.product)}
+        uses={grilleUses}
+        chosenId={opening.designId}
+        picker={open}
+        onPickerChange={setPicker}
+        onPick={(designId) => {
+          updateOpening(opening.key, { designId });
+          setPicker(null);
+        }}
+      />
+    </section>
   );
 
-  const totalText =
-    draftTotal === null ? 'Цену назовёт менеджер' : formatMoney(draftTotal);
-  const firstProblem = liveErrors[0];
+  const serviceErrors = standingErrors.filter((error) =>
+    error.startsWith('Услуга '),
+  );
 
-  const bottomBar = (content: ReactNode, dock: ReactNode = null) => (
-    <div
-      ref={footer.ref}
-      style={{
-        position: 'sticky',
-        bottom: 0,
-        zIndex: 2,
-        background: colors.surface,
-        borderTop: `1px solid ${colors.border}`,
-      }}
-    >
-      {dock}
+  const serviceRow = (line: ServiceDraft) => {
+    const option = serviceOptionOf(line);
+    const unit = option?.unit ?? 'FIXED';
+    const lineTotal = computeServiceLineTotal(
+      line,
+      serviceOptions,
+      totalAreaSquareMeters,
+    );
+    const name = option?.name ?? 'Услуга';
+
+    return (
       <div
+        key={line.key}
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
-          gap: SPACE.md,
-          padding: `${SPACE.md}px ${SPACE.lg}px`,
+          gap: `${SPACE.sm}px ${SPACE.md}px`,
+          padding: `${SPACE.md}px 0`,
+          borderTop: hairline,
         }}
       >
-        {content}
-      </div>
-    </div>
-  );
-
-  const totalBlock = (amount: string, detail: string) => (
-    <span style={{ flex: '1 1 200px', display: 'grid', ...WRAP }}>
-      <span style={{ ...TYPE.title, ...TABULAR_NUMBERS }}>{amount}</span>
-      <span style={{ ...TYPE.label, ...TABULAR_NUMBERS, color: colors.muted }}>
-        {detail}
-      </span>
-    </span>
-  );
-
-  // On a phone the pad is docked over the bottom bar while a number is typed.
-  const padDock = (sketch: ReactNode) =>
-    layout === 'narrow' && activeTarget !== null ? (
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            sketch !== null && page.width >= DOCK_SKETCH_MIN_WIDTH
-              ? 'minmax(0, 1fr) minmax(0, 1fr)'
-              : 'minmax(0, 1fr)',
-          alignItems: 'start',
-          gap: SPACE.md,
-          padding: `${SPACE.md}px ${SPACE.lg}px 0`,
-        }}
-      >
-        {page.width >= DOCK_SKETCH_MIN_WIDTH ? sketch : null}
-        {numberPad}
-      </div>
-    ) : null;
-
-  const page3 = (columns: {
-    list?: ReactNode;
-    // The receipt reads lines of text, so it shares the width with the form
-    isListWide?: boolean;
-    main: ReactNode;
-    tool: ReactNode;
-  }) => {
-    const listTrack =
-      columns.list === undefined
-        ? ''
-        : columns.isListWide === true
-          ? 'minmax(0, 1fr) '
-          : `${LIST_WIDTH[room]}px `;
-    const gridTemplateColumns =
-      layout === 'wide'
-        ? `${listTrack}minmax(0, 1fr) ${TOOL_WIDTH[room]}px`
-        : layout === 'medium'
-          ? `minmax(0, 1fr) ${TOOL_WIDTH.tight}px`
-          : 'minmax(0, 1fr)';
-
-    return (
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns,
-          gap: SPACE.lg,
-          alignItems: 'start',
-          padding: SPACE.lg,
-        }}
-      >
-        {layout === 'wide' && columns.list !== undefined ? columns.list : null}
-        {columns.main}
-        {layout === 'narrow' ? null : (
-          <aside style={stickyColumn()}>{columns.tool}</aside>
+        <span style={{ flex: '1 1 180px', display: 'grid', ...WRAP }}>
+          <span style={{ fontWeight: 600 }}>{name}</span>
+          <span
+            style={{ ...TYPE.label, ...TABULAR_NUMBERS, color: colors.muted }}
+          >
+            {option?.price == null
+              ? 'цена не задана · назовёт менеджер'
+              : `${formatMoney(option.price)} ${serviceUnitText(unit)}`}
+          </span>
+        </span>
+        {isCountedServiceUnit(unit) ? (
+          <QuantityStepper
+            label={`Количество: ${name}`}
+            isLabelShown={false}
+            value={line.quantity === '' ? '1' : line.quantity}
+            onChange={(quantity) => updateService(line.key, quantity)}
+          />
+        ) : (
+          <div style={{ width: 150 }}>
+            <TextInput
+              label={`${unit === 'PER_SQUARE_METER' ? 'Площадь' : 'Длина'}: ${name}`}
+              inputMode="decimal"
+              suffix={serviceUnitLabel(unit)}
+              placeholder={
+                unit === 'PER_SQUARE_METER'
+                  ? formatQuantity(totalAreaSquareMeters, '').trim()
+                  : '0'
+              }
+              value={line.quantity}
+              onChange={(quantity) => updateService(line.key, quantity)}
+            />
+          </div>
         )}
+        <span
+          style={{
+            minWidth: 120,
+            textAlign: 'right',
+            fontWeight: 600,
+            ...TABULAR_NUMBERS,
+          }}
+        >
+          {lineTotal === null ? '—' : formatMoney(lineTotal)}
+        </span>
+        <Button
+          label={`Убрать услугу «${name}»`}
+          onClick={() => removeService(line.key)}
+        >
+          ×
+        </Button>
       </div>
     );
   };
 
-  const clientSheet = isClientSheetOpen ? (
-    <ClientSheet
-      draft={draft}
-      isNew={target === NEW_CLIENT_TARGET}
-      match={clientMatch}
-      phoneError={errors.find((error) => error.includes('телефон')) ?? null}
-      canChooseOther={scheduledOrders.length > 0 && openedFromOrderId === null}
-      onChange={changeClient}
-      onTakeMatch={takeClientMatch}
-      onClose={() => setIsClientSheetOpen(false)}
-      onDone={() => {
-        setIsClientSheetOpen(false);
-        startMeasuring();
-
-        setErrors((current) =>
-          current.filter((error) => !isClientError(error)),
-        );
-      }}
-      onOtherClient={chooseOtherClient}
-    />
-  ) : null;
-
-  if (step === 'contract' && contractTemplate !== null) {
-    const data = contractData(contractTemplate);
-
-    return (
-      <div ref={page.ref} style={shell}>
-        {topBar}
-        <div style={{ padding: SPACE.lg }}>
-          <ContractSigning
-            document={buildContractDocument(contractTemplate, data)}
-            data={data}
-            blockers={missingClientDetails(data)}
-            warnings={missingCompanyDetails(contractTemplate)}
-            signature={signature}
-            onSignatureChange={changeSignature}
-          >
-            <ErrorList errors={errors} />
-            <span style={{ ...TYPE.label, color: colors.muted, ...WRAP }}>
-              Передайте планшет клиенту. Заказ, оплата и подписанный PDF
-              сохранятся одним нажатием внизу.
-            </span>
-          </ContractSigning>
-        </div>
-        {bottomBar(
-          <>
-            {isSaving ? null : (
-              <Button onClick={() => goBackTo('payment')}>← К оплате</Button>
-            )}
-            {totalBlock(
-              formatMoney(preview.total ?? 0),
-              `предоплата ${formatMoney(preview.prepayment)}`,
-            )}
-            <button
-              type="button"
-              disabled={signature.length === 0}
-              style={{
-                ...primaryButton(signature.length === 0),
-                opacity: isSaving ? 0.6 : 1,
-              }}
-              aria-busy={isSaving}
-              onClick={handleSave}
-            >
-              {isSaving ? 'Сохранение…' : 'Подписать и сохранить'}
-            </button>
-          </>,
-        )}
-      </div>
-    );
-  }
-
-  if (step === 'payment') {
-    const isPriced =
-      preview.subtotal !== null &&
-      preview.total !== null &&
-      preview.balance !== null;
-    const isContractReady = contractTemplate !== null && preview.total !== null;
-    const receipt = (
-      <EditorCard
-        title="Что заказано"
-        aside={
-          isSaving ? undefined : (
-            <Button variant="link" onClick={() => goBackTo('measurement')}>
-              Изменить
-            </Button>
-          )
-        }
-      >
-        <div style={column(0)}>
-          {draft.openings.flatMap((opening, index) => {
-            const quote = computeOpeningQuote(opening, grilles);
-            const visor = visorOf(opening);
-            const visorTotal = computeOpeningVisorTotal(opening, visorOptions);
-            const lines: ReactNode[] = [];
-
-            if (!isVisorOnlyOpening(opening)) {
-              lines.push(
-                <ReceiptLine
-                  key={opening.key}
-                  title={`Проём ${index + 1} · ${describeGrille(opening)}`}
-                  detail={`${describeSize(opening) ?? ''}${quantityOf(opening) > 1 ? `, ${opening.quantity} шт` : ''}${opening.product === 'RAILING' ? '' : ` · ${formatQuantity(openingArea(opening) ?? 0, 'м²')}`}`}
-                  amount={quote === null ? '—' : formatMoney(quote.lineTotal)}
-                />,
-              );
-            }
-
-            if (visor !== null) {
-              lines.push(
-                <ReceiptLine
-                  key={opening.visorKey}
-                  title={`Козырёк ${visor.name}${isVisorOnlyOpening(opening) ? '' : ` · проём ${index + 1}`}`}
-                  detail={
-                    visor.price === null
-                      ? 'цена не задана'
-                      : `${opening.visorLengthCm} см × ${opening.quantity} шт · ${formatMoney(visor.price)} за п.м.`
-                  }
-                  amount={visorTotal === null ? '—' : formatMoney(visorTotal)}
-                />,
-              );
-            }
-
-            return lines;
-          })}
-          {draft.services.map((line) => {
-            const lineTotal = computeServiceLineTotal(
-              line,
-              serviceOptions,
-              totalAreaSquareMeters,
-            );
-
-            return (
-              <ReceiptLine
-                key={line.key}
-                title={serviceOptionOf(line)?.name ?? 'Услуга'}
-                detail={describeServiceLine(line)}
-                amount={lineTotal === null ? '—' : formatMoney(lineTotal)}
-              />
-            );
-          })}
-          <div style={{ paddingTop: SPACE.md }}>
-            <SummaryLine
-              label="Сумма"
-              value={
-                preview.subtotal === null ? '—' : formatMoney(preview.subtotal)
-              }
-              isTotal
-            />
-          </div>
-        </div>
-      </EditorCard>
-    );
-    const discountTarget = paymentPadTargets[0];
-    const prepaymentTarget = paymentPadTargets[1];
-    const prepaymentShareOf = (share: number) =>
-      share === 0 ? '' : formatWhole(Math.round((preview.total ?? 0) * share));
-    const paymentForm = !isPriced ? (
-      <EditorCard title="Оплата">
-        <span style={TYPE.rowTitle}>Цену назовёт менеджер</span>
-        <span style={{ color: colors.muted }}>
-          В заказе есть решётка, козырёк или услуга без цены, поэтому скидку и
-          предоплату менеджер внесёт сам.
-        </span>
-      </EditorCard>
-    ) : (
-      <EditorCard title="Оплата">
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
-            gap: SPACE.sm,
-            alignItems: 'stretch',
-          }}
-        >
-          {padField(discountTarget, {
-            isWrong: preview.errors.discountValue !== undefined,
-            placeholder: '0',
-          })}
-          <Segmented
-            label="Скидка в"
-            value={payment.discountKind}
-            options={DISCOUNT_KIND_OPTIONS.map(({ value, label }) => ({
-              value: value as DiscountKind,
-              label,
-            }))}
-            onChange={(discountKind) =>
-              // A value typed in one unit means nothing in the other
-              updatePayment({ discountKind, discountValue: '' })
-            }
-          />
-        </div>
-        {preview.errors.discountValue ? (
-          <span style={{ color: colors.danger }}>
-            {preview.errors.discountValue}
-          </span>
-        ) : null}
-        <div style={column(SPACE.xs)}>
-          <SummaryLine
-            label="Итого"
-            value={formatMoney(preview.total ?? 0)}
-            isTotal
-          />
-          {preview.discount > 0 ? (
-            <span
-              style={{ ...TYPE.label, ...TABULAR_NUMBERS, color: colors.muted }}
-            >
-              скидка −{formatMoney(preview.discount)}
-            </span>
-          ) : null}
-        </div>
-        {padField(prepaymentTarget, {
-          isWrong: preview.errors.prepayment !== undefined,
-          placeholder: '0',
-        })}
-        {preview.errors.prepayment ? (
-          <span style={{ color: colors.danger }}>
-            {preview.errors.prepayment}
-          </span>
-        ) : null}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(min(100%, 96px), 1fr))',
-            gap: SPACE.sm,
-          }}
-        >
-          {PREPAYMENT_SHARES.map(({ label, share }) => (
-            <QuickButton
-              key={label}
-              label={label}
-              isChosen={payment.prepayment === prepaymentShareOf(share)}
-              onClick={() =>
-                updatePayment({ prepayment: prepaymentShareOf(share) })
-              }
-            />
-          ))}
-        </div>
-        <div style={column(SPACE.xs)}>
-          <FieldLabel>Способ</FieldLabel>
-          <Segmented
-            label="Способ"
-            value={payment.method}
-            options={PAYMENT_METHOD_OPTIONS.map(({ value, label }) => ({
-              value: value as PaymentMethod,
-              label,
-            }))}
-            onChange={(method) => updatePayment({ method })}
-          />
-        </div>
-        <Field label="Комментарий к оплате">
-          <TextInput
-            label="Комментарий к оплате"
-            value={payment.comment}
-            onChange={(comment) => updatePayment({ comment })}
-          />
-        </Field>
-        <BigNumber
-          label="Остаток после предоплаты"
-          value={formatMoney(preview.balance ?? 0)}
-        />
+  const servicesPane = (
+    <section aria-label="Услуги" style={pane}>
+      <div style={headRow}>
+        <h3 style={paneTitle}>Услуги</h3>
         <span style={{ ...TYPE.label, color: colors.muted }}>
-          Без договора заказ сохранится со статусом «Не подписан»; подписать
-          можно позже из заказа.
+          из Цены → Услуги
         </span>
-      </EditorCard>
-    );
-    const paymentSummary = summaryPanel([
-      {
-        label: 'Сумма',
-        value: preview.subtotal === null ? '—' : formatMoney(preview.subtotal),
-      },
-      ...(preview.discount > 0
-        ? [{ label: 'Скидка', value: `−${formatMoney(preview.discount)}` }]
-        : []),
-      { label: 'Итого', value: formatMoney(preview.total ?? 0) },
-      { label: 'Остаток', value: formatMoney(preview.balance ?? 0) },
-    ]);
-    const goToContract = () => {
-      if (Object.keys(preview.errors).length > 0) {
-        setErrors(['Сначала исправьте скидку или предоплату.']);
-
-        return;
-      }
-
-      setErrors([]);
-      setActivePadId(null);
-      setSignature([]);
-      setStep('contract');
-    };
-
-    return (
-      <div ref={page.ref} style={shell}>
-        {topBar}
-        {page3({
-          list: <div style={column(SPACE.lg)}>{receipt}</div>,
-          isListWide: true,
-          main:
-            layout === 'wide' ? (
-              paymentForm
-            ) : (
-              <div style={column(SPACE.lg)}>
-                {paymentForm}
-                {receipt}
-              </div>
-            ),
-          tool: isPriced ? (
-            <>
-              {paymentSummary}
-              {numberPad}
-            </>
-          ) : (
-            paymentSummary
-          ),
-        })}
-        {bottomBar(
-          <>
-            {isSaving ? null : (
-              <Button onClick={() => goBackTo('measurement')}>
-                ← К замеру
-              </Button>
-            )}
-            {totalBlock(
-              preview.total === null ? totalText : formatMoney(preview.total),
-              preview.balance === null
-                ? ''
-                : `остаток ${formatMoney(preview.balance)}`,
-            )}
-            <ErrorList errors={errors} />
-            <Button
-              isBusy={isSaving}
-              busyText="Сохранение…"
-              onClick={handleSave}
-            >
-              Сохранить без договора
-            </Button>
-            {isContractReady ? (
-              <button
-                type="button"
-                style={primaryButton()}
-                onClick={goToContract}
-              >
-                Далее: договор →
-              </button>
-            ) : (
-              <span style={{ ...TYPE.label, color: colors.muted, ...WRAP }}>
-                {preview.total === null
-                  ? 'Договор подпишет менеджер, когда у заказа будет цена.'
-                  : 'Договор загружается…'}
-              </span>
-            )}
-          </>,
-          padDock(paymentSummary),
-        )}
       </div>
-    );
-  }
-
-  if (isChoosingVisit) {
-    return (
-      <div ref={page.ref} style={shell}>
-        {topBar}
-        <div style={{ padding: SPACE.lg, maxWidth: 1180, margin: '0 auto' }}>
-          {loadError !== null ? <ErrorList errors={[loadError]} /> : null}
-          <VisitChooser
-            visits={scheduledOrders.map((order) => ({
-              id: order.id,
-              when:
-                describeMeasurementTime(order.measurementDate, today) ??
-                'Без даты',
-              title: joinFullName(order.clientFullName) ?? order.name,
-              address: [
-                findLabel(DISTRICT_OPTIONS, order.district ?? ''),
-                order.addressLine,
-                order.floor === null ? null : `${order.floor} эт.`,
-              ]
-                .filter((part) => part !== null && part !== '')
-                .join(', '),
-              phone:
-                order.clientPhone === null
-                  ? ''
-                  : `${UZBEK_PHONE_PREFIX} ${formatUzbekNationalPhone(order.clientPhone)}`,
-            }))}
-            isLoading={measurerId === null && loadError === null}
-            onPick={pickVisit}
-            onNewClient={startNewClient}
-          />
-        </div>
-        {clientSheet}
-      </div>
-    );
-  }
-
-  const otherErrors = errors.filter(
-    (error) => !/^Проём \d+:/.test(error) && !error.startsWith('Услуга '),
-  );
-  // The pad must stay whole beside the sketch on a short landscape tablet, so
-  // the sketch gives up height first.
-  const toolSketchWidth =
-    screen.height === 0
-      ? SKETCH_MAX_WIDTH
-      : Math.max(
-          SKETCH_MIN_WIDTH,
-          Math.min(
-            SKETCH_MAX_WIDTH,
-            ((screen.height -
-              header.height -
-              footer.height -
-              2 * SPACE.lg -
-              PAD_AND_SUMMARY_HEIGHT_PX) *
-              SKETCH_WIDTH) /
-              SKETCH_HEIGHT,
-          ),
-        );
-
-  const measurementTool =
-    selectedOpening !== null
-      ? sketchPanel(selectedOpening, toolSketchWidth)
-      : summaryPanel([
-          {
-            label: 'Площадь всех проёмов',
-            value: formatQuantity(totalAreaSquareMeters, 'м²'),
-          },
-          {
-            label: 'Услуги',
-            value: servicesTotal === null ? '—' : formatMoney(servicesTotal),
-          },
-        ]);
-
-  return (
-    <div ref={page.ref} style={shell}>
-      <div
-        ref={screen.ref}
-        aria-hidden
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: 0,
-          height: '100cqh',
-          visibility: 'hidden',
-          pointerEvents: 'none',
-        }}
-      />
-      {topBar}
-      {loadError !== null ? (
-        <div style={{ padding: `${SPACE.lg}px ${SPACE.lg}px 0` }}>
-          <ErrorList errors={[loadError]} />
-        </div>
-      ) : null}
-      {page3({
-        list: openingList,
-        main: (
-          <div style={column(SPACE.lg)}>
-            {selectedOpening !== null
-              ? openingEditor(selectedOpening, selectedIndex)
-              : servicesEditor}
-            <ErrorList errors={otherErrors} />
-          </div>
-        ),
-        tool: (
-          <>
-            {measurementTool}
-            {numberPad}
-          </>
-        ),
-      })}
-      {bottomBar(
-        <>
-          {totalBlock(
-            totalText,
-            [
-              countOpenings(draft.openings.length),
-              formatQuantity(totalAreaSquareMeters, 'м²'),
-              draft.services.length === 0 || servicesTotal === null
-                ? null
-                : `услуги ${formatMoney(servicesTotal)}`,
-            ]
-              .filter((part) => part !== null)
-              .join(' · '),
-          )}
-          {firstProblem === undefined ? null : (
-            <button
-              type="button"
-              onClick={() => goToProblem(firstProblem)}
-              style={{
-                flex: '0 1 auto',
-                minHeight: CONTROL_HEIGHT + SPACE.sm,
-                padding: `${SPACE.xs}px ${SPACE.lg}px`,
-                background: colors.dangerTint,
-                border: 'none',
-                borderRadius: RADIUS.control + SPACE.xs,
-                color: colors.danger,
-                font: 'inherit',
-                fontWeight: 600,
-                textAlign: 'left',
-                cursor: 'pointer',
-                ...WRAP,
-              }}
-            >
-              {/^Проём \d+:/.test(firstProblem)
-                ? `${firstProblem.split(':')[0]}: ${shortProblem(firstProblem)} →`
-                : `${firstProblem} →`}
-            </button>
-          )}
-          <button
-            type="button"
-            style={primaryButton(firstProblem !== undefined)}
-            onClick={goToPayment}
-          >
-            Далее: оплата →
-          </button>
-        </>,
-        padDock(selectedOpening === null ? null : sketchOf(selectedOpening)),
+      {draft.services.length > 0 && (
+        <div style={column(0)}>{draft.services.map(serviceRow)}</div>
       )}
-      {clientSheet}
-    </div>
+      {serviceOptions.length === 0 ? (
+        <span style={{ color: colors.muted }}>
+          В «Ценах» пока нет услуг. Их добавляет владелец: Цены → Услуги.
+        </span>
+      ) : (
+        <div style={column(SPACE.xs)}>
+          <Field label="Добавить услугу">
+            <SelectInput
+              label="Добавить услугу"
+              value=""
+              options={[
+                { value: '', label: 'Выберите услугу' },
+                ...serviceOptions.map((option) => ({
+                  value: option.id,
+                  label:
+                    option.price === null
+                      ? `${option.name} · цена не задана`
+                      : `${option.name} · ${formatMoney(option.price)} ${serviceUnitText(option.unit)}`,
+                })),
+              ]}
+              onChange={addService}
+            />
+          </Field>
+          <span style={{ ...TYPE.label, color: colors.muted }}>
+            Одну услугу можно добавить несколько раз, например покраску отдельно
+            для решёток и для перил. У каждой строки свой счёт.
+          </span>
+        </div>
+      )}
+      <ErrorList errors={serviceErrors} />
+    </section>
+  );
+
+  const rail = (
+    <>
+      <div style={{ padding: `${SPACE.sm}px ${SPACE.md}px 0` }}>
+        <FieldLabel>Проёмы</FieldLabel>
+      </div>
+      {draft.openings.map((opening, index) => {
+        const size = describeSize(opening);
+        const firstError = errorsOf(standingErrors, index + 1)[0];
+
+        return (
+          <RailItem
+            key={opening.key}
+            title={`Проём ${index + 1}`}
+            aside={
+              firstError !== undefined ? (
+                <span style={{ color: colors.danger, fontWeight: 600 }}>!</span>
+              ) : problemOf(index + 1) === null ? (
+                <span style={{ color: colors.success }}>✓</span>
+              ) : null
+            }
+            detail={
+              firstError !== undefined
+                ? shortProblem(firstError)
+                : size === null
+                  ? isVisorOnlyOpening(opening)
+                    ? 'только козырёк'
+                    : 'нет размеров'
+                  : `${size}${quantityOf(opening) > 1 ? ` × ${opening.quantity}` : ''}`
+            }
+            isSelected={opening.key === selectedKey}
+            isWrong={firstError !== undefined}
+            onSelect={() => selectOpening(opening.key)}
+          />
+        );
+      })}
+      <div style={{ padding: `0 ${SPACE.md}px` }}>
+        <Button variant="link" onClick={addOpening}>
+          + Добавить проём
+        </Button>
+      </div>
+      <div style={{ borderTop: hairline, margin: `${SPACE.sm}px 0` }} />
+      <RailItem
+        title="Услуги"
+        aside={draft.services.length > 0 ? draft.services.length : null}
+        detail={
+          serviceErrors.length > 0
+            ? 'нужно количество'
+            : draft.services.length === 0 || servicesTotal === null
+              ? undefined
+              : formatMoney(servicesTotal)
+        }
+        isSelected={isServicesSelected}
+        isWrong={serviceErrors.length > 0}
+        onSelect={() => selectOpening(SERVICES_KEY)}
+      />
+    </>
+  );
+
+  return shell(
+    split(
+      rail,
+      RAIL_WIDTH,
+      selectedOpening === null
+        ? servicesPane
+        : picker === null
+          ? openingPane(selectedOpening, selectedIndex)
+          : designPane(selectedOpening, selectedIndex, picker),
+    ),
+    <>
+      {barNote(
+        // In the bar it is seen wherever the проём is scrolled to
+        standingErrors
+          .slice(0, 1)
+          .map((error) =>
+            /^Проём \d+:/.test(error)
+              ? `${error.split(':')[0]}: ${shortProblem(error)}`
+              : error,
+          ),
+        `${countOpenings(draft.openings.length)} · ${formatQuantity(totalAreaSquareMeters, 'м²')}`,
+      )}
+      {draftTotal === null ? (
+        <span style={WRAP}>{totalText}</span>
+      ) : (
+        barTotal(totalText)
+      )}
+      <Button
+        variant="primary"
+        isWideOnPhone
+        onClick={() => openStep('payment')}
+      >
+        Далее: оплата
+      </Button>
+    </>,
   );
 };

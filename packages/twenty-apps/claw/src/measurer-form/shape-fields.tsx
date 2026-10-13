@@ -57,24 +57,20 @@ const RemoveButton = ({
 );
 
 type SizeId =
-  'width' | 'height' | 'left' | 'right' | 'center' | 'side' | 'rise';
+  | 'width'
+  | 'height'
+  | 'left'
+  | 'right'
+  | 'center'
+  | 'side'
+  | 'rise';
 
-// One number of the outline, typed on the pad on «Новый замер».
-export type ShapeSize = {
-  id: SizeId;
+// One number of the outline
+type ShapeSize = {
   label: string;
   placeholder: string;
   value: string;
   onChange: (value: string) => void;
-};
-
-// The order the pad's «Далее» walks them in.
-const SIZE_ORDER: Record<ShapeKind, SizeId[]> = {
-  RECTANGLE: ['width', 'height'],
-  SLOPE: ['width', 'left', 'right', 'center'],
-  ARCH: ['width', 'side', 'rise'],
-  STEP: ['width', 'left', 'right'],
-  CUSTOM: ['width'],
 };
 
 type ShapeSizeInput = {
@@ -97,42 +93,28 @@ const sizesById = ({
   const update = (changes: Partial<ShapeDraft>) =>
     onShapeChange({ ...shape, ...changes });
   const size = (
-    id: SizeId,
     label: string,
     value: string,
     onChange: (value: string) => void,
     placeholder = '0',
-  ): ShapeSize => ({ id, label, placeholder, value, onChange });
+  ): ShapeSize => ({ label, placeholder, value, onChange });
 
   return {
-    width: size('width', 'Ширина', widthCm, onWidthChange),
-    height: size('height', 'Высота', heightCm, onHeightChange),
-    left: size('left', 'Высота слева', shape.leftCm, (leftCm) =>
-      update({ leftCm }),
-    ),
-    right: size('right', 'Высота справа', shape.rightCm, (rightCm) =>
+    width: size('Ширина', widthCm, onWidthChange),
+    height: size('Высота', heightCm, onHeightChange),
+    left: size('Высота слева', shape.leftCm, (leftCm) => update({ leftCm })),
+    right: size('Высота справа', shape.rightCm, (rightCm) =>
       update({ rightCm }),
     ),
     center: size(
-      'center',
       'По центру, если есть',
       shape.centerCm,
       (centerCm) => update({ centerCm }),
       'нет',
     ),
-    side: size('side', 'Высота боковин', shape.sideCm, (sideCm) =>
-      update({ sideCm }),
-    ),
-    rise: size('rise', 'Стрела арки', shape.riseCm, (riseCm) =>
-      update({ riseCm }),
-    ),
+    side: size('Высота боковин', shape.sideCm, (sideCm) => update({ sideCm })),
+    rise: size('Стрела арки', shape.riseCm, (riseCm) => update({ riseCm })),
   };
-};
-
-export const shapeSizes = (input: ShapeSizeInput): ShapeSize[] => {
-  const byId = sizesById(input);
-
-  return SIZE_ORDER[input.shape.kind].map((id) => byId[id]);
 };
 
 const PointRow = ({
@@ -193,12 +175,9 @@ export const ShapeFields = ({
   onShapeChange,
   onWidthChange,
   onHeightChange,
-  renderSize,
 }: ShapeSizeInput & {
   nextKey: () => string;
   liveErrors: string[];
-  // Draws the outline's numbers as pad fields; without it they are inputs
-  renderSize?: (size: ShapeSize) => ReactNode;
 }) => {
   const colors = usePalette();
   const update = (changes: Partial<ShapeDraft>) =>
@@ -220,9 +199,7 @@ export const ShapeFields = ({
   const sizeField = (id: SizeId) => {
     const size = byId[id];
 
-    return renderSize ? (
-      renderSize(size)
-    ) : (
+    return (
       <Field label={size.label}>
         <CmInput
           label={`${size.label}, см`}
