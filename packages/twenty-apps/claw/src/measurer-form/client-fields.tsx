@@ -12,7 +12,7 @@ import {
   UZBEK_PHONE_PREFIX,
 } from 'src/measurer-form/measurer-form';
 import { ChoiceChips, TextArea } from 'src/measurer-form/measurer-form-ui';
-import { Button, Field, TextInput, usePalette } from 'src/ui/kit';
+import { Button, Field, SelectInput, TextInput, usePalette } from 'src/ui/kit';
 import { RADIUS, SPACE } from 'src/ui/tokens';
 
 // The client's details, phone first: it is the one thing the order cannot be
@@ -91,21 +91,15 @@ export const ClientFields = ({
           />
         </Field>
       </div>
-      <ChoiceChips
-        label="Район"
-        value={draft.district}
-        options={DISTRICT_OPTIONS}
-        onChange={(district) =>
-          onChange({ district: district as MeasurementDraft['district'] })
-        }
-      />
       <div style={pair}>
-        <Field label="Адрес">
-          <TextInput
-            label="Адрес"
-            placeholder="Улица, дом, квартира"
-            value={draft.addressLine}
-            onChange={(addressLine) => onChange({ addressLine })}
+        <Field label="Район">
+          <SelectInput
+            label="Район"
+            value={draft.district}
+            options={[{ value: '', label: 'Не выбран' }, ...DISTRICT_OPTIONS]}
+            onChange={(district) =>
+              onChange({ district: district as MeasurementDraft['district'] })
+            }
           />
         </Field>
         <Field label="Этаж">
@@ -117,6 +111,14 @@ export const ClientFields = ({
           />
         </Field>
       </div>
+      <Field label="Адрес">
+        <TextInput
+          label="Адрес"
+          placeholder="Улица, дом, квартира"
+          value={draft.addressLine}
+          onChange={(addressLine) => onChange({ addressLine })}
+        />
+      </Field>
       <ChoiceChips
         label="Откуда узнал"
         value={draft.source}

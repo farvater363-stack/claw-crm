@@ -116,6 +116,7 @@ import {
   ErrorList,
   Fact,
   FieldLabel,
+  FilterChips,
   NoteBox,
   OpeningSketch,
   QuantityStepper,
@@ -205,6 +206,9 @@ const VISITS_WIDTH = 288;
 const RAIL_WIDTH = 232;
 const CLIENT_MAX_WIDTH = 760;
 const RESULT_MAX_WIDTH = 760;
+const STEP_SETTLE_POLL_MS = 30;
+const STEP_SETTLE_MAX_MS = 600;
+const CONTRACT_NEEDS = 'Для договора укажите';
 const SERVICES_KEY = 'services';
 const PREPAYMENT_SHARES = [
   { label: '30%', share: 0.3 },
@@ -643,6 +647,29 @@ export const NewMeasurement = () => {
     fromNumber: number;
   } | null>(null);
   const [picker, setPicker] = useState<Picker | null>(null);
+  const view = picker === null ? step : 'design';
+  const [shownView, setShownView] = useState<string>(view);
+
+  // The page cannot be scrolled from code. A step drawn empty is no taller
+  // than the screen, so the host drops the scroll of the step before; the
+  // next one is drawn once the host has shown the empty one
+  useEffect(() => {
+    if (shownView === view) return;
+
+    const startedAt = Date.now();
+    const heightOf = (element: HTMLDivElement | null) =>
+      element?.getBoundingClientRect().height ?? 0;
+    const timer = setInterval(() => {
+      if (
+        heightOf(page.ref.current) <= heightOf(screen.ref.current) + 1 ||
+        Date.now() - startedAt > STEP_SETTLE_MAX_MS
+      ) {
+        setShownView(view);
+      }
+    }, STEP_SETTLE_POLL_MS);
+
+    return () => clearInterval(timer);
+  }, [view, shownView, page.ref, screen.ref]);
   // State is read from the render's closure, so two taps before the next
   // render would both pass a check on isSaving.
   const isSaveInFlight = useRef(false);
@@ -1455,6 +1482,13 @@ export const NewMeasurement = () => {
   // An error of the last «Далее» that is fixed by now is no longer shown
   const standingErrors = errors.filter((error) => liveErrors.includes(error));
 
+  // What the client step has to say before the client is handed the contract;
+  // the sum is the payment step's
+  const contractNeeds = () =>
+    contractTemplate === null
+      ? []
+      : missingClientDetails({ ...contractData(contractTemplate), total: 1 });
+
   // A step opens only when the ones before it are filled; going back is free.
   const openStep = (next: Step) => {
     if (isSaveInFlight.current) return;
@@ -1512,6 +1546,14 @@ export const NewMeasurement = () => {
       if (Object.keys(preview.errors).length > 0) {
         setErrors(['Сначала исправьте скидку или предоплату.']);
         setStep('payment');
+
+        return;
+      }
+
+      if (contractNeeds().length > 0) {
+        setErrors([CONTRACT_NEEDS]);
+        setStep('client');
+        setIsEditingClient(true);
 
         return;
       }
@@ -1684,7 +1726,13 @@ export const NewMeasurement = () => {
                   : []),
               ]}
             />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.md }}>
+            <div
+              style={
+                page.width < COLUMNS_MIN_WIDTH
+                  ? column(SPACE.sm)
+                  : { display: 'flex', flexWrap: 'wrap', gap: SPACE.md }
+              }
+            >
               {/* Plain links load the page afresh: the host's cached order
                   lists do not see records created through the API, and the
                   SDK's client-side navigate would show them stale. */}
@@ -1752,6 +1800,10 @@ export const NewMeasurement = () => {
     .join(', ');
   const previousStep = STEPS[STEPS.findIndex((item) => item.key === step) - 1];
 
+  // The page's own header already says «Новый замер»; a phone's one line is
+  // for the steps
+  const backText = isTwoPane ? '← Назад' : '←';
+
   const topBar = (
     <div
       ref={header.ref}
@@ -1765,7 +1817,7 @@ export const NewMeasurement = () => {
         flexWrap: 'wrap',
         alignItems: 'center',
         gap: `${SPACE.xs}px ${SPACE.md}px`,
-        padding: `${SPACE.sm}px ${SPACE.lg}px`,
+        padding: `${SPACE.sm}px ${isTwoPane ? SPACE.lg : SPACE.md}px`,
         background: colors.surface,
         borderBottom: hairline,
       }}
@@ -1785,28 +1837,32 @@ export const NewMeasurement = () => {
           {previousStep !== undefined ? (
             <button
               type="button"
+              aria-label="Назад"
               style={backStyle}
               onClick={() => openStep(previousStep.key)}
             >
-              ← Назад
+              {backText}
             </button>
           ) : isDirty ? (
             <button
               type="button"
+              aria-label="Назад"
               style={backStyle}
               onClick={() => setIsLeaving(true)}
             >
-              ← Назад
+              {backText}
             </button>
           ) : (
-            <a href={leaveHref} style={backStyle}>
-              ← Назад
+            <a href={leaveHref} aria-label="Назад" style={backStyle}>
+              {backText}
             </a>
           )}
-          <h2 style={{ margin: 0, ...TYPE.rowTitle, whiteSpace: 'nowrap' }}>
-            Новый замер
-          </h2>
-          {step !== 'client' && clientName !== null && (
+          {isTwoPane && (
+            <h2 style={{ margin: 0, ...TYPE.rowTitle, whiteSpace: 'nowrap' }}>
+              Новый замер
+            </h2>
+          )}
+          {isTwoPane && step !== 'client' && clientName !== null && (
             <span
               style={{
                 minWidth: 0,
@@ -1820,7 +1876,12 @@ export const NewMeasurement = () => {
             </span>
           )}
           <div style={{ marginLeft: 'auto' }}>
-            <StepTrail steps={STEPS} current={step} onOpen={openStep} />
+            <StepTrail
+              steps={STEPS}
+              current={step}
+              isCompact={!isTwoPane}
+              onOpen={openStep}
+            />
           </div>
         </>
       )}
@@ -1869,7 +1930,7 @@ export const NewMeasurement = () => {
           minWidth: 0,
         }}
       >
-        {body}
+        {shownView === view ? body : null}
       </div>
       <div
         ref={footer.ref}
@@ -1998,6 +2059,7 @@ export const NewMeasurement = () => {
           onClick={handleSave}
           style={{
             minHeight: CONTROL_HEIGHT,
+            width: page.width < COLUMNS_MIN_WIDTH ? '100%' : undefined,
             padding: `0 ${SPACE.lg}px`,
             background: signature.length === 0 ? colors.panel : colors.accent,
             border: 'none',
@@ -2238,6 +2300,7 @@ export const NewMeasurement = () => {
           variant={isContractReady ? 'quiet' : 'primary'}
           isBusy={isSaving}
           busyText="Сохранение…"
+          isWideOnPhone
           onClick={handleSave}
         >
           Сохранить без договора
@@ -2312,8 +2375,17 @@ export const NewMeasurement = () => {
       />
     );
 
+    const clientNotes = [
+      ...standingErrors.filter(isClientError),
+      ...(errors.includes(CONTRACT_NEEDS) && contractNeeds().length > 0
+        ? [`${CONTRACT_NEEDS}: ${contractNeeds().join(', ')}.`]
+        : []),
+    ];
+
     const details = (
       <div style={pane}>
+        {/* A phone's bar is at the end of the step, out of sight */}
+        {page.width < COLUMNS_MIN_WIDTH && <ErrorList errors={clientNotes} />}
         {measurerId === null && loadError === null ? (
           // Until the booked visits are known, a phone typed here would be
           // taken for a new client's
@@ -2386,7 +2458,7 @@ export const NewMeasurement = () => {
         )}
       </>,
       <>
-        {barNote(standingErrors.filter(isClientError))}
+        {barNote(clientNotes)}
         <Button
           variant="primary"
           isWideOnPhone
@@ -2705,7 +2777,7 @@ export const NewMeasurement = () => {
                     {grille === null
                       ? `цену назовёт менеджер · выбрать из ${designCount}`
                       : [
-                          grille.kindName,
+                          isTwoPane ? grille.kindName : null,
                           grille.pricePerSquareMeter === null
                             ? 'без цены'
                             : `${formatMoney(grille.pricePerSquareMeter)} за ${isRailing ? 'п.м.' : 'м²'}`,
@@ -3108,9 +3180,41 @@ export const NewMeasurement = () => {
     </>
   );
 
+  // A phone keeps its height for the проём: the list is a row of chips
+  const railChips = (
+    <div style={{ ...headRow, justifyContent: 'flex-start' }}>
+      <FilterChips
+        value={selectedKey}
+        options={[
+          ...draft.openings.map((opening, index) => ({
+            value: opening.key,
+            label: `Проём ${index + 1}${
+              errorsOf(standingErrors, index + 1).length > 0
+                ? ' !'
+                : problemOf(index + 1) === null
+                  ? ' ✓'
+                  : ''
+            }`,
+          })),
+          {
+            value: SERVICES_KEY,
+            label:
+              draft.services.length > 0
+                ? `Услуги · ${draft.services.length}`
+                : 'Услуги',
+          },
+        ]}
+        onChange={selectOpening}
+      />
+      <Button variant="link" onClick={addOpening}>
+        + Проём
+      </Button>
+    </div>
+  );
+
   return shell(
     split(
-      rail,
+      isTwoPane ? rail : railChips,
       RAIL_WIDTH,
       selectedOpening === null
         ? servicesPane

@@ -93,10 +93,13 @@ export const FieldLabel = ({ children }: { children: ReactNode }) => {
 export const StepTrail = <TStep extends string>({
   steps,
   current,
+  isCompact = false,
   onOpen,
 }: {
   steps: { key: TStep; label: string }[];
   current: TStep;
+  // All the steps on one line of a phone
+  isCompact?: boolean;
   onOpen: (step: TStep) => void;
 }) => {
   const colors = usePalette();
@@ -106,11 +109,12 @@ export const StepTrail = <TStep extends string>({
       aria-label="Шаги"
       style={{
         display: 'flex',
-        flexWrap: 'wrap',
+        flexWrap: isCompact ? 'nowrap' : 'wrap',
         alignItems: 'center',
         margin: 0,
         padding: 0,
         listStyle: 'none',
+        ...(isCompact ? TYPE.label : {}),
       }}
     >
       {steps.map((item, index) => {
@@ -132,7 +136,7 @@ export const StepTrail = <TStep extends string>({
               onClick={() => onOpen(item.key)}
               style={{
                 minHeight: CONTROL_HEIGHT - SPACE.sm,
-                padding: `0 ${SPACE.sm}px`,
+                padding: `0 ${isCompact ? SPACE.xs : SPACE.sm}px`,
                 background: 'transparent',
                 border: 'none',
                 color: isCurrent ? colors.text : colors.muted,

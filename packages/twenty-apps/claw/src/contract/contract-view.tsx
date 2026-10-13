@@ -364,7 +364,6 @@ export const ContractPaper = ({
         style={{
           height,
           overflowY: 'auto',
-          overscrollBehavior: 'contain',
           padding: SPACE.lg,
           background: colors.surface,
           color: colors.text,
@@ -583,14 +582,22 @@ export const ContractSigning = ({
   const page = useElementWidth();
   const [isRead, setIsRead] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
-  const [isLargeText, setIsLargeText] = useState(true);
+  const [chosenIsLargeText, setChosenIsLargeText] = useState<boolean | null>(
+    null,
+  );
   const summary = useElementHeight();
   const isSideBySide = page.width >= SIDE_BY_SIDE_MIN_WIDTH;
+  // A tablet is read at arm's length; a phone's line is short as it is
+  const isLargeText = chosenIsLargeText ?? isSideBySide;
   const paperHeight =
     roomHeight === undefined
       ? isSideBySide
         ? PAPER_HEIGHT_WIDE_PX
-        : PAPER_HEIGHT_NARROW_PX
+        : // Read to the end, the contract makes room for the signature under
+          // it: on a phone it fills the screen and takes every swipe
+          isRead
+          ? PAPER_MIN_HEIGHT_PX
+          : PAPER_HEIGHT_NARROW_PX
       : Math.max(PAPER_MIN_HEIGHT_PX, roomHeight - PAPER_CHROME_HEIGHT_PX);
   // Beside the contract the signature shares the room with the summary over
   // it; under the contract the page scrolls to it anyway
@@ -619,7 +626,7 @@ export const ContractSigning = ({
     >
       <div style={{ display: 'grid', gap: SPACE.sm, minWidth: 0 }}>
         <div style={{ justifySelf: 'end' }}>
-          <Button onClick={() => setIsLargeText((current) => !current)}>
+          <Button onClick={() => setChosenIsLargeText(!isLargeText)}>
             {isLargeText ? 'Обычный шрифт' : 'А+ Крупный шрифт'}
           </Button>
         </div>
