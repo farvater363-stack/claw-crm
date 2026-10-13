@@ -57,11 +57,16 @@ const RemoveButton = ({
 );
 
 type SizeId =
-  'width' | 'height' | 'left' | 'right' | 'center' | 'side' | 'rise';
+  | 'width'
+  | 'height'
+  | 'left'
+  | 'right'
+  | 'center'
+  | 'side'
+  | 'rise';
 
 // One number of the outline
 type ShapeSize = {
-  id: SizeId;
   label: string;
   placeholder: string;
   value: string;
@@ -88,35 +93,27 @@ const sizesById = ({
   const update = (changes: Partial<ShapeDraft>) =>
     onShapeChange({ ...shape, ...changes });
   const size = (
-    id: SizeId,
     label: string,
     value: string,
     onChange: (value: string) => void,
     placeholder = '0',
-  ): ShapeSize => ({ id, label, placeholder, value, onChange });
+  ): ShapeSize => ({ label, placeholder, value, onChange });
 
   return {
-    width: size('width', 'Ширина', widthCm, onWidthChange),
-    height: size('height', 'Высота', heightCm, onHeightChange),
-    left: size('left', 'Высота слева', shape.leftCm, (leftCm) =>
-      update({ leftCm }),
-    ),
-    right: size('right', 'Высота справа', shape.rightCm, (rightCm) =>
+    width: size('Ширина', widthCm, onWidthChange),
+    height: size('Высота', heightCm, onHeightChange),
+    left: size('Высота слева', shape.leftCm, (leftCm) => update({ leftCm })),
+    right: size('Высота справа', shape.rightCm, (rightCm) =>
       update({ rightCm }),
     ),
     center: size(
-      'center',
       'По центру, если есть',
       shape.centerCm,
       (centerCm) => update({ centerCm }),
       'нет',
     ),
-    side: size('side', 'Высота боковин', shape.sideCm, (sideCm) =>
-      update({ sideCm }),
-    ),
-    rise: size('rise', 'Стрела арки', shape.riseCm, (riseCm) =>
-      update({ riseCm }),
-    ),
+    side: size('Высота боковин', shape.sideCm, (sideCm) => update({ sideCm })),
+    rise: size('Стрела арки', shape.riseCm, (riseCm) => update({ riseCm })),
   };
 };
 

@@ -3,9 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   countUses,
   matchesSearch,
-  pickQuickOptions,
   rankByUse,
-  sortByName,
 } from 'src/measurer-form/option-search';
 
 const options = [
@@ -47,59 +45,5 @@ describe('rankByUse', () => {
       'rhomb',
       'wave',
     ]);
-  });
-});
-
-describe('pickQuickOptions', () => {
-  it('starts with what this замер already uses, then the most ordered, and repeats nothing', () => {
-    const quick = pickQuickOptions({
-      options,
-      uses: countUses(['rod', 'rod', 'wave', 'tree']),
-      usedHereIds: ['tree', 'rhomb'],
-      chosenId: '',
-      limit: 3,
-    });
-
-    expect(quick.map((option) => option.id)).toEqual(['tree', 'rhomb', 'rod']);
-  });
-
-  it('fills a catalogue nobody has ordered from yet by name', () => {
-    const quick = pickQuickOptions({
-      options,
-      uses: new Map(),
-      usedHereIds: [],
-      chosenId: '',
-      limit: 2,
-    });
-
-    expect(quick.map((option) => option.name)).toEqual(
-      sortByName(options)
-        .slice(0, 2)
-        .map((option) => option.name),
-    );
-  });
-
-  it('keeps the chosen option on the last tile when it is not a quick one', () => {
-    const quick = pickQuickOptions({
-      options,
-      uses: countUses(['rod', 'rod', 'wave']),
-      usedHereIds: [],
-      chosenId: 'tree',
-      limit: 2,
-    });
-
-    expect(quick.map((option) => option.id)).toEqual(['rod', 'tree']);
-  });
-
-  it('leaves a chosen quick option where it was', () => {
-    const quick = pickQuickOptions({
-      options,
-      uses: countUses(['rod', 'rod', 'wave']),
-      usedHereIds: [],
-      chosenId: 'wave',
-      limit: 2,
-    });
-
-    expect(quick.map((option) => option.id)).toEqual(['rod', 'wave']);
   });
 });

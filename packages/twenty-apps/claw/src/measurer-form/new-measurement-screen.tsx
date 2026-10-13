@@ -286,33 +286,39 @@ const loadFormContext = async (userId: string) => {
 
   return {
     measurerId: workspaceMembers?.edges[0]?.node?.id ?? null,
-    grilles: (designs?.edges ?? []).map(({ node }): GrilleOption => ({
-      id: node.id,
-      product: toProduct(node.product),
-      name: node.name ?? '',
-      kindName: node.grilleKind?.name ?? null,
-      photoUrl: node.photos?.[0]?.url ?? null,
-      pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
-    })),
+    grilles: (designs?.edges ?? []).map(
+      ({ node }): GrilleOption => ({
+        id: node.id,
+        product: toProduct(node.product),
+        name: node.name ?? '',
+        kindName: node.grilleKind?.name ?? null,
+        photoUrl: node.photos?.[0]?.url ?? null,
+        pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),
+      }),
+    ),
     visorOptions: sortByName<VisorOption>(
       services
         .filter((node) => node.kind === 'VISOR')
-        .map((node): VisorOption => ({
-          id: node.id,
-          name: node.name ?? '',
-          price: fromCurrency(node.price),
-        })),
+        .map(
+          (node): VisorOption => ({
+            id: node.id,
+            name: node.name ?? '',
+            price: fromCurrency(node.price),
+          }),
+        ),
     ),
     // Every service in Цены → Услуги, whatever is added there later.
     serviceOptions: sortByName<ServiceOption>(
       services
         .filter((node) => node.kind !== 'VISOR')
-        .map((node): ServiceOption => ({
-          id: node.id,
-          name: node.name ?? '',
-          unit: (node.unit ?? null) as ExtraServiceUnit | null,
-          price: fromCurrency(node.price),
-        })),
+        .map(
+          (node): ServiceOption => ({
+            id: node.id,
+            name: node.name ?? '',
+            unit: (node.unit ?? null) as ExtraServiceUnit | null,
+            price: fromCurrency(node.price),
+          }),
+        ),
     ),
   };
 };
@@ -550,7 +556,7 @@ const describeSize = (opening: OpeningDraft): string | null => {
 };
 
 // Only contradictions while typing: «укажите …» for a field not reached yet
-// would turn the card red before the measurer is done.
+// would mark the проём wrong before the measurer is done.
 const liveShapeErrors = (opening: OpeningDraft): string[] =>
   opening.product === 'RAILING' || opening.shape.kind === 'RECTANGLE'
     ? []
@@ -580,7 +586,9 @@ const shortProblem = (error: string): string => {
   return text;
 };
 
+// A проём's or a service's own line may carry these words: «Подъём на этаж»
 const isClientError = (error: string) =>
+  !/^(Проём \d+:|Услуга )/.test(error) &&
   /телефон|Этаж|дату замера|чей это замер/i.test(error);
 
 export const NewMeasurement = () => {
@@ -836,17 +844,23 @@ export const NewMeasurement = () => {
   const pickVisit = (orderId: string) => {
     const order = scheduledOrders.find((candidate) => candidate.id === orderId);
 
-    if (order === undefined) return;
+    // Tapping the visit already chosen must not undo what was corrected in it
+    if (order === undefined || order.id === target) return;
 
     setTarget(order.id);
     setClientMatch(null);
+    lookedUpPhone.current = null;
     setIsEditingClient(false);
     setErrors([]);
-    updateDraft(draftFromScheduledOrder(order));
+    // A visit without a date takes now, not the date of the one picked before
+    updateDraft({
+      measurementDate: toDateTimeLocalInputValue(new Date()),
+      ...draftFromScheduledOrder(order),
+    });
   };
 
-  // A new client starts blank, unless the measurer is coming back to one
-  // they were already typing.
+  // A new client starts blank; tapping «Новый клиент» again keeps what is
+  // typed.
   const startNewClient = () => {
     if (target !== NEW_CLIENT_TARGET) updateDraft(emptyClient);
 
@@ -1447,8 +1461,11 @@ export const NewMeasurement = () => {
     const from = STEPS.findIndex((item) => item.key === step);
     const to = STEPS.findIndex((item) => item.key === next);
 
+    if (to === from) return;
+
     setPicker(null);
     setIsMenuOpen(false);
+    setIsLeaving(false);
 
     if (to <= from) {
       setErrors([]);
@@ -1478,7 +1495,7 @@ export const NewMeasurement = () => {
 
       setErrors(liveErrors);
       setStep('openings');
-      setSelectedKey(firstWrongOpening?.key ?? SERVICES_KEY);
+      selectOpening(firstWrongOpening?.key ?? SERVICES_KEY);
 
       return;
     }
@@ -1872,7 +1889,9 @@ export const NewMeasurement = () => {
       }}
     >
       <div
-        style={isTwoPane ? { borderRight: hairline } : { borderBottom: hairline }}
+        style={
+          isTwoPane ? { borderRight: hairline } : { borderBottom: hairline }
+        }
       >
         <div
           style={{
@@ -1981,7 +2000,9 @@ export const NewMeasurement = () => {
       <div
         style={{
           ...pane,
-          ...(isTwoPane ? { borderRight: hairline } : { borderBottom: hairline }),
+          ...(isTwoPane
+            ? { borderRight: hairline }
+            : { borderBottom: hairline }),
         }}
       >
         <div style={headRow}>
@@ -2064,8 +2085,8 @@ export const NewMeasurement = () => {
           <div style={column(SPACE.xs)}>
             <span style={{ fontWeight: 600 }}>Цену назовёт менеджер</span>
             <span style={{ color: colors.muted }}>
-              В заказе есть решётка, козырёк или услуга без цены, поэтому
-              скидку и предоплату менеджер внесёт сам.
+              В заказе есть решётка, козырёк или услуга без цены, поэтому скидку
+              и предоплату менеджер внесёт сам.
             </span>
           </div>
         ) : (
@@ -2216,10 +2237,9 @@ export const NewMeasurement = () => {
     // Opened from an order's card, the form is for that order alone
     const hasVisits = scheduledOrders.length > 0 && openedFromOrderId === null;
     const isScheduledClient = target !== '' && target !== NEW_CLIENT_TARGET;
+    // The typed value as it is: a date still being typed is not a date yet
     const measurementTime = describeMeasurementTime(
-      draft.measurementDate === ''
-        ? null
-        : new Date(draft.measurementDate).toISOString(),
+      draft.measurementDate === '' ? null : draft.measurementDate,
       today,
     );
 
@@ -2233,7 +2253,8 @@ export const NewMeasurement = () => {
             key={order.id}
             title={joinFullName(order.clientFullName) ?? order.name}
             aside={
-              describeMeasurementTime(order.measurementDate, today) ?? 'Без даты'
+              describeMeasurementTime(order.measurementDate, today) ??
+              'Без даты'
             }
             detail={
               [
@@ -2254,13 +2275,6 @@ export const NewMeasurement = () => {
           isSelected={target === NEW_CLIENT_TARGET}
           onSelect={startNewClient}
         />
-        {measurerId === null && loadError === null ? (
-          <span
-            style={{ padding: `0 ${SPACE.md}px`, color: colors.muted }}
-          >
-            Загружаем записи…
-          </span>
-        ) : null}
       </>
     );
 
@@ -2278,7 +2292,11 @@ export const NewMeasurement = () => {
 
     const details = (
       <div style={pane}>
-        {target === '' && hasVisits ? (
+        {measurerId === null && loadError === null ? (
+          // Until the booked visits are known, a phone typed here would be
+          // taken for a new client's
+          <span style={{ color: colors.muted }}>Загружаем записи…</span>
+        ) : target === '' && hasVisits ? (
           <span style={{ color: colors.muted }}>
             Выберите запись менеджера в списке или «Новый клиент».
           </span>
@@ -2651,9 +2669,7 @@ export const NewMeasurement = () => {
                   minWidth: 0,
                 }}
               >
-                <span
-                  style={{ display: 'grid', textAlign: 'right', ...WRAP }}
-                >
+                <span style={{ display: 'grid', textAlign: 'right', ...WRAP }}>
                   <span style={{ fontWeight: 600 }}>
                     {grille?.name ?? 'Другая'}
                   </span>
@@ -3003,8 +3019,8 @@ export const NewMeasurement = () => {
             />
           </Field>
           <span style={{ ...TYPE.label, color: colors.muted }}>
-            Одну услугу можно добавить несколько раз, например покраску
-            отдельно для решёток и для перил. У каждой строки свой счёт.
+            Одну услугу можно добавить несколько раз, например покраску отдельно
+            для решёток и для перил. У каждой строки свой счёт.
           </span>
         </div>
       )}
