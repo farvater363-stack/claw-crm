@@ -16,16 +16,16 @@ import {
   type SketchInput,
   type SketchLayout,
 } from 'src/opening-shape/sketch-layout';
-import { TextInput, usePalette } from 'src/ui/kit';
+import { usePalette } from 'src/ui/kit';
 import {
   CONTROL_HEIGHT,
   RADIUS,
+  ROW_MIN_HEIGHT,
   SPACE,
   TABULAR_NUMBERS,
   TYPE,
 } from 'src/ui/tokens';
 
-const PICKER_LIST_MAX_HEIGHT = 440;
 const SIGNATURE_PAD_HEIGHT_PX = 220;
 const WIDTH_POLL_INTERVAL_MS = 500;
 
@@ -82,40 +82,144 @@ export const useElementHeight = () => {
   return { ref, height };
 };
 
-export const Card = ({
-  children,
-  padding = SPACE.lg,
-  isHighlighted = false,
+export const FieldLabel = ({ children }: { children: ReactNode }) => {
+  const colors = usePalette();
+
+  return <span style={{ ...TYPE.label, color: colors.muted }}>{children}</span>;
+};
+
+// The steps of the form in one line. Any of them opens on a tap; the screen
+// decides whether the ones before it are filled.
+export const StepTrail = <TStep extends string>({
+  steps,
+  current,
+  onOpen,
 }: {
-  children: ReactNode;
-  padding?: number;
-  isHighlighted?: boolean;
+  steps: { key: TStep; label: string }[];
+  current: TStep;
+  onOpen: (step: TStep) => void;
 }) => {
   const colors = usePalette();
 
   return (
-    <div
+    <ol
+      aria-label="Шаги"
       style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr)',
-        gap: SPACE.lg,
-        padding,
-        background: colors.surface,
-        border: `1px solid ${isHighlighted ? colors.danger : colors.border}`,
-        borderRadius: RADIUS.card,
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        margin: 0,
+        padding: 0,
+        listStyle: 'none',
       }}
     >
-      {children}
-    </div>
+      {steps.map((item, index) => {
+        const isCurrent = item.key === current;
+
+        return (
+          <li
+            key={item.key}
+            aria-current={isCurrent ? 'step' : undefined}
+            style={{ display: 'inline-flex', alignItems: 'center' }}
+          >
+            {index > 0 && (
+              <span aria-hidden style={{ color: colors.muted }}>
+                ›
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => onOpen(item.key)}
+              style={{
+                minHeight: CONTROL_HEIGHT - SPACE.sm,
+                padding: `0 ${SPACE.sm}px`,
+                background: 'transparent',
+                border: 'none',
+                color: isCurrent ? colors.text : colors.muted,
+                font: 'inherit',
+                fontWeight: isCurrent ? 600 : 400,
+                cursor: 'pointer',
+              }}
+            >
+              {item.label}
+            </button>
+          </li>
+        );
+      })}
+    </ol>
   );
 };
 
-export const SectionTitle = ({
+// One line of the list beside the form: a visit, a проём, «Услуги».
+export const RailItem = ({
   title,
+  detail,
   aside,
+  isSelected,
+  isWrong = false,
+  onSelect,
 }: {
   title: string;
+  detail?: string;
   aside?: ReactNode;
+  isSelected: boolean;
+  isWrong?: boolean;
+  onSelect: () => void;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <button
+      type="button"
+      aria-pressed={isSelected}
+      onClick={onSelect}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) auto',
+        alignItems: 'center',
+        columnGap: SPACE.sm,
+        width: '100%',
+        minHeight: ROW_MIN_HEIGHT,
+        padding: `${SPACE.sm}px ${SPACE.md}px`,
+        background: isSelected ? colors.panel : 'transparent',
+        border: 'none',
+        borderRadius: RADIUS.control,
+        color: colors.text,
+        font: 'inherit',
+        textAlign: 'left',
+        cursor: 'pointer',
+      }}
+    >
+      <span style={{ fontWeight: 600, minWidth: 0, overflowWrap: 'anywhere' }}>
+        {title}
+      </span>
+      <span style={{ ...TYPE.label, ...TABULAR_NUMBERS, color: colors.muted }}>
+        {aside}
+      </span>
+      {detail ? (
+        <span
+          style={{
+            gridColumn: '1 / -1',
+            ...TYPE.label,
+            ...TABULAR_NUMBERS,
+            color: isWrong ? colors.danger : colors.muted,
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {detail}
+        </span>
+      ) : null}
+    </button>
+  );
+};
+
+// A setting on one line: what it is on the left, its control on the right.
+export const SettingRow = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
 }) => {
   const colors = usePalette();
 
@@ -124,32 +228,101 @@ export const SectionTitle = ({
       style={{
         display: 'flex',
         flexWrap: 'wrap',
-        alignItems: 'baseline',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        gap: SPACE.md,
+        gap: `${SPACE.sm}px ${SPACE.lg}px`,
+        minHeight: ROW_MIN_HEIGHT,
+        padding: `${SPACE.sm}px 0`,
+        borderTop: `1px solid ${colors.border}`,
       }}
     >
-      <h3
+      <span style={{ color: colors.muted }}>{label}</span>
+      <div
         style={{
-          margin: 0,
-          ...TYPE.label,
-          fontWeight: 600,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          color: colors.muted,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          gap: SPACE.sm,
+          minWidth: 0,
+          marginLeft: 'auto',
+          textAlign: 'right',
         }}
       >
-        {title}
-      </h3>
-      {aside}
+        {children}
+      </div>
     </div>
   );
 };
 
-export const FieldLabel = ({ children }: { children: ReactNode }) => {
+// A setting whose line is a button: it opens under itself, or, without
+// `isOpen`, leads somewhere else.
+export const DisclosureRow = ({
+  label,
+  value,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  label: string;
+  value: ReactNode;
+  isOpen?: boolean;
+  onToggle: () => void;
+  children?: ReactNode;
+}) => {
   const colors = usePalette();
 
-  return <span style={{ ...TYPE.label, color: colors.muted }}>{children}</span>;
+  return (
+    <div style={{ borderTop: `1px solid ${colors.border}` }}>
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        onClick={onToggle}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: SPACE.lg,
+          width: '100%',
+          minHeight: ROW_MIN_HEIGHT,
+          padding: `${SPACE.sm}px 0`,
+          background: 'transparent',
+          border: 'none',
+          color: colors.text,
+          font: 'inherit',
+          textAlign: 'left',
+          cursor: 'pointer',
+        }}
+      >
+        <span style={{ color: colors.muted }}>{label}</span>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: SPACE.md,
+            minWidth: 0,
+          }}
+        >
+          {value}
+          <span aria-hidden style={{ color: colors.muted }}>
+            {isOpen ? '⌄' : '›'}
+          </span>
+        </span>
+      </button>
+      {isOpen && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr)',
+            gap: SPACE.md,
+            paddingBottom: SPACE.lg,
+          }}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export const TextArea = ({
@@ -300,10 +473,10 @@ export const ChoiceChips = ({
               style={{
                 minHeight: CONTROL_HEIGHT - SPACE.xs,
                 padding: `0 ${SPACE.lg}px`,
-                background: isChosen ? colors.accent : colors.surface,
-                border: `1px solid ${isChosen ? colors.accent : colors.border}`,
+                background: isChosen ? colors.panel : colors.surface,
+                border: `1px solid ${isChosen ? colors.text : colors.border}`,
                 borderRadius: CONTROL_HEIGHT,
-                color: isChosen ? colors.onAccent : colors.text,
+                color: colors.text,
                 font: 'inherit',
                 ...TYPE.body,
                 fontWeight: isChosen ? 600 : 400,
@@ -319,102 +492,12 @@ export const ChoiceChips = ({
   );
 };
 
-export type VisitCardData = {
-  id: string;
-  when: string;
-  title: string;
-  detail: string;
-};
-
-export const VisitCards = ({
-  visits,
-  chosenId,
-  newClientId,
-  onPick,
-}: {
-  visits: VisitCardData[];
-  chosenId: string;
-  newClientId: string;
-  onPick: (id: string) => void;
-}) => {
-  const colors = usePalette();
-  const card = (isChosen: boolean): CSSProperties => ({
-    display: 'grid',
-    alignContent: 'start',
-    gap: SPACE.xs,
-    minHeight: 96,
-    padding: `${SPACE.md}px ${SPACE.lg}px`,
-    background: isChosen ? colors.accentTint : colors.surface,
-    border: `2px solid ${isChosen ? colors.accent : colors.border}`,
-    borderRadius: RADIUS.card,
-    color: colors.text,
-    font: 'inherit',
-    textAlign: 'left',
-    cursor: 'pointer',
-  });
-
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-        gap: SPACE.md,
-      }}
-    >
-      {visits.map((visit) => (
-        <button
-          key={visit.id}
-          type="button"
-          aria-pressed={visit.id === chosenId}
-          onClick={() => onPick(visit.id)}
-          style={card(visit.id === chosenId)}
-        >
-          <span
-            style={{ ...TYPE.label, fontWeight: 600, color: colors.accent }}
-          >
-            {visit.when}
-          </span>
-          <span style={TYPE.rowTitle}>{visit.title}</span>
-          <span style={{ ...TYPE.label, color: colors.muted }}>
-            {visit.detail}
-          </span>
-        </button>
-      ))}
-      <button
-        type="button"
-        aria-pressed={chosenId === newClientId}
-        onClick={() => onPick(newClientId)}
-        style={{
-          ...card(chosenId === newClientId),
-          alignContent: 'center',
-          justifyItems: 'center',
-          borderStyle: chosenId === newClientId ? 'solid' : 'dashed',
-          color: colors.accent,
-          fontWeight: 600,
-        }}
-      >
-        + Новый клиент
-      </button>
-    </div>
-  );
-};
-
 export const Fact = ({ label, value }: { label: string; value: string }) => {
   const colors = usePalette();
 
   return (
     <div style={{ display: 'grid', minWidth: 0 }}>
-      <span
-        style={{
-          ...TYPE.label,
-          fontSize: '12px',
-          letterSpacing: '0.05em',
-          textTransform: 'uppercase',
-          color: colors.muted,
-        }}
-      >
-        {label}
-      </span>
+      <span style={{ ...TYPE.label, color: colors.muted }}>{label}</span>
       <span style={{ overflowWrap: 'anywhere' }}>{value}</span>
     </div>
   );
@@ -427,7 +510,7 @@ export const NoteBox = ({ title, text }: { title: string; text: string }) => {
     <div
       style={{
         padding: `${SPACE.sm}px ${SPACE.md}px`,
-        background: colors.note,
+        background: colors.panel,
         borderRadius: RADIUS.control,
       }}
     >
@@ -441,10 +524,13 @@ export const NoteBox = ({ title, text }: { title: string; text: string }) => {
 
 export const QuantityStepper = ({
   label,
+  isLabelShown = true,
   value,
   onChange,
 }: {
   label: string;
+  // Off where the line it stands on already names it
+  isLabelShown?: boolean;
   value: string;
   onChange: (value: string) => void;
 }) => {
@@ -464,7 +550,7 @@ export const QuantityStepper = ({
 
   return (
     <div style={{ display: 'grid', gap: SPACE.xs, justifyItems: 'start' }}>
-      <FieldLabel>{label}</FieldLabel>
+      {isLabelShown && <FieldLabel>{label}</FieldLabel>}
       <div
         style={{
           display: 'inline-flex',
@@ -695,259 +781,6 @@ export const SketchDrawing = ({ layout }: { layout: SketchLayout }) => {
   );
 };
 
-export const PickButton = ({
-  photoUrl,
-  hasPicture = false,
-  title,
-  subtitle,
-  actionText,
-  isEmpty,
-  onClick,
-}: {
-  photoUrl?: string | null;
-  // Grilles are chosen by their look; visors by name only
-  hasPicture?: boolean;
-  title: string;
-  subtitle: string;
-  actionText: string;
-  isEmpty: boolean;
-  onClick: () => void;
-}) => {
-  const colors = usePalette();
-  const pictureSize = 60;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: SPACE.md,
-        width: '100%',
-        minHeight: hasPicture
-          ? pictureSize + 2 * SPACE.sm
-          : CONTROL_HEIGHT + SPACE.xs,
-        padding: `${SPACE.sm}px ${SPACE.lg}px ${SPACE.sm}px ${hasPicture ? SPACE.sm : SPACE.lg}px`,
-        background: colors.surface,
-        border: `${isEmpty ? 2 : 1}px ${isEmpty ? 'dashed' : 'solid'} ${colors.border}`,
-        borderRadius: RADIUS.card,
-        color: colors.text,
-        font: 'inherit',
-        textAlign: 'left',
-        cursor: 'pointer',
-      }}
-    >
-      {hasPicture ? (
-        photoUrl ? (
-          <img
-            src={photoUrl}
-            alt=""
-            style={{
-              flex: 'none',
-              width: pictureSize,
-              height: pictureSize,
-              objectFit: 'cover',
-              borderRadius: RADIUS.control,
-            }}
-          />
-        ) : (
-          <span
-            aria-hidden
-            style={{
-              flex: 'none',
-              width: pictureSize,
-              height: pictureSize,
-              borderRadius: RADIUS.control,
-              background: isEmpty ? colors.panel : colors.accentTint,
-            }}
-          />
-        )
-      ) : null}
-      <span style={{ flex: 1, minWidth: 0, display: 'grid' }}>
-        <span style={TYPE.rowTitle}>{title}</span>
-        <span
-          style={{ ...TYPE.label, ...TABULAR_NUMBERS, color: colors.muted }}
-        >
-          {subtitle}
-        </span>
-      </span>
-      <span
-        style={{
-          flex: 'none',
-          color: colors.accent,
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {actionText} ›
-      </span>
-    </button>
-  );
-};
-
-export const QuickPicks = ({
-  items,
-  onPick,
-}: {
-  items: { id: string; label: string; photoUrl?: string | null }[];
-  onPick: (id: string) => void;
-}) => {
-  const colors = usePalette();
-
-  if (items.length === 0) return null;
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: SPACE.sm,
-        overflowX: 'auto',
-        paddingBottom: SPACE.xs,
-      }}
-    >
-      <span style={{ ...TYPE.label, color: colors.muted, flex: 'none' }}>
-        Часто:
-      </span>
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          onClick={() => onPick(item.id)}
-          style={{
-            flex: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: SPACE.sm,
-            minHeight: CONTROL_HEIGHT - SPACE.xs,
-            padding: `0 ${SPACE.md}px 0 ${item.photoUrl ? SPACE.xs : SPACE.md}px`,
-            background: colors.surface,
-            border: `1px solid ${colors.border}`,
-            borderRadius: CONTROL_HEIGHT,
-            color: colors.text,
-            font: 'inherit',
-            ...TYPE.label,
-            whiteSpace: 'nowrap',
-            cursor: 'pointer',
-          }}
-        >
-          {item.photoUrl ? (
-            <img
-              src={item.photoUrl}
-              alt=""
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '50%',
-                objectFit: 'cover',
-              }}
-            />
-          ) : null}
-          {item.label}
-        </button>
-      ))}
-    </div>
-  );
-};
-
-// Opens under the field it belongs to rather than over the page: the form is
-// drawn inside the host page and has no layer of its own to put a dialog on.
-export const PickerPanel = ({
-  title,
-  query,
-  placeholder,
-  filters,
-  onQueryChange,
-  onClose,
-  children,
-}: {
-  title: string;
-  query: string;
-  placeholder: string;
-  filters?: ReactNode;
-  onQueryChange: (query: string) => void;
-  onClose: () => void;
-  children: ReactNode;
-}) => {
-  const colors = usePalette();
-
-  return (
-    <div
-      role="dialog"
-      aria-label={title}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr)',
-        gap: SPACE.md,
-        padding: SPACE.md,
-        background: colors.panel,
-        border: `2px solid ${colors.accent}`,
-        borderRadius: RADIUS.card,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: SPACE.md,
-        }}
-      >
-        <span style={TYPE.rowTitle}>{title}</span>
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            minHeight: CONTROL_HEIGHT - SPACE.xs,
-            padding: `0 ${SPACE.lg}px`,
-            background: colors.surface,
-            border: `1px solid ${colors.border}`,
-            borderRadius: RADIUS.control,
-            color: colors.text,
-            font: 'inherit',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          Закрыть
-        </button>
-      </div>
-      <TextInput
-        label="Поиск"
-        placeholder={placeholder}
-        value={query}
-        onChange={onQueryChange}
-        onCancel={onClose}
-      />
-      {filters}
-      <div
-        style={{
-          display: 'grid',
-          gap: SPACE.lg,
-          maxHeight: PICKER_LIST_MAX_HEIGHT,
-          overflowY: 'auto',
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-};
-
-export const PickerGroup = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) => (
-  <div style={{ display: 'grid', gap: SPACE.sm }}>
-    <SectionTitle title={title} />
-    {children}
-  </div>
-);
-
 export const TileGrid = ({ children }: { children: ReactNode }) => (
   <div
     style={{
@@ -959,49 +792,6 @@ export const TileGrid = ({ children }: { children: ReactNode }) => (
     {children}
   </div>
 );
-
-export const ListRow = ({
-  title,
-  value,
-  isSelected,
-  onSelect,
-}: {
-  title: string;
-  value: string;
-  isSelected: boolean;
-  onSelect: () => void;
-}) => {
-  const colors = usePalette();
-
-  return (
-    <button
-      type="button"
-      aria-pressed={isSelected}
-      onClick={onSelect}
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: `${SPACE.xs}px ${SPACE.md}px`,
-        minHeight: CONTROL_HEIGHT + SPACE.sm,
-        padding: `${SPACE.sm}px ${SPACE.lg}px`,
-        background: isSelected ? colors.accentTint : colors.surface,
-        border: `${isSelected ? 2 : 1}px solid ${isSelected ? colors.accent : colors.border}`,
-        borderRadius: RADIUS.control,
-        color: colors.text,
-        font: 'inherit',
-        textAlign: 'left',
-        cursor: 'pointer',
-      }}
-    >
-      <span style={{ fontWeight: 600 }}>
-        {isSelected ? `✓ ${title}` : title}
-      </span>
-      <span style={{ ...TABULAR_NUMBERS, color: colors.muted }}>{value}</span>
-    </button>
-  );
-};
 
 export const FilterChips = ({
   options,
@@ -1018,9 +808,8 @@ export const FilterChips = ({
     <div
       style={{
         display: 'flex',
+        flexWrap: 'wrap',
         gap: SPACE.sm,
-        overflowX: 'auto',
-        paddingBottom: SPACE.xs,
       }}
     >
       {options.map((option) => {
@@ -1036,10 +825,10 @@ export const FilterChips = ({
               flex: 'none',
               minHeight: CONTROL_HEIGHT - SPACE.sm,
               padding: `0 ${SPACE.md}px`,
-              background: isChosen ? colors.accent : colors.surface,
-              border: `1px solid ${isChosen ? colors.accent : colors.border}`,
+              background: isChosen ? colors.panel : colors.surface,
+              border: `1px solid ${isChosen ? colors.text : colors.border}`,
               borderRadius: CONTROL_HEIGHT,
-              color: isChosen ? colors.onAccent : colors.text,
+              color: colors.text,
               font: 'inherit',
               ...TYPE.label,
               fontWeight: isChosen ? 600 : 400,
@@ -1092,34 +881,6 @@ export const SummaryLine = ({
       >
         {value}
       </span>
-    </div>
-  );
-};
-
-export const BigNumber = ({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) => {
-  const colors = usePalette();
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'baseline',
-        justifyContent: 'space-between',
-        gap: SPACE.md,
-        padding: `${SPACE.md}px ${SPACE.lg}px`,
-        background: colors.accentTint,
-        borderRadius: RADIUS.card,
-      }}
-    >
-      <span style={{ color: colors.accent, fontWeight: 600 }}>{label}</span>
-      <span style={{ ...TYPE.keyNumber, ...TABULAR_NUMBERS }}>{value}</span>
     </div>
   );
 };

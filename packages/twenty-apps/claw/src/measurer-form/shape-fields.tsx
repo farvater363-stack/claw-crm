@@ -59,22 +59,13 @@ const RemoveButton = ({
 type SizeId =
   'width' | 'height' | 'left' | 'right' | 'center' | 'side' | 'rise';
 
-// One number of the outline, typed on the pad on «Новый замер».
-export type ShapeSize = {
+// One number of the outline
+type ShapeSize = {
   id: SizeId;
   label: string;
   placeholder: string;
   value: string;
   onChange: (value: string) => void;
-};
-
-// The order the pad's «Далее» walks them in.
-const SIZE_ORDER: Record<ShapeKind, SizeId[]> = {
-  RECTANGLE: ['width', 'height'],
-  SLOPE: ['width', 'left', 'right', 'center'],
-  ARCH: ['width', 'side', 'rise'],
-  STEP: ['width', 'left', 'right'],
-  CUSTOM: ['width'],
 };
 
 type ShapeSizeInput = {
@@ -127,12 +118,6 @@ const sizesById = ({
       update({ riseCm }),
     ),
   };
-};
-
-export const shapeSizes = (input: ShapeSizeInput): ShapeSize[] => {
-  const byId = sizesById(input);
-
-  return SIZE_ORDER[input.shape.kind].map((id) => byId[id]);
 };
 
 const PointRow = ({
@@ -193,12 +178,9 @@ export const ShapeFields = ({
   onShapeChange,
   onWidthChange,
   onHeightChange,
-  renderSize,
 }: ShapeSizeInput & {
   nextKey: () => string;
   liveErrors: string[];
-  // Draws the outline's numbers as pad fields; without it they are inputs
-  renderSize?: (size: ShapeSize) => ReactNode;
 }) => {
   const colors = usePalette();
   const update = (changes: Partial<ShapeDraft>) =>
@@ -220,9 +202,7 @@ export const ShapeFields = ({
   const sizeField = (id: SizeId) => {
     const size = byId[id];
 
-    return renderSize ? (
-      renderSize(size)
-    ) : (
+    return (
       <Field label={size.label}>
         <CmInput
           label={`${size.label}, см`}
