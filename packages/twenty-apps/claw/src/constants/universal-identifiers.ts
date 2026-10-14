@@ -434,6 +434,7 @@ export const IDS = {
     marketing: 'e60fe15d-747c-4964-b83f-4405d2e94d2d',
     money: '3fd6adde-3a8e-4ba9-9596-69288f953993',
     contract: 'be5de5b9-fbeb-465e-b8d7-b4493088ba67',
+    catalog: '487686b9-6cf8-49c2-9301-0f2c654b6323',
   },
   clientPage: {
     frontComponent: 'd8b23909-502b-45ac-8268-0e8a709534f5',
@@ -471,6 +472,12 @@ export const IDS = {
     pageLayout: '197d5139-ebed-4518-bfc2-abb73038a303',
     pageLayoutTab: '15da6026-7b60-4b4a-8acb-39cb6787ad5e',
     pageLayoutWidget: '8a58f5d6-c26a-424a-8c17-26397eba40ce',
+  },
+  catalog: {
+    frontComponent: 'f37a9ab7-9ac2-4da9-8b98-4685d52bea7d',
+    pageLayout: '9dec7ce6-9177-46fe-9432-b4c8332887b0',
+    pageLayoutTab: '0d8a06ca-02b5-410b-b594-30f3036c1a56',
+    pageLayoutWidget: '9791f113-59cf-4d42-94c4-054aef333be8',
   },
   payroll: {
     frontComponent: '66997114-3e6d-4d6c-9405-64be5ad17a66',

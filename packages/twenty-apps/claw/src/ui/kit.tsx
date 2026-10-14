@@ -792,7 +792,8 @@ export const PhotoTile = ({
 }: {
   name: string;
   photoUrl: string | null;
-  isSelected: boolean;
+  // Left out where a tile opens something instead of being chosen
+  isSelected?: boolean;
   onSelect: () => void;
   caption?: string;
 }) => {
@@ -811,7 +812,7 @@ export const PhotoTile = ({
         gap: SPACE.xs,
         padding: SPACE.sm,
         background: colors.surface,
-        border: `2px solid ${isSelected ? colors.accent : colors.border}`,
+        border: `2px solid ${isSelected === true ? colors.accent : colors.border}`,
         borderRadius: RADIUS.card,
         color: colors.text,
         font: 'inherit',
