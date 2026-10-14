@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { IDS } from 'src/constants/universal-identifiers';
+import catalog from 'src/navigation-menu-items/catalog.navigation-menu-item';
 import callBacks from 'src/navigation-menu-items/call-backs.navigation-menu-item';
 import clients from 'src/navigation-menu-items/clients.navigation-menu-item';
 import contract from 'src/navigation-menu-items/contract.navigation-menu-item';
@@ -33,6 +34,7 @@ const MENU = [
     item: newMeasurement,
     requires: IDS.extraService.object,
   },
+  { label: 'Каталог', item: catalog, requires: IDS.design.object },
   {
     label: 'Мои замеры',
     item: myMeasurements,
@@ -59,13 +61,14 @@ const menuOf = (role: { config: typeof managerRole.config }) => {
 };
 
 describe('menu', () => {
-  it('has these thirteen items and no other', () => {
+  it('has these fourteen items and no other', () => {
     expect(
       readdirSync(join(__dirname, '..'))
         .filter((file) => file.endsWith('.navigation-menu-item.ts'))
         .sort(),
     ).toEqual([
       'call-backs.navigation-menu-item.ts',
+      'catalog.navigation-menu-item.ts',
       'clients.navigation-menu-item.ts',
       'contract.navigation-menu-item.ts',
       'marketing.navigation-menu-item.ts',
@@ -83,7 +86,7 @@ describe('menu', () => {
 
   it('orders them as the spec does, off position zero', () => {
     expect(MENU.map(({ item }) => item.config.position)).toEqual([
-      -2, -1, 1, 2, 3, 4, 5, 5.5, 6, 7, 8, 9, 10,
+      -2, -1, 1, 2, 2.5, 3, 4, 5, 5.5, 6, 7, 8, 9, 10,
     ]);
   });
 
@@ -99,6 +102,7 @@ describe('menu', () => {
       undefined,
       'В работе',
       'Новый замер',
+      'Каталог',
       undefined,
       'Склад',
       'Цены',
@@ -117,8 +121,8 @@ describe('menu', () => {
   });
 
   it.each([
-    ['the measurer', measurerRole, ['Новый замер', 'Мои замеры']],
-    ['the workshop', workshopRole, ['В работе']],
+    ['the measurer', measurerRole, ['Новый замер', 'Каталог', 'Мои замеры']],
+    ['the workshop', workshopRole, ['В работе', 'Каталог']],
     [
       'the manager',
       managerRole,
@@ -126,6 +130,7 @@ describe('menu', () => {
         'Заказы',
         'В работе',
         'Новый замер',
+        'Каталог',
         'Мои замеры',
         'Склад',
         'Цены',
