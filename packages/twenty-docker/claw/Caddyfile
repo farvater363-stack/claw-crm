@@ -1,4 +1,4 @@
-{$DOMAIN} {
+{$DOMAIN} {$WORKSPACE_HOSTS} {
 	encode zstd gzip
 	reverse_proxy server:3000
 }
