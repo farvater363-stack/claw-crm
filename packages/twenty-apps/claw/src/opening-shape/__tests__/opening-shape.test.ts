@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  archTopCm,
   buildShapeOutline,
   createShapeDraft,
   describeShape,
@@ -97,9 +98,9 @@ describe('buildShapeOutline', () => {
     ).toEqual(['укажите высоту справа больше 0']);
   });
 
-  it('builds the Ломоносов arch: chord 123,5, rise 62, on the sill', () => {
+  it('builds the Ломоносов arch: chord 123,5, 62 at the centre, on the sill', () => {
     const result = buildShapeOutline(
-      draftOf({ kind: 'ARCH', sideCm: '0', riseCm: '62' }),
+      draftOf({ kind: 'ARCH', sideCm: '0', topCm: '62' }),
       '123,5',
       '',
     );
@@ -108,25 +109,127 @@ describe('buildShapeOutline', () => {
     expect(result.outline && outlineHeightCm(result.outline)).toBe(62);
   });
 
-  it('adds the side walls under an arch to its height', () => {
+  it('measures the arch from the sill to its top at the centre', () => {
     const result = buildShapeOutline(
-      draftOf({ kind: 'ARCH', sideCm: '150', riseCm: '30' }),
+      draftOf({ kind: 'ARCH', sideCm: '150', topCm: '180' }),
       '120',
       '',
     );
 
+    expect(result.outline?.arcRisesCm).toEqual([30]);
     expect(result.outline && outlineHeightCm(result.outline)).toBe(180);
   });
 
-  it('refuses an arch rise bigger than half the width', () => {
+  it('runs the arch through both sides and the centre when the sides differ', () => {
+    const result = buildShapeOutline(
+      draftOf({
+        kind: 'ARCH',
+        sideCm: '150',
+        sideRightCm: '147',
+        topCm: '195',
+      }),
+      '120',
+      '',
+    );
+    const outline = result.outline!;
+
+    expect(outline.points).toEqual([
+      { xCm: 0, heightCm: 150 },
+      { xCm: 120, heightCm: 147 },
+    ]);
+    expect(archTopCm(outline)).toBe(195);
+  });
+
+  it('refuses an arch whose sides differ so much that it bulges past the lower one', () => {
     expect(
       buildShapeOutline(
-        draftOf({ kind: 'ARCH', sideCm: '0', riseCm: '70' }),
+        draftOf({
+          kind: 'ARCH',
+          sideCm: '150',
+          sideRightCm: '100',
+          topCm: '190',
+        }),
         '120',
         '',
       ).errors,
     ).toEqual([
-      'стрела 70 см больше половины ширины 120 см. У полукруга стрела равна половине ширины',
+      'арка выше полукруга: по центру 190 см при ширине 120 см. У полукруга центр выше боковин на половину ширины',
+    ]);
+  });
+
+  it('stores the same rise for an old arch reopened and saved again', () => {
+    const outline = {
+      widthCm: 123.5,
+      points: [
+        { xCm: 0, heightCm: 147.5 },
+        { xCm: 123.5, heightCm: 147.5 },
+      ],
+      arcRisesCm: [30.25],
+    };
+    const draft = shapeDraftFromStored(
+      { version: 1, kind: 'ARCH', outline, draft: createShapeDraft(nextKey) },
+      nextKey,
+    );
+
+    expect(buildShapeOutline(draft, '123,5', '').outline).toEqual(outline);
+  });
+
+  it('takes an empty right side as the same as the left', () => {
+    const result = buildShapeOutline(
+      draftOf({ kind: 'ARCH', sideCm: '150', sideRightCm: '', topCm: '180' }),
+      '120',
+      '',
+    );
+
+    expect(result.outline?.points[1]).toEqual({ xCm: 120, heightCm: 150 });
+  });
+
+  it('refuses a centre that is not above the sides', () => {
+    expect(
+      buildShapeOutline(
+        draftOf({ kind: 'ARCH', sideCm: '150', topCm: '140' }),
+        '120',
+        '',
+      ).errors,
+    ).toEqual([
+      'по центру 140 см, а боковина 150 см. Центр арки должен быть выше боковин',
+    ]);
+  });
+
+  it('refuses an arch taller than a semicircle', () => {
+    expect(
+      buildShapeOutline(
+        draftOf({ kind: 'ARCH', sideCm: '0', topCm: '70' }),
+        '120',
+        '',
+      ).errors,
+    ).toEqual([
+      'арка выше полукруга: по центру 70 см при ширине 120 см. У полукруга центр выше боковин на половину ширины',
+    ]);
+  });
+
+  it('reopens an arch saved with a rise as its sides and centre', () => {
+    const draft = shapeDraftFromStored(
+      {
+        version: 1,
+        kind: 'ARCH',
+        outline: {
+          widthCm: 120,
+          points: [
+            { xCm: 0, heightCm: 150 },
+            { xCm: 120, heightCm: 150 },
+          ],
+          arcRisesCm: [30],
+        },
+        draft: { ...createShapeDraft(nextKey), sideCm: '150', topCm: '' },
+      },
+      nextKey,
+    );
+
+    expect([draft.sideCm, draft.sideRightCm, draft.topCm]).toEqual([
+      '150',
+      '',
+      '180',
     ]);
   });
 
@@ -340,7 +443,7 @@ describe('stored shapes', () => {
 
   it('describes an arch and a step the way the sheet reads', () => {
     const arch = buildShapeOutline(
-      draftOf({ kind: 'ARCH', sideCm: '0', riseCm: '62' }),
+      draftOf({ kind: 'ARCH', sideCm: '0', topCm: '62' }),
       '124',
       '',
     );
@@ -362,7 +465,7 @@ describe('stored shapes', () => {
         outline: arch.outline!,
         draft: createShapeDraft(nextKey),
       }),
-    ).toBe('арка, стрела 62');
+    ).toBe('арка, по центру 62');
     expect(
       describeShape({
         version: 1,
@@ -375,7 +478,7 @@ describe('stored shapes', () => {
 });
 
 describe('parseItemShape', () => {
-  const draft = draftOf({ kind: 'ARCH', sideCm: '0', riseCm: '62' });
+  const draft = draftOf({ kind: 'ARCH', sideCm: '0', topCm: '62' });
   const stored = toStoredShape(
     draft,
     buildShapeOutline(draft, '124', '').outline!,

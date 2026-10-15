@@ -7,6 +7,7 @@ export type PricedMaterial = {
 export type CostNorm = {
   designId: string | null;
   extraServiceId: string | null;
+  orderId?: string | null;
   materialId: string | null;
   quantityPerUnit: number | null;
 };
@@ -35,8 +36,12 @@ export const computeMaterialCost = (
   };
 };
 
+const COST_OWNERS = ['designId', 'extraServiceId', 'orderId'] as const;
+
+// A row of one grille, service or order only: one with two owners counts for
+// neither, as in the order's material demand.
 export const materialCostByOwner = (
-  owner: 'designId' | 'extraServiceId',
+  owner: (typeof COST_OWNERS)[number],
   norms: CostNorm[],
   materials: PricedMaterial[],
 ): Map<string, number | null> => {
@@ -49,10 +54,13 @@ export const materialCostByOwner = (
   >();
 
   for (const norm of norms) {
-    const ownerId = norm[owner];
+    const ownerId = norm[owner] ?? null;
 
     if (
       ownerId === null ||
+      COST_OWNERS.some(
+        (other) => other !== owner && (norm[other] ?? null) !== null,
+      ) ||
       norm.materialId === null ||
       norm.quantityPerUnit === null ||
       !priceById.has(norm.materialId)

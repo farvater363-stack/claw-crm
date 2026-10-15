@@ -4,6 +4,7 @@ import {
   contractDataFromDraft,
   contractDataFromOrder,
   type StoredOrderForContract,
+  unpricedOpenings,
 } from 'src/contract/contract-data';
 import { DEFAULT_CONTRACT_TEMPLATE } from 'src/contract/contract-template';
 import {
@@ -113,5 +114,67 @@ describe('services in the contract', () => {
         '2026-10-12',
       ).openings.map(({ quantity }) => quantity),
     ).toEqual([3, 1]);
+  });
+});
+
+describe('a «Другая» рисунок in the contract', () => {
+  const item = (
+    overrides: Partial<StoredOrderForContract['items'][number]>,
+  ): StoredOrderForContract['items'][number] => ({
+    id: 'item-1',
+    openingNumber: 1,
+    widthCm: 100,
+    heightCm: 150,
+    projectionCm: null,
+    projectionKind: 'NONE',
+    quantity: 1,
+    designId: 'grille-1',
+    designName: 'Волна',
+    lineTotal: 600_000,
+    ...overrides,
+  });
+
+  it('cannot be signed while a проём waits for its price', () => {
+    const order: StoredOrderForContract = {
+      name: '№1013',
+      clientFullName: { firstName: 'Азиз', lastName: 'Рахимов' },
+      clientPhone: '+998901234567',
+      district: null,
+      addressLine: 'ул. Тестовая, 1',
+      floor: null,
+      subtotal: 600_000,
+      discount: 0,
+      total: 600_000,
+      paid: 0,
+      installationDeadline: null,
+      paintColor: null,
+      items: [
+        item({}),
+        item({
+          id: 'item-2',
+          openingNumber: 2,
+          designId: null,
+          designName: null,
+          lineTotal: null,
+        }),
+      ],
+      extraServices: [],
+    };
+    const data = contractDataFromOrder(
+      order,
+      DEFAULT_CONTRACT_TEMPLATE,
+      '2026-10-15',
+    );
+
+    expect(unpricedOpenings(data)).toEqual(['цену: Проём 2']);
+    expect(
+      unpricedOpenings(
+        contractDataFromOrder(
+          { ...order, items: [item({})] },
+          DEFAULT_CONTRACT_TEMPLATE,
+          '2026-10-15',
+        ),
+      ),
+    ).toEqual([]);
   });
 });

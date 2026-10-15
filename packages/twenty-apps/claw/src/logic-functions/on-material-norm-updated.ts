@@ -4,12 +4,11 @@ import {
   type ObjectRecordUpdateEvent,
 } from 'twenty-sdk/define';
 
-import { RESERVING_STATUSES } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { changesNoCompositionField } from 'src/warehouse/changes-no-composition-field';
 import { recalcWarehouse } from 'src/warehouse/recalc-warehouse';
-import { resyncOrdersHoldingMaterial } from 'src/warehouse/resync-orders-holding-material';
+import { resyncAfterNormChange } from 'src/warehouse/resync-after-norm-change';
 
 const handler = async (
   batch: DatabaseEventBatchPayload<ObjectRecordUpdateEvent>,
@@ -23,7 +22,7 @@ const handler = async (
     return;
   }
 
-  await resyncOrdersHoldingMaterial(client, RESERVING_STATUSES);
+  await resyncAfterNormChange(client, batch.events);
 };
 
 export default defineLogicFunction({
@@ -40,6 +39,7 @@ export default defineLogicFunction({
       'materialId',
       'designId',
       'extraServiceId',
+      'orderId',
       'quantityPerUnit',
     ],
     batchMode: true,

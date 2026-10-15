@@ -5,10 +5,12 @@ const COMPOSITION_FIELDS = new Set([
   'materialId',
   'designId',
   'extraServiceId',
+  'orderId',
   'quantityPerUnit',
   'material',
   'design',
   'extraService',
+  'order',
 ]);
 
 // Decided by what is absent, not by equality with `name`: every update also carries `updatedBy`. Unknown counts as a real change.

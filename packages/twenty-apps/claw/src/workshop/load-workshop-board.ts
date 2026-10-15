@@ -6,11 +6,20 @@ import {
   materialUnitLabel,
   type OrderStatus,
   PRODUCTION_STAGE_OPTIONS,
+  PROJECTION_KIND_OPTIONS,
   type ProductionStage,
 } from 'src/constants/select-options';
+import { describeShape } from 'src/opening-shape/opening-shape';
+import { formatSketchCm } from 'src/opening-shape/sketch-layout';
 import { nextStepOf, STEP_STATUS } from 'src/order-header/order-steps';
+import {
+  type SchemeOpening,
+  toSchemeOpenings,
+} from 'src/order-sketch/order-sketch';
+import { todayInTashkent } from 'src/pricing/dates';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
 import { joinFullName } from 'src/utils/full-name';
+import { isAccessError } from 'src/utils/is-access-error';
 import {
   type WorkshopItem,
   type WorkshopMaterial,
@@ -50,10 +59,48 @@ const stageOf = (value: string | null | undefined): ProductionStage | null =>
   PRODUCTION_STAGE_OPTIONS.find((option) => option.value === value)?.value ??
   null;
 
+// «вынос снизу 25 см», as the form says it
+const projectionTextOf = ({ sketch }: SchemeOpening): string | null =>
+  sketch === null || sketch.projectionKind === 'NONE'
+    ? null
+    : `${labelOf(PROJECTION_KIND_OPTIONS, sketch.projectionKind)?.toLowerCase() ?? 'вынос'} ${formatSketchCm(sketch.projectionCm)} см`;
+
 const textOrNull = (value: string | null | undefined): string | null => {
   const trimmed = value?.trim() ?? '';
 
   return trimmed === '' ? null : trimmed;
+};
+
+// Apart from the orders: a login that may not read the workspace's members
+// would otherwise lose the whole wall.
+const loadMeasurerNames = async (
+  client: CoreApiClient,
+  memberIds: string[],
+): Promise<Map<string, string | null>> => {
+  if (memberIds.length === 0) return new Map();
+
+  try {
+    const { workspaceMembers } = await client.query({
+      workspaceMembers: {
+        __args: {
+          filter: { id: { in: [...new Set(memberIds)] } },
+          first: PAGE_SIZE,
+        },
+        edges: { node: { id: true, name: NAME } },
+      },
+    });
+
+    return new Map(
+      (workspaceMembers?.edges ?? []).map(({ node }) => [
+        node.id,
+        joinFullName(node.name),
+      ]),
+    );
+  } catch (error) {
+    if (!isAccessError(error)) throw error;
+
+    return new Map();
+  }
 };
 
 // Only what the workshop role reads: no money, no phone, no cost, and the
@@ -81,6 +128,9 @@ export const loadWorkshopOrders = async (
             district: true,
             addressLine: true,
             floor: true,
+            measurementDate: true,
+            measurerId: true,
+            schemePdf: PHOTO,
             comment: true,
             paintColor: true,
             productionStartDate: true,
@@ -103,7 +153,7 @@ export const loadWorkshopOrders = async (
   // One filter over every shown order: a workshop holds tens of orders, not
   // thousands. Split the ids into batches if that ever changes.
   const ofShownOrders = { orderId: { in: orderNodes.map((node) => node.id) } };
-  const [itemNodes, serviceNodes, materialNodes] = await Promise.all([
+  const [itemNodes, serviceNodes, materialNodes, measurerNames] = await Promise.all([
     fetchAllPages(async (after) => {
       const { orderItems } = await client.query({
         orderItems: {
@@ -118,10 +168,18 @@ export const loadWorkshopOrders = async (
               id: true,
               orderId: true,
               name: true,
+              product: true,
+              shape: true,
+              widthCm: true,
+              heightCm: true,
+              projectionCm: true,
+              projectionKind: true,
+              openingNumber: true,
               quantity: true,
               areaSquareMeters: true,
               notes: true,
               photos: PHOTO,
+              designId: true,
               design: { name: true, grilleKind: { name: true }, photos: PHOTO },
             },
           },
@@ -141,7 +199,14 @@ export const loadWorkshopOrders = async (
             orderBy: [{ createdAt: 'AscNullsLast' }],
           },
           edges: {
-            node: { id: true, orderId: true, name: true, quantity: true },
+            node: {
+              id: true,
+              orderId: true,
+              orderItemId: true,
+              openingNumber: true,
+              name: true,
+              quantity: true,
+            },
           },
           pageInfo: PAGE_INFO,
         },
@@ -173,22 +238,81 @@ export const loadWorkshopOrders = async (
 
       return orderMaterials;
     }),
+    loadMeasurerNames(
+      client,
+      orderNodes.flatMap((node) =>
+        node.measurerId ? [node.measurerId] : [],
+      ),
+    ),
   ]);
 
-  const itemsOf = (orderId: string): WorkshopItem[] =>
-    itemNodes
-      .filter((item) => item.orderId === orderId)
-      .map((item) => ({
-        id: item.id,
-        designName: textOrNull(item.design?.name),
-        metalLabel: textOrNull(item.design?.grilleKind?.name),
-        size: item.name ?? '',
-        quantity: item.quantity ?? 1,
-        areaSquareMeters: item.areaSquareMeters ?? null,
-        notes: textOrNull(item.notes),
-        designPhotoUrl: urlsOf(item.design?.photos)[0] ?? null,
-        openingPhotoUrls: urlsOf(item.photos),
-      }));
+  const itemsOf = (orderId: string): WorkshopItem[] => {
+    const nodes = itemNodes.filter((item) => item.orderId === orderId);
+    const schemes = new Map(
+      toSchemeOpenings(
+        nodes.map((item) => ({
+          ...item,
+          widthCm: item.widthCm ?? null,
+          heightCm: item.heightCm ?? null,
+          projectionCm: item.projectionCm ?? null,
+          projectionKind: item.projectionKind ?? null,
+          quantity: item.quantity ?? null,
+          designName: textOrNull(item.design?.name),
+        })),
+      ).map((scheme) => [scheme.id, scheme]),
+    );
+
+    return nodes.flatMap((item) => {
+      const scheme = schemes.get(item.id);
+
+      if (scheme === undefined) return [];
+
+      return [
+        {
+          id: item.id,
+          designName: textOrNull(item.design?.name),
+          metalLabel: textOrNull(item.design?.grilleKind?.name),
+          size: item.name ?? '',
+          quantity: item.quantity ?? 1,
+          areaSquareMeters: item.areaSquareMeters ?? null,
+          notes: textOrNull(item.notes),
+          designPhotoUrl: urlsOf(item.design?.photos)[0] ?? null,
+          openingPhotoUrls: urlsOf(item.photos),
+          scheme,
+          shapeText: describeShape(scheme.shape),
+          projectionText: projectionTextOf(scheme),
+          isCustomDesign: (item.designId ?? null) === null,
+        },
+      ];
+    });
+  };
+
+
+  const itemsByOrder = new Map(
+    orderNodes.map((node) => [node.id, itemsOf(node.id)]),
+  );
+  const titleById = new Map(
+    [...itemsByOrder.values()]
+      .flat()
+      .map((item) => [item.id, item.scheme.title]),
+  );
+  // A проём deleted since keeps its id on the line: the line is then loose
+  const shownItemIdOf = (line: { orderItemId?: string | null }) =>
+    line.orderItemId && titleById.has(line.orderItemId)
+      ? line.orderItemId
+      : null;
+  const openingTitleOf = (line: {
+    orderItemId?: string | null;
+    openingNumber?: number | null;
+  }): string | null => {
+    const itemId = shownItemIdOf(line);
+
+    if (itemId !== null) return titleById.get(itemId) ?? null;
+
+    return typeof line.openingNumber === 'number'
+      ? `Проём ${line.openingNumber}`
+      : null;
+  };
 
   const servicesOf = (orderId: string): WorkshopService[] =>
     serviceNodes
@@ -198,7 +322,15 @@ export const loadWorkshopOrders = async (
 
         return name === null
           ? []
-          : [{ id: line.id, name, quantity: line.quantity ?? 1 }];
+          : [
+              {
+                id: line.id,
+                name,
+                quantity: line.quantity ?? 1,
+                orderItemId: shownItemIdOf(line),
+                openingTitle: openingTitleOf(line),
+              },
+            ];
       });
 
   const materialsOf = (orderId: string): WorkshopMaterial[] =>
@@ -211,6 +343,7 @@ export const loadWorkshopOrders = async (
         unitLabel: materialUnitLabel(line.material?.unit),
         isShort: (line.material?.onHand ?? 0) < 0,
       }));
+
 
   return orderNodes.map((node) => ({
     id: node.id,
@@ -225,12 +358,21 @@ export const loadWorkshopOrders = async (
     districtLabel: labelOf(DISTRICT_OPTIONS, node.district),
     addressLine: textOrNull(node.addressLine),
     floor: node.floor ?? null,
+    measurerName: node.measurerId
+      ? (measurerNames.get(node.measurerId) ?? null)
+      : null,
+    // The day in Tashkent: a measurement after midnight there is still the
+    // day before in UTC
+    measurementDate: node.measurementDate
+      ? todayInTashkent(new Date(node.measurementDate))
+      : null,
+    schemePdfUrl: urlsOf(node.schemePdf)[0] ?? null,
     comment: textOrNull(node.comment),
     paintColor: textOrNull(node.paintColor),
     startDate: node.productionStartDate ?? null,
     deadline: node.installationDeadline ?? null,
     areaSquareMeters: node.areaSquareMeters ?? null,
-    items: itemsOf(node.id),
+    items: itemsByOrder.get(node.id) ?? [],
     services: servicesOf(node.id),
     materials: materialsOf(node.id),
     finishedPhotoUrls: urlsOf(node.finishedPhotos),

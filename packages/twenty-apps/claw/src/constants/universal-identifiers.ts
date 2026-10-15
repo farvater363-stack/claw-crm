@@ -127,6 +127,7 @@ export const IDS = {
     calls: '76a4d8ba-77af-4583-9f1a-b4117a74f543',
     contractState: '961b64e9-e427-4d85-9081-6f0d86d08343',
     signedContracts: '98937023-299b-4de7-811e-dc7c0f34d908',
+    customMaterials: 'fe93e65a-7c0c-4066-83f6-d404a3606470',
     // Twenty's deterministic ids for the built-in fields of this app's order
     // object: uuid v5 of "fieldMetadata:<object id>:<field name>" in the
     // namespace of the application id. Never made up, never generated here.
@@ -173,6 +174,7 @@ export const IDS = {
     order: '72ee4b00-c57e-4588-b61d-86a549a44022',
     extraService: '3f52757d-611f-418d-9288-c591742d4fae',
     orderItem: '55611fda-be00-48b4-ba40-e2c7a98a1865',
+    openingNumber: '4226e015-fed7-45a4-baa6-13306f46f4c7',
   },
   masterPayment: {
     object: '97af6485-78d1-4250-9b8f-7b7af9d9a6e4',
@@ -256,6 +258,7 @@ export const IDS = {
     extraService: 'bf8a4f05-43dd-4c88-b91d-7c7b250459e7',
     quantityPerUnit: '1126566d-0f16-49c3-b9bc-761541c14ac0',
     design: '99bba579-e976-45ea-8f06-ee59b6ccbcdb',
+    order: 'de83cebe-82b1-4cbd-a741-734354695605',
   },
   stockMovement: {
     object: 'c8b297b5-936f-4efe-95a3-7b1eddd3f0b0',
@@ -385,6 +388,7 @@ export const IDS = {
     masterPay: 'b4cc6845-8918-4861-af82-179ea79985ea', // Retired: replaced by masterPayment; ids are never reused.
     orderItemsTable: '4d5ec168-0807-4260-95c2-5180fdc79159',
     orderExtraServicesTable: '90c9a437-18e4-4d2f-ae50-482889c7dc8b',
+    orderCustomMaterialsTable: '622b8ed5-462d-4691-adad-ba16dfecff0a',
     orderTotals: 'b3aea3b1-8dd5-4390-a7b8-cbb62b90d42d', // Retired: the order header shows the money; ids are never reused.
     allOrders: '8e7883c5-d382-4a79-9acb-2ef4974ceb48',
     dashboardOverdue: '174f3195-48cc-45cb-9fb3-3a0c9d8ee9a1',

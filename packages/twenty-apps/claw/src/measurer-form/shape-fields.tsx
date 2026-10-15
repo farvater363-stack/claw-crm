@@ -63,7 +63,8 @@ type SizeId =
   | 'right'
   | 'center'
   | 'side'
-  | 'rise';
+  | 'sideRight'
+  | 'top';
 
 // One number of the outline
 type ShapeSize = {
@@ -112,8 +113,16 @@ const sizesById = ({
       (centerCm) => update({ centerCm }),
       'нет',
     ),
-    side: size('Высота боковин', shape.sideCm, (sideCm) => update({ sideCm })),
-    rise: size('Стрела арки', shape.riseCm, (riseCm) => update({ riseCm })),
+    side: size('Боковина слева', shape.sideCm, (sideCm) => update({ sideCm })),
+    sideRight: size(
+      'Боковина справа',
+      shape.sideRightCm,
+      (sideRightCm) => update({ sideRightCm }),
+      'как слева',
+    ),
+    top: size('По центру, до верха арки', shape.topCm, (topCm) =>
+      update({ topCm }),
+    ),
   };
 };
 
@@ -284,12 +293,13 @@ export const ShapeFields = ({
       <>
         <div style={PAIR}>
           {widthField}
+          {sizeField('top')}
           {sizeField('side')}
-          {sizeField('rise')}
+          {sizeField('sideRight')}
         </div>
         <span style={{ ...TYPE.label, color: colors.muted }}>
-          Боковины 0, если арка стоит прямо на подоконнике. Стрела: от линии
-          боковин до верха арки.
+          Все высоты от подоконника. По центру: до верха арки. Боковины 0, если
+          арка стоит прямо на подоконнике.
         </span>
       </>
     ),

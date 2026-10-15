@@ -44,8 +44,11 @@ export type ShapeDraft = {
   centerCm: string;
   rightCm: string;
   slopePoints: PointDraft[];
+  // An arch: the left side, the right side (empty is the same as the left)
+  // and the height from the sill to the top of the arch at the middle
   sideCm: string;
-  riseCm: string;
+  sideRightCm: string;
+  topCm: string;
   // Where each step is and the height after it; the last one ends at rightCm
   steps: PointDraft[];
   points: CustomPointDraft[];
@@ -79,7 +82,8 @@ export const createShapeDraft = (
   rightCm: '',
   slopePoints: [],
   sideCm: '0',
-  riseCm: '',
+  sideRightCm: '',
+  topCm: '',
   steps: [{ key: nextKey(), xCm: '', heightCm: '' }],
   points: [
     {
@@ -207,31 +211,47 @@ const archOutline = (
   widthCm: number,
   collected: Collected,
 ): ShapeOutline | null => {
-  const side = requirePositive(collected, draft.sideCm, 'высоту боковин', {
+  const left = requirePositive(collected, draft.sideCm, 'боковину слева', {
     allowZero: true,
   });
-  const rise = requirePositive(collected, draft.riseCm, 'стрелу арки');
+  const right =
+    draft.sideRightCm.trim() === ''
+      ? left
+      : requirePositive(collected, draft.sideRightCm, 'боковину справа', {
+          allowZero: true,
+        });
+  const top = requirePositive(collected, draft.topCm, 'высоту по центру');
 
-  if (side === null || rise === null) return null;
+  if (left === null || right === null || top === null) return null;
 
-  // A taller arc bulges past the sides of the opening; a semicircle measured
-  // a centimetre or two over half the width is still a semicircle.
-  if (rise > widthCm / 2 + ARC_TOLERANCE_CM) {
+  if (top <= Math.max(left, right)) {
     collected.errors.push(
-      `стрела ${formatCm(rise)} см больше половины ширины ${formatCm(widthCm)} см. У полукруга стрела равна половине ширины`,
+      `по центру ${formatCm(top)} см, а боковина ${formatCm(Math.max(left, right))} см. Центр арки должен быть выше боковин`,
     );
 
     return null;
   }
 
-  return {
-    widthCm,
-    points: [
-      { xCm: 0, heightCm: side },
-      { xCm: widthCm, heightCm: side },
-    ],
-    arcRisesCm: [rise],
-  };
+  const from = { xCm: 0, heightCm: left };
+  const to = { xCm: widthCm, heightCm: right };
+  // Rounded so that the same numbers always store the same outline: the
+  // signed contract compares it.
+  const rise = roundTo(
+    riseThrough(from, to, { xCm: widthCm / 2, heightCm: top }),
+    2,
+  );
+
+  // An arc whose centre is above a side bulges past that side of the
+  // opening; a semicircle measured a centimetre or two over is still one.
+  if (arcOf(from, to, rise).centerY > Math.min(left, right) + ARC_TOLERANCE_CM) {
+    collected.errors.push(
+      `арка выше полукруга: по центру ${formatCm(top)} см при ширине ${formatCm(widthCm)} см. У полукруга центр выше боковин на половину ширины`,
+    );
+
+    return null;
+  }
+
+  return { widthCm, points: [from, to], arcRisesCm: [rise] };
 };
 
 const stepOutline = (
@@ -490,6 +510,58 @@ export const arcOf = (
   };
 };
 
+// The rise of the arc from `from` to `to` that passes through `through`,
+// measured the way arcOf takes it: square to the piece at its middle.
+const riseThrough = (
+  from: ShapePoint,
+  to: ShapePoint,
+  through: ShapePoint,
+): number => {
+  const square = (point: ShapePoint) =>
+    point.xCm * point.xCm + point.heightCm * point.heightCm;
+  const divisor =
+    2 *
+    (from.xCm * (to.heightCm - through.heightCm) +
+      to.xCm * (through.heightCm - from.heightCm) +
+      through.xCm * (from.heightCm - to.heightCm));
+  const centerX =
+    (square(from) * (to.heightCm - through.heightCm) +
+      square(to) * (through.heightCm - from.heightCm) +
+      square(through) * (from.heightCm - to.heightCm)) /
+    divisor;
+  const centerY =
+    (square(from) * (through.xCm - to.xCm) +
+      square(to) * (from.xCm - through.xCm) +
+      square(through) * (to.xCm - from.xCm)) /
+    divisor;
+  const radius = Math.hypot(from.xCm - centerX, from.heightCm - centerY);
+  const chord = Math.hypot(to.xCm - from.xCm, to.heightCm - from.heightCm);
+  const normalX = -(to.heightCm - from.heightCm) / chord;
+  const normalY = (to.xCm - from.xCm) / chord;
+  const offset =
+    ((from.xCm + to.xCm) / 2 - centerX) * normalX +
+    ((from.heightCm + to.heightCm) / 2 - centerY) * normalY;
+
+  return radius - offset;
+};
+
+// The height of an arch at the middle of its width, the number the measurer
+// typed as «по центру».
+export const archTopCm = (outline: ShapeOutline): number => {
+  const [from, to] = outline.points;
+  const rise = outline.arcRisesCm[0] ?? null;
+
+  if (rise === null) return Math.max(from.heightCm, to.heightCm);
+
+  const { centerX, centerY, radius } = arcOf(from, to, rise);
+  const offsetX = outline.widthCm / 2 - centerX;
+
+  return roundTo(
+    centerY + Math.sqrt(Math.max(0, radius * radius - offsetX * offsetX)),
+    2,
+  );
+};
+
 const ARC_SAMPLES = 24;
 
 // Points along an arc piece, both ends included, for the highest point and for
@@ -644,6 +716,17 @@ export const shapeDraftFromStored = (
     kind: stored.kind,
   };
 
+  // An arch saved before «по центру» was asked has a side and a rise instead.
+  if (stored.kind === 'ARCH' && !stored.draft.topCm) {
+    const [left, right] = stored.outline.points;
+
+    // Not to a tenth: saved again, the arch must keep the outline it had
+    draft.sideCm = String(left.heightCm);
+    draft.sideRightCm =
+      left.heightCm === right.heightCm ? '' : String(right.heightCm);
+    draft.topCm = String(archTopCm(stored.outline));
+  }
+
   // Saved keys came from another session's counter and could repeat new ones.
   return {
     ...draft,
@@ -688,12 +771,16 @@ export const describeShape = (stored: StoredShape | null): string | null => {
 
   switch (stored.kind) {
     case 'ARCH': {
-      const side = outline.points[0].heightCm;
-      const rise = formatCm(outline.arcRisesCm[0] ?? 0);
+      const [left, right] = heights;
+      const top = `по центру ${formatCm(archTopCm(outline))}`;
 
-      return side > 0
-        ? `арка, боковины ${formatCm(side)}, стрела ${rise}`
-        : `арка, стрела ${rise}`;
+      if (left === right) {
+        return outline.points[0].heightCm > 0
+          ? `арка, боковины ${left}, ${top}`
+          : `арка, ${top}`;
+      }
+
+      return `арка, боковины ${left} / ${right}, ${top}`;
     }
     case 'STEP':
       return `ступень ${[...new Set(heights)].join(' / ')}`;

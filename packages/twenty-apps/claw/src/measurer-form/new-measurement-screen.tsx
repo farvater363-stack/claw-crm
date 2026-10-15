@@ -2546,9 +2546,15 @@ export const NewMeasurement = () => {
     const designCount = grilles.filter(
       (option) => option.product === opening.product,
     ).length;
+    const isCustomDesign =
+      opening.designId === '' && !isVisorOnlyOpening(opening);
     const extras = [
       opening.photos.length > 0 ? `фото ${opening.photos.length}` : null,
-      opening.notes.trim() !== '' ? 'заметка' : null,
+      opening.notes.trim() !== ''
+        ? isCustomDesign
+          ? 'описание'
+          : 'заметка'
+        : null,
     ]
       .filter((part) => part !== null)
       .join(', ');
@@ -2898,11 +2904,27 @@ export const NewMeasurement = () => {
             </span>
           )}
           <DisclosureRow
-            label="Фото и заметка"
-            value={extras === '' ? 'Добавить' : extras}
+            label={
+              isCustomDesign
+                ? 'Свой рисунок: фото и описание'
+                : 'Фото и заметка'
+            }
+            value={
+              extras === ''
+                ? isCustomDesign
+                  ? 'Добавить фото рисунка'
+                  : 'Добавить'
+                : extras
+            }
             isOpen={isExtrasOpen}
             onToggle={() => setIsExtrasOpen((isOpen) => !isOpen)}
           >
+            {isCustomDesign && (
+              <span style={{ ...TYPE.label, color: colors.muted }}>
+                Сфотографируйте образец или эскиз и опишите рисунок. Цену и
+                материалы укажет менеджер.
+              </span>
+            )}
             <div style={column(SPACE.sm)}>
               <FieldLabel>
                 Фото · {opening.photos.length} из {MAX_PHOTOS_PER_OPENING}
@@ -2963,9 +2985,13 @@ export const NewMeasurement = () => {
               )}
             </div>
             <TextArea
-              label="Заметки"
+              label={isCustomDesign ? 'Какой рисунок' : 'Заметки'}
               value={opening.notes}
-              placeholder="Например: решётка открывается, замок справа"
+              placeholder={
+                isCustomDesign
+                  ? 'Например: как на фото, с цветком по центру'
+                  : 'Например: решётка открывается, замок справа'
+              }
               onChange={(notes) => updateOpening(opening.key, { notes })}
             />
           </DisclosureRow>

@@ -10,6 +10,7 @@ import {
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { STEP_STATUS, type StepWrite } from 'src/order-header/order-steps';
+import { numberOpenings } from 'src/order-sketch/order-sketch';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
 import { joinFullName, type StoredFullName } from 'src/utils/full-name';
 import { isAccessError } from 'src/utils/is-access-error';
@@ -36,6 +37,11 @@ export type HeaderOrder = {
   masterId: string | null;
   installerId: string | null;
   cancelReason: string | null;
+  // The order's козырьки that no проём is chosen for
+  visorsWithoutOpening: { id: string; name: string }[];
+  openings: Choice[];
+  // For a козырёк that is a проём of its own, with no решётка
+  nextOpeningNumber: number;
 };
 
 export type OrderHeaderData = {
@@ -150,11 +156,93 @@ const loadOrderNode = async (client: CoreApiClient, orderId: string) => {
   }
 };
 
+// The order's козырьки that no проём is chosen for, and its проёмы to choose
+// from. A role that may not read the services' catalogue (the workshop)
+// gets neither rather than losing the header.
+const loadVisorWork = async (
+  client: CoreApiClient,
+  orderId: string,
+): Promise<
+  Pick<HeaderOrder, 'visorsWithoutOpening' | 'openings' | 'nextOpeningNumber'>
+> => {
+  try {
+    const byOrder = { orderId: { eq: orderId } };
+    const { orderExtraServices, orderItems } = await client.query({
+      orderExtraServices: {
+        __args: { filter: byOrder, first: PAGE_SIZE },
+        edges: {
+          node: {
+            id: true,
+            name: true,
+            orderItemId: true,
+            openingNumber: true,
+            extraService: { name: true, kind: true },
+          },
+        },
+      },
+      orderItems: {
+        __args: {
+          filter: byOrder,
+          orderBy: [{ createdAt: 'AscNullsLast' }],
+          first: PAGE_SIZE,
+        },
+        edges: { node: { id: true, name: true, openingNumber: true } },
+      },
+    });
+    const lines = (orderExtraServices?.edges ?? []).map(({ node }) => node);
+    const items = (orderItems?.edges ?? []).map(({ node }) => node);
+    const numbers = numberOpenings(items);
+    const itemIds = new Set(items.map((item) => item.id));
+    // The first number no проём has: an old «только козырёк» line most
+    // likely had the gap its проём left
+    const usedNumbers = new Set([
+      ...numbers,
+      ...lines.flatMap((line) =>
+        typeof line.openingNumber === 'number' ? [line.openingNumber] : [],
+      ),
+    ]);
+    let nextOpeningNumber = 1;
+
+    while (usedNumbers.has(nextOpeningNumber)) nextOpeningNumber++;
+
+    return {
+      visorsWithoutOpening: lines.flatMap((line) =>
+        line.extraService?.kind === 'VISOR' &&
+        // A проём deleted since keeps its id on the line
+        !(line.orderItemId && itemIds.has(line.orderItemId)) &&
+        typeof line.openingNumber !== 'number'
+          ? [
+              {
+                id: line.id,
+                name: line.extraService.name ?? line.name ?? 'Козырёк',
+              },
+            ]
+          : [],
+      ),
+      openings: items
+        .map((item, index) => ({
+          value: item.id,
+          label: [`Проём ${numbers[index]}`, item.name]
+            .filter(Boolean)
+            .join(' · '),
+          number: numbers[index],
+        }))
+        .sort((left, right) => left.number - right.number)
+        .map(({ value, label }) => ({ value, label })),
+      nextOpeningNumber,
+    };
+  } catch (error) {
+    if (!isAccessError(error)) throw error;
+
+    return { visorsWithoutOpening: [], openings: [], nextOpeningNumber: 1 };
+  }
+};
+
 export const loadOrderHeader = async (
   client: CoreApiClient,
   orderId: string,
 ): Promise<OrderHeaderData | null> => {
-  const [node, { workspaceMembers }, workers] = await Promise.all([
+  const [node, { workspaceMembers }, workers, visorWork] = await Promise.all([
     loadOrderNode(client, orderId),
     client.query({
       workspaceMembers: {
@@ -165,6 +253,7 @@ export const loadOrderHeader = async (
       },
     }),
     loadActiveWorkers(client),
+    loadVisorWork(client, orderId),
   ]);
 
   if (!node) return null;
@@ -189,6 +278,7 @@ export const loadOrderHeader = async (
       masterId: node.masterId ?? null,
       installerId: node.installerId ?? null,
       cancelReason: node.cancelReason ?? null,
+      ...visorWork,
     },
     masters: workersOf(workers, 'MASTER'),
     installers: workersOf(workers, 'INSTALLER'),
@@ -352,4 +442,17 @@ export const openWithHandOff = async ({
 
     return false;
   }
+};
+
+export const setVisorOpening = async (
+  client: CoreApiClient,
+  lineId: string,
+  opening: { orderItemId: string } | { openingNumber: number },
+): Promise<void> => {
+  await client.mutation({
+    updateOrderExtraService: {
+      __args: { id: lineId, data: opening },
+      id: true,
+    },
+  });
 };

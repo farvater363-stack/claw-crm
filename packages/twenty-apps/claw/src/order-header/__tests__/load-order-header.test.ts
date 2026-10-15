@@ -67,6 +67,8 @@ const fakeClient = ({
   workersError = null as Error | null,
   moneyError = null as Error | null,
   updatedOrders = [{ id: 'order-1' }] as { id: string }[],
+  services = [] as Record<string, unknown>[],
+  items = [] as Record<string, unknown>[],
 } = {}) => {
   const queries: Request[] = [];
   const mutations: Request[] = [];
@@ -88,6 +90,8 @@ const fakeClient = ({
         orderPayments: page(payments),
         workspaceMembers: page(MEMBERS),
         masters: page(WORKERS),
+        orderExtraServices: page(services),
+        orderItems: page(items),
       };
     },
     mutation: async (request: Request) => {
@@ -101,6 +105,65 @@ const fakeClient = ({
 };
 
 describe('loadOrderHeader', () => {
+  it('lists the козырьки without a проём, not one that is a проём of its own, and the проёмы to pick from', async () => {
+    const { client } = fakeClient({
+      services: [
+        {
+          id: 'line-1',
+          name: null,
+          extraService: { name: 'Козырёк металл', kind: 'VISOR' },
+        },
+        {
+          id: 'line-2',
+          name: 'Демонтаж',
+          extraService: { name: 'Демонтаж', kind: 'SERVICE' },
+        },
+        {
+          id: 'line-3',
+          name: null,
+          orderItemId: null,
+          openingNumber: 3,
+          extraService: { name: 'Козырёк над дверью', kind: 'VISOR' },
+        },
+      ],
+      items: [
+        { id: 'item-2', name: 'арка 120×195', openingNumber: 2 },
+        { id: 'item-1', name: '100×150', openingNumber: 1 },
+      ],
+    });
+    const order = (await loadOrderHeader(client, 'order-1'))?.order;
+
+    expect(order?.visorsWithoutOpening).toEqual([
+      { id: 'line-1', name: 'Козырёк металл' },
+    ]);
+    expect(order?.openings).toEqual([
+      { value: 'item-1', label: 'Проём 1 · 100×150' },
+      { value: 'item-2', label: 'Проём 2 · арка 120×195' },
+    ]);
+    expect(order?.nextOpeningNumber).toBe(4);
+  });
+
+  it('flags a козырёк whose проём was deleted and offers the first free number', async () => {
+    const { client } = fakeClient({
+      services: [
+        {
+          id: 'line-1',
+          name: null,
+          orderItemId: 'deleted-item',
+          extraService: { name: 'Козырёк металл', kind: 'VISOR' },
+        },
+      ],
+      items: [{ id: 'item-3', name: '100×150', openingNumber: 3 }],
+    });
+    const order = (await loadOrderHeader(client, 'order-1'))?.order;
+
+    expect(order?.visorsWithoutOpening).toEqual([
+      { id: 'line-1', name: 'Козырёк металл' },
+    ]);
+    expect(order?.nextOpeningNumber).toBe(1);
+  });
+
+
   it('reads the order with money in whole sums and the district by its label', async () => {
     const { client, queries } = fakeClient();
 
@@ -121,6 +184,9 @@ describe('loadOrderHeader', () => {
       masterId: null,
       installerId: 'worker-2',
       cancelReason: null,
+      visorsWithoutOpening: [],
+      openings: [],
+      nextOpeningNumber: 1,
     });
     expect(
       queries.find((request) => request.orders)?.orders.__args,

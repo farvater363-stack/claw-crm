@@ -6,6 +6,7 @@ import {
   PRODUCTION_STAGE_OPTIONS,
   type ProductionStage,
 } from 'src/constants/select-options';
+import { type SchemeOpening } from 'src/order-sketch/order-sketch';
 
 export type WorkshopItem = {
   id: string;
@@ -17,9 +18,23 @@ export type WorkshopItem = {
   notes: string | null;
   designPhotoUrl: string | null;
   openingPhotoUrls: string[];
+  // «Проём 2», its drawing and its shape, as on «Схема»
+  scheme: SchemeOpening;
+  shapeText: string | null;
+  projectionText: string | null;
+  // «Другая» on the form: the notes and photos describe the рисунок
+  isCustomDesign: boolean;
 };
 
-export type WorkshopService = { id: string; name: string; quantity: number };
+export type WorkshopService = {
+  id: string;
+  name: string;
+  quantity: number;
+  // The item of the проём a козырёк is over
+  orderItemId: string | null;
+  // «Проём 2» for a козырёк over that проём, or one that is a проём alone
+  openingTitle: string | null;
+};
 
 export type WorkshopMaterial = {
   id: string;
@@ -44,6 +59,10 @@ export type WorkshopOrder = {
   districtLabel: string | null;
   addressLine: string | null;
   floor: number | null;
+  measurerName: string | null;
+  // YYYY-MM-DD in Tashkent
+  measurementDate: string | null;
+  schemePdfUrl: string | null;
   comment: string | null;
   paintColor: string | null;
   startDate: string | null;

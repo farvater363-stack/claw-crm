@@ -433,5 +433,15 @@ export default defineObject({
       relationTargetFieldMetadataUniversalIdentifier: IDS.signedContract.order,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
+    {
+      universalIdentifier: IDS.order.customMaterials,
+      type: FieldType.RELATION,
+      name: 'customMaterials',
+      label: 'Материалы своего рисунка',
+      icon: 'IconBox',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.materialNorm.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.materialNorm.order,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
   ]),
 });

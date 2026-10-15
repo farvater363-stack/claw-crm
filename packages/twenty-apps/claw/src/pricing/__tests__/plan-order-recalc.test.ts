@@ -179,6 +179,65 @@ describe('planOrderRecalc', () => {
     });
   });
 
+  it('costs «Другая» рисунки from the materials listed for the order, by their area', () => {
+    const plan = planOrderRecalc(
+      input({
+        items: [
+          item({
+            id: 'custom-1',
+            designId: null,
+            widthCm: 100,
+            heightCm: 100,
+            projectionCm: 0,
+            quantity: 1,
+          }),
+          item({
+            id: 'custom-2',
+            designId: null,
+            widthCm: 100,
+            heightCm: 100,
+            projectionCm: 0,
+            quantity: 3,
+          }),
+          item({ id: 'catalogue', projectionCm: 0, quantity: 1 }),
+        ],
+        customMaterialCost: 400_000,
+      }),
+    );
+    const costOf = (id: string) =>
+      plan.itemUpdates.find((update) => update.id === id)?.update;
+
+    expect(costOf('custom-1')).toMatchObject({
+      costPerSquareMeter: 100_000,
+      lineCost: 100_000,
+    });
+    expect(costOf('custom-2')).toMatchObject({ lineCost: 300_000 });
+    expect(costOf('catalogue')).toMatchObject({ costPerSquareMeter: 60_000 });
+  });
+
+  it('drops the cost of a «Другая» рисунок once its materials are removed, not before', () => {
+    const custom = item({
+      id: 'custom',
+      designId: null,
+      widthCm: 100,
+      heightCm: 100,
+      projectionCm: 0,
+      quantity: 1,
+      costPerSquareMeter: 90_000,
+      lineCost: 90_000,
+    });
+    const costOf = (overrides: Partial<RecalcInput>) =>
+      planOrderRecalc(input({ items: [custom], ...overrides })).itemUpdates[0]
+        ?.update;
+
+    expect(costOf({ customMaterialCost: null })).not.toHaveProperty(
+      'costPerSquareMeter',
+    );
+    expect(
+      costOf({ customMaterialCost: null, recostCustomItems: true }),
+    ).toMatchObject({ costPerSquareMeter: null, lineCost: null });
+  });
+
   it('prices a railing without a height by its length', () => {
     const plan = planOrderRecalc(
       input({

@@ -128,6 +128,19 @@ export default definePageLayout({
           IDS.order.materials,
           IDS.view.orderMaterialsTable,
         ),
+        // Цех reads what the order takes from «Материалы» above and may not
+        // read contractState, so the block never shows there.
+        {
+          ...table(
+            ids.customMaterialsWidget,
+            'Свой рисунок: из чего делается (на весь заказ)',
+            IDS.order.customMaterials,
+            IDS.view.orderCustomMaterialsTable,
+          ),
+          conditionalDisplay: {
+            '!!': [{ var: 'selectedRecords.0.contractState' }],
+          },
+        },
       ],
     },
     {

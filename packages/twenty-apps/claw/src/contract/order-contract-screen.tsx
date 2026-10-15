@@ -10,6 +10,7 @@ import { describeContractChange } from 'src/contract/contract-change';
 import {
   contractDataFromOrder,
   missingClientDetails,
+  unpricedOpenings,
 } from 'src/contract/contract-data';
 import {
   buildContractDocument,
@@ -163,7 +164,7 @@ const SigningForm = ({
     todayInTashkent(),
   );
   const document = buildContractDocument(template, data);
-  const blockers = missingClientDetails(data);
+  const blockers = [...missingClientDetails(data), ...unpricedOpenings(data)];
 
   const sign = async () => {
     setIsSigning(true);

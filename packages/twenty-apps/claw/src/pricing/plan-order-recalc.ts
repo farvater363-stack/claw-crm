@@ -137,6 +137,10 @@ export type RecalcInput = {
   linesRemoved?: boolean;
   // «Итого» as just typed by hand; on an order without lines it moves the sum.
   typedTotal?: number | null;
+  // What the manager listed for the order's «Другая» рисунки, all together
+  customMaterialCost?: number | null;
+  // That list just changed: a cost left from rows since removed goes too
+  recostCustomItems?: boolean;
 };
 
 export type RecalcPlan = {
@@ -310,9 +314,55 @@ const planMasterSquareMeterParts = (
 const sumTreatingNullAsZero = (values: (number | null)[]): number =>
   values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 
+// The order's own materials are the cost of its «Другая» рисунки, shared by
+// their м² (п.м. for a railing).
+const withCustomMaterialCost = (
+  items: ItemSnapshot[],
+  cost: number | null,
+  isListChanged: boolean,
+): ItemSnapshot[] => {
+  const unitsOf = (item: ItemSnapshot) =>
+    item.designId === null ? computeItemUnits(item) : null;
+  const totalUnits = sumTreatingNullAsZero(
+    items.map((item) => {
+      const units = unitsOf(item);
+
+      return units === null ? null : units * (item.quantity ?? 1);
+    }),
+  );
+
+  if (totalUnits <= 0) return items;
+
+  // A cost typed by hand on a «Другая» item stays until the manager lists
+  // its materials.
+  if (cost === null && !isListChanged) return items;
+
+  const costPerUnit = cost === null ? null : Math.round(cost / totalUnits);
+
+  return items.map((item) => {
+    const units = unitsOf(item);
+
+    return units === null
+      ? item
+      : {
+          ...item,
+          costPerSquareMeter: costPerUnit,
+          lineCost: multiplyOrNull(units, item.quantity ?? 1, costPerUnit),
+        };
+  });
+};
+
 export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
-  const plannedItems = input.items.map((item) =>
-    planItem(item, input.grilles, input.refreshPriceItemIds.includes(item.id)),
+  const plannedItems = withCustomMaterialCost(
+    input.items.map((item) =>
+      planItem(
+        item,
+        input.grilles,
+        input.refreshPriceItemIds.includes(item.id),
+      ),
+    ),
+    input.customMaterialCost ?? null,
+    input.recostCustomItems === true,
   );
 
   const hasLines =
