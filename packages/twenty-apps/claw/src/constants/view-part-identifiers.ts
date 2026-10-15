@@ -187,6 +187,12 @@ export const VIEW_PART_IDS = {
       actualQuantity: '06b49a7f-0857-45a2-aeac-988614a0b05e', // Retired: orders no longer record actual consumption; ids are never reused.
     },
     materialsTableFilter: '28137051-ca73-448b-b9d0-1ddcea18f02f',
+    customMaterialsWidget: '83703d4a-aa88-4423-9e0d-4a2304d2900d',
+    customMaterialsTableFields: {
+      material: 'd99aef2d-a798-4cd2-af99-c983484925b6',
+      quantityPerUnit: '7f795405-5500-409a-b52e-12e231d93a3a',
+    },
+    customMaterialsTableFilter: 'ab81761b-1eed-41c5-834a-14f6593f8468',
   },
   ordersKanbanExtraFields: {
     clientPhone: '624dbd61-a9ae-4e9a-ab21-467003e0b899', // Retired: the column left its view; ids are never reused.

@@ -131,6 +131,8 @@ export type VisorPayload = {
   quantity: number;
   // null for a visor ordered without a grille
   orderItemId: string | null;
+  // «Проём N» of such a visor alone
+  openingNumber: number | null;
 };
 
 export type ServicePayload = {
@@ -960,6 +962,7 @@ export const buildMeasurementPayload = (
         extraServiceId: opening.visorServiceId,
         quantity: visorRunningMeters,
         orderItemId: isVisorOnly ? null : opening.key,
+        openingNumber: isVisorOnly ? index + 1 : null,
       });
     }
   });

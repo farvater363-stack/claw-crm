@@ -23,6 +23,7 @@ const toText = (value: unknown): string | null =>
 
 const loadDemand = async (
   client: CoreApiClient,
+  orderId: string,
   items: DemandItem[],
   extraServiceLines: DemandExtraServiceLine[],
 ): Promise<OrderMaterialDemand> => {
@@ -46,6 +47,7 @@ const loadDemand = async (
             node: {
               designId: true,
               extraServiceId: true,
+              orderId: true,
               materialId: true,
               quantityPerUnit: true,
             },
@@ -59,12 +61,14 @@ const loadDemand = async (
   ]);
 
   return computeOrderMaterialDemand({
+    orderId,
     items,
     extraServiceLines,
     grilles: designs.map((node) => ({ id: node.id, name: toText(node.name) })),
     norms: norms.map((node) => ({
       designId: toText(node.designId),
       extraServiceId: toText(node.extraServiceId),
+      orderId: toText(node.orderId),
       materialId: toText(node.materialId),
       quantityPerUnit: toNumber(node.quantityPerUnit),
     })),
@@ -133,6 +137,7 @@ export const syncOrderMaterials = async (
   const demand = keepsOrderDemand(status)
     ? await loadDemand(
         client,
+        orderId,
         (orderItems?.edges ?? []).map(({ node }) => ({
           designId: toText(node.designId),
           areaSquareMeters: toNumber(node.areaSquareMeters),

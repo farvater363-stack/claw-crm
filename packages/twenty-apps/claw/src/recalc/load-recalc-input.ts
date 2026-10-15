@@ -46,6 +46,7 @@ const EXTRA_SERVICE_SELECTION = {
 const MATERIAL_NORM_SELECTION = {
   designId: true,
   extraServiceId: true,
+  orderId: true,
   materialId: true,
   quantityPerUnit: true,
 } as const;
@@ -68,7 +69,11 @@ export const loadRecalcInput = async (
   orderId: string,
   refresh: Pick<
     RecalcInput,
-    'refreshPriceItemIds' | 'refreshPriceExtraServiceLineIds' | 'linesRemoved' | 'typedTotal'
+    | 'refreshPriceItemIds'
+    | 'refreshPriceExtraServiceLineIds'
+    | 'linesRemoved'
+    | 'typedTotal'
+    | 'recostCustomItems'
   >,
 ): Promise<RecalcInput | null> => {
   const {
@@ -286,6 +291,7 @@ export const loadRecalcInput = async (
   const norms = (materialNorms?.edges ?? []).map(({ node }) => ({
     designId: node.designId ?? null,
     extraServiceId: node.extraServiceId ?? null,
+    orderId: node.orderId ?? null,
     materialId: node.materialId ?? null,
     quantityPerUnit: toNumber(node.quantityPerUnit),
   }));
@@ -300,8 +306,11 @@ export const loadRecalcInput = async (
     norms,
     pricedMaterials,
   );
+  const customMaterialCost =
+    materialCostByOwner('orderId', norms, pricedMaterials).get(orderId) ?? null;
 
   return {
+    customMaterialCost,
     order: {
       areaSquareMeters: toNumber(order.areaSquareMeters),
       subtotal: fromCurrency(order.subtotal),

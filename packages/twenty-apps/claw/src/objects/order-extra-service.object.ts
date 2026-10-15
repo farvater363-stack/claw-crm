@@ -95,5 +95,15 @@ export default defineObject({
         joinColumnName: 'orderItemId',
       },
     },
+    // A козырёк over a проём that gets no решётка has no item to point at,
+    // so it keeps the number that проём has on the form.
+    {
+      universalIdentifier: IDS.orderExtraService.openingNumber,
+      type: FieldType.NUMBER,
+      name: 'openingNumber',
+      label: 'Проём (только козырёк)',
+      icon: 'IconHash',
+      isNullable: true,
+    },
   ]),
 });

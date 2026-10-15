@@ -17,6 +17,7 @@ export const recalcOrder = async (
     entersWrittenOff?: boolean;
     linesRemoved?: boolean;
     typedTotal?: number | null;
+    recostCustomItems?: boolean;
   } = {},
 ): Promise<void> => {
   const refresh = {
@@ -25,6 +26,7 @@ export const recalcOrder = async (
       options.refreshPriceExtraServiceLineIds ?? [],
     linesRemoved: options.linesRemoved,
     typedTotal: options.typedTotal,
+    recostCustomItems: options.recostCustomItems,
   };
   const input = await loadRecalcInput(client, orderId, refresh);
 

@@ -29,6 +29,7 @@ import {
   openWithHandOff,
   type OrderHeaderData,
   type OrderWriteOutcome,
+  setVisorOpening,
   writeStep,
 } from 'src/order-header/load-order-header';
 import {
@@ -40,6 +41,7 @@ import {
   materialSentence,
   moneySentence,
   nextStepOf,
+  visorWarning,
   ORDER_STEPS,
   type StepDraft,
 } from 'src/order-header/order-steps';
@@ -67,7 +69,7 @@ import { randomUuid } from 'src/utils/random-uuid';
 
 // The three things the header writes. A form that opens inline is named after
 // the write it makes.
-type Kind = 'step' | 'payment' | 'cancel';
+type Kind = 'step' | 'payment' | 'cancel' | 'visor';
 type Panel = 'none' | 'payment' | 'cancel';
 
 type Draft = StepDraft & {
@@ -82,6 +84,7 @@ const EMPTY_FIELDS = {
   step: { measurerId: '', measurementDate: '', masterId: '', installerId: '' },
   payment: { amount: '', method: 'CASH', comment: '', receivedById: '' },
   cancel: { cancelReason: '' },
+  visor: {},
 } as const satisfies Record<Kind, Partial<Draft>>;
 
 const EMPTY_DRAFT: Draft = {
@@ -89,6 +92,9 @@ const EMPTY_DRAFT: Draft = {
   ...EMPTY_FIELDS.payment,
   ...EMPTY_FIELDS.cancel,
 };
+
+// Not an item id: the козырёк is a проём of its own
+const ALONE = 'alone';
 
 const LOAD_ERROR =
   'Не удалось загрузить заказ. Проверьте интернет и нажмите "Повторить"';
@@ -290,6 +296,9 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
     note: order.materialNote,
   });
   const warning = balanceWarning(order);
+  const visors = visorWarning(
+    order.visorsWithoutOpening.map((visor) => visor.name),
+  );
   const place = [
     order.districtLabel,
     order.floor === null ? null : `${order.floor} этаж`,
@@ -371,6 +380,9 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
       nextStatus: action.nextStatus,
       ask: action.ask,
       draft,
+      visorsWithoutOpening: order.visorsWithoutOpening.map(
+        (visor) => visor.name,
+      ),
     });
 
     if (!built.ok) {
@@ -551,6 +563,35 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
         ) : null}
         <Wrap>
           {warning === null ? null : <Hint text={warning} tone="warning" />}
+          {visors === null ? null : <Hint text={visors} tone="danger" />}
+          {order.visorsWithoutOpening.map((visor) => (
+            <Field key={visor.id} label={`Проём для «${visor.name}»`}>
+              <SelectInput
+                label={`Проём для «${visor.name}»`}
+                value=""
+                options={[
+                  ...withEmpty('Выберите проём', order.openings),
+                  {
+                    value: ALONE,
+                    label: `Проём ${order.nextOpeningNumber}: только козырёк`,
+                  },
+                ]}
+                onChange={(value) => {
+                  if (value === '') return;
+
+                  void run('visor', () =>
+                    setVisorOpening(
+                      new CoreApiClient(),
+                      visor.id,
+                      value === ALONE
+                        ? { openingNumber: order.nextOpeningNumber }
+                        : { orderItemId: value },
+                    ),
+                  );
+                }}
+              />
+            </Field>
+          ))}
           {/* A link gives way to its open form: the form's own button would
               carry the same words. */}
           {panel === 'payment' || !order.canSeeMoney ? null : (

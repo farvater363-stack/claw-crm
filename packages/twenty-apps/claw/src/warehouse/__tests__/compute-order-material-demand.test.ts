@@ -135,8 +135,9 @@ describe('computeOrderMaterialDemand', () => {
     expect(demand.missingNorms).toBe('Не указано, из чего делается: Волна');
   });
 
-  it('skips a position without a grille', () => {
+  it('flags a «Другая» рисунок until the manager lists its materials', () => {
     const demand = computeOrderMaterialDemand({
+      orderId: 'order-1',
       items: [item({ designId: null, areaSquareMeters: 2 })],
       extraServiceLines: [],
       grilles: [],
@@ -144,6 +145,37 @@ describe('computeOrderMaterialDemand', () => {
     });
 
     expect(demand.quantityByMaterialId.size).toBe(0);
+    expect(demand.missingNorms).toBe(
+      'Не указано, из чего делается: свой рисунок',
+    );
+  });
+
+  it("takes a «Другая» рисунок's materials as listed for its own order", () => {
+    const orderNorm = (orderId: string, quantityPerUnit: number) => ({
+      designId: null,
+      extraServiceId: null,
+      orderId,
+      materialId: 'pipe',
+      quantityPerUnit,
+    });
+    const demand = computeOrderMaterialDemand({
+      orderId: 'order-1',
+      items: [item({ designId: null, areaSquareMeters: 2, quantity: 3 })],
+      extraServiceLines: [],
+      grilles: [],
+      norms: [orderNorm('order-1', 24), orderNorm('order-2', 99)],
+    });
+
+    expect(demand.quantityByMaterialId).toEqual(new Map([['pipe', 24]]));
     expect(demand.missingNorms).toBeNull();
+    expect(
+      computeOrderMaterialDemand({
+        orderId: 'order-1',
+        items: [],
+        extraServiceLines: [],
+        grilles: [],
+        norms: [orderNorm('order-1', 24)],
+      }).quantityByMaterialId.size,
+    ).toBe(0);
   });
 });

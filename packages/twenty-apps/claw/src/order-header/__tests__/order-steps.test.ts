@@ -200,6 +200,26 @@ describe('balanceWarning', () => {
 });
 
 describe('buildStepWrite', () => {
+  it('keeps an order out of production while a козырёк has no проём', () => {
+    const input = {
+      nextStatus: 'PRODUCTION',
+      ask: null,
+      draft: draft({}),
+    } as const;
+
+    expect(
+      buildStepWrite({ ...input, visorsWithoutOpening: ['Козырёк металл'] }),
+    ).toEqual({
+      ok: false,
+      error:
+        'Не указан проём: Козырёк металл. Выберите его ниже',
+    });
+    expect(buildStepWrite({ ...input, visorsWithoutOpening: [] })).toEqual({
+      ok: true,
+      data: { status: 'PRODUCTION' },
+    });
+  });
+
   it('needs a measurer and a date to schedule a measurement', () => {
     const input = {
       nextStatus: 'MEASUREMENT_SCHEDULED',

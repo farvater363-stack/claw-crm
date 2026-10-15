@@ -28,7 +28,7 @@ describe('order page', () => {
     ).toBe(ids.itemsTab);
   });
 
-  it('reads «Работа» from the header down to the materials', () => {
+  it("reads «Работа» from the header down to the materials, then a «Другая» рисунок's", () => {
     expect(widgetsOf(ids.itemsTab).map((widget) => widget.title)).toEqual([
       'Что дальше',
       'Схема',
@@ -38,6 +38,7 @@ describe('order page', () => {
       'Договор',
       'Оплаты',
       'Материалы',
+      'Свой рисунок: из чего делается (на весь заказ)',
     ]);
     expect(widgetsOf(ids.itemsTab)[0]?.universalIdentifier).toBe(
       IDS.orderHeader.orderPageWidget,
@@ -64,6 +65,7 @@ describe('order page', () => {
           IDS.contract.orderPageWidget,
           ids.paymentsWidget,
           ids.materialsWidget,
+          ids.customMaterialsWidget,
         ],
       ],
       [

@@ -496,6 +496,7 @@ describe('visor', () => {
         extraServiceId: 'visor-1',
         quantity: 2.5,
         orderItemId: 'opening',
+        openingNumber: null,
       },
     ]);
   });
@@ -533,7 +534,7 @@ describe('visor', () => {
     expect(result).toMatchObject({
       isValid: true,
       items: [],
-      visors: [{ quantity: 3, orderItemId: null }],
+      visors: [{ quantity: 3, orderItemId: null, openingNumber: 1 }],
     });
   });
 

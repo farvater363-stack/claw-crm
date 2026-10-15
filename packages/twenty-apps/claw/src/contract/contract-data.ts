@@ -463,6 +463,13 @@ export const contractDataFromOrder = (
   };
 };
 
+// A проём still waiting for its price («Другая» рисунок): the total would
+// leave it out, so the client cannot sign until the manager prices it.
+export const unpricedOpenings = (data: ContractData): string[] =>
+  data.openings
+    .filter((opening) => opening.widthCm !== null && opening.lineTotal === null)
+    .map((opening) => `цену: ${opening.title}`);
+
 // What has to be on the order before the client can sign.
 export const missingClientDetails = (data: ContractData): string[] =>
   [

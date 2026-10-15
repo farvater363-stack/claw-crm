@@ -5,6 +5,8 @@ import { uploadFile } from 'twenty-sdk/front-component';
 
 import { isInProduction } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
+import { SketchDrawing } from 'src/measurer-form/measurer-form-ui';
+import { schemeSketchLayout } from 'src/order-sketch/order-sketch';
 import { todayInTashkent } from 'src/pricing/dates';
 import {
   Button,
@@ -17,7 +19,7 @@ import {
   usePalette,
 } from 'src/ui/kit';
 import { RADIUS, SPACE, TABULAR_NUMBERS, TYPE } from 'src/ui/tokens';
-import { formatQuantity } from 'src/ui/format';
+import { formatDayMonth, formatQuantity } from 'src/ui/format';
 import { isAccessError } from 'src/utils/is-access-error';
 import {
   addFinishedPhotos,
@@ -40,6 +42,7 @@ import {
   stageOfColumn,
   type WorkshopCard,
   type WorkshopOrder,
+  type WorkshopService,
 } from 'src/workshop/workshop-board';
 import {
   Avatar,
@@ -136,10 +139,14 @@ const clientLine = (order: WorkshopOrder): string =>
     .filter(Boolean)
     .join(', ');
 
-const serviceText = (service: { name: string; quantity: number }) =>
-  service.quantity === 1
-    ? service.name
-    : `${service.name} · ${formatQuantity(service.quantity, '')}`.trim();
+const serviceText = (service: WorkshopService) =>
+  [
+    service.name,
+    service.quantity === 1 ? null : formatQuantity(service.quantity, '').trim(),
+    service.openingTitle?.toLowerCase() ?? null,
+  ]
+    .filter((part) => part !== null)
+    .join(' · ');
 
 const KanbanCard = ({
   card,
@@ -589,7 +596,7 @@ const OrderView = ({
                   key={item.id}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '44px minmax(0, 1fr) auto',
+                    gridTemplateColumns: '120px minmax(0, 1fr) auto',
                     gap: SPACE.md,
                     alignItems: 'start',
                     paddingTop: index === 0 ? 0 : SPACE.sm,
@@ -597,10 +604,13 @@ const OrderView = ({
                       index === 0 ? 'none' : `1px solid ${colors.border}`,
                   }}
                 >
-                  <Photo url={item.designPhotoUrl} alt="" size={44} />
+                  <SketchDrawing layout={schemeSketchLayout(item.scheme)} />
                   <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
                     <span style={{ fontWeight: 600 }}>
-                      {item.designName ?? 'Позиция'}
+                      {item.scheme.title} ·{' '}
+                      {item.isCustomDesign
+                        ? 'свой рисунок'
+                        : (item.designName ?? 'Позиция')}
                       {item.metalLabel ? (
                         <span
                           style={{
@@ -613,15 +623,39 @@ const OrderView = ({
                         </span>
                       ) : null}
                     </span>
+                    {[item.shapeText, item.projectionText].some(Boolean) ? (
+                      <span style={{ ...TYPE.label, color: colors.muted }}>
+                        {[item.shapeText, item.projectionText]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    ) : null}
+                    {order.services
+                      .filter((service) => service.orderItemId === item.id)
+                      .map((service) => (
+                        <span key={service.id} style={{ ...TYPE.label }}>
+                          {service.name} ·{' '}
+                          {formatQuantity(service.quantity, 'м')}
+                        </span>
+                      ))}
                     {item.notes !== null ? (
                       <span
                         style={{
                           ...TYPE.label,
-                          color: colors.muted,
+                          color: item.isCustomDesign
+                            ? colors.text
+                            : colors.muted,
                           whiteSpace: 'pre-wrap',
                         }}
                       >
-                        {item.notes}
+                        {item.isCustomDesign
+                          ? `Рисунок: ${item.notes}`
+                          : item.notes}
+                      </span>
+                    ) : item.isCustomDesign ? (
+                      <span style={{ ...TYPE.label, color: colors.danger }}>
+                        Рисунок не описан: смотрите фото проёма или спросите
+                        менеджера.
                       </span>
                     ) : null}
                   </div>
@@ -645,14 +679,30 @@ const OrderView = ({
                 </div>
               ))
             )}
-            {order.services.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.xs + 1 }}>
-                {order.services.map((service) => (
-                  <Chip key={service.id}>{serviceText(service)}</Chip>
-                ))}
+            {order.services.some((service) => service.orderItemId === null) ? (
+              <div
+                style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.xs + 1 }}
+              >
+                {order.services
+                  .filter((service) => service.orderItemId === null)
+                  .map((service) => (
+                    <Chip key={service.id}>{serviceText(service)}</Chip>
+                  ))}
               </div>
             ) : null}
-            {order.comment !== null ? <CommentNote text={order.comment} /> : null}
+            {order.comment !== null ? (
+              <CommentNote text={order.comment} />
+            ) : null}
+            {order.schemePdfUrl !== null ? (
+              <a
+                href={order.schemePdfUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: colors.accent, fontWeight: 600 }}
+              >
+                Схема PDF
+              </a>
+            ) : null}
           </SectionCard>
         </div>
 
@@ -721,9 +771,17 @@ const OrderView = ({
                 ],
                 ['Этаж', order.floor === null ? null : String(order.floor)],
                 [
-                  'Установщик',
-                  order.installerName ?? 'не выбран',
+                  'Замер',
+                  [
+                    order.measurementDate === null
+                      ? null
+                      : formatDayMonth(order.measurementDate),
+                    order.measurerName,
+                  ]
+                    .filter(Boolean)
+                    .join(', ') || null,
                 ],
+                ['Установщик', order.installerName ?? 'не выбран'],
               ].map(([term, value]) => (
                 <div key={term} style={{ display: 'contents' }}>
                   <dt style={{ color: colors.muted }}>{term}</dt>

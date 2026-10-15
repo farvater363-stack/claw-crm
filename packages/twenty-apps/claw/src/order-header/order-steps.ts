@@ -166,15 +166,29 @@ type StepWriteResult =
 
 const refuse = (error: string): StepWriteResult => ({ ok: false, error });
 
+// The workshop has to know which проём each козырёк goes over.
+export const visorWarning = (visorsWithoutOpening: string[]): string | null =>
+  visorsWithoutOpening.length === 0
+    ? null
+    : `Не указан проём: ${visorsWithoutOpening.join(', ')}. Выберите его ниже`;
+
 export const buildStepWrite = ({
   nextStatus,
   ask,
   draft,
+  visorsWithoutOpening = [],
 }: {
   nextStatus: OrderStatus;
   ask: StepAsk;
   draft: StepDraft;
+  visorsWithoutOpening?: string[];
 }): StepWriteResult => {
+  const visors = visorWarning(visorsWithoutOpening);
+
+  if (nextStatus === STEP_STATUS.production && visors !== null) {
+    return refuse(visors);
+  }
+
   if (ask === 'MEASURER_AND_DATE') {
     if (draft.measurerId === '') return refuse('Выберите замерщика');
 

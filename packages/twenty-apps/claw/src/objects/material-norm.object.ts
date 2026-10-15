@@ -73,6 +73,16 @@ export default defineObject({
       IDS.extraService.object,
       IDS.extraService.norms,
     ),
+    // A «Другая» рисунок has no composition of its own: the manager lists
+    // what this one order takes, in total.
+    manyToOne(
+      materialNorm.order,
+      'order',
+      'Заказ (свой рисунок, на весь заказ)',
+      'IconClipboardList',
+      IDS.order.object,
+      IDS.order.customMaterials,
+    ),
     {
       universalIdentifier: materialNorm.quantityPerUnit,
       type: FieldType.NUMBER,

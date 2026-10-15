@@ -1,12 +1,16 @@
-import { defineLogicFunction } from 'twenty-sdk/define';
+import {
+  defineLogicFunction,
+  type DatabaseEventBatchPayload,
+  type ObjectRecordRestoreEvent,
+} from 'twenty-sdk/define';
 
-import { RESERVING_STATUSES } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
-import { resyncOrdersHoldingMaterial } from 'src/warehouse/resync-orders-holding-material';
+import { resyncAfterNormChange } from 'src/warehouse/resync-after-norm-change';
 
-const handler = async (): Promise<void> =>
-  resyncOrdersHoldingMaterial(createRecalcClient(), RESERVING_STATUSES);
+const handler = async (
+  batch: DatabaseEventBatchPayload<ObjectRecordRestoreEvent>,
+): Promise<void> => resyncAfterNormChange(createRecalcClient(), batch.events);
 
 export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onMaterialNormRestored,

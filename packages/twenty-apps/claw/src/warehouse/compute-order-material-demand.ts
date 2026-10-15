@@ -19,6 +19,8 @@ export type DemandExtraServiceLine = {
 export type DemandNorm = {
   designId: string | null;
   extraServiceId: string | null;
+  // Set on a «Другая» рисунок's materials: the quantity is for the whole order
+  orderId?: string | null;
   materialId: string | null;
   quantityPerUnit: number | null;
 };
@@ -34,20 +36,23 @@ type ValidNorm = {
   quantityPerUnit: number;
 };
 
-// A norm belongs to exactly one grille or one extra service; anything else is ignored.
+const OWNERS = ['designId', 'extraServiceId', 'orderId'] as const;
+
+// A norm belongs to exactly one grille, extra service or order; anything else is ignored.
 const groupValidNorms = (
   norms: DemandNorm[],
-  owner: 'designId' | 'extraServiceId',
+  owner: (typeof OWNERS)[number],
 ) => {
-  const other = owner === 'designId' ? 'extraServiceId' : 'designId';
   const byOwner = new Map<string, ValidNorm[]>();
 
   for (const norm of norms) {
-    const ownerId = norm[owner];
+    const ownerId = norm[owner] ?? null;
 
     if (
       ownerId === null ||
-      norm[other] !== null ||
+      OWNERS.some(
+        (other) => other !== owner && (norm[other] ?? null) !== null,
+      ) ||
       norm.materialId === null ||
       norm.quantityPerUnit === null
     ) {
@@ -68,11 +73,13 @@ const groupValidNorms = (
 };
 
 export const computeOrderMaterialDemand = ({
+  orderId = null,
   items,
   extraServiceLines,
   grilles,
   norms,
 }: {
+  orderId?: string | null;
   items: DemandItem[];
   extraServiceLines: DemandExtraServiceLine[];
   grilles: { id: string; name: string | null }[];
@@ -80,6 +87,10 @@ export const computeOrderMaterialDemand = ({
 }): OrderMaterialDemand => {
   const normsByGrille = groupValidNorms(norms, 'designId');
   const normsByService = groupValidNorms(norms, 'extraServiceId');
+  const orderNorms =
+    orderId === null
+      ? []
+      : (groupValidNorms(norms, 'orderId').get(orderId) ?? []);
   const totals = new Map<string, number>();
   const missing = new Set<string>();
 
@@ -99,7 +110,12 @@ export const computeOrderMaterialDemand = ({
   for (const item of items) {
     const units = computeItemUnits(item);
 
-    if (units === null || item.designId === null) continue;
+    if (units === null) continue;
+
+    if (item.designId === null) {
+      if (orderNorms.length === 0) missing.add('свой рисунок');
+      continue;
+    }
 
     const grilleNorms = normsByGrille.get(item.designId) ?? [];
 
@@ -109,6 +125,16 @@ export const computeOrderMaterialDemand = ({
     }
 
     add(grilleNorms, units * (item.quantity ?? 1));
+  }
+
+  // Listed for a «Другая» рисунок: with none left on the order nothing is
+  // made from them.
+  if (
+    items.some(
+      (item) => item.designId === null && computeItemUnits(item) !== null,
+    )
+  ) {
+    add(orderNorms, 1);
   }
 
   // Services without norms (delivery, installation) consume nothing and are not flagged.

@@ -1,6 +1,7 @@
 import { type ProjectionKind } from 'src/constants/select-options';
 import {
   arcOf,
+  archTopCm,
   isRectangleOutline,
   outlineHeightCm,
   pointLetter,
@@ -243,36 +244,32 @@ const layoutShape = (
     );
 
   if (kind === 'ARCH') {
-    const rise = outline.arcRisesCm[0] ?? 0;
-    const sideY = at(first).y;
+    const topCm = archTopCm(outline);
+    const topY = bottom - topCm * scale;
     const middleX = left + frontWidth / 2;
 
     if (first.heightCm > 0) {
       texts.push(
-        text(left - 8, (sideY + bottom) / 2, formatSketchCm(first.heightCm), {
-          isRotated: true,
-          size: 11,
-        }),
+        text(
+          left - 8,
+          (at(first).y + bottom) / 2,
+          formatSketchCm(first.heightCm),
+          { isRotated: true, size: 11 },
+        ),
       );
     }
 
-    guides.push({
-      x1: middleX,
-      y1: sideY,
-      x2: middleX,
-      y2: sideY - rise * scale,
-    });
+    if (last.heightCm !== first.heightCm && last.heightCm > 0) {
+      texts.push(heightAt(last, right + 4, 'start'));
+    }
+
+    guides.push({ x1: middleX, y1: bottom, x2: middleX, y2: topY });
     // Above the top: inside a flat arch the label would cross the arc, and
     // beside it the side view stands.
     texts.push(
-      text(
-        middleX,
-        sideY - rise * scale - 5,
-        `стрела ${formatSketchCm(rise)}`,
-        {
-          size: 11,
-        },
-      ),
+      text(middleX, topY - 5, `по центру ${formatSketchCm(topCm)}`, {
+        size: 11,
+      }),
     );
   } else if (kind === 'STEP') {
     const levels: { fromX: number; toX: number; heightCm: number }[] = [];
