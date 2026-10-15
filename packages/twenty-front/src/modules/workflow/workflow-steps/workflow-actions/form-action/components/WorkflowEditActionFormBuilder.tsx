@@ -249,15 +249,6 @@ export const WorkflowEditActionFormBuilder = ({
               isClosable
               closeLabel={t`Close`}
               onClose={() => setIsCalloutVisible(false)}
-              action={{
-                label: t`Learn more`,
-                onClick: () =>
-                  window.open(
-                    'https://docs.twenty.com/user-guide/workflows/capabilities/workflow-actions#form',
-                    '_blank',
-                    'noopener,noreferrer',
-                  ),
-              }}
             />
           </StyledCalloutContainer>
         )}

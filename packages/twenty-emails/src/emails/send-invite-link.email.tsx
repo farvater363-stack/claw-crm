@@ -9,7 +9,6 @@ import { HighlightedText } from 'src/components/HighlightedText';
 import { Link } from 'src/components/Link';
 import { MainText } from 'src/components/MainText';
 import { Title } from 'src/components/Title';
-import { WhatIsTwenty } from 'src/components/WhatIsTwenty';
 import { capitalize } from 'src/utils/capitalize';
 import { createI18nInstance } from 'src/utils/i18n.utils';
 import { type APP_LOCALES } from 'twenty-shared/translations';
@@ -77,7 +76,6 @@ export const SendInviteLinkEmail = ({
         {workspace.name ? <HighlightedText value={workspace.name} /> : <></>}
         <CallToAction href={link} value={i18n._('Accept invite')} />
       </HighlightedContainer>
-      <WhatIsTwenty i18n={i18n} />
     </BaseEmail>
   );
 };

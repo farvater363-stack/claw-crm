@@ -3678,7 +3678,7 @@ msgstr "Billing period"
 #. js-lingui-id: xF/NXI
 #: src/modules/settings/billing/hooks/useBillingPortalSession.ts
 msgid "Billing portal session error. Please retry or contact Twenty team"
-msgstr "Billing portal session error. Please retry or contact Twenty team"
+msgstr "Billing portal session error. Please retry or contact Claw CRM team"
 
 #. js-lingui-id: H++SIW
 #: src/modules/settings/billing/hooks/useBillingSubscriptionChangeWording.ts
@@ -4466,7 +4466,7 @@ msgstr "Check your inbox to verify your new email address."
 #: src/modules/settings/billing/hooks/useHandleCheckoutSession.ts
 #: src/modules/settings/billing/hooks/useHandleCheckoutSession.ts
 msgid "Checkout session error. Please retry or contact Twenty team"
-msgstr "Checkout session error. Please retry or contact Twenty team"
+msgstr "Checkout session error. Please retry or contact Claw CRM team"
 
 #. js-lingui-id: SviKkE
 #: src/localization/hooks/useLocaleOptions.ts
@@ -9091,7 +9091,7 @@ msgstr "Error while cancelling plan switching."
 #. js-lingui-id: QmR+2U
 #: src/modules/settings/billing/hooks/useEndSubscriptionTrialPeriod.ts
 msgid "Error while ending trial period. Please contact Twenty team."
-msgstr "Error while ending trial period. Please contact Twenty team."
+msgstr "Error while ending trial period. Please contact Claw CRM team."
 
 #. js-lingui-id: 5g78zo
 #: src/pages/settings/members/SettingsWorkspaceMember.tsx
@@ -21055,7 +21055,7 @@ msgstr "Subscription activated."
 #: src/modules/settings/billing/hooks/useSubmitSubscriptionPayment.ts
 #: src/modules/settings/billing/hooks/useSubmitSubscriptionPayment.ts
 msgid "Subscription error. Please retry or contact Twenty team"
-msgstr "Subscription error. Please retry or contact Twenty team"
+msgstr "Subscription error. Please retry or contact Claw CRM team"
 
 #. js-lingui-id: +QiH+4
 #: src/modules/settings/billing/hooks/useApplyBillingSubscriptionChange.ts
@@ -21719,7 +21719,7 @@ msgstr "The page you're seeking is either gone or never was. Let's get you back 
 #. js-lingui-id: Ya1wb4
 #: src/pages/settings/legal/SettingsLegalDpaNew.tsx
 msgid "The PDF is pre-signed by Twenty and executed with your legal entity and authorized signatory."
-msgstr "The PDF is pre-signed by Twenty and executed with your legal entity and authorized signatory."
+msgstr "The PDF is pre-signed by Claw CRM and executed with your legal entity and authorized signatory."
 
 #. js-lingui-id: Ir4tSJ
 #: src/modules/page-layout/widgets/call-recording/utils/getCallRecordingStatusDisplayConfiguration.ts
