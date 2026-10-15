@@ -3,7 +3,6 @@ import { I18nProvider } from '@lingui/react';
 import { Container, Html } from 'react-email';
 
 import { BaseHead } from 'src/components/BaseHead';
-import { Footer } from 'src/components/Footer';
 import { Logo } from 'src/components/Logo';
 import { createI18nInstance } from 'src/utils/i18n.utils';
 import { type APP_LOCALES } from 'twenty-shared/translations';
@@ -24,7 +23,6 @@ export const BaseEmail = ({ children, width, locale }: BaseEmailProps) => {
         <Container width={width || 290}>
           <Logo />
           {children}
-          <Footer i18n={i18nInstance} />
         </Container>
       </Html>
     </I18nProvider>

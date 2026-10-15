@@ -98,6 +98,27 @@ docker run --rm -v claw_server-local-data:/data -v /var/backups/claw:/backup alp
 docker compose up -d
 ```
 
+## Several companies
+
+Each company gets its own workspace on its own subdomain (`company1.example.com`), with its own data in a separate Postgres schema. `app.example.com` becomes the shared sign-in page. Only a server admin (a user with the Admin Panel in Settings, normally the first one who signed up) can create workspaces, and new people can join only through an invite link: typing an email on the sign-in page does not create an account.
+
+Switching on, once:
+
+1. Add a DNS **A record** for `*.example.com` pointing at the Droplet (or one A record per company subdomain).
+2. In `.env`: `IS_MULTIWORKSPACE_ENABLED=true`, `BASE_DOMAIN=example.com`, and `DOMAIN` must be `app.example.com`.
+3. Run `/opt/claw/backup.sh`, then `docker compose up -d`.
+4. Sign in at `https://app.example.com`. The existing workspace now lives on its subdomain, shown in Settings → General → Subdomain; change it there if needed, and add that host to `WORKSPACE_HOSTS` as in step 3 below.
+
+Adding a company:
+
+1. As the server admin, sign in at `https://app.example.com` and choose **Create a workspace**.
+2. In the new workspace, Settings → General → Subdomain: set the company's subdomain.
+3. Add `<subdomain>.example.com` to `WORKSPACE_HOSTS` in `.env` (space separated) and run `docker compose up -d caddy`. Caddy gets the certificate on its first request.
+4. Install the Claw app as in step 6, with a remote of its own: `yarn twenty remote:add --as claw-<company> --url https://<subdomain>.example.com --api-key <key>`, then `yarn twenty -r claw-<company> plan` and `apply`, then `yarn twenty remote:use claw-local`.
+5. Settings → Members → **Invite by link**: send the link to the company's owner. After they join, give them the Admin role and leave the workspace if you do not need to stay in it.
+
+Every app deploy now has to be applied to each company's remote.
+
 ## Updating
 
 After a merge to main has built a new image:
