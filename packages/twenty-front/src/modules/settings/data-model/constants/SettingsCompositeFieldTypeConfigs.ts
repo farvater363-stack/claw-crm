@@ -181,7 +181,7 @@ export const SETTINGS_COMPOSITE_FIELD_TYPE_CONFIGS = {
       {
         primaryLinkUrl: 'twenty.com',
         primaryLinkLabel: '',
-        secondaryLinks: [{ url: 'twenty.com', label: 'Twenty' }],
+        secondaryLinks: [{ url: 'clawcrm.net', label: 'Claw CRM' }],
       },
       {
         primaryLinkUrl: 'github.com/twentyhq/twenty',

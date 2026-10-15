@@ -17,6 +17,10 @@ x-twenty-environment: &twenty-environment
   # Outside development the server's default is DISABLED, and then nothing the
   # Claw app computes (order numbers, totals, stock) is computed.
   LOGIC_FUNCTION_TYPE: ${LOGIC_FUNCTION_TYPE:-LOCAL}
+  # With several workspaces each one lives on <subdomain>.$BASE_DOMAIN and
+  # $DOMAIN (app.$BASE_DOMAIN) is the shared sign-in page.
+  IS_MULTIWORKSPACE_ENABLED: ${IS_MULTIWORKSPACE_ENABLED:-false}
+  FRONTEND_URL: https://${BASE_DOMAIN:-${DOMAIN}}
 
 services:
   caddy:
@@ -27,6 +31,7 @@ services:
       - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN}
+      WORKSPACE_HOSTS: ${WORKSPACE_HOSTS:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
