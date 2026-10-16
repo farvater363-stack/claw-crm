@@ -11,10 +11,23 @@ import { useGetPublicWorkspaceDataByDomain } from '@/domain-manager/hooks/useGet
 import { useIsCurrentLocationOnDefaultDomain } from '@/domain-manager/hooks/useIsCurrentLocationOnDefaultDomain';
 import { isDefined } from 'twenty-shared/utils';
 import { type WorkspaceUrls } from '~/generated-metadata/graphql';
+import { cookieStorage } from '~/utils/cookie-storage';
 import { getWorkspaceUrl } from '~/utils/getWorkspaceUrl';
 
 const getCurrentSearchParams = (): Record<string, string> =>
   Object.fromEntries(new URLSearchParams(window.location.search));
+
+const LAST_AUTHENTICATED_WORKSPACE_DOMAIN_COOKIE =
+  'lastAuthenticateWorkspaceDomain';
+
+// An unreadable address counts as this host: nothing to redirect to.
+const isCurrentHost = (url: string) => {
+  try {
+    return new URL(url).hostname === window.location.hostname;
+  } catch {
+    return true;
+  }
+};
 
 export const WorkspaceProviderEffect = () => {
   const { data: getPublicWorkspaceData } = useGetPublicWorkspaceDataByDomain();
@@ -73,6 +86,18 @@ export const WorkspaceProviderEffect = () => {
       'workspaceUrl' in lastAuthenticatedWorkspaceDomain &&
       isDefined(lastAuthenticatedWorkspaceDomain?.workspaceUrl)
     ) {
+      // A cookie written before multi-workspace was turned on names the
+      // default domain itself; following it would reload this page forever.
+      // It was scoped to the old front domain, so it is removed from there.
+      if (isCurrentHost(lastAuthenticatedWorkspaceDomain.workspaceUrl)) {
+        cookieStorage.removeItem(LAST_AUTHENTICATED_WORKSPACE_DOMAIN_COOKIE, {
+          domain: `.${window.location.hostname}`,
+        });
+        cookieStorage.removeItem(LAST_AUTHENTICATED_WORKSPACE_DOMAIN_COOKIE);
+
+        return;
+      }
+
       initializeQueryParamState();
       redirectToWorkspaceDomain(
         lastAuthenticatedWorkspaceDomain.workspaceUrl,

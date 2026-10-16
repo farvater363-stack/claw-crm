@@ -1,12 +1,14 @@
+import { numberOpenings } from 'src/order-sketch/order-sketch';
 import { formatDayMonth } from 'src/ui/format';
 
 export type OrderNote = { key: string; source: string; text: string };
 
 export type OrderNoteSources = {
   orderComment: string | null;
-  // In the order the openings were entered, so «Проём 3» matches the form
+  // In the order the openings were entered; «Проём N» is the form's number
   items: {
     id: string;
+    openingNumber?: unknown;
     widthCm: number | null;
     heightCm: number | null;
     designName: string | null;
@@ -23,6 +25,7 @@ export type OrderPhoto = { url: string; caption: string };
 export type OrderPhotoSources = {
   // In the same order as the notes, so «Проём 3» is the same opening
   items: {
+    openingNumber?: unknown;
     widthCm: number | null;
     heightCm: number | null;
     designName: string | null;
@@ -39,11 +42,11 @@ const describeOpening = (
     OrderPhotoSources['items'][number],
     'widthCm' | 'heightCm' | 'designName'
   >,
-  index: number,
+  number: number,
 ) =>
   join([
-    `Проём ${index + 1}`,
-    item.designName,
+    `Проём ${number}`,
+    item.designName ?? 'свой рисунок',
     item.widthCm !== null && item.heightCm !== null
       ? `${item.widthCm}×${item.heightCm}`
       : null,
@@ -61,12 +64,19 @@ const withUrl = (photos: StoredPhoto[] | null, caption: string): OrderPhoto[] =>
 export const collectOrderPhotos = ({
   items,
   finishedPhotos,
-}: OrderPhotoSources): OrderPhoto[] => [
-  ...items.flatMap((item, index) =>
-    withUrl(item.photos, describeOpening(item, index)),
-  ),
-  ...withUrl(finishedPhotos, 'Фото работы'),
-];
+}: OrderPhotoSources): OrderPhoto[] => {
+  const numbers = numberOpenings(items);
+
+  return [
+    ...items
+      .map((item, index) => ({ item, number: numbers[index] }))
+      .sort((left, right) => left.number - right.number)
+      .flatMap(({ item, number }) =>
+        withUrl(item.photos, describeOpening(item, number)),
+      ),
+    ...withUrl(finishedPhotos, 'Фото работы'),
+  ];
+};
 
 // Every free text written about one order, each under the place it was typed.
 export const collectOrderNotes = ({
@@ -74,14 +84,19 @@ export const collectOrderNotes = ({
   items,
   payments,
   stockMovements,
-}: OrderNoteSources): OrderNote[] =>
-  [
+}: OrderNoteSources): OrderNote[] => {
+  const numbers = numberOpenings(items);
+
+  return [
     { key: 'order', source: 'Комментарий к заказу', text: orderComment },
-    ...items.map((item, index) => ({
-      key: item.id,
-      source: describeOpening(item, index),
-      text: item.notes,
-    })),
+    ...items
+      .map((item, index) => ({ item, number: numbers[index] }))
+      .sort((left, right) => left.number - right.number)
+      .map(({ item, number }) => ({
+        key: item.id,
+        source: describeOpening(item, number),
+        text: item.notes,
+      })),
     ...payments.map((payment) => ({
       key: payment.id,
       source: join([
@@ -100,3 +115,4 @@ export const collectOrderNotes = ({
 
     return trimmed === '' ? [] : [{ key, source, text: trimmed }];
   });
+};

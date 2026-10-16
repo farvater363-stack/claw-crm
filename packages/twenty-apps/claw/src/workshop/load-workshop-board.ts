@@ -262,10 +262,11 @@ export const loadWorkshopOrders = async (
       ).map((scheme) => [scheme.id, scheme]),
     );
 
-    return nodes.flatMap((item) => {
-      const scheme = schemes.get(item.id);
+    // In проём order, as on «Схема», not in the order they were saved
+    return [...schemes.values()].flatMap((scheme) => {
+      const item = nodes.find((node) => node.id === scheme.id);
 
-      if (scheme === undefined) return [];
+      if (item === undefined) return [];
 
       return [
         {

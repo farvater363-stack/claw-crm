@@ -109,24 +109,36 @@ const coverOf = (order: WorkshopOrder): string | null =>
   order.finishedPhotoUrls[0] ??
   null;
 
-type GalleryPhoto = { url: string; caption: string };
+// `label` is the short name under its thumbnail, «Проём 2» or «Готово»
+type GalleryPhoto = { url: string; caption: string; label: string };
 
 const galleryOf = (order: WorkshopOrder): GalleryPhoto[] => {
   const seen = new Set<string>();
   const photos: GalleryPhoto[] = [];
-  const add = (url: string | null, caption: string) => {
+  const add = (url: string | null, caption: string, label: string) => {
     if (url === null || seen.has(url)) return;
 
     seen.add(url);
-    photos.push({ url, caption });
+    photos.push({ url, caption, label });
   };
 
   for (const item of order.items) {
-    for (const url of item.openingPhotoUrls) add(url, `Проём ${item.size}`);
-    add(item.designPhotoUrl, item.designName ?? 'Решётка');
+    const title = item.scheme.title;
+
+    for (const url of item.openingPhotoUrls) {
+      add(url, `${title} · фото с замера`, title);
+    }
+
+    add(
+      item.designPhotoUrl,
+      `${title} · рисунок «${item.designName ?? 'Решётка'}» из каталога`,
+      `${title} · рисунок`,
+    );
   }
 
-  for (const url of order.finishedPhotoUrls) add(url, 'Фото работы');
+  for (const url of order.finishedPhotoUrls) {
+    add(url, 'Фото готовой работы', 'Готово');
+  }
 
   return photos;
 };
@@ -560,14 +572,30 @@ const OrderView = ({
                         onClick={() => setPhotoIndex(index)}
                         style={{
                           flex: 'none',
+                          display: 'grid',
+                          gap: 2,
+                          width: 68,
                           padding: 0,
                           borderRadius: RADIUS.control,
                           border: `2px solid ${photo.url === shown.url ? colors.accent : 'transparent'}`,
                           background: 'transparent',
+                          color: colors.muted,
+                          font: 'inherit',
                           cursor: 'pointer',
                         }}
                       >
                         <Photo url={photo.url} alt="" size={64} />
+                        <span
+                          style={{
+                            ...TYPE.label,
+                            fontSize: '12px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {photo.label}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -657,6 +685,31 @@ const OrderView = ({
                         Рисунок не описан: смотрите фото проёма или спросите
                         менеджера.
                       </span>
+                    ) : null}
+                    {item.openingPhotoUrls.length > 0 ? (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: SPACE.xs,
+                          paddingTop: SPACE.xs,
+                        }}
+                      >
+                        {item.openingPhotoUrls.map((url, photoNumber) => (
+                          // The big photo above may be out of view, and a
+                          // front component cannot scroll to it: the photo
+                          // opens on its own instead.
+                          <a
+                            key={`${photoNumber}-${url}`}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={`${item.scheme.title}, фото ${photoNumber + 1}`}
+                          >
+                            <Photo url={url} alt="" size={48} />
+                          </a>
+                        ))}
+                      </div>
                     ) : null}
                   </div>
                   <div style={{ display: 'grid', justifyItems: 'end' }}>
