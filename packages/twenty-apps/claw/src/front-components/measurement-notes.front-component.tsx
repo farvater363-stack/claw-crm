@@ -39,6 +39,7 @@ const loadOrderNotes = async (orderId: string): Promise<OrderCardNotes> => {
         edges: {
           node: {
             id: true,
+            openingNumber: true,
             widthCm: true,
             heightCm: true,
             notes: true,
@@ -76,6 +77,7 @@ const loadOrderNotes = async (orderId: string): Promise<OrderCardNotes> => {
 
   const items = (orderItems?.edges ?? []).map(({ node }) => ({
     id: node.id,
+    openingNumber: node.openingNumber ?? null,
     widthCm: node.widthCm ?? null,
     heightCm: node.heightCm ?? null,
     designName: node.design?.name ?? null,

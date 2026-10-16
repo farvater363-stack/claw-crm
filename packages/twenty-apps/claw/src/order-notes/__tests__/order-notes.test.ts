@@ -40,7 +40,7 @@ describe('collectOrderNotes', () => {
         source: 'Комментарий к заказу',
         text: 'Домофон не работает',
       },
-      { key: 'item-2', source: 'Проём 2', text: 'угловое' },
+      { key: 'item-2', source: 'Проём 2 · свой рисунок', text: 'угловое' },
       { key: 'payment-1', source: 'Оплата · 5 октября', text: 'задаток' },
       { key: 'movement-1', source: 'Склад · Прут 12', text: 'взяли с запасом' },
     ]);
@@ -81,9 +81,33 @@ describe('collectOrderPhotos', () => {
       }),
     ).toEqual([
       { url: 'https://files/a.jpg', caption: 'Проём 1 · Решётка 1 · 140×150' },
-      { url: 'https://files/b.jpg', caption: 'Проём 3' },
+      { url: 'https://files/b.jpg', caption: 'Проём 3 · свой рисунок' },
       { url: 'https://files/done.jpg', caption: 'Фото работы' },
     ]);
+  });
+
+  it('names each photo by the form\'s проём number, past a проём that is only a козырёк', () => {
+    expect(
+      collectOrderPhotos({
+        items: [
+          {
+            openingNumber: 3,
+            widthCm: 100,
+            heightCm: 150,
+            designName: 'Волна',
+            photos: [{ url: 'https://files/third.jpg' }],
+          },
+          {
+            openingNumber: 1,
+            widthCm: 80,
+            heightCm: 120,
+            designName: 'Ромб',
+            photos: [{ url: 'https://files/first.jpg' }],
+          },
+        ],
+        finishedPhotos: null,
+      }).map(({ caption }) => caption),
+    ).toEqual(['Проём 1 · Ромб · 80×120', 'Проём 3 · Волна · 100×150']);
   });
 
   it('is empty for an order without photos', () => {
