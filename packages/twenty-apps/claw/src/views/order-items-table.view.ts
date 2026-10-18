@@ -13,6 +13,7 @@ const COLUMN_WIDTHS = {
   widthCm: 125,
   heightCm: 110,
   projectionKind: 190,
+  projectionSide: 170,
   projectionCm: 110,
   quantity: 120,
   areaSquareMeters: 120,

@@ -372,6 +372,7 @@ describe('loadWorkshopOrders', () => {
       heightCm: true,
       projectionCm: true,
       projectionKind: true,
+      projectionSide: true,
       openingNumber: true,
       quantity: true,
       areaSquareMeters: true,

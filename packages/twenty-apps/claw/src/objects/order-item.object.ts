@@ -10,6 +10,7 @@ import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import {
   PRODUCT_OPTIONS,
   PROJECTION_KIND_OPTIONS,
+  PROJECTION_SIDE_OPTIONS,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { money } from 'src/objects/money-field';
@@ -77,6 +78,15 @@ export default defineObject({
       icon: 'IconRuler2',
       isNullable: true,
       options: PROJECTION_KIND_OPTIONS,
+    },
+    {
+      universalIdentifier: IDS.orderItem.projectionSide,
+      type: FieldType.SELECT,
+      name: 'projectionSide',
+      label: 'Установка',
+      icon: 'IconArrowsLeftRight',
+      isNullable: true,
+      options: PROJECTION_SIDE_OPTIONS,
     },
     {
       ...centimeters(IDS.orderItem.projectionCm, 'projectionCm', 'Вынос, см'),

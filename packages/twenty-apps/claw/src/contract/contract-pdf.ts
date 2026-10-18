@@ -21,6 +21,7 @@ import {
 } from 'src/contract/contract-fonts';
 import { type ContractRun } from 'src/contract/contract-template';
 import { SKETCH_HEIGHT, SKETCH_WIDTH } from 'src/opening-shape/sketch-layout';
+import { describeProjectionSide } from 'src/pricing/compute-item-area';
 import { drawSketchLayout, fitSketch } from 'src/opening-shape/sketch-pdf';
 import { sha256 } from 'src/contract/sha256';
 import { formatWhole } from 'src/ui/format';
@@ -540,8 +541,10 @@ export const renderContractPdf = async (
 
     drawText(title, left + 10, top - 16, fonts.bold, 9);
 
+    const sideText = describeProjectionSide(opening);
+    const sideHeight = sideText === null ? 0 : 11;
     // A 240 × 172 drawing, as on screen, fitted to the cell.
-    const unit = fitSketch(inner, 110);
+    const unit = fitSketch(inner, 110 - sideHeight);
     const originTop = top - 22;
 
     drawSketchLayout(
@@ -568,7 +571,7 @@ export const renderContractPdf = async (
     );
 
     const detail = [
-      describeOpeningSize(opening),
+      describeOpeningSize({ ...opening, projectionSide: null }),
       opening.areaSquareMeters === null
         ? null
         : `${opening.areaSquareMeters.toFixed(2)} м²`,
@@ -577,6 +580,10 @@ export const renderContractPdf = async (
       .join(' · ');
 
     drawText(detail, left + 10, captionTop - 22, fonts.regular, 8, MUTED);
+
+    if (sideText !== null) {
+      drawText(sideText, left + 10, captionTop - 33, fonts.regular, 8, MUTED);
+    }
   }
 
   function drawSignatures() {

@@ -4,6 +4,7 @@ import {
   type ExtraServiceUnit,
   type Product,
   type ProjectionKind,
+  type ProjectionSide,
 } from 'src/constants/select-options';
 import {
   parseItemShape,
@@ -27,6 +28,7 @@ import { computeDiscount } from 'src/pricing/compute-discount';
 import {
   computeItemAreaSquareMeters,
   computeItemUnits,
+  describeProjectionSide,
   formatItemSize,
   formatRailingSize,
 } from 'src/pricing/compute-item-area';
@@ -53,6 +55,7 @@ export type ItemSnapshot = {
   heightCm: number | null;
   projectionCm: number | null;
   projectionKind: ProjectionKind | null;
+  projectionSide?: ProjectionSide | null;
   quantity: number | null;
   areaSquareMeters: number | null;
   pricePerSquareMeter: number | null;
@@ -176,7 +179,8 @@ const multiplyOrNull = (...values: (number | null)[]): number | null =>
 
 const describeItemSize = (
   item: ItemSnapshot,
-  size: Parameters<typeof formatItemSize>[0],
+  size: Parameters<typeof describeProjectionSide>[0] &
+    Parameters<typeof formatItemSize>[0],
 ): string => {
   if (item.product === 'RAILING') {
     return formatRailingSize({
@@ -187,9 +191,14 @@ const describeItemSize = (
 
   const shape = parseItemShape(item.shape, size.widthCm, size.heightCm);
 
-  return shape === null
-    ? formatItemSize(size)
-    : `${shapeKindLabel(shape.kind).toLowerCase()} ${formatItemSize(size)}`;
+  return [
+    shape === null
+      ? formatItemSize(size)
+      : `${shapeKindLabel(shape.kind).toLowerCase()} ${formatItemSize(size)}`,
+    describeProjectionSide(size),
+  ]
+    .filter(Boolean)
+    .join(', ');
 };
 
 const planItem = (
@@ -203,6 +212,7 @@ const planItem = (
     heightCm: item.heightCm as number,
     projectionCm: item.projectionCm ?? 0,
     projectionKind: item.projectionKind,
+    projectionSide: item.projectionSide,
   };
   const isRailing = item.product === 'RAILING';
   const areaSquareMeters =

@@ -301,6 +301,8 @@ describe('every select option of every object keeps its id', () => {
         "orderItem.projectionKind.BOTTOM": "530863de-65b8-5060-a99a-a0652a211c80",
         "orderItem.projectionKind.BOTTOM_AND_TOP": "2bf27b20-6bec-5f0c-a270-4054f630e410",
         "orderItem.projectionKind.NONE": "6bfc3b43-d021-5a9a-9eb9-4a0b44a91c2f",
+        "orderItem.projectionSide.INSIDE": "a79ce7d3-2930-5e11-91ea-21e1491e4570",
+        "orderItem.projectionSide.OUTSIDE": "89c2bab3-e9c6-51c3-8044-4cc274d00496",
         "orderPayment.method.CARD": "200a51f9-3ff9-54ed-b654-187fa6c0df86",
         "orderPayment.method.CASH": "60529631-3fa3-5a83-a9c0-7cc2fd387317",
         "orderPayment.method.TRANSFER": "aba49e83-d595-5b08-b727-78a71ecd8fac",

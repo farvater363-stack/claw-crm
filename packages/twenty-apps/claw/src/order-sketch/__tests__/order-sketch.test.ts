@@ -20,6 +20,7 @@ describe('toSchemeOpenings', () => {
       id: 'item-1',
       title: 'Проём 1',
       designName: 'Ромб',
+      notes: null,
       quantity: 2,
       isRailing: false,
       shape: null,
@@ -28,10 +29,31 @@ describe('toSchemeOpenings', () => {
         heightCm: 150,
         projectionKind: 'BOTTOM',
         projectionCm: 30,
+        projectionSide: null,
         sizeText: '140×150×30 снизу',
+        sideText: null,
         unitsText: '2,97 м²',
       },
     });
+  });
+
+  it('says which side the вынос stands out from once it is known', () => {
+    const [opening] = toSchemeOpenings([{ ...row, projectionSide: 'OUTSIDE' }]);
+
+    expect(opening.sketch).toMatchObject({
+      sizeText: '140×150×30 снизу',
+      sideText: 'установка снаружи',
+    });
+  });
+
+  it('keeps the measurer note, trimmed, and drops an empty one', () => {
+    const [noted, blank] = toSchemeOpenings([
+      { ...row, notes: '  ручка слева \n' },
+      { ...row, id: 'item-2', notes: '   ' },
+    ]);
+
+    expect(noted.notes).toBe('ручка слева');
+    expect(blank.notes).toBeNull();
   });
 
   it('describes a railing by its length in running metres', () => {

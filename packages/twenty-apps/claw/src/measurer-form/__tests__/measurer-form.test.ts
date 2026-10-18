@@ -86,6 +86,7 @@ const draft = (overrides: Partial<MeasurementDraft>): MeasurementDraft => ({
       widthCm: '140',
       heightCm: '150',
       projectionKind: 'BOTTOM_AND_TOP',
+      projectionSide: 'OUTSIDE',
       projectionCm: '30',
       quantity: '2',
     }),
@@ -190,6 +191,7 @@ describe('buildMeasurementPayload', () => {
             widthCm: '140',
             heightCm: '150,5',
             projectionKind: 'BOTTOM_AND_TOP',
+            projectionSide: 'INSIDE',
             projectionCm: '30',
             quantity: '2',
             notes: ' угловое ',
@@ -224,6 +226,7 @@ describe('buildMeasurementPayload', () => {
           widthCm: 140,
           heightCm: 150.5,
           projectionKind: 'BOTTOM_AND_TOP',
+          projectionSide: 'INSIDE',
           projectionCm: 30,
           quantity: 2,
           notes: 'угловое',
@@ -305,20 +308,38 @@ describe('buildMeasurementPayload', () => {
       isValid: false,
       errors: ['Проём 1: укажите вынос в сантиметрах'],
     });
+    expect(
+      build(opening({ ...size, projectionKind: 'BOTTOM', projectionCm: '30' })),
+    ).toEqual({
+      isValid: false,
+      errors: ['Проём 1: укажите установку: снаружи или изнутри'],
+    });
 
     const bottom = build(
-      opening({ ...size, projectionKind: 'BOTTOM', projectionCm: '30' }),
+      opening({
+        ...size,
+        projectionKind: 'BOTTOM',
+        projectionSide: 'OUTSIDE',
+        projectionCm: '30',
+      }),
     );
     const none = build(
-      opening({ ...size, projectionKind: 'NONE', projectionCm: '30' }),
+      opening({
+        ...size,
+        projectionKind: 'NONE',
+        projectionSide: 'OUTSIDE',
+        projectionCm: '30',
+      }),
     );
 
     expect(bottom.isValid && bottom.items[0]).toMatchObject({
       projectionKind: 'BOTTOM',
+      projectionSide: 'OUTSIDE',
       projectionCm: 30,
     });
     expect(none.isValid && none.items[0]).toMatchObject({
       projectionKind: 'NONE',
+      projectionSide: null,
       projectionCm: 0,
     });
   });

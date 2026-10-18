@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   computeItemAreaSquareMeters,
+  describeProjectionSide,
   formatItemSize,
 } from 'src/pricing/compute-item-area';
 import {
@@ -60,6 +61,22 @@ describe('computeItemAreaSquareMeters', () => {
       '140×150×30 снизу',
     );
     expect(formatItemSize({ ...size, projectionKind: 'NONE' })).toBe('140×150');
+  });
+
+  it('names the side of a вынос once it is known', () => {
+    const size = { projectionCm: 30, projectionKind: 'BOTTOM' as const };
+
+    expect(describeProjectionSide({ ...size, projectionSide: 'INSIDE' })).toBe(
+      'установка изнутри',
+    );
+    expect(describeProjectionSide(size)).toBeNull();
+    expect(
+      describeProjectionSide({
+        ...size,
+        projectionKind: 'NONE',
+        projectionSide: 'OUTSIDE',
+      }),
+    ).toBeNull();
   });
 
   it('is width times height for a flat grille', () => {
@@ -156,7 +173,9 @@ describe('productionStartOnStatusChange', () => {
 });
 
 describe('deadlineOnStartChange', () => {
-  const change = (overrides: Partial<Parameters<typeof deadlineOnStartChange>[0]>) =>
+  const change = (
+    overrides: Partial<Parameters<typeof deadlineOnStartChange>[0]>,
+  ) =>
     deadlineOnStartChange({
       previousStart: '2026-10-01',
       start: '2026-10-05',

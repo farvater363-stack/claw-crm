@@ -7,6 +7,7 @@ import {
   type ExtraServiceUnit,
   type ProjectionKind,
   toProduct,
+  toProjectionSide,
 } from 'src/constants/select-options';
 import {
   ALL_PAY_RULES_QUERY,
@@ -135,6 +136,7 @@ export const loadRecalcInput = async (
           heightCm: true,
           projectionCm: true,
           projectionKind: true,
+          projectionSide: true,
           quantity: true,
           areaSquareMeters: true,
           pricePerSquareMeter: money,
@@ -378,6 +380,7 @@ export const loadRecalcInput = async (
       heightCm: toNumber(node.heightCm),
       projectionCm: toNumber(node.projectionCm),
       projectionKind: (node.projectionKind ?? null) as ProjectionKind | null,
+      projectionSide: toProjectionSide(node.projectionSide),
       quantity: toNumber(node.quantity),
       areaSquareMeters: toNumber(node.areaSquareMeters),
       pricePerSquareMeter: fromCurrency(node.pricePerSquareMeter),

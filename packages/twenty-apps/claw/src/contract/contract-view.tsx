@@ -17,6 +17,7 @@ import {
   useElementHeight,
   useElementWidth,
 } from 'src/measurer-form/measurer-form-ui';
+import { describeProjectionSide } from 'src/pricing/compute-item-area';
 import { formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
 import { Button, Checkbox, Hint, usePalette } from 'src/ui/kit';
 import { RADIUS, SPACE, TABULAR_NUMBERS, TYPE } from 'src/ui/tokens';
@@ -180,8 +181,11 @@ const Appendices = ({ document }: { document: ContractDocument }) => {
                     .filter(Boolean)
                     .join(', ')}
                 </td>
-                <td style={{ ...cell, whiteSpace: 'nowrap' }}>
-                  {describeOpeningSize(opening)}
+                <td style={cell}>
+                  <div style={{ whiteSpace: 'nowrap' }}>
+                    {describeOpeningSize({ ...opening, projectionSide: null })}
+                  </div>
+                  {describeProjectionSide(opening)}
                 </td>
                 <td style={number}>{opening.quantity}</td>
                 <td style={number}>
@@ -252,8 +256,10 @@ const Appendices = ({ document }: { document: ContractDocument }) => {
                 <SketchDrawing layout={sketchLayoutOf(opening)} />
                 <div style={{ fontWeight: 600 }}>{opening.product}</div>
                 <div style={{ color: colors.muted, ...TABULAR_NUMBERS }}>
-                  {describeOpeningSize(opening)}
-                  {opening.isRailing === true ? '' : ' см'}
+                  {describeOpeningSize(
+                    opening,
+                    opening.isRailing === true ? '' : ' см',
+                  )}
                   {opening.areaSquareMeters === null
                     ? ''
                     : ` · ${opening.areaSquareMeters.toFixed(2)} м²`}
