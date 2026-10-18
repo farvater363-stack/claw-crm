@@ -593,7 +593,8 @@ const shortProblem = (error: string): string => {
   if (text.includes('длину козырька')) return 'нужна длина козырька';
   if (text.includes('выберите козырёк')) return 'выберите козырёк';
   if (text.startsWith('укажите вынос')) return 'нужен вынос';
-  if (text.includes('снаружи или изнутри')) return 'вынос снаружи или изнутри?';
+  if (text.includes('снаружи или изнутри'))
+    return 'установка снаружи или изнутри?';
   if (text.includes('количество')) return 'проверьте количество';
   if (/укажите|ширин|высот|размер/.test(text)) return 'нужны размеры';
 
@@ -2845,21 +2846,6 @@ export const NewMeasurement = () => {
             </SettingRow>
           )}
           {!isRailing && opening.projectionKind !== 'NONE' && (
-            <SettingRow label="Сторона выноса">
-              <Segmented
-                label="Сторона выноса"
-                value={opening.projectionSide}
-                options={PROJECTION_SIDE_OPTIONS.map(({ value, label }) => ({
-                  value: value as ProjectionSide,
-                  label,
-                }))}
-                onChange={(projectionSide) =>
-                  updateOpening(opening.key, { projectionSide })
-                }
-              />
-            </SettingRow>
-          )}
-          {!isRailing && opening.projectionKind !== 'NONE' && (
             <span
               style={{
                 ...TYPE.label,
@@ -2870,6 +2856,21 @@ export const NewMeasurement = () => {
               Насколько решётка выходит за проём с каждой стороны. Площадь
               считается с выносом.
             </span>
+          )}
+          {!isRailing && opening.projectionKind !== 'NONE' && (
+            <SettingRow label="Установка">
+              <Segmented
+                label="Установка"
+                value={opening.projectionSide}
+                options={PROJECTION_SIDE_OPTIONS.map(({ value, label }) => ({
+                  value: value as ProjectionSide,
+                  label,
+                }))}
+                onChange={(projectionSide) =>
+                  updateOpening(opening.key, { projectionSide })
+                }
+              />
+            </SettingRow>
           )}
           <SettingRow label="Одинаковых">
             <QuantityStepper

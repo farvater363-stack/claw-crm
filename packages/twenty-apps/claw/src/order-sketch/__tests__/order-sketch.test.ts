@@ -42,7 +42,7 @@ describe('toSchemeOpenings', () => {
 
     expect(opening.sketch).toMatchObject({
       sizeText: '140×150×30 снизу',
-      sideText: 'вынос снаружи',
+      sideText: 'установка снаружи',
     });
   });
 

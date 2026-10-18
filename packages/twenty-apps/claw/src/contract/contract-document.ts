@@ -229,7 +229,7 @@ export const buildContractDocument = (
   };
 };
 
-// `unit` goes right after the numbers, before «вынос снаружи».
+// `unit` goes right after the numbers, before «установка снаружи».
 export const describeOpeningSize = (
   opening: ContractOpening,
   unit = '',

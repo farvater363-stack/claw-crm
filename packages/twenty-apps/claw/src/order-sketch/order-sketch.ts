@@ -58,7 +58,7 @@ export type SchemeOpening = {
     projectionCm: number;
     projectionSide: ProjectionSide | null;
     sizeText: string;
-    // «вынос снаружи»; null without a вынос or a known side
+    // «установка снаружи»; null without a вынос or a known установка
     sideText: string | null;
     // «2,97 м²» for a grille, «4,5 п.м.» for a railing
     unitsText: string;

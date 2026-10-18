@@ -908,7 +908,7 @@ export const buildMeasurementPayload = (
     } else if (!isVisorOnly && hasProjection && projectionCm <= 0) {
       openingErrors.push(`${label}: укажите вынос в сантиметрах`);
     } else if (!isVisorOnly && hasProjection && opening.projectionSide === '') {
-      openingErrors.push(`${label}: укажите, вынос снаружи или изнутри`);
+      openingErrors.push(`${label}: укажите установку: снаружи или изнутри`);
     } else if (
       quantity === null ||
       !Number.isInteger(quantity) ||

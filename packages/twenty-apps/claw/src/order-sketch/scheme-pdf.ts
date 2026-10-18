@@ -136,13 +136,16 @@ export const renderSchemePdf = async ({
           { size: 11, isBold: true },
         );
 
-        const noteLines =
-          opening.notes === null
+        const noteLines = [
+          ...(opening.sketch?.sideText ? [opening.sketch.sideText] : []),
+          ...(opening.notes === null
             ? []
             : wrapNote(`Заметка: ${opening.notes}`, inner - 18, (text) =>
                 regular.widthOfTextAtSize(clean(text), NOTE_SIZE),
-              );
-        // The note goes under the sizes and takes its height from the drawing
+              )),
+        ];
+        // The установка and the note go under the sizes and take their
+        // height from the drawing
         const lift =
           noteLines.length === 0 ? 0 : noteLines.length * NOTE_LEADING + 4;
         const bottom = top - cellHeight;
@@ -164,13 +167,7 @@ export const renderSchemePdf = async ({
         write(
           opening.sketch === null
             ? 'Размеры не указаны'
-            : [
-                `${opening.sketch.sizeText} см`,
-                opening.sketch.sideText,
-                opening.sketch.unitsText,
-              ]
-                .filter(Boolean)
-                .join(' · '),
+            : `${opening.sketch.sizeText} см · ${opening.sketch.unitsText}`,
           left + 14,
           bottom + 20 + lift,
           { size: 9, color: MUTED },

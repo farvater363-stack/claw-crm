@@ -312,7 +312,7 @@ describe('buildMeasurementPayload', () => {
       build(opening({ ...size, projectionKind: 'BOTTOM', projectionCm: '30' })),
     ).toEqual({
       isValid: false,
-      errors: ['Проём 1: укажите, вынос снаружи или изнутри'],
+      errors: ['Проём 1: укажите установку: снаружи или изнутри'],
     });
 
     const bottom = build(

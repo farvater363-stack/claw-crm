@@ -88,8 +88,9 @@ export const PROJECTION_KIND_OPTIONS = toOptions([
 
 export type ProjectionKind = (typeof PROJECTION_KIND_OPTIONS)[number]['value'];
 
-// Which face of the wall the вынос stands out from. Empty on an item measured
-// before the choice existed, and on one without a вынос.
+// «Установка»: which face of the wall a grille with a вынос is fitted on.
+// Empty on an item measured before the choice existed, and on one without a
+// вынос.
 export const PROJECTION_SIDE_OPTIONS = toOptions([
   ['OUTSIDE', 'Снаружи', 'blue'],
   ['INSIDE', 'Изнутри', 'green'],

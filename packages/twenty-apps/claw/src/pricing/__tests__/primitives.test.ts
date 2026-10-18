@@ -67,7 +67,7 @@ describe('computeItemAreaSquareMeters', () => {
     const size = { projectionCm: 30, projectionKind: 'BOTTOM' as const };
 
     expect(describeProjectionSide({ ...size, projectionSide: 'INSIDE' })).toBe(
-      'вынос изнутри',
+      'установка изнутри',
     );
     expect(describeProjectionSide(size)).toBeNull();
     expect(

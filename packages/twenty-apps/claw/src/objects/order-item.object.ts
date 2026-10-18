@@ -83,7 +83,7 @@ export default defineObject({
       universalIdentifier: IDS.orderItem.projectionSide,
       type: FieldType.SELECT,
       name: 'projectionSide',
-      label: 'Сторона выноса',
+      label: 'Установка',
       icon: 'IconArrowsLeftRight',
       isNullable: true,
       options: PROJECTION_SIDE_OPTIONS,

@@ -7,7 +7,6 @@ import {
   type OrderStatus,
   PRODUCTION_STAGE_OPTIONS,
   PROJECTION_KIND_OPTIONS,
-  PROJECTION_SIDE_OPTIONS,
   type ProductionStage,
 } from 'src/constants/select-options';
 import { describeShape } from 'src/opening-shape/opening-shape';
@@ -60,16 +59,13 @@ const stageOf = (value: string | null | undefined): ProductionStage | null =>
   PRODUCTION_STAGE_OPTIONS.find((option) => option.value === value)?.value ??
   null;
 
-// «вынос снизу 25 см, снаружи», as the form says it
+// «вынос снизу 25 см, установка снаружи», as the form says it
 const projectionTextOf = ({ sketch }: SchemeOpening): string | null =>
   sketch === null || sketch.projectionKind === 'NONE'
     ? null
     : [
         `${labelOf(PROJECTION_KIND_OPTIONS, sketch.projectionKind)?.toLowerCase() ?? 'вынос'} ${formatSketchCm(sketch.projectionCm)} см`,
-        labelOf(
-          PROJECTION_SIDE_OPTIONS,
-          sketch.projectionSide ?? '',
-        )?.toLowerCase(),
+        sketch.sideText,
       ]
         .filter(Boolean)
         .join(', ');
