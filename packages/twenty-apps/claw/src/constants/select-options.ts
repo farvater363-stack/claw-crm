@@ -88,6 +88,21 @@ export const PROJECTION_KIND_OPTIONS = toOptions([
 
 export type ProjectionKind = (typeof PROJECTION_KIND_OPTIONS)[number]['value'];
 
+// Which face of the wall the вынос stands out from. Empty on an item measured
+// before the choice existed, and on one without a вынос.
+export const PROJECTION_SIDE_OPTIONS = toOptions([
+  ['OUTSIDE', 'Снаружи', 'blue'],
+  ['INSIDE', 'Изнутри', 'green'],
+] as const);
+
+export type ProjectionSide = (typeof PROJECTION_SIDE_OPTIONS)[number]['value'];
+
+export const toProjectionSide = (
+  value: string | null | undefined,
+): ProjectionSide | null =>
+  PROJECTION_SIDE_OPTIONS.find((option) => option.value === value)?.value ??
+  null;
+
 // What a проём is made into. Empty on items and designs from before railings:
 // they are grilles.
 export const PRODUCT_OPTIONS = toOptions([

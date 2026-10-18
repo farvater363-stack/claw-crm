@@ -5,6 +5,7 @@ import {
   type PaymentMethod,
   type Product,
   type ProjectionKind,
+  type ProjectionSide,
   SOURCE_OPTIONS,
 } from 'src/constants/select-options';
 import {
@@ -59,6 +60,8 @@ export type OpeningDraft = {
   heightCm: string;
   shape: ShapeDraft;
   projectionKind: ProjectionKind;
+  // Empty until the measurer picks it; asked only with a вынос
+  projectionSide: ProjectionSide | '';
   projectionCm: string;
   quantity: string;
   notes: string;
@@ -116,6 +119,7 @@ export type OrderItemPayload = {
   heightCm: number;
   shape: StoredShape | null;
   projectionKind: ProjectionKind;
+  projectionSide: ProjectionSide | null;
   projectionCm: number;
   quantity: number;
   notes: string | null;
@@ -198,6 +202,7 @@ export const createEmptyOpening = (
   heightCm: '',
   shape: createShapeDraft(createShapePointKey),
   projectionKind: 'NONE',
+  projectionSide: '',
   projectionCm: '',
   quantity: '1',
   notes: '',
@@ -232,6 +237,7 @@ export const createOpeningLike = (
   product: previous.product,
   designId: previous.designId,
   projectionKind: previous.projectionKind,
+  projectionSide: previous.projectionSide,
   projectionCm: previous.projectionCm,
   isVisorWanted: previous.isVisorWanted,
   visorServiceId: previous.visorServiceId,
@@ -901,6 +907,8 @@ export const buildMeasurementPayload = (
       );
     } else if (!isVisorOnly && hasProjection && projectionCm <= 0) {
       openingErrors.push(`${label}: укажите вынос в сантиметрах`);
+    } else if (!isVisorOnly && hasProjection && opening.projectionSide === '') {
+      openingErrors.push(`${label}: укажите, вынос снаружи или изнутри`);
     } else if (
       quantity === null ||
       !Number.isInteger(quantity) ||
@@ -949,6 +957,10 @@ export const buildMeasurementPayload = (
             ? null
             : toStoredShape(opening.shape, shapeResult.outline),
         projectionKind: isRailing ? 'NONE' : opening.projectionKind,
+        projectionSide:
+          hasProjection && opening.projectionSide !== ''
+            ? opening.projectionSide
+            : null,
         projectionCm,
         quantity: quantity ?? 1,
         notes: emptyToNull(opening.notes),

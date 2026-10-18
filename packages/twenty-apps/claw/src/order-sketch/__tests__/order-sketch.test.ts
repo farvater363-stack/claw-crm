@@ -29,9 +29,20 @@ describe('toSchemeOpenings', () => {
         heightCm: 150,
         projectionKind: 'BOTTOM',
         projectionCm: 30,
+        projectionSide: null,
         sizeText: '140×150×30 снизу',
+        sideText: null,
         unitsText: '2,97 м²',
       },
+    });
+  });
+
+  it('says which side the вынос stands out from once it is known', () => {
+    const [opening] = toSchemeOpenings([{ ...row, projectionSide: 'OUTSIDE' }]);
+
+    expect(opening.sketch).toMatchObject({
+      sizeText: '140×150×30 снизу',
+      sideText: 'вынос снаружи',
     });
   });
 

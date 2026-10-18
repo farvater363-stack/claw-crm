@@ -164,7 +164,13 @@ export const renderSchemePdf = async ({
         write(
           opening.sketch === null
             ? 'Размеры не указаны'
-            : `${opening.sketch.sizeText} см · ${opening.sketch.unitsText}`,
+            : [
+                `${opening.sketch.sizeText} см`,
+                opening.sketch.sideText,
+                opening.sketch.unitsText,
+              ]
+                .filter(Boolean)
+                .join(' · '),
           left + 14,
           bottom + 20 + lift,
           { size: 9, color: MUTED },

@@ -22,8 +22,10 @@ import {
   PAYMENT_METHOD_OPTIONS,
   type PaymentMethod,
   PROJECTION_KIND_OPTIONS,
+  PROJECTION_SIDE_OPTIONS,
   type Product,
   type ProjectionKind,
+  type ProjectionSide,
   SOURCE_OPTIONS,
   toProduct,
 } from 'src/constants/select-options';
@@ -139,6 +141,7 @@ import {
 } from 'src/opening-shape/opening-shape';
 import { formatSketchCm } from 'src/opening-shape/sketch-layout';
 import {
+  describeProjectionSide,
   formatItemSize,
   formatRailingSize,
   railingName,
@@ -544,19 +547,25 @@ const describeSize = (opening: OpeningDraft): string | null => {
     return formatRailingSize({ lengthCm: widthCm, heightCm });
   }
 
-  const size = formatItemSize({
-    widthCm,
-    heightCm,
+  const projection = {
     projectionCm:
       opening.projectionKind === 'NONE'
         ? 0
         : (parseDecimalInput(opening.projectionCm) ?? 0),
     projectionKind: opening.projectionKind,
-  });
+    projectionSide:
+      opening.projectionSide === '' ? null : opening.projectionSide,
+  };
+  const size = formatItemSize({ widthCm, heightCm, ...projection });
 
-  return opening.shape.kind === 'RECTANGLE'
-    ? size
-    : `${shapeKindLabel(opening.shape.kind).toLowerCase()} ${size}`;
+  return [
+    opening.shape.kind === 'RECTANGLE'
+      ? size
+      : `${shapeKindLabel(opening.shape.kind).toLowerCase()} ${size}`,
+    describeProjectionSide(projection),
+  ]
+    .filter(Boolean)
+    .join(', ');
 };
 
 // Only contradictions while typing: «укажите …» for a field not reached yet
@@ -584,6 +593,7 @@ const shortProblem = (error: string): string => {
   if (text.includes('длину козырька')) return 'нужна длина козырька';
   if (text.includes('выберите козырёк')) return 'выберите козырёк';
   if (text.startsWith('укажите вынос')) return 'нужен вынос';
+  if (text.includes('снаружи или изнутри')) return 'вынос снаружи или изнутри?';
   if (text.includes('количество')) return 'проверьте количество';
   if (/укажите|ширин|высот|размер/.test(text)) return 'нужны размеры';
 
@@ -1121,6 +1131,7 @@ export const NewMeasurement = () => {
       ...(product === 'RAILING'
         ? {
             projectionKind: 'NONE',
+            projectionSide: '',
             projectionCm: '',
             isVisorWanted: false,
             visorServiceId: '',
@@ -1297,7 +1308,9 @@ export const NewMeasurement = () => {
           label: `${
             item.product === 'RAILING'
               ? `перилла ${formatRailingSize({ lengthCm: item.widthCm, heightCm: item.heightCm })}`
-              : `${formatItemSize(item)} см`
+              : [`${formatItemSize(item)} см`, describeProjectionSide(item)]
+                  .filter(Boolean)
+                  .join(', ')
           }, ${item.quantity} шт`,
           photoCount: 0,
         });
@@ -2827,6 +2840,21 @@ export const NewMeasurement = () => {
                 }))}
                 onChange={(projectionKind) =>
                   updateOpening(opening.key, { projectionKind })
+                }
+              />
+            </SettingRow>
+          )}
+          {!isRailing && opening.projectionKind !== 'NONE' && (
+            <SettingRow label="Сторона выноса">
+              <Segmented
+                label="Сторона выноса"
+                value={opening.projectionSide}
+                options={PROJECTION_SIDE_OPTIONS.map(({ value, label }) => ({
+                  value: value as ProjectionSide,
+                  label,
+                }))}
+                onChange={(projectionSide) =>
+                  updateOpening(opening.key, { projectionSide })
                 }
               />
             </SettingRow>

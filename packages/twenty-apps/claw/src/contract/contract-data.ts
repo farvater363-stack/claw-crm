@@ -2,6 +2,7 @@ import {
   DISTRICT_OPTIONS,
   type ProjectionKind,
   PROJECTION_KIND_OPTIONS,
+  toProjectionSide,
 } from 'src/constants/select-options';
 import {
   type ContractData,
@@ -277,6 +278,10 @@ const openingsOfDraft = (
       heightCm,
       projectionKind,
       projectionCm,
+      projectionSide:
+        projectionKind === 'NONE' || opening.projectionSide === ''
+          ? null
+          : opening.projectionSide,
       quantity,
       areaSquareMeters:
         widthCm === null || heightCm === null || isRailing
@@ -316,6 +321,7 @@ export type StoredOrderForContract = {
     heightCm: number | null;
     projectionCm: number | null;
     projectionKind: string | null;
+    projectionSide?: string | null;
     quantity: number | null;
     designId: string | null;
     designName: string | null;
@@ -377,6 +383,7 @@ export const contractDataFromOrder = (
       heightCm: hasSizes ? item.heightCm : null,
       projectionKind,
       projectionCm,
+      projectionSide: isRailing ? null : toProjectionSide(item.projectionSide),
       quantity,
       areaSquareMeters:
         hasSizes &&

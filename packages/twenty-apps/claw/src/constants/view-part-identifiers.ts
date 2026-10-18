@@ -145,6 +145,7 @@ export const VIEW_PART_IDS = {
       heightCm: '55a911d8-1f27-49e9-8e72-4f41ebad1c90',
       projectionCm: '848c2014-c1fa-48a8-89fa-bc206599a113',
       projectionKind: 'b848681d-f61a-4a40-94c8-03a6d1f7a8ab',
+      projectionSide: '13d12401-7c9c-4f06-8921-5b83c368dca8',
       quantity: 'd17c5a2f-a3ee-4e99-8e57-6abe5b304e7f',
       areaSquareMeters: 'd47062f3-2aed-4ad1-a96d-c40b6540eaf6',
       pricePerSquareMeter: '2f7ad13a-acd2-4179-a620-85ae4c3a2802',

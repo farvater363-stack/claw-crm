@@ -149,6 +149,7 @@ export const IDS = {
     openingNumber: 'e9eab18e-8310-4354-b36f-da29653a7900',
     projectionCm: '1c159580-363d-4e63-a42f-266b0a1996fa',
     projectionKind: 'c856db57-be0e-4ec2-a244-c7e8daa1a9b7',
+    projectionSide: 'd7c1965d-c625-4459-a1f0-f98c169e45c4',
     quantity: '3439ef21-bb5e-422c-b2f9-e5a31a29ad5b',
     areaSquareMeters: '0ee36a02-398d-46b5-bbef-b4d8e1a8625f',
     pricePerSquareMeter: 'c9f5e081-a633-474d-9caf-49cfb826c911',

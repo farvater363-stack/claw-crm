@@ -1,4 +1,7 @@
-import { type ProjectionKind } from 'src/constants/select-options';
+import {
+  type ProjectionKind,
+  type ProjectionSide,
+} from 'src/constants/select-options';
 import {
   type ContractRun,
   type ContractTemplate,
@@ -16,6 +19,7 @@ import {
   type SketchLayout,
 } from 'src/opening-shape/sketch-layout';
 import {
+  describeProjectionSide,
   formatItemSize,
   formatRailingSize,
 } from 'src/pricing/compute-item-area';
@@ -31,6 +35,7 @@ export type ContractOpening = {
   heightCm: number | null;
   projectionKind: ProjectionKind;
   projectionCm: number;
+  projectionSide?: ProjectionSide | null;
   quantity: number;
   areaSquareMeters: number | null;
   // Visor fitted with this проём, as «Козырёк Стандарт, 120 см»
@@ -224,7 +229,11 @@ export const buildContractDocument = (
   };
 };
 
-export const describeOpeningSize = (opening: ContractOpening): string => {
+// `unit` goes right after the numbers, before «вынос снаружи».
+export const describeOpeningSize = (
+  opening: ContractOpening,
+  unit = '',
+): string => {
   if (opening.widthCm === null || opening.heightCm === null) return '—';
 
   if (opening.isRailing === true) {
@@ -241,9 +250,12 @@ export const describeOpeningSize = (opening: ContractOpening): string => {
     projectionKind: opening.projectionKind,
   });
 
-  return opening.shape === null || opening.shape === undefined
-    ? size
-    : `${shapeKindLabel(opening.shape.kind).toLowerCase()} ${size}`;
+  return [
+    `${opening.shape === null || opening.shape === undefined ? '' : `${shapeKindLabel(opening.shape.kind).toLowerCase()} `}${size}${unit}`,
+    describeProjectionSide(opening),
+  ]
+    .filter(Boolean)
+    .join(', ');
 };
 
 export const sketchLayoutOf = (opening: ContractOpening): SketchLayout =>
@@ -281,6 +293,9 @@ const openingEntries = (openings: ContractOpening[]): string[] =>
         hasProjection ? opening.projectionCm : 0,
         opening.quantity,
         ...(opening.isRailing === true ? ['RAILING'] : []),
+        ...(hasProjection && opening.projectionSide
+          ? [opening.projectionSide]
+          : []),
         ...(opening.shape === null || opening.shape === undefined
           ? []
           : [opening.shape.outline]),

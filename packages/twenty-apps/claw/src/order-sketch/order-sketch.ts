@@ -1,6 +1,8 @@
 import {
   PROJECTION_KIND_OPTIONS,
   type ProjectionKind,
+  type ProjectionSide,
+  toProjectionSide,
 } from 'src/constants/select-options';
 import {
   parseItemShape,
@@ -15,6 +17,7 @@ import {
 import {
   computeItemAreaSquareMeters,
   computeRunningMeters,
+  describeProjectionSide,
   formatItemSize,
   railingName,
 } from 'src/pricing/compute-item-area';
@@ -29,6 +32,7 @@ export type SchemeItemRow = {
   heightCm: unknown;
   projectionCm: unknown;
   projectionKind: string | null;
+  projectionSide?: string | null;
   quantity: unknown;
   designName: string | null;
   notes?: string | null;
@@ -52,7 +56,10 @@ export type SchemeOpening = {
     heightCm: number;
     projectionKind: ProjectionKind;
     projectionCm: number;
+    projectionSide: ProjectionSide | null;
     sizeText: string;
+    // «вынос снаружи»; null without a вынос or a known side
+    sideText: string | null;
     // «2,97 м²» for a grille, «4,5 п.м.» for a railing
     unitsText: string;
   } | null;
@@ -98,11 +105,18 @@ export const toSchemeOpenings = (rows: SchemeItemRow[]): SchemeOpening[] => {
           (projectionCm > 0 ? 'BOTTOM_AND_TOP' : 'NONE'));
       const hasSizes =
         widthCm !== null && heightCm !== null && widthCm > 0 && heightCm > 0;
-      const size = { widthCm, heightCm, projectionCm, projectionKind } as {
+      const size = {
+        widthCm,
+        heightCm,
+        projectionCm,
+        projectionKind,
+        projectionSide: isRailing ? null : toProjectionSide(row.projectionSide),
+      } as {
         widthCm: number;
         heightCm: number;
         projectionCm: number;
         projectionKind: ProjectionKind;
+        projectionSide: ProjectionSide | null;
       };
 
       return {
@@ -119,6 +133,7 @@ export const toSchemeOpenings = (rows: SchemeItemRow[]): SchemeOpening[] => {
               sizeText: isRailing
                 ? `${widthCm}×${heightCm}`
                 : `${shape === null ? '' : `${shapeKindLabel(shape.kind).toLowerCase()} `}${formatItemSize(size)}`,
+              sideText: describeProjectionSide(size),
               unitsText: isRailing
                 ? formatQuantity(computeRunningMeters(size.widthCm), 'п.м.')
                 : formatQuantity(computeItemAreaSquareMeters(size), 'м²'),

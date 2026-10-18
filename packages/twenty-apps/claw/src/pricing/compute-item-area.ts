@@ -1,6 +1,8 @@
 import {
   type Product,
+  PROJECTION_SIDE_OPTIONS,
   type ProjectionKind,
+  type ProjectionSide,
 } from 'src/constants/select-options';
 import { roundTo } from 'src/pricing/round';
 import { formatQuantity } from 'src/ui/format';
@@ -59,6 +61,21 @@ export const formatItemSize = ({
   hasProjection({ projectionCm, projectionKind })
     ? `${widthCm}×${heightCm}×${projectionCm}${projectionKind === 'BOTTOM' ? ' снизу' : ''}`
     : `${widthCm}×${heightCm}`;
+
+// «вынос снаружи», said after the size and its «см»; nothing while the item
+// has no вынос or its side was not asked yet.
+export const describeProjectionSide = ({
+  projectionCm,
+  projectionKind,
+  projectionSide,
+}: {
+  projectionCm: number;
+  projectionKind?: ProjectionKind | null;
+  projectionSide?: ProjectionSide | null;
+}): string | null =>
+  projectionSide && hasProjection({ projectionCm, projectionKind })
+    ? `вынос ${PROJECTION_SIDE_OPTIONS.find((option) => option.value === projectionSide)?.label.toLowerCase()}`
+    : null;
 
 const CENTIMETERS_PER_METER = 100;
 

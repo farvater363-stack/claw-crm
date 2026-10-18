@@ -252,8 +252,10 @@ const Appendices = ({ document }: { document: ContractDocument }) => {
                 <SketchDrawing layout={sketchLayoutOf(opening)} />
                 <div style={{ fontWeight: 600 }}>{opening.product}</div>
                 <div style={{ color: colors.muted, ...TABULAR_NUMBERS }}>
-                  {describeOpeningSize(opening)}
-                  {opening.isRailing === true ? '' : ' см'}
+                  {describeOpeningSize(
+                    opening,
+                    opening.isRailing === true ? '' : ' см',
+                  )}
                   {opening.areaSquareMeters === null
                     ? ''
                     : ` · ${opening.areaSquareMeters.toFixed(2)} м²`}
