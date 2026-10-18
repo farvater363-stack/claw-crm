@@ -72,6 +72,7 @@ const loadScheme = async (orderId: string): Promise<Scheme> => {
           projectionKind: true,
           quantity: true,
           openingNumber: true,
+          notes: true,
           design: { name: true },
         },
       },
@@ -98,6 +99,7 @@ const loadScheme = async (orderId: string): Promise<Scheme> => {
         projectionKind: node.projectionKind ?? null,
         quantity: node.quantity,
         designName: node.design?.name ?? null,
+        notes: node.notes ?? null,
         openingNumber: node.openingNumber ?? null,
       })),
     ),
@@ -323,6 +325,18 @@ const OpeningCard = ({
             ? 'Размеры не указаны'
             : `${sketch.sizeText} см · ${sketch.unitsText}`}
         </span>
+        {opening.notes !== null ? (
+          <span
+            style={{
+              ...TYPE.label,
+              color: colors.muted,
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {`Заметка: ${opening.notes}`}
+          </span>
+        ) : null}
       </div>
       {isEditing ? (
         <OpeningEditor

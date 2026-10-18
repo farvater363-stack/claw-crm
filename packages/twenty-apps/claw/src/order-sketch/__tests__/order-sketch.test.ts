@@ -20,6 +20,7 @@ describe('toSchemeOpenings', () => {
       id: 'item-1',
       title: 'Проём 1',
       designName: 'Ромб',
+      notes: null,
       quantity: 2,
       isRailing: false,
       shape: null,
@@ -32,6 +33,16 @@ describe('toSchemeOpenings', () => {
         unitsText: '2,97 м²',
       },
     });
+  });
+
+  it('keeps the measurer note, trimmed, and drops an empty one', () => {
+    const [noted, blank] = toSchemeOpenings([
+      { ...row, notes: '  ручка слева \n' },
+      { ...row, id: 'item-2', notes: '   ' },
+    ]);
+
+    expect(noted.notes).toBe('ручка слева');
+    expect(blank.notes).toBeNull();
   });
 
   it('describes a railing by its length in running metres', () => {

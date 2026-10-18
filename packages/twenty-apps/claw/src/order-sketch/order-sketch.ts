@@ -31,6 +31,7 @@ export type SchemeItemRow = {
   projectionKind: string | null;
   quantity: unknown;
   designName: string | null;
+  notes?: string | null;
   // The number the measurer's form gave it; absent on items saved before it
   // was kept, or added later in the order
   openingNumber?: unknown;
@@ -40,6 +41,8 @@ export type SchemeOpening = {
   id: string;
   title: string;
   designName: string | null;
+  // The measurer's note on the opening, for the workshop and the installers
+  notes: string | null;
   quantity: number;
   isRailing: boolean;
   shape: StoredShape | null;
@@ -106,6 +109,7 @@ export const toSchemeOpenings = (rows: SchemeItemRow[]): SchemeOpening[] => {
         id: row.id,
         title: `Проём ${number}`,
         designName: row.designName,
+        notes: row.notes?.trim() || null,
         quantity: toNumber(row.quantity) ?? 1,
         isRailing,
         shape,

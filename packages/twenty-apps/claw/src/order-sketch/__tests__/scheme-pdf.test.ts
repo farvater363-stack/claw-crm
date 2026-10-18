@@ -2,7 +2,7 @@ import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 
 import { toSchemeOpenings } from 'src/order-sketch/order-sketch';
-import { renderSchemePdf } from 'src/order-sketch/scheme-pdf';
+import { renderSchemePdf, wrapNote } from 'src/order-sketch/scheme-pdf';
 
 const row = {
   id: 'item',
@@ -38,6 +38,7 @@ describe('renderSchemePdf', () => {
       },
       { ...row, product: 'RAILING', widthCm: 450, heightCm: 90 },
       { ...row, widthCm: null },
+      { ...row, notes: 'Окно открывается внутрь, ручка слева. '.repeat(12) },
       row,
       row,
       row,
@@ -50,5 +51,21 @@ describe('renderSchemePdf', () => {
     });
 
     expect((await PDFDocument.load(bytes)).getPageCount()).toBe(2);
+  });
+
+  it('wraps a note to the width and ends what does not fit with «…»', () => {
+    const measure = (text: string) => text.length;
+
+    expect(wrapNote('ручка слева\nрешётка снаружи', 12, measure)).toEqual([
+      'ручка слева',
+      'решётка',
+      'снаружи',
+    ]);
+
+    const lines = wrapNote('слово '.repeat(20), 12, measure);
+
+    expect(lines).toHaveLength(4);
+    expect(lines[3].endsWith('…')).toBe(true);
+    expect(lines.every((line) => measure(line) <= 12)).toBe(true);
   });
 });

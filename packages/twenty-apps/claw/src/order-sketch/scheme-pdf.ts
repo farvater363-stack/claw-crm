@@ -1,6 +1,6 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 
-import { embedPrintFonts } from 'src/contract/contract-pdf';
+import { ellipsize, embedPrintFonts } from 'src/contract/contract-pdf';
 import { SKETCH_WIDTH } from 'src/opening-shape/sketch-layout';
 import { drawSketchLayout, fitSketch } from 'src/opening-shape/sketch-pdf';
 import {
@@ -15,9 +15,43 @@ const MARGIN = 40;
 const COLUMNS = 2;
 const ROWS = 3;
 const HEADER_HEIGHT = 46;
+const NOTE_SIZE = 8.5;
+const NOTE_LEADING = 11;
+const NOTE_MAX_LINES = 4;
 const INK = rgb(0.11, 0.13, 0.11);
 const MUTED = rgb(0.38, 0.42, 0.39);
 const RULE = rgb(0.75, 0.77, 0.74);
+
+// Word-wrapped to the cell; what does not fit ends the last line with «…».
+export const wrapNote = (
+  text: string,
+  maxWidth: number,
+  measure: (text: string) => number,
+): string[] => {
+  const lines = text.split('\n').flatMap((paragraph) =>
+    paragraph
+      .split(/\s+/)
+      .filter((word) => word !== '')
+      .reduce<string[]>((wrapped, word) => {
+        const last = wrapped[wrapped.length - 1];
+
+        if (last !== undefined && measure(`${last} ${word}`) <= maxWidth) {
+          wrapped[wrapped.length - 1] = `${last} ${word}`;
+        } else {
+          wrapped.push(word);
+        }
+
+        return wrapped;
+      }, []),
+  );
+
+  return [
+    ...lines.slice(0, NOTE_MAX_LINES - 1),
+    lines.slice(NOTE_MAX_LINES - 1).join(' '),
+  ]
+    .filter((line) => line !== '')
+    .map((line) => ellipsize(line, maxWidth, measure));
+};
 
 // The order's «Схема» on A4 for the workshop and the installers: six проёмы a
 // page, each with its drawing, product and sizes.
@@ -102,7 +136,17 @@ export const renderSchemePdf = async ({
           { size: 11, isBold: true },
         );
 
-        const unit = fitSketch(inner - 20, cellHeight - 90);
+        const noteLines =
+          opening.notes === null
+            ? []
+            : wrapNote(`Заметка: ${opening.notes}`, inner - 18, (text) =>
+                regular.widthOfTextAtSize(clean(text), NOTE_SIZE),
+              );
+        // The note goes under the sizes and takes its height from the drawing
+        const lift =
+          noteLines.length === 0 ? 0 : noteLines.length * NOTE_LEADING + 4;
+        const bottom = top - cellHeight;
+        const unit = fitSketch(inner - 20, cellHeight - 90 - lift);
 
         drawSketchLayout(
           { page, regular, bold, clean },
@@ -113,7 +157,7 @@ export const renderSchemePdf = async ({
             unit,
           },
         );
-        write(schemeProductName(opening), left + 14, top - cellHeight + 34, {
+        write(schemeProductName(opening), left + 14, bottom + 34 + lift, {
           size: 10,
           isBold: true,
         });
@@ -122,8 +166,16 @@ export const renderSchemePdf = async ({
             ? 'Размеры не указаны'
             : `${opening.sketch.sizeText} см · ${opening.sketch.unitsText}`,
           left + 14,
-          top - cellHeight + 20,
+          bottom + 20 + lift,
           { size: 9, color: MUTED },
+        );
+        noteLines.forEach((line, lineIndex) =>
+          write(
+            line,
+            left + 14,
+            bottom + 16 + lift - NOTE_LEADING * (lineIndex + 1),
+            { size: NOTE_SIZE },
+          ),
         );
       });
   }
