@@ -63,20 +63,11 @@ describe('computeItemAreaSquareMeters', () => {
     expect(formatItemSize({ ...size, projectionKind: 'NONE' })).toBe('140×150');
   });
 
-  it('names the side of a вынос once it is known', () => {
-    const size = { projectionCm: 30, projectionKind: 'BOTTOM' as const };
-
-    expect(describeProjectionSide({ ...size, projectionSide: 'INSIDE' })).toBe(
+  it('names the установка once it is known', () => {
+    expect(describeProjectionSide({ projectionSide: 'INSIDE' })).toBe(
       'установка изнутри',
     );
-    expect(describeProjectionSide(size)).toBeNull();
-    expect(
-      describeProjectionSide({
-        ...size,
-        projectionKind: 'NONE',
-        projectionSide: 'OUTSIDE',
-      }),
-    ).toBeNull();
+    expect(describeProjectionSide({ projectionSide: null })).toBeNull();
   });
 
   it('is width times height for a flat grille', () => {

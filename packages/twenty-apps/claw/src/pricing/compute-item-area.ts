@@ -62,18 +62,14 @@ export const formatItemSize = ({
     ? `${widthCm}×${heightCm}×${projectionCm}${projectionKind === 'BOTTOM' ? ' снизу' : ''}`
     : `${widthCm}×${heightCm}`;
 
-// «установка снаружи», said after the size and its «см»; nothing while the
-// item has no вынос or its установка was not asked yet.
+// «установка снаружи», said after the size and its «см»; nothing while its
+// установка was not asked yet.
 export const describeProjectionSide = ({
-  projectionCm,
-  projectionKind,
   projectionSide,
 }: {
-  projectionCm: number;
-  projectionKind?: ProjectionKind | null;
   projectionSide?: ProjectionSide | null;
 }): string | null =>
-  projectionSide && hasProjection({ projectionCm, projectionKind })
+  projectionSide
     ? `установка ${PROJECTION_SIDE_OPTIONS.find((option) => option.value === projectionSide)?.label.toLowerCase()}`
     : null;
 

@@ -24,7 +24,6 @@ const order = (overrides: Partial<WorkshopOrder>): WorkshopOrder => ({
   floor: null,
   measurerName: null,
   measurementDate: null,
-  schemePdfUrl: null,
   comment: null,
   paintColor: null,
   startDate: null,

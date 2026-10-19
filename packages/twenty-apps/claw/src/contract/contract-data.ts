@@ -279,7 +279,7 @@ const openingsOfDraft = (
       projectionKind,
       projectionCm,
       projectionSide:
-        projectionKind === 'NONE' || opening.projectionSide === ''
+        isRailing || opening.projectionSide === ''
           ? null
           : opening.projectionSide,
       quantity,

@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
-import { uploadFile, useSelectedRecordIds } from 'twenty-sdk/front-component';
+import { useSelectedRecordIds } from 'twenty-sdk/front-component';
 
-import { IDS } from 'src/constants/universal-identifiers';
 import { describeAddress } from 'src/contract/contract-data';
 import { SketchDrawing } from 'src/measurer-form/measurer-form-ui';
 import { ShapeFields } from 'src/measurer-form/shape-fields';
@@ -21,10 +20,9 @@ import {
   schemeSketchLayout,
   toSchemeOpenings,
 } from 'src/order-sketch/order-sketch';
-import { renderSchemePdf } from 'src/order-sketch/scheme-pdf';
+import { printScheme, type Scheme } from 'src/order-sketch/print-scheme';
 import { Button, Field, Hint, TextInput, usePalette } from 'src/ui/kit';
 import { RADIUS, SPACE, TABULAR_NUMBERS, TYPE } from 'src/ui/tokens';
-import { fetchFieldMetadataId } from 'src/utils/fetch-field-metadata-id';
 import { joinFullName } from 'src/utils/full-name';
 import { isAccessError } from 'src/utils/is-access-error';
 import { parseDecimalInput } from 'src/utils/parse-decimal-input';
@@ -33,13 +31,6 @@ const PAGE_SIZE = 200;
 const CARD_MIN_WIDTH_PX = 220;
 // A single column on a phone would draw each проём a full screen tall.
 const SKETCH_MAX_WIDTH_PX = 280;
-
-type Scheme = {
-  orderName: string;
-  clientName: string | null;
-  address: string;
-  openings: SchemeOpening[];
-};
 
 const loadScheme = async (orderId: string): Promise<Scheme> => {
   const { orders, orderItems } = await new CoreApiClient().query({
@@ -358,49 +349,6 @@ type PrintState =
   | { status: 'busy' }
   | { status: 'ready'; url: string }
   | { status: 'failed'; text: string };
-
-const printScheme = async (
-  orderId: string,
-  scheme: Scheme,
-): Promise<string> => {
-  const fileName = `Схема ${scheme.orderName}.pdf`.replace(/\s+/g, ' ');
-  const bytes = await renderSchemePdf({
-    title: `Схема ${scheme.orderName}`.trim(),
-    subtitle: [scheme.clientName, scheme.address]
-      .filter((part) => part !== null && part !== '')
-      .join(' · '),
-    openings: scheme.openings,
-    printedAt: new Date(),
-  });
-  const fieldMetadataId = await fetchFieldMetadataId(
-    IDS.order.object,
-    IDS.order.schemePdf,
-  );
-
-  if (fieldMetadataId === null) throw new Error('order.schemePdf not found');
-
-  const uploaded = await uploadFile(
-    new File([bytes as BlobPart], fileName, { type: 'application/pdf' }),
-    { fieldMetadataId, fileName },
-  );
-
-  if (uploaded.status !== 'uploaded') throw new Error(uploaded.reason);
-
-  // Kept on the order, so the sheet opens again without printing anew.
-  await new CoreApiClient().mutation({
-    updateOrder: {
-      __args: {
-        id: orderId,
-        data: {
-          schemePdf: [{ fileId: uploaded.file.fileId, label: fileName }],
-        },
-      },
-      id: true,
-    },
-  });
-
-  return uploaded.file.url;
-};
 
 const OrderSketchOf = ({ orderId }: { orderId: string }) => {
   const colors = usePalette();

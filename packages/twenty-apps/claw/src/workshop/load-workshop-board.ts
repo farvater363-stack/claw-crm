@@ -61,14 +61,16 @@ const stageOf = (value: string | null | undefined): ProductionStage | null =>
 
 // «вынос снизу 25 см, установка снаружи», as the form says it
 const projectionTextOf = ({ sketch }: SchemeOpening): string | null =>
-  sketch === null || sketch.projectionKind === 'NONE'
+  sketch === null
     ? null
     : [
-        `${labelOf(PROJECTION_KIND_OPTIONS, sketch.projectionKind)?.toLowerCase() ?? 'вынос'} ${formatSketchCm(sketch.projectionCm)} см`,
+        sketch.projectionKind === 'NONE'
+          ? null
+          : `${labelOf(PROJECTION_KIND_OPTIONS, sketch.projectionKind)?.toLowerCase() ?? 'вынос'} ${formatSketchCm(sketch.projectionCm)} см`,
         sketch.sideText,
       ]
         .filter(Boolean)
-        .join(', ');
+        .join(', ') || null;
 
 const textOrNull = (value: string | null | undefined): string | null => {
   const trimmed = value?.trim() ?? '';
@@ -135,7 +137,6 @@ export const loadWorkshopOrders = async (
             floor: true,
             measurementDate: true,
             measurerId: true,
-            schemePdf: PHOTO,
             comment: true,
             paintColor: true,
             productionStartDate: true,
@@ -374,7 +375,6 @@ export const loadWorkshopOrders = async (
     measurementDate: node.measurementDate
       ? todayInTashkent(new Date(node.measurementDate))
       : null,
-    schemePdfUrl: urlsOf(node.schemePdf)[0] ?? null,
     comment: textOrNull(node.comment),
     paintColor: textOrNull(node.paintColor),
     startDate: node.productionStartDate ?? null,

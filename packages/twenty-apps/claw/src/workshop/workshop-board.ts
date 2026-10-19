@@ -62,7 +62,6 @@ export type WorkshopOrder = {
   measurerName: string | null;
   // YYYY-MM-DD in Tashkent
   measurementDate: string | null;
-  schemePdfUrl: string | null;
   comment: string | null;
   paintColor: string | null;
   startDate: string | null;

@@ -7,6 +7,7 @@ import { isInProduction } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import { SketchDrawing } from 'src/measurer-form/measurer-form-ui';
 import { schemeSketchLayout } from 'src/order-sketch/order-sketch';
+import { printScheme } from 'src/order-sketch/print-scheme';
 import { todayInTashkent } from 'src/pricing/dates';
 import {
   Button,
@@ -459,6 +460,66 @@ const ColumnHeader = ({
   );
 };
 
+// Made from the sizes on screen every time: a sheet printed earlier may show
+// sizes changed since.
+const SchemePdf = ({ order }: { order: WorkshopOrder }) => {
+  const colors = usePalette();
+  const [url, setUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState<'idle' | 'busy' | 'failed'>('idle');
+
+  if (order.items.length === 0) return null;
+
+  const make = () => {
+    setUrl(null);
+    setStatus('busy');
+    printScheme(order.id, {
+      orderName: order.name,
+      clientName: order.clientName,
+      address: [
+        order.districtLabel,
+        order.addressLine,
+        order.floor === null ? null : `этаж ${order.floor}`,
+      ]
+        .filter(Boolean)
+        .join(', '),
+      openings: order.items.map((item) => item.scheme),
+    })
+      .then((madeUrl) => {
+        setUrl(madeUrl);
+        setStatus('idle');
+      })
+      .catch(() => setStatus('failed'));
+  };
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: SPACE.sm,
+      }}
+    >
+      <Button isBusy={status === 'busy'} busyText="Готовим PDF…" onClick={make}>
+        Схема PDF
+      </Button>
+      {url !== null ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: colors.accent, fontWeight: 600 }}
+        >
+          Открыть схему
+        </a>
+      ) : null}
+      {status === 'failed' ? (
+        <Hint tone="danger" text="Схема не сделалась, попробуйте ещё раз." />
+      ) : null}
+    </div>
+  );
+};
+
 const OrderView = ({
   order,
   today,
@@ -746,16 +807,7 @@ const OrderView = ({
             {order.comment !== null ? (
               <CommentNote text={order.comment} />
             ) : null}
-            {order.schemePdfUrl !== null ? (
-              <a
-                href={order.schemePdfUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: colors.accent, fontWeight: 600 }}
-              >
-                Схема PDF
-              </a>
-            ) : null}
+            <SchemePdf order={order} />
           </SectionCard>
         </div>
 

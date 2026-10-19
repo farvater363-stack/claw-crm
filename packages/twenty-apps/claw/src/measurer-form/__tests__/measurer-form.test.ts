@@ -36,6 +36,7 @@ import {
 
 const opening = (overrides: Partial<OpeningDraft>): OpeningDraft => ({
   ...createEmptyOpening('opening', 'opening-visor'),
+  projectionSide: 'OUTSIDE',
   ...overrides,
 });
 
@@ -309,7 +310,14 @@ describe('buildMeasurementPayload', () => {
       errors: ['Проём 1: укажите вынос в сантиметрах'],
     });
     expect(
-      build(opening({ ...size, projectionKind: 'BOTTOM', projectionCm: '30' })),
+      build(
+        opening({
+          ...size,
+          projectionKind: 'BOTTOM',
+          projectionSide: '',
+          projectionCm: '30',
+        }),
+      ),
     ).toEqual({
       isValid: false,
       errors: ['Проём 1: укажите установку: снаружи или изнутри'],
@@ -339,8 +347,14 @@ describe('buildMeasurementPayload', () => {
     });
     expect(none.isValid && none.items[0]).toMatchObject({
       projectionKind: 'NONE',
-      projectionSide: null,
+      projectionSide: 'OUTSIDE',
       projectionCm: 0,
+    });
+    expect(
+      build(opening({ ...size, projectionKind: 'NONE', projectionSide: '' })),
+    ).toEqual({
+      isValid: false,
+      errors: ['Проём 1: укажите установку: снаружи или изнутри'],
     });
   });
 

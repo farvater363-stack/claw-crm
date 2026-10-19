@@ -524,6 +524,37 @@ const waitForOrderName = async (orderId: string): Promise<string | null> => {
   return null;
 };
 
+// Asked of the next-order-number function: a measurer may read only their own
+// orders, so the screen cannot work the number out itself.
+const loadNextOrderName = async (): Promise<string | null> => {
+  const fetchName = () =>
+    fetch(
+      `${process.env.TWENTY_FUNCTIONS_URL ?? `${process.env.TWENTY_API_URL}/s`}/next-order-number`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
+        },
+      },
+    );
+  let response = await fetchName();
+
+  // The token lasts half an hour and only an API call renews it; a measurer
+  // may spend longer than that at one address. The route answers an expired
+  // token with a 500, not a 401.
+  if (!response.ok) {
+    await new CoreApiClient().query({
+      orders: { __args: { first: 1 }, edges: { node: { id: true } } },
+    });
+    response = await fetchName();
+  }
+
+  if (!response.ok) throw new Error(`next-order-number: ${response.status}`);
+
+  const { name } = (await response.json()) as { name?: unknown };
+
+  return typeof name === 'string' && name !== '' ? name : null;
+};
+
 const findLabel = (
   options: readonly { value: string; label: string }[],
   value: string,
@@ -637,6 +668,9 @@ export const NewMeasurement = () => {
   const [saveIds, setSaveIds] = useState(createSaveIds);
   const [step, setStep] = useState<Step>('client');
   const [signature, setSignature] = useState<SignatureStroke[]>([]);
+  // The number a new order will most likely get, shown on its contract
+  // before saving; the signed PDF takes the number it really got.
+  const [nextOrderName, setNextOrderName] = useState<string | null>(null);
   const [contractTemplate, setContractTemplate] =
     useState<ContractTemplate | null>(null);
   // The order whose card opened the form: «Назад» returns there
@@ -1192,7 +1226,6 @@ export const NewMeasurement = () => {
     selectedIndex === -1 ? null : draft.openings[selectedIndex];
   const isServicesSelected = selectedOpening === null;
 
-  // The scheduled order already has its number; a new one gets it on saving.
   const contractData = (template: ContractTemplate) => {
     const scheduled = scheduledOrders.find((order) => order.id === target);
 
@@ -1205,7 +1238,9 @@ export const NewMeasurement = () => {
       discount: preview.discount,
       total: preview.total ?? 0,
       prepayment: preview.prepayment,
-      number: contractNumberOf(scheduled?.name ?? null),
+      number: contractNumberOf(
+        scheduled === undefined ? nextOrderName : scheduled.name,
+      ),
       signedOn: today,
       template,
     });
@@ -1573,6 +1608,12 @@ export const NewMeasurement = () => {
       }
 
       setSignature([]);
+
+      if (!scheduledOrders.some((order) => order.id === target)) {
+        loadNextOrderName()
+          .then(setNextOrderName)
+          .catch(() => setNextOrderName(null));
+      }
     }
 
     setErrors([]);
@@ -2857,7 +2898,7 @@ export const NewMeasurement = () => {
               считается с выносом.
             </span>
           )}
-          {!isRailing && opening.projectionKind !== 'NONE' && (
+          {!isRailing && (
             <SettingRow label="Установка">
               <Segmented
                 label="Установка"

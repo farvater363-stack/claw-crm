@@ -907,7 +907,7 @@ export const buildMeasurementPayload = (
       );
     } else if (!isVisorOnly && hasProjection && projectionCm <= 0) {
       openingErrors.push(`${label}: укажите вынос в сантиметрах`);
-    } else if (!isVisorOnly && hasProjection && opening.projectionSide === '') {
+    } else if (!isRailing && !isVisorOnly && opening.projectionSide === '') {
       openingErrors.push(`${label}: укажите установку: снаружи или изнутри`);
     } else if (
       quantity === null ||
@@ -958,9 +958,9 @@ export const buildMeasurementPayload = (
             : toStoredShape(opening.shape, shapeResult.outline),
         projectionKind: isRailing ? 'NONE' : opening.projectionKind,
         projectionSide:
-          hasProjection && opening.projectionSide !== ''
-            ? opening.projectionSide
-            : null,
+          isRailing || opening.projectionSide === ''
+            ? null
+            : opening.projectionSide,
         projectionCm,
         quantity: quantity ?? 1,
         notes: emptyToNull(opening.notes),
