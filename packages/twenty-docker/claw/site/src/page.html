@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="{{lang}}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{{meta.title}}</title>
+    <meta name="description" content="{{meta.description}}" />
+    <meta name="theme-color" content="#16181a" />
+    <meta property="og:title" content="{{meta.title}}" />
+    <meta property="og:description" content="{{meta.description}}" />
+    {{ogImage}}
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fira+Sans+Extra+Condensed:wght@700;800&family=Golos+Text:wght@400;500;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="/assets/styles.css?v={{version}}" />
+    <script>
+      try {
+        localStorage.setItem('profmet-lang', '{{lang}}');
+      } catch (error) {}
+    </script>
+  </head>
+  <body>
+    <a class="offer-bar" href="#price" data-offer hidden></a>
+
+    <header class="header">
+      <div class="container header__inner">
+        <a class="logo" href="/{{lang}}/" aria-label="ProfMet">
+          <svg class="logo__mark" viewBox="0 0 32 36" aria-hidden="true">
+            <path d="M3 34V14a13 13 0 0 1 26 0v20Z" fill="none" stroke="currentColor" stroke-width="3" />
+            <path d="M11 6.5V34M16 4.5V34M21 6.5V34M3 34h26" stroke="currentColor" stroke-width="2.4" />
+            <path d="M16 15l3.2 4.5L16 24l-3.2-4.5Z" fill="#e0590c" />
+          </svg>
+          <span class="logo__word">PROF<b>MET</b></span>
+        </a>
+        <nav class="header__actions">
+          <a class="language-link" href="/{{otherLang}}/" data-language="{{otherLang}}">{{nav.language}}</a>
+          <a class="icon-button" href="tel:{{contact.phoneHref}}" aria-label="{{nav.call}}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" /></svg>
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero__media">{{heroMedia}}</div>
+        <div class="container hero__content">
+          <p class="eyebrow">{{hero.eyebrow}}</p>
+          <h1 class="display hero__title">{{hero.title}}</h1>
+          <p class="hero__subtitle">{{hero.subtitle}}</p>
+          <button class="button button--primary button--large" type="button" data-open-estimate>
+            {{hero.cta}}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </button>
+          <ul class="hero__trust">
+            <li>{{hero.trust.measure}}</li>
+            <li>{{hero.trust.warranty}}</li>
+            <li>{{hero.trust.installs}}</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="price" id="price" data-price-section>
+        <div class="container price__inner">
+          <div class="price__main">
+            <p class="label">{{price.label}}</p>
+            <p class="price__example">{{price.example}}</p>
+            <p class="price__amount" aria-live="polite">
+              {{price.from}} <span data-price-example>…</span> <small>{{price.currency}}</small>
+            </p>
+            <p class="price__old" data-price-list-row hidden><s data-price-example-list></s> <span data-price-offer-label></span></p>
+            <ul class="price__metals" data-price-metals></ul>
+          </div>
+          <div class="price__side">
+            <button class="button button--primary button--large button--block" type="button" data-open-estimate>{{price.cta}}</button>
+            <p class="price__note">{{price.note}}</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--dark">
+        <div class="container why">
+          <h2 class="display section__title">{{why.title}}</h2>
+          <p class="why__lead">{{why.lead}}</p>
+          <ul class="dash-list">
+            <li>{{why.1}}</li>
+            <li>{{why.2}}</li>
+            <li>{{why.3}}</li>
+            <li>{{why.4}}</li>
+            <li>{{why.5}}</li>
+          </ul>
+          <button class="button button--primary button--large" type="button" data-open-estimate>{{hero.cta}}</button>
+        </div>
+      </section>
+
+      <!--works-->
+      <section class="section">
+        <div class="container">
+          <h2 class="display section__title">{{works.title}}</h2>
+          <p class="section__subtitle">{{works.subtitle}}</p>
+        </div>
+        <div class="works">{{works}}</div>
+      </section>
+      <!--/works-->
+
+      <section class="section section--steel">
+        <div class="container craft{{craftModifier}}">
+          <div class="craft__copy">
+            <h2 class="display section__title">{{craft.title}}</h2>
+            <p class="craft__text">{{craft.text}}</p>
+          </div>
+          {{teamPhoto}}
+          <dl class="stats">
+            <div><dt>{{craft.years.label}}</dt><dd>{{craft.years.value}}</dd></div>
+            <div><dt>{{craft.installs.label}}</dt><dd>{{craft.installs.value}}</dd></div>
+            <div><dt>{{craft.warranty.label}}</dt><dd>{{craft.warranty.value}}</dd></div>
+            <div><dt>{{craft.callback.label}}</dt><dd>{{craft.callback.value}}</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="section section--dark">
+        <div class="container">
+          <h2 class="display section__title">{{compare.title}}</h2>
+          <div class="compare" role="table" aria-label="{{compare.title}}">
+            <div class="compare__head" role="row">
+              <span role="columnheader">{{compare.what}}</span>
+              <span role="columnheader" class="compare__us">{{compare.us}}</span>
+              <span role="columnheader">{{compare.them}}</span>
+            </div>
+            <div class="compare__row" role="row"><span role="rowheader">{{compare.price.what}}</span><span role="cell" class="compare__us">{{compare.price.us}}</span><span role="cell">{{compare.price.them}}</span></div>
+            <div class="compare__row" role="row"><span role="rowheader">{{compare.measure.what}}</span><span role="cell" class="compare__us">{{compare.measure.us}}</span><span role="cell">{{compare.measure.them}}</span></div>
+            <div class="compare__row" role="row"><span role="rowheader">{{compare.warranty.what}}</span><span role="cell" class="compare__us">{{compare.warranty.us}}</span><span role="cell">{{compare.warranty.them}}</span></div>
+            <div class="compare__row" role="row"><span role="rowheader">{{compare.made.what}}</span><span role="cell" class="compare__us">{{compare.made.us}}</span><span role="cell">{{compare.made.them}}</span></div>
+            <div class="compare__row" role="row"><span role="rowheader">{{compare.experience.what}}</span><span role="cell" class="compare__us">{{compare.experience.us}}</span><span role="cell">{{compare.experience.them}}</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <h2 class="display section__title">{{steps.title}}</h2>
+          <ol class="steps">
+            <li><h3>{{steps.1.title}}</h3><p>{{steps.1.text}}</p></li>
+            <li><h3>{{steps.2.title}}</h3><p>{{steps.2.text}}</p></li>
+            <li><h3>{{steps.3.title}}</h3><p>{{steps.3.text}}</p></li>
+            <li><h3>{{steps.4.title}}</h3><p>{{steps.4.text}}</p></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section section--steel">
+        <div class="container container--narrow">
+          <h2 class="display section__title">{{faq.title}}</h2>
+          <div class="faq">
+            <details><summary>{{faq.price.q}}</summary><p>{{faq.price.a}}</p></details>
+            <details data-offer-faq hidden><summary>{{faq.discount.q}}</summary><p data-offer-faq-answer></p></details>
+            <details><summary>{{faq.measure.q}}</summary><p>{{faq.measure.a}}</p></details>
+            <details><summary>{{faq.when.q}}</summary><p>{{faq.when.a}}</p></details>
+            <details><summary>{{faq.metal.q}}</summary><p>{{faq.metal.a}}</p></details>
+            <details><summary>{{faq.warranty.q}}</summary><p>{{faq.warranty.a}}</p></details>
+            <details><summary>{{faq.area.q}}</summary><p>{{faq.area.a}}</p></details>
+          </div>
+        </div>
+      </section>
+
+      <section class="final">
+        <div class="container final__inner">
+          <h2 class="display">{{final.title}}</h2>
+          <p>{{final.text}}</p>
+          <button class="button button--primary button--large" type="button" data-open-estimate>{{final.cta}}</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer__inner">
+        <div>
+          <span class="logo__word">PROF<b>MET</b></span>
+          <p>{{footer.tagline}}</p>
+        </div>
+        <ul class="footer__contacts">{{contactLinks}}<li>{{footer.address}}</li></ul>
+        <p class="footer__rights">© {{year}} ProfMet. {{footer.rights}}</p>
+      </div>
+    </footer>
+
+    <div class="sticky-cta" data-sticky-cta>
+      <button class="button button--primary button--block" type="button" data-open-estimate>
+        {{sticky.cta}} <span class="sticky-cta__badge" data-offer-badge hidden></span>
+      </button>
+      <a class="icon-button icon-button--outline" href="tel:{{contact.phoneHref}}" aria-label="{{nav.call}}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" /></svg>
+      </a>
+    </div>
+
+    <dialog class="wizard" data-wizard aria-label="{{hero.cta}}">
+      <div class="wizard__top">
+        <button class="icon-button" type="button" data-wizard-back aria-label="{{js.back}}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+        </button>
+        <div class="wizard__progress" data-wizard-progress></div>
+        <button class="icon-button" type="button" data-wizard-close aria-label="{{js.close}}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>
+      </div>
+      <form class="wizard__body" data-wizard-body novalidate></form>
+    </dialog>
+
+    <script>
+      window.PROFMET = {{clientConfig}};
+    </script>
+    <script src="/assets/app.js?v={{version}}" defer></script>
+  </body>
+</html>

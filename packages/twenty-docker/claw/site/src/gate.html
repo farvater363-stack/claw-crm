@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>ProfMet — решётки на окна · deraza panjaralari</title>
+    <meta name="description" content="Решётки на окна в Ташкенте. Toshkentda deraza panjaralari." />
+    <meta name="theme-color" content="#16181a" />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <script>
+      try {
+        var language = localStorage.getItem('profmet-lang');
+
+        if (language === 'ru' || language === 'uz') location.replace('/' + language + '/');
+      } catch (error) {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fira+Sans+Extra+Condensed:wght@700;800&family=Golos+Text:wght@400;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="/assets/styles.css?v={{version}}" />
+  </head>
+  <body class="gate">
+    <main class="gate__inner">
+      <span class="logo gate__logo">
+        <svg class="logo__mark" viewBox="0 0 32 36" aria-hidden="true">
+          <path d="M3 34V14a13 13 0 0 1 26 0v20Z" fill="none" stroke="currentColor" stroke-width="3" />
+          <path d="M11 6.5V34M16 4.5V34M21 6.5V34M3 34h26" stroke="currentColor" stroke-width="2.4" />
+          <path d="M16 15l3.2 4.5L16 24l-3.2-4.5Z" fill="#e0590c" />
+        </svg>
+        <span class="logo__word">PROF<b>MET</b></span>
+      </span>
+      <h1 class="gate__title">Выберите язык<span lang="uz">Tilni tanlang</span></h1>
+      <div class="gate__options">
+        <a class="gate__option" href="/ru/" data-language="ru"><span class="gate__code">RU</span>Русский</a>
+        <a class="gate__option" href="/uz/" lang="uz" data-language="uz"><span class="gate__code">UZ</span>O‘zbekcha</a>
+      </div>
+    </main>
+    <script>
+      document.querySelectorAll('[data-language]').forEach(function (link) {
+        link.addEventListener('click', function () {
+          try {
+            localStorage.setItem('profmet-lang', link.dataset.language);
+          } catch (error) {}
+        });
+      });
+    </script>
+  </body>
+</html>

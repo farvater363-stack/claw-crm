@@ -1,6 +1,6 @@
 # Claw CRM production deploy
 
-One DigitalOcean Droplet (Ubuntu 24.04, 4 GB / 2 vCPU) running Caddy, the Twenty server and worker, Postgres 16 and Redis with Docker Compose. Caddy gets the HTTPS certificate for your domain automatically. The server image is built by `.github/workflows/cd-claw-image.yaml` on every merge to main and published as `ghcr.io/farvater363-stack/claw-crm`.
+One DigitalOcean Droplet (Ubuntu 24.04, 4 GB / 2 vCPU) running Caddy, the Twenty server and worker, Postgres 16 and Redis with Docker Compose. Caddy gets the HTTPS certificates for both domains automatically and also serves the public ProfMet site. `.github/workflows/cd-claw-image.yaml` builds both images on every merge to main: the server as `ghcr.io/farvater363-stack/claw-crm`, and Caddy with the site baked in as `ghcr.io/farvater363-stack/claw-web`.
 
 ## 1. Domain
 
@@ -96,6 +96,19 @@ docker run --rm -v claw_server-local-data:/data -v /var/backups/claw:/backup alp
 docker compose up -d
 ```
 
+## ProfMet site
+
+The site source is in `site/` (see `site/README.md`). Caddy serves it on `SITE_DOMAIN` and redirects `www.` to it. Its estimate form posts to `/api/website/estimate`, which Caddy forwards to the Claw app's public route `/s/website/estimate` on the CRM, so a request becomes a «Новый» order with source «Сайт».
+
+To turn it on:
+
+1. Add **A records** for `SITE_DOMAIN` and `www.SITE_DOMAIN` pointing at the Droplet.
+2. Set `SITE_DOMAIN` in `.env`, then fetch the current `docker-compose.yml` and `Caddyfile` again (step 4 commands).
+3. Apply the Claw app (step 6) so the `website-catalog` and `website-estimate` routes exist. The monthly discount is the app variable «Скидка месяца на сайте, %» (`WEBSITE_OFFER_PERCENT`, default 10) in Settings → Applications → Claw CRM; `0` turns the offer off. It applies until the end of the current month and changes on the site within 5 minutes.
+4. `docker compose pull && docker compose up -d`.
+
+If `claw-web` is refused on pull, make the package public the same way as `claw-crm`.
+
 ## Updating
 
 After a merge to main has built a new image:
@@ -105,3 +118,5 @@ cd /opt/claw && docker compose pull && docker compose up -d
 ```
 
 The server applies database migrations on start, so run `/opt/claw/backup.sh` first. To roll back, set `TAG` in `.env` to the previous commit SHA and restore that pre-update backup as above: an older image may not run on a database a newer one migrated.
+
+`TAG` pins both `claw-crm` and `claw-web`. `claw-web` exists only for commits from the ProfMet site onwards, so a rollback to an older commit also needs the older `docker-compose.yml` (plain `caddy:2`). When updating from a version without the site, fetch the new `docker-compose.yml` and `Caddyfile` and add `SITE_DOMAIN` to `.env`; without it the site stays on `localhost` and the CRM works as before.

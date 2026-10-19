@@ -1,0 +1,48 @@
+name: CD Claw web image
+
+permissions:
+  contents: read
+  packages: write
+
+# Built on every merge to main, like the server image, so TAG in .env always names a pair that exists.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - .github/workflows/cd-claw-web.yaml
+      - packages/twenty-docker/claw/site/**
+  workflow_dispatch:
+
+concurrency:
+  group: cd-claw-web-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/farvater363-stack/claw-web
+
+jobs:
+  build-and-push:
+    if: github.repository == 'farvater363-stack/claw-crm'
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and push
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # Pull requests only prove the image builds; main publishes it.
+          OUTPUT=--push
+          if [ "$EVENT_NAME" = pull_request ]; then OUTPUT=; fi
+          docker buildx create --use
+          docker buildx build \
+            --platform linux/amd64 \
+            --tag $IMAGE:main \
+            --tag $IMAGE:${{ github.sha }} \
+            $OUTPUT \
+            packages/twenty-docker/claw/site

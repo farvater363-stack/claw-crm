@@ -1,7 +1,8 @@
 name: claw
 
-# Production stack for one Droplet: Caddy terminates HTTPS for $DOMAIN and
-# proxies to the Twenty server; Postgres and Redis are not published.
+# Production stack for one Droplet: Caddy terminates HTTPS for $DOMAIN (the CRM)
+# and $SITE_DOMAIN (the ProfMet site, baked into the claw-web image) and proxies
+# to the Twenty server; Postgres and Redis are not published.
 
 x-twenty-environment: &twenty-environment
   PG_DATABASE_URL: postgres://${PG_DATABASE_USER:-postgres}:${PG_DATABASE_PASSWORD}@db:5432/${PG_DATABASE_NAME:-default}
@@ -17,13 +18,14 @@ x-twenty-environment: &twenty-environment
 
 services:
   caddy:
-    image: caddy:2
+    image: ghcr.io/farvater363-stack/claw-web:${TAG:-main}
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN}
+      SITE_DOMAIN: ${SITE_DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
