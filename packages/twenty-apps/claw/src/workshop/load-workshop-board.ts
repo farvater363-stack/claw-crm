@@ -137,7 +137,6 @@ export const loadWorkshopOrders = async (
             floor: true,
             measurementDate: true,
             measurerId: true,
-            schemePdf: PHOTO,
             comment: true,
             paintColor: true,
             productionStartDate: true,
@@ -376,7 +375,6 @@ export const loadWorkshopOrders = async (
     measurementDate: node.measurementDate
       ? todayInTashkent(new Date(node.measurementDate))
       : null,
-    schemePdfUrl: urlsOf(node.schemePdf)[0] ?? null,
     comment: textOrNull(node.comment),
     paintColor: textOrNull(node.paintColor),
     startDate: node.productionStartDate ?? null,
