@@ -1,0 +1,41 @@
+tests/claw/warehouse.spec.ts:179:7 › the owner keeps stock › adds a material and its row reads «Хватает»
+tests/claw/warehouse.spec.ts:200:7 › the owner keeps stock › buys 60 and «Есть» reads «60 м»
+tests/claw/warehouse.spec.ts:222:7 › the owner keeps stock › recounts to 55 and «Есть» reads «55 м»
+tests/claw/warehouse.spec.ts:242:5 › a failed purchase, corrected and retried, is recorded once with the corrected amount
+tests/claw/warehouse.spec.ts:308:5 › a manager opens «Склад» and a row has no price field
+tests/claw/warehouse.spec.ts:332:5 › the measurer has no «Склад» in the sidebar
+tests/claw/warehouse.spec.ts:427:7 › the sidebar of the owner has the phase 1 menu and only Russian entries
+tests/claw/warehouse.spec.ts:427:7 › the sidebar of a manager has the phase 1 menu and only Russian entries
+tests/claw/warehouse.spec.ts:427:7 › the sidebar of the measurer has the phase 1 menu and only Russian entries
+tests/claw/warehouse.spec.ts:451:5 › an order in «Согласование цены» is a need on the material and the pill reads «Купить»
+tests/claw/warehouse.spec.ts:527:5 › the owner dashboard names the overuse table «Уходит больше нормы»
+  11 passed (3.6m)
+--- unit
+ Test Files  27 passed (27)
+      Tests  343 passed (343)
+   Start at  20:14:52
+   Duration  868ms (transform 1.14s, setup 0ms, import 1.89s, tests 646ms, environment 4ms)
+
+--- lint
+Found 0 warnings and 0 errors.
+Finished in 408ms on 161 files with 12 rules using 10 threads.
+--- integration warehouse-orders
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Duration  28.88s (transform 18ms, setup 0ms, import 114ms, tests 11.57s, environment 0ms)
+--- integration warehouse
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Duration  21.60s (transform 15ms, setup 0ms, import 112ms, tests 4.27s, environment 0ms)
+--- integration recalc
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Duration  22.97s (transform 16ms, setup 0ms, import 119ms, tests 5.53s, environment 0ms)
+--- browser spec-prices-2
+  5 passed (1.6m)
+--- browser spec-rest-1
+  13 passed (4.0m)
+--- browser spec-rest-2
+    ../../../../../../../../private/tmp/claude-501/-Users-mardon-CRM--claude-worktrees-claw-simplification-phase-1-452e24/ce9da863-8de7-406c-a071-c0615f1a59da/scratchpad/pw-results/measurement-flow-manager-p-78eeb-photo-and-downloads-it-back/test-failed-1.png
+  1 failed
+  6 passed (2.9m)
