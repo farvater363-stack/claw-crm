@@ -149,7 +149,6 @@ import {
 import { todayInTashkent } from 'src/pricing/dates';
 import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
-import { assignOrderNumber } from 'src/recalc/assign-order-number';
 import { formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
 import {
   Button,
@@ -523,6 +522,25 @@ const waitForOrderName = async (orderId: string): Promise<string | null> => {
   }
 
   return null;
+};
+
+// Asked of the next-order-number function: a measurer may read only their own
+// orders, so the screen cannot work the number out itself.
+const loadNextOrderName = async (): Promise<string> => {
+  const response = await fetch(
+    `${process.env.TWENTY_API_URL}/s/next-order-number`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
+      },
+    },
+  );
+
+  if (!response.ok) throw new Error(`next-order-number: ${response.status}`);
+
+  const { name } = (await response.json()) as { name: string };
+
+  return name;
 };
 
 const findLabel = (
@@ -1580,8 +1598,8 @@ export const NewMeasurement = () => {
       setSignature([]);
 
       if (!scheduledOrders.some((order) => order.id === target)) {
-        assignOrderNumber(new CoreApiClient())
-          .then(({ name }) => setNextOrderName(name))
+        loadNextOrderName()
+          .then(setNextOrderName)
           .catch(() => setNextOrderName(null));
       }
     }

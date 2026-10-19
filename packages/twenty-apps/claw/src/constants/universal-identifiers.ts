@@ -636,5 +636,6 @@ export const IDS = {
     onOrderDestroyed: '02d5bbe6-ec68-481b-a116-d4102e487c19',
     onClientCallCreated: '70aa6c43-63b0-4a95-a964-9e07d4d7804c',
     refreshClients: '632bf9fa-76a6-420f-9daa-d1503396fd4c',
+    nextOrderNumber: '0cc3dd74-c80a-424d-93f5-adc4670d0524',
   },
 } as const;
