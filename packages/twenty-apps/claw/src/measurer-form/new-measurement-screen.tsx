@@ -526,21 +526,33 @@ const waitForOrderName = async (orderId: string): Promise<string | null> => {
 
 // Asked of the next-order-number function: a measurer may read only their own
 // orders, so the screen cannot work the number out itself.
-const loadNextOrderName = async (): Promise<string> => {
-  const response = await fetch(
-    `${process.env.TWENTY_API_URL}/s/next-order-number`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
+const loadNextOrderName = async (): Promise<string | null> => {
+  const fetchName = () =>
+    fetch(
+      `${process.env.TWENTY_FUNCTIONS_URL ?? `${process.env.TWENTY_API_URL}/s`}/next-order-number`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
+        },
       },
-    },
-  );
+    );
+  let response = await fetchName();
+
+  // The token lasts half an hour and only an API call renews it; a measurer
+  // may spend longer than that at one address. The route answers an expired
+  // token with a 500, not a 401.
+  if (!response.ok) {
+    await new CoreApiClient().query({
+      orders: { __args: { first: 1 }, edges: { node: { id: true } } },
+    });
+    response = await fetchName();
+  }
 
   if (!response.ok) throw new Error(`next-order-number: ${response.status}`);
 
-  const { name } = (await response.json()) as { name: string };
+  const { name } = (await response.json()) as { name?: unknown };
 
-  return name;
+  return typeof name === 'string' && name !== '' ? name : null;
 };
 
 const findLabel = (
