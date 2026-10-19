@@ -34,7 +34,7 @@ const CARD_MIN_WIDTH_PX = 220;
 // A single column on a phone would draw each проём a full screen tall.
 const SKETCH_MAX_WIDTH_PX = 280;
 
-type Scheme = {
+export type Scheme = {
   orderName: string;
   clientName: string | null;
   address: string;
@@ -359,7 +359,7 @@ type PrintState =
   | { status: 'ready'; url: string }
   | { status: 'failed'; text: string };
 
-const printScheme = async (
+export const printScheme = async (
   orderId: string,
   scheme: Scheme,
 ): Promise<string> => {

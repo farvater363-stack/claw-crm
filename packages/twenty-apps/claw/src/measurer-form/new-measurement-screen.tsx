@@ -149,6 +149,7 @@ import {
 import { todayInTashkent } from 'src/pricing/dates';
 import { toStoredUzbekPhone } from 'src/pricing/normalize-uzbek-phone';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
+import { assignOrderNumber } from 'src/recalc/assign-order-number';
 import { formatMoney, formatQuantity, formatWhole } from 'src/ui/format';
 import {
   Button,
@@ -637,6 +638,9 @@ export const NewMeasurement = () => {
   const [saveIds, setSaveIds] = useState(createSaveIds);
   const [step, setStep] = useState<Step>('client');
   const [signature, setSignature] = useState<SignatureStroke[]>([]);
+  // The number a new order will most likely get, shown on its contract
+  // before saving; the signed PDF takes the number it really got.
+  const [nextOrderName, setNextOrderName] = useState<string | null>(null);
   const [contractTemplate, setContractTemplate] =
     useState<ContractTemplate | null>(null);
   // The order whose card opened the form: «Назад» returns there
@@ -1192,7 +1196,6 @@ export const NewMeasurement = () => {
     selectedIndex === -1 ? null : draft.openings[selectedIndex];
   const isServicesSelected = selectedOpening === null;
 
-  // The scheduled order already has its number; a new one gets it on saving.
   const contractData = (template: ContractTemplate) => {
     const scheduled = scheduledOrders.find((order) => order.id === target);
 
@@ -1205,7 +1208,9 @@ export const NewMeasurement = () => {
       discount: preview.discount,
       total: preview.total ?? 0,
       prepayment: preview.prepayment,
-      number: contractNumberOf(scheduled?.name ?? null),
+      number: contractNumberOf(
+        scheduled === undefined ? nextOrderName : scheduled.name,
+      ),
       signedOn: today,
       template,
     });
@@ -1573,6 +1578,12 @@ export const NewMeasurement = () => {
       }
 
       setSignature([]);
+
+      if (!scheduledOrders.some((order) => order.id === target)) {
+        assignOrderNumber(new CoreApiClient())
+          .then(({ name }) => setNextOrderName(name))
+          .catch(() => setNextOrderName(null));
+      }
     }
 
     setErrors([]);
@@ -2857,7 +2868,7 @@ export const NewMeasurement = () => {
               считается с выносом.
             </span>
           )}
-          {!isRailing && opening.projectionKind !== 'NONE' && (
+          {!isRailing && (
             <SettingRow label="Установка">
               <Segmented
                 label="Установка"

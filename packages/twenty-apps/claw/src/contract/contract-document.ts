@@ -293,9 +293,7 @@ const openingEntries = (openings: ContractOpening[]): string[] =>
         hasProjection ? opening.projectionCm : 0,
         opening.quantity,
         ...(opening.isRailing === true ? ['RAILING'] : []),
-        ...(hasProjection && opening.projectionSide
-          ? [opening.projectionSide]
-          : []),
+        ...(opening.projectionSide ? [opening.projectionSide] : []),
         ...(opening.shape === null || opening.shape === undefined
           ? []
           : [opening.shape.outline]),
