@@ -33,6 +33,15 @@ describe('my-worker route', () => {
     });
   });
 
+  it('takes the caller from the token, never from the request', async () => {
+    expect(
+      await handler(
+        { workspaceMemberId: 'member-measurer' },
+        contextOf('member-manager'),
+      ),
+    ).toEqual({ workerId: null });
+  });
+
   it('looks nobody up when the token names no member', async () => {
     vi.mocked(findWorkerIdByLogin).mockClear();
 
