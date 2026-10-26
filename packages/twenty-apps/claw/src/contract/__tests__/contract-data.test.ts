@@ -84,6 +84,7 @@ describe('services in the contract', () => {
       discount: 0,
       total: 150_000,
       prepaid: 0,
+      paid: 0,
       installationDeadline: null,
       paintColor: null,
       items: [],
@@ -117,6 +118,46 @@ describe('services in the contract', () => {
   });
 });
 
+describe('the prepayment in the contract', () => {
+  const order = (
+    money: Pick<StoredOrderForContract, 'prepaid' | 'paid'>,
+  ): StoredOrderForContract => ({
+    name: '№1014',
+    clientFullName: { firstName: 'Азиз', lastName: 'Рахимов' },
+    clientPhone: '+998901234567',
+    district: null,
+    addressLine: null,
+    floor: null,
+    subtotal: 1_000_000,
+    discount: 0,
+    total: 1_000_000,
+    installationDeadline: null,
+    paintColor: null,
+    items: [],
+    extraServices: [],
+    ...money,
+  });
+  const prepaymentOf = (
+    money: Pick<StoredOrderForContract, 'prepaid' | 'paid'>,
+  ) =>
+    contractDataFromOrder(order(money), DEFAULT_CONTRACT_TEMPLATE, '2026-10-12')
+      .prepayment;
+
+  it('leaves out what was paid after the order went to the workshop', () => {
+    expect(prepaymentOf({ prepaid: 300_000, paid: 800_000 })).toBe(300_000);
+  });
+
+  it('falls back to what was paid on an order with no prepayment stored yet', () => {
+    expect(prepaymentOf({ prepaid: null, paid: 800_000 })).toBe(800_000);
+  });
+
+  it('never prints more than the total', () => {
+    expect(prepaymentOf({ prepaid: 1_200_000, paid: 1_200_000 })).toBe(
+      1_000_000,
+    );
+  });
+});
+
 describe('a «Другая» рисунок in the contract', () => {
   const item = (
     overrides: Partial<StoredOrderForContract['items'][number]>,
@@ -146,6 +187,7 @@ describe('a «Другая» рисунок in the contract', () => {
       discount: 0,
       total: 600_000,
       prepaid: 0,
+      paid: 0,
       installationDeadline: null,
       paintColor: null,
       items: [

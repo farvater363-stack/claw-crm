@@ -112,6 +112,7 @@ import {
   toOrderUpdateData,
   UZBEK_PHONE_PREFIX,
   type VisorOption,
+  withCashHolder,
 } from 'src/measurer-form/measurer-form';
 import {
   DisclosureRow,
@@ -524,19 +525,19 @@ const waitForOrderName = async (orderId: string): Promise<string | null> => {
   return null;
 };
 
-// Asked of the next-order-number function: a measurer may read only their own
-// orders, so the screen cannot work the number out itself.
-const loadNextOrderName = async (): Promise<string | null> => {
-  const fetchName = () =>
+// Asked of the app's own functions, which run as the application: a measurer
+// may read only their own orders and no workers.
+const askFunction = async (path: string): Promise<Record<string, unknown>> => {
+  const request = () =>
     fetch(
-      `${process.env.TWENTY_FUNCTIONS_URL ?? `${process.env.TWENTY_API_URL}/s`}/next-order-number`,
+      `${process.env.TWENTY_FUNCTIONS_URL ?? `${process.env.TWENTY_API_URL}/s`}/${path}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
         },
       },
     );
-  let response = await fetchName();
+  let response = await request();
 
   // The token lasts half an hour and only an API call renews it; a measurer
   // may spend longer than that at one address. The route answers an expired
@@ -545,14 +546,24 @@ const loadNextOrderName = async (): Promise<string | null> => {
     await new CoreApiClient().query({
       orders: { __args: { first: 1 }, edges: { node: { id: true } } },
     });
-    response = await fetchName();
+    response = await request();
   }
 
-  if (!response.ok) throw new Error(`next-order-number: ${response.status}`);
+  if (!response.ok) throw new Error(`${path}: ${response.status}`);
 
-  const { name } = (await response.json()) as { name?: unknown };
+  return (await response.json()) as Record<string, unknown>;
+};
+
+const loadNextOrderName = async (): Promise<string | null> => {
+  const { name } = await askFunction('next-order-number');
 
   return typeof name === 'string' && name !== '' ? name : null;
+};
+
+const loadOwnWorkerId = async (): Promise<string | null> => {
+  const { workerId } = await askFunction('my-worker');
+
+  return typeof workerId === 'string' && workerId !== '' ? workerId : null;
 };
 
 const findLabel = (
@@ -1435,7 +1446,15 @@ export const NewMeasurement = () => {
     let isPaymentFailed = false;
 
     if (payload.firstPayment !== null) {
-      const { amount, ...firstPayment } = payload.firstPayment;
+      // Without the worker the cash is counted as the business's, as before.
+      const workerId =
+        payload.firstPayment.method === 'CASH'
+          ? await loadOwnWorkerId().catch(() => null)
+          : null;
+      const { amount, ...firstPayment } = withCashHolder(
+        payload.firstPayment,
+        workerId,
+      );
 
       try {
         const { createOrderPayment } = await client.mutation({

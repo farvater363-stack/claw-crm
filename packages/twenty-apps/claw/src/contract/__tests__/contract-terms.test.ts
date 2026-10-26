@@ -108,6 +108,7 @@ const savedOrder = (draft: MeasurementDraft): StoredOrderForContract => {
     discount: 0,
     total: TOTAL,
     prepaid: 0,
+    paid: 0,
     installationDeadline: null,
     paintColor: null,
     items: payload.items.map((item) => ({

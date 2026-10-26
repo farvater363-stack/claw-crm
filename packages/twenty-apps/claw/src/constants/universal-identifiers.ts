@@ -638,5 +638,6 @@ export const IDS = {
     onClientCallCreated: '70aa6c43-63b0-4a95-a964-9e07d4d7804c',
     refreshClients: '632bf9fa-76a6-420f-9daa-d1503396fd4c',
     nextOrderNumber: '0cc3dd74-c80a-424d-93f5-adc4670d0524',
+    myWorker: 'e6cbc3dd-985f-4747-ae12-26d7da2f7eba',
   },
 } as const;

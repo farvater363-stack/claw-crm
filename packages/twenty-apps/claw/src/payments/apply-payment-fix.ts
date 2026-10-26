@@ -9,7 +9,6 @@ export type PaymentEventRecord = {
   name: string | null;
   paidOn: string | null;
   method: string | null;
-  receivedById?: string | null;
   amount: { amountMicros?: number | string | null } | null;
 };
 
@@ -17,20 +16,16 @@ export const applyPaymentFix = async (
   client: CoreApiClient,
   paymentId: string,
   payment: PaymentEventRecord,
-  extra: Record<string, unknown> = {},
 ): Promise<void> => {
-  const data = {
-    ...paymentFix(
-      {
-        name: payment.name ?? null,
-        paidOn: payment.paidOn ?? null,
-        method: payment.method ?? null,
-        amount: fromCurrency(payment.amount),
-      },
-      todayInTashkent(),
-    ),
-    ...extra,
-  };
+  const data = paymentFix(
+    {
+      name: payment.name ?? null,
+      paidOn: payment.paidOn ?? null,
+      method: payment.method ?? null,
+      amount: fromCurrency(payment.amount),
+    },
+    todayInTashkent(),
+  );
 
   if (Object.keys(data).length > 0) {
     await client.mutation({

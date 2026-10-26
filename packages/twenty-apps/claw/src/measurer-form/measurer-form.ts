@@ -150,7 +150,18 @@ export type FirstPayment = {
   method: PaymentMethod;
   comment: string;
   paidOn: string;
+  receivedById?: string;
 };
+
+// Cash the measurer takes stays with them until it is handed over; a card or
+// a transfer goes straight to the business.
+export const withCashHolder = (
+  payment: FirstPayment,
+  workerId: string | null,
+): FirstPayment =>
+  payment.method === 'CASH' && workerId !== null
+    ? { ...payment, receivedById: workerId }
+    : payment;
 
 export type VisorOption = { id: string; name: string; price: number | null };
 
