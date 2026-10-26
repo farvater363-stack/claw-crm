@@ -17,6 +17,7 @@ import {
   describePhotoUploadFailure,
   draftFromScheduledOrder,
   EMPTY_PAYMENT_DRAFT,
+  type FirstPayment,
   formatUzbekNationalPhone,
   type MeasurementContext,
   type MeasurementDraft,
@@ -32,6 +33,7 @@ import {
   takePhotosWithinLimit,
   toDateTimeLocalInputValue,
   toOrderUpdateData,
+  withCashHolder,
 } from 'src/measurer-form/measurer-form';
 
 const opening = (overrides: Partial<OpeningDraft>): OpeningDraft => ({
@@ -1329,5 +1331,31 @@ describe('createOpeningLike', () => {
       notes: '',
       quantity: '1',
     });
+  });
+});
+
+describe('withCashHolder', () => {
+  const payment: FirstPayment = {
+    amount: 500_000,
+    method: 'CASH',
+    comment: '',
+    paidOn: '2026-10-26',
+  };
+
+  it('keeps the cash with the measurer who took it', () => {
+    expect(withCashHolder(payment, 'worker-measurer')).toEqual({
+      ...payment,
+      receivedById: 'worker-measurer',
+    });
+  });
+
+  it('leaves it with the business when the measurer is no worker', () => {
+    expect(withCashHolder(payment, null)).toEqual(payment);
+  });
+
+  it('leaves a card or a transfer with the business', () => {
+    const card = { ...payment, method: 'CARD' as const };
+
+    expect(withCashHolder(card, 'worker-measurer')).toEqual(card);
   });
 });

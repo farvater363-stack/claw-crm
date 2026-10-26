@@ -58,6 +58,7 @@ const HIDDEN_ORDER_FIELDS: string[] = [
   IDS.order.discountValue,
   IDS.order.discount,
   IDS.order.total,
+  IDS.order.prepaid,
   IDS.order.paid,
   IDS.order.balance,
 ];

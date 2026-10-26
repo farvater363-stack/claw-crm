@@ -102,6 +102,7 @@ export const loadRecalcInput = async (
           discountValue: true,
           discount: money,
           total: money,
+          prepaid: money,
           paid: money,
           balance: money,
           costTotal: money,
@@ -200,7 +201,7 @@ export const loadRecalcInput = async (
     // Deleted payments are left out by the API, so this is what was really paid.
     orderPayments: {
       __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
-      edges: { node: { amount: money } },
+      edges: { node: { amount: money, paidOn: true } },
     },
   });
 
@@ -290,6 +291,11 @@ export const loadRecalcInput = async (
   const masterId = order.masterId ?? null;
   const isOrderInstalled = isInstalled(order.status ?? null);
   const accrualNodes = (payAccruals?.edges ?? []).map(({ node }) => node);
+  const payments = (orderPayments?.edges ?? []).map(({ node }) => ({
+    amount: fromCurrency(node.amount) ?? 0,
+    paidOn: toDate(node.paidOn),
+  }));
+  const productionStartDate = toDate(order.productionStartDate);
   const norms = (materialNorms?.edges ?? []).map(({ node }) => ({
     designId: node.designId ?? null,
     extraServiceId: node.extraServiceId ?? null,
@@ -320,12 +326,13 @@ export const loadRecalcInput = async (
       discountValue: toNumber(order.discountValue),
       discount: fromCurrency(order.discount),
       total: fromCurrency(order.total),
+      prepaid: fromCurrency(order.prepaid),
       paid: fromCurrency(order.paid),
       balance: fromCurrency(order.balance),
       costTotal: fromCurrency(order.costTotal),
       margin: fromCurrency(order.margin),
       marginPercent: toNumber(order.marginPercent),
-      productionStartDate: toDate(order.productionStartDate),
+      productionStartDate,
       installationDeadline: toDate(order.installationDeadline),
       installedAt: toDate(order.installedAt),
       readyAt: toDate(order.readyAt),
@@ -362,10 +369,15 @@ export const loadRecalcInput = async (
             },
           }
         : null,
-    paymentsTotal: (orderPayments?.edges ?? []).reduce(
-      (sum, { node }) => sum + (fromCurrency(node.amount) ?? 0),
-      0,
-    ),
+    paymentsTotal: payments.reduce((sum, { amount }) => sum + amount, 0),
+    // Until the order goes to the workshop, every payment so far is a prepayment.
+    prepaymentsTotal: payments
+      .filter(
+        ({ paidOn }) =>
+          productionStartDate === null ||
+          (paidOn !== null && paidOn <= productionStartDate),
+      )
+      .reduce((sum, { amount }) => sum + amount, 0),
     payTotal: (payAccruals?.edges ?? []).reduce(
       (sum, { node }) => sum + (fromCurrency(node.amount) ?? 0),
       0,

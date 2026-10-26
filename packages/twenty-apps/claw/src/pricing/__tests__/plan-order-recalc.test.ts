@@ -16,6 +16,7 @@ const emptyOrder: OrderSnapshot = {
   discountValue: null,
   discount: null,
   total: null,
+  prepaid: null,
   paid: null,
   balance: null,
   costTotal: null,
@@ -130,6 +131,7 @@ const input = (overrides: Partial<RecalcInput> = {}): RecalcInput => ({
   ],
   master: paidPerSquareMeter(10_000, 4),
   paymentsTotal: 0,
+  prepaymentsTotal: 0,
   payTotal: 0,
   today: '2026-10-01',
   refreshPriceItemIds: [],
@@ -636,6 +638,7 @@ describe('planOrderRecalc', () => {
       input({
         items: [],
         paymentsTotal: 500_000,
+        prepaymentsTotal: 500_000,
         order: {
           ...emptyOrder,
           areaSquareMeters: 12.5,
@@ -648,6 +651,7 @@ describe('planOrderRecalc', () => {
     expect(plan.orderUpdate).toEqual({
       subtotal: 4_000_000,
       discount: 0,
+      prepaid: 500_000,
       paid: 500_000,
       balance: 3_500_000,
       margin: 1_500_000,
@@ -803,7 +807,7 @@ describe('planOrderRecalc', () => {
 
     expect(
       planOrderRecalc(input({ items: [], order, master: null })).orderUpdate,
-    ).toEqual({ paid: 0, balance: 3_600_000 });
+    ).toEqual({ prepaid: 0, paid: 0, balance: 3_600_000 });
   });
 
   it('counts what is paid and what is left from the payments, after the discount', () => {
@@ -823,10 +827,27 @@ describe('planOrderRecalc', () => {
 
   it('shows what is paid even while the total is unknown', () => {
     const plan = planOrderRecalc(
-      input({ items: [], paymentsTotal: 100_000, master: null }),
+      input({
+        items: [],
+        paymentsTotal: 100_000,
+        prepaymentsTotal: 100_000,
+        master: null,
+      }),
     );
 
-    expect(plan.orderUpdate).toEqual({ paid: 100_000 });
+    expect(plan.orderUpdate).toEqual({ prepaid: 100_000, paid: 100_000 });
+  });
+
+  it('stores the prepayment apart from what is paid in all', () => {
+    const plan = planOrderRecalc(
+      input({ paymentsTotal: 500_000, prepaymentsTotal: 300_000 }),
+    );
+
+    expect(plan.orderUpdate).toMatchObject({
+      prepaid: 300_000,
+      paid: 500_000,
+      balance: 268_000,
+    });
   });
 
   it('plans nothing when everything is already up to date', () => {

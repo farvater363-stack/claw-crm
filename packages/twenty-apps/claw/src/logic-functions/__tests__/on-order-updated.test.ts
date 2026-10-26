@@ -8,6 +8,6 @@ describe('on-order-updated trigger', () => {
   it('recalculates again when the paid sum or the balance changes', () => {
     expect(
       onOrderUpdated.config.databaseEventTriggerSettings?.updatedFields,
-    ).toEqual(expect.arrayContaining(['paid', 'balance']));
+    ).toEqual(expect.arrayContaining(['prepaid', 'paid', 'balance']));
   });
 });

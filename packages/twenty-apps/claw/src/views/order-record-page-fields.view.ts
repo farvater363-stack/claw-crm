@@ -81,6 +81,7 @@ export default defineView({
       'discountValue',
       'discount',
       'total',
+      'prepaid',
       'paid',
       'balance',
     ]),

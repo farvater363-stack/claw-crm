@@ -124,6 +124,40 @@ describe('loadRecalcInput', () => {
     ).toBe(500_000);
   });
 
+  describe('the prepayment', () => {
+    const PAYMENTS = [
+      { amount: uzs(300_000), paidOn: '2026-10-01' },
+      { amount: uzs(200_000), paidOn: '2026-10-05' },
+      { amount: uzs(100_000), paidOn: '2026-10-06' },
+    ];
+
+    const prepaymentWith = async (productionStartDate: string | null) => {
+      const { client } = fakeClient(PAYMENTS, {
+        order: { id: 'order-1', status: 'IN_PRODUCTION', productionStartDate },
+      });
+
+      return (await loadRecalcInput(client, 'order-1', NO_REFRESH))
+        ?.prepaymentsTotal;
+    };
+
+    it('counts the payments made before and on the day production starts', async () => {
+      expect(await prepaymentWith('2026-10-05')).toBe(500_000);
+    });
+
+    it('leaves out the payments made after production starts', async () => {
+      expect(await prepaymentWith('2026-10-02')).toBe(300_000);
+      expect(await prepaymentWith('2026-09-30')).toBe(0);
+    });
+
+    it('counts every payment while the order has not gone to production', async () => {
+      expect(await prepaymentWith(null)).toBe(600_000);
+    });
+
+    it('reads the start date of a timestamp the same as a day', async () => {
+      expect(await prepaymentWith('2026-10-05T00:00:00.000Z')).toBe(500_000);
+    });
+  });
+
   describe('the rates kept on the lines of the master', () => {
     const keptRatesOf = async (status: string) => {
       const { client } = fakeClient([], {

@@ -21,6 +21,7 @@ import { installMutationObserver } from '@/polyfills/dom/utils/installMutationOb
 import { installNodeContainsPolyfill } from '@/polyfills/dom/utils/installNodeContainsPolyfill';
 import { installSelectorMethodsPolyfill } from '@/polyfills/selectors/utils/installSelectorMethodsPolyfill';
 import { workerGeometryStore } from '@/polyfills/geometry/states/workerGeometryStore';
+import { dispatchHostWindowEvent } from '@/polyfills/host-window-events/utils/dispatchHostWindowEvent';
 import { installElementGeometryPolyfill } from '@/polyfills/geometry/utils/installElementGeometryPolyfill';
 import { installWindowGeometryPolyfill } from '@/polyfills/geometry/utils/installWindowGeometryPolyfill';
 import { workerMediaBridge } from '@/polyfills/media/states/workerMediaBridge';
@@ -164,6 +165,9 @@ const workerExports: WorkerExports = {
   },
   pushMediaSessionEvents: async (batch) => {
     workerMediaBridge.dispatchEvents(batch);
+  },
+  dispatchHostWindowEvent: async (event) => {
+    dispatchHostWindowEvent(event, { document, window });
   },
 };
 

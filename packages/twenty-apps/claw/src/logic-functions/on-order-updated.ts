@@ -216,6 +216,7 @@ export default defineLogicFunction({
       'costTotal',
       // Recalcs of one order run unlocked, so a late one can write sums computed
       // before a payment existed. Watching them makes that write recalc again.
+      'prepaid',
       'paid',
       'balance',
       'clientId',

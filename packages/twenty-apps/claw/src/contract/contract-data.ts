@@ -308,6 +308,7 @@ export type StoredOrderForContract = {
   subtotal: number | null;
   discount: number | null;
   total: number | null;
+  prepaid: number | null;
   paid: number | null;
   installationDeadline: string | null;
   paintColor: string | null;
@@ -448,7 +449,8 @@ export const contractDataFromOrder = (
     subtotal: order.subtotal,
     discount: order.discount ?? 0,
     total,
-    prepayment: Math.min(order.paid ?? 0, total),
+    // An order not recalculated since «Предоплата» existed has none stored yet.
+    prepayment: Math.min(order.prepaid ?? order.paid ?? 0, total),
     termDays: termDaysUntil(
       signedOn,
       order.installationDeadline,

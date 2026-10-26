@@ -107,6 +107,7 @@ export const syncContractState = async (
     subtotal: null,
     discount: null,
     total: fromCurrency(order.total),
+    prepaid: null,
     paid: null,
     installationDeadline: null,
     paintColor: order.paintColor ?? null,
