@@ -7,6 +7,7 @@ const CURRENCY_FIELDS = new Set([
   'subtotal',
   'discount',
   'total',
+  'prepaid',
   'paid',
   'balance',
   'costTotal',

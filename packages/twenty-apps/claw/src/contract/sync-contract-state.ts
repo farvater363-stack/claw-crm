@@ -107,7 +107,7 @@ export const syncContractState = async (
     subtotal: null,
     discount: null,
     total: fromCurrency(order.total),
-    paid: null,
+    prepaid: null,
     installationDeadline: null,
     paintColor: order.paintColor ?? null,
     items: (orderItems?.edges ?? []).map(({ node }) => ({

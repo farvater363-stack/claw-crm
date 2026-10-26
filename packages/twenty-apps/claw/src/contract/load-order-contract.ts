@@ -46,7 +46,7 @@ export const loadOrderContract = async (
             subtotal: MONEY,
             discount: MONEY,
             total: MONEY,
-            paid: MONEY,
+            prepaid: MONEY,
             installationDeadline: true,
             paintColor: true,
           },
@@ -131,7 +131,7 @@ export const loadOrderContract = async (
       subtotal: fromCurrency(order.subtotal),
       discount: fromCurrency(order.discount),
       total: fromCurrency(order.total),
-      paid: fromCurrency(order.paid),
+      prepaid: fromCurrency(order.prepaid),
       installationDeadline: order.installationDeadline ?? null,
       paintColor: order.paintColor ?? null,
       items: (orderItems?.edges ?? []).map(({ node }) => ({

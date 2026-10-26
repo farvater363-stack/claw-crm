@@ -83,7 +83,7 @@ describe('services in the contract', () => {
       subtotal: 150_000,
       discount: 0,
       total: 150_000,
-      paid: 0,
+      prepaid: 0,
       installationDeadline: null,
       paintColor: null,
       items: [],
@@ -145,7 +145,7 @@ describe('a «Другая» рисунок in the contract', () => {
       subtotal: 600_000,
       discount: 0,
       total: 600_000,
-      paid: 0,
+      prepaid: 0,
       installationDeadline: null,
       paintColor: null,
       items: [

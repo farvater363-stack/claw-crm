@@ -210,6 +210,7 @@ export default defineObject({
     ),
     money(IDS.order.discount, 'discount', 'Скидка, сум', NOT_AUDIT_LOGGED),
     money(IDS.order.total, 'total', 'Итого', NOT_AUDIT_LOGGED),
+    money(IDS.order.prepaid, 'prepaid', 'Предоплата', NOT_AUDIT_LOGGED),
     money(IDS.order.paid, 'paid', 'Оплачено', NOT_AUDIT_LOGGED),
     money(IDS.order.balance, 'balance', 'Остаток', NOT_AUDIT_LOGGED),
     money(IDS.order.costTotal, 'costTotal', 'Себестоимость'),

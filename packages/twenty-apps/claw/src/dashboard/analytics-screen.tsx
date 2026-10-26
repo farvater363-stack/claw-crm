@@ -45,6 +45,7 @@ import {
   loadAnalytics,
   type PageIds,
 } from 'src/dashboard/load-dashboard';
+import { useReloadOnReturn } from 'src/dashboard/reload-on-return';
 import { useElementWidth } from 'src/measurer-form/measurer-form-ui';
 import { formatWhole } from 'src/ui/format';
 import { ErrorNote, SkeletonRows, usePalette } from 'src/ui/kit';
@@ -99,17 +100,19 @@ export const AnalyticsScreen = () => {
   const [period, setPeriod] = useState<AnalyticsPeriod>('month');
   const [offset, setOffset] = useState(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isQuiet = false) => {
     try {
       setState({
         status: 'ready',
         data: await loadAnalytics(new CoreApiClient()),
       });
     } catch (caught) {
-      setState({
-        status: 'error',
-        text: isAccessError(caught) ? NO_ACCESS : LOAD_FAILED,
-      });
+      if (!isQuiet) {
+        setState({
+          status: 'error',
+          text: isAccessError(caught) ? NO_ACCESS : LOAD_FAILED,
+        });
+      }
     }
   }, []);
 
@@ -119,6 +122,10 @@ export const AnalyticsScreen = () => {
       .then(setPageIds)
       .catch(() => setPageIds({}));
   }, [load]);
+
+  const reloadQuietly = useCallback(() => void load(true), [load]);
+
+  useReloadOnReturn(reloadQuietly);
 
   const isWide = width >= TWO_COLUMNS_FROM_WIDTH;
   const isCompact = width > 0 && width < COLUMNS_MIN_WIDTH;

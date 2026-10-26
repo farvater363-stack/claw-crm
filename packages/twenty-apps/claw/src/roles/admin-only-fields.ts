@@ -49,6 +49,7 @@ export const CALCULATED_FIELD_PERMISSIONS: FieldPermission[] = [
     IDS.order.subtotal,
     IDS.order.discount,
     IDS.order.total,
+    IDS.order.prepaid,
     IDS.order.paid,
     IDS.order.balance,
     IDS.order.deadlineState,

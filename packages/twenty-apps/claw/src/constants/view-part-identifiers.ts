@@ -118,6 +118,7 @@ export const VIEW_PART_IDS = {
       discountValue: '71951613-4aa3-470a-860d-31dfe88c91b3',
       discount: '07e6b7ad-5c58-4638-9a3a-06bac785da7f',
       paid: '431966ff-f129-4755-a158-2a0063e6efb4',
+      prepaid: 'b2683694-fde3-4aec-bb74-f9dbc1dd8c76',
       productionStage: 'fa91bfb5-620b-42ae-a7d4-a2717da3e79e',
       isUrgent: '2d238878-5e45-4adc-be18-77631b0e5004', // Retired: «Срочно» is the select `urgency`; ids are never reused.
       urgency: '5da001b1-eae8-4771-ac51-5d95d09fb572',

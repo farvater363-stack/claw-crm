@@ -115,6 +115,7 @@ export const IDS = {
     discountValue: 'fa1efcd7-88a6-4634-98ca-f7e42e10340f',
     discount: '2d2cef8c-c32d-45c2-959e-6fc3a1f7feb4',
     paid: 'c7b7a733-507a-4f2a-a8a4-61a7423b9c5d',
+    prepaid: '1264e86a-678d-4f87-9cfb-17b9e0cf1545',
     payments: 'adb82e4e-7168-425b-b4a6-c97624bf0539',
     installer: 'c77f3172-535a-43ea-af81-bb3b93e3643c',
     soldBy: '56e42582-5bd8-4386-825a-e44681555132',

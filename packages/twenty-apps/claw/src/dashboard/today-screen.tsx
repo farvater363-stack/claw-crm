@@ -39,6 +39,7 @@ import {
   type PageIds,
   type TodayData,
 } from 'src/dashboard/load-dashboard';
+import { useReloadOnReturn } from 'src/dashboard/reload-on-return';
 import {
   buildToday,
   countWord,
@@ -484,6 +485,10 @@ export const TodayScreen = () => {
       if (settleTimer.current !== null) clearTimeout(settleTimer.current);
     };
   }, [load]);
+
+  const reloadQuietly = useCallback(() => void load(true), [load]);
+
+  useReloadOnReturn(reloadQuietly);
 
   const loadAgainSoon = () => {
     if (settleTimer.current !== null) clearTimeout(settleTimer.current);

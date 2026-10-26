@@ -90,6 +90,7 @@ export type OrderSnapshot = {
   discountValue: number | null;
   discount: number | null;
   total: number | null;
+  prepaid: number | null;
   paid: number | null;
   balance: number | null;
   costTotal: number | null;
@@ -131,6 +132,8 @@ export type RecalcInput = {
   master: MasterSnapshot | null;
   // Sum of the order's payments that are not deleted
   paymentsTotal: number;
+  // The part of it paid by the day the order went to the workshop
+  prepaymentsTotal: number;
   // Sum of the pay lines already written for this order, every worker's
   payTotal: number;
   today: string;
@@ -473,6 +476,7 @@ export const planOrderRecalc = (input: RecalcInput): RecalcPlan => {
     discount,
     total,
     costTotal,
+    prepaid: input.prepaymentsTotal,
     paid: input.paymentsTotal,
     balance: total !== null ? total - input.paymentsTotal : null,
     margin,

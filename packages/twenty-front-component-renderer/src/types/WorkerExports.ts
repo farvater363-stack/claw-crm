@@ -5,6 +5,7 @@ import {
 } from 'twenty-sdk/front-component';
 import { type GeometryUpdateBatch } from '@/types/GeometryUpdateBatch';
 import { type HostToWorkerRenderContext } from '@/types/HostToWorkerRenderContext';
+import { type HostWindowEvent } from '@/types/HostWindowEvent';
 import { type MediaSessionEventBatch } from '@/types/MediaSession';
 
 export type WorkerExports = {
@@ -19,4 +20,5 @@ export type WorkerExports = {
   ) => Promise<void>;
   pushGeometryUpdates: (batch: GeometryUpdateBatch) => Promise<void>;
   pushMediaSessionEvents: (batch: MediaSessionEventBatch) => Promise<void>;
+  dispatchHostWindowEvent: (event: HostWindowEvent) => Promise<void>;
 };
