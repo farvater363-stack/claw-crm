@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   readScreenSnapshot,
+  readScreenSnapshotWithTime,
   writeScreenSnapshot,
 } from 'src/dashboard/screen-snapshot';
 
@@ -28,6 +29,16 @@ describe('screen snapshots', () => {
 
     expect(readScreenSnapshot('today')).toEqual({ owed: 31 });
     expect(readScreenSnapshot('analytics')).toBeNull();
+  });
+
+  it('remembers when the snapshot was taken', () => {
+    writeScreenSnapshot('today', { owed: 31 });
+    vi.setSystemTime(new Date('2026-10-27T14:00:00+05:00'));
+
+    expect(readScreenSnapshotWithTime('today')).toEqual({
+      data: { owed: 31 },
+      savedAt: Date.parse('2026-10-27T09:00:00+05:00'),
+    });
   });
 
   it("drops yesterday's snapshot", () => {

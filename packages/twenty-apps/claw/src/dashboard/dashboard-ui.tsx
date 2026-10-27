@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useContext } from 'react';
 
+import { formatClockTime } from 'src/ui/format';
 import { usePalette } from 'src/ui/kit';
 import {
   CONTROL_HEIGHT,
@@ -637,6 +638,43 @@ export const QuietLine = ({ text }: { text: string }) => {
       }}
     >
       {text}
+    </div>
+  );
+};
+
+// How old the numbers on screen are; a failed refresh says so instead of
+// passing old numbers off as current.
+export const FreshnessLine = ({
+  updatedAt,
+  isFailed,
+  onRetry,
+}: {
+  updatedAt: number | null;
+  isFailed: boolean;
+  onRetry: () => void;
+}) => {
+  const colors = usePalette();
+
+  if (updatedAt === null) return null;
+
+  const time = formatClockTime(updatedAt);
+
+  return (
+    <div
+      role={isFailed ? 'status' : undefined}
+      style={{
+        ...TYPE.label,
+        color: isFailed ? colors.warning : colors.muted,
+      }}
+    >
+      {isFailed ? (
+        <>
+          Не удалось обновить, данные на {time} ·{' '}
+          <TextButton onClick={onRetry}>Повторить</TextButton>
+        </>
+      ) : (
+        `Обновлено в ${time}`
+      )}
     </div>
   );
 };

@@ -55,6 +55,19 @@ describe('sourceRows', () => {
     });
   });
 
+  it('averages only the sales that have a sum', () => {
+    const [instagram] = sourceRows(
+      [
+        order({ status: 'INSTALLED', total: 4_000_000 }),
+        order({ status: 'PRODUCTION', total: null }),
+      ],
+      'month',
+      TODAY,
+    );
+
+    expect(instagram.averageOrder).toBe(4_000_000);
+  });
+
   it('leaves out orders before the period and sources with none', () => {
     const rows = sourceRows(
       [

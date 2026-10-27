@@ -4,14 +4,16 @@ import { dashboardOrder } from 'src/dashboard/__tests__/dashboard-order';
 import {
   addMonths,
   buildFunnel,
-  buildKinds,
+  buildGrilles,
   buildMeasurers,
   buildMetrics,
   buildMonthBars,
   buildRefusals,
   buildStageDays,
   changeOf,
+  marginCoverage,
   periodRanges,
+  soldOn,
 } from 'src/dashboard/analytics';
 
 const TODAY = '2026-10-08';
@@ -118,7 +120,11 @@ describe('buildMetrics', () => {
     }),
   ];
   const metrics = buildMetrics(
-    { orders, payments: [{ paidOn: '2026-10-03', amount: 1_500_000 }] },
+    {
+      orders,
+      payments: [{ paidOn: '2026-10-03', amount: 1_500_000 }],
+      today: TODAY,
+    },
     periodRanges('month', 0, TODAY),
     TODAY,
   );
@@ -150,7 +156,11 @@ describe('buildMetrics', () => {
 describe('buildMonthBars', () => {
   it('marks the month still going', () => {
     const bars = buildMonthBars(
-      { orders: [], payments: [{ paidOn: '2026-09-10', amount: 1_000_000 }] },
+      {
+        orders: [],
+        payments: [{ paidOn: '2026-09-10', amount: 1_000_000 }],
+        today: TODAY,
+      },
       periodRanges('month', 0, TODAY),
       TODAY,
       2,
@@ -214,7 +224,8 @@ describe('funnel, measurers and refusals', () => {
         name: 'Mardon',
         measured: 3,
         sold: 1,
-        conversionPercent: 33,
+        // Of the two who decided; the one still thinking is left out
+        conversionPercent: 50,
         averageOrder: 3_000_000,
       },
       {
@@ -263,12 +274,12 @@ describe('buildStageDays', () => {
   });
 });
 
-describe('buildKinds', () => {
-  it('adds up the area of each grille kind the period’s buyers chose', () => {
+describe('buildGrilles', () => {
+  it('adds up the area of each grille the period’s buyers chose', () => {
     const range = { start: '2026-10-01', end: '2026-10-09' };
 
     expect(
-      buildKinds(
+      buildGrilles(
         [
           dashboardOrder({
             id: 'sold',
@@ -278,16 +289,90 @@ describe('buildKinds', () => {
           dashboardOrder({ id: 'open', status: 'MEASURED' }),
         ],
         [
-          { orderId: 'sold', kindName: 'Ромб', area: 4 },
-          { orderId: 'sold', kindName: 'Ромб', area: 2.5 },
-          { orderId: 'sold', kindName: null, area: 1 },
-          { orderId: 'open', kindName: 'Солнце', area: 9 },
+          { orderId: 'sold', grilleName: 'Ромб', isRailing: false, units: 4 },
+          { orderId: 'sold', grilleName: 'Ромб', isRailing: false, units: 2.5 },
+          { orderId: 'sold', grilleName: null, isRailing: false, units: 1 },
+          { orderId: 'sold', grilleName: 'Классика', isRailing: true, units: 4.5 },
+          { orderId: 'open', grilleName: 'Солнце', isRailing: false, units: 9 },
         ],
         range,
+        TODAY,
       ),
     ).toEqual([
-      { label: 'Ромб', area: 6.5 },
-      { label: 'Вид не указан', area: 1 },
+      { label: 'Ромб', amount: 6.5, unit: 'м²' },
+      { label: 'Решётка не выбрана', amount: 1, unit: 'м²' },
+      { label: 'Перилла', amount: 4.5, unit: 'п.м.' },
     ]);
+  });
+});
+
+describe('metric edge cases', () => {
+  const range = { start: '2026-10-01', end: '2026-10-09' };
+  const measure = (orders: Parameters<typeof buildMetrics>[0]['orders']) =>
+    buildMetrics(
+      { orders, payments: [], today: TODAY },
+      periodRanges('month', 0, TODAY),
+      TODAY,
+    );
+
+  it('dates a sale typed ahead on today', () => {
+    const order = dashboardOrder({
+      status: 'PRODUCTION',
+      productionStart: '2026-11-15',
+      total: 1_000_000,
+    });
+
+    expect(soldOn(order, TODAY)).toBe(TODAY);
+    expect(measure([order]).sold.value).toBe(1_000_000);
+  });
+
+  it('averages only the sales that have a sum', () => {
+    expect(
+      measure([
+        dashboardOrder({
+          id: 'priced',
+          status: 'PRODUCTION',
+          productionStart: '2026-10-02',
+          total: 3_000_000,
+        }),
+        dashboardOrder({
+          id: 'unpriced',
+          status: 'PRODUCTION',
+          productionStart: '2026-10-03',
+        }),
+      ]).average.value,
+    ).toBe(3_000_000);
+  });
+
+  it('sums the margin it knows and says over how many orders', () => {
+    const orders = [
+      dashboardOrder({
+        id: 'known',
+        status: 'INSTALLED',
+        readyAt: '2026-10-02',
+        margin: 500_000,
+      }),
+      dashboardOrder({
+        id: 'unknown',
+        status: 'QUALITY_CHECK',
+        readyAt: '2026-10-03',
+      }),
+    ];
+
+    expect(measure(orders).margin.value).toBe(500_000);
+    expect(marginCoverage(orders, range)).toEqual({ counted: 1, total: 2 });
+  });
+
+  it('leaves out an order sent back to the workshop after it was ready', () => {
+    expect(
+      measure([
+        dashboardOrder({
+          status: 'PRODUCTION',
+          readyAt: '2026-10-02',
+          total: 2_000_000,
+          area: 3,
+        }),
+      ]).revenue.value,
+    ).toBe(0);
   });
 });

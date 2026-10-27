@@ -174,6 +174,28 @@ export const resolveWorkshopRate = ({
   return ruleRate === null ? null : { part: RULE_PART, label: '', rate: ruleRate };
 };
 
+// The grilles every one of these masters is paid something for: on another,
+// some master's work is costed at nothing.
+export const countGrillesRatedForAll = ({
+  catalog,
+  masters,
+}: {
+  catalog: WorkshopCatalog;
+  masters: { id: string; ruleRate: number | null }[];
+}): number =>
+  catalog.designs.filter((design) =>
+    masters.every(
+      (master) =>
+        resolveWorkshopRate({
+          catalog,
+          designId: design.id,
+          masterId: master.id,
+          ruleRate: master.ruleRate,
+          isPerRunningMeter: design.product === 'RAILING',
+        }) !== null,
+    ),
+  ).length;
+
 // Pay per m² cannot be counted without the order's area, so null stands for
 // "unknown": the order then shows no pay and the master gets no line.
 export const planSquareMeterParts = ({

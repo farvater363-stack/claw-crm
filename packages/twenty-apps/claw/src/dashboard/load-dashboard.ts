@@ -6,9 +6,14 @@ import {
   loadCallBackClients,
   personName,
 } from 'src/clients/load-clients';
-import { DISTRICT_OPTIONS } from 'src/constants/select-options';
+import { DISTRICT_OPTIONS, toProduct } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import { formatUzbekNationalPhone } from 'src/measurer-form/measurer-form';
+import { masterRuleRate } from 'src/payroll/pay-rules';
+import { PAY_RULE_SELECTION, toPayRules } from 'src/payroll/pay-records';
+import { countGrillesRatedForAll } from 'src/payroll/workshop-pay';
+import { loadWorkshopCatalog } from 'src/payroll/workshop-rates-data';
+import { computeItemUnits } from 'src/pricing/compute-item-area';
 import { todayInTashkent } from 'src/pricing/dates';
 import { fromCurrency } from 'src/recalc/money';
 import { loadStockBooks } from 'src/stock/load-stock-books';
@@ -61,8 +66,10 @@ export type DashboardPayment = { paidOn: string; amount: number };
 
 export type DashboardItem = {
   orderId: string;
-  kindName: string | null;
-  area: number;
+  grilleName: string | null;
+  isRailing: boolean;
+  // м² of a grille, п.м. of a railing, for all its pieces
+  units: number;
 };
 
 export type SupplierDebt = { id: string; name: string; debt: number };
@@ -70,7 +77,8 @@ export type SupplierDebt = { id: string; name: string; debt: number };
 export type DataChecks = {
   materials: { total: number; priced: number };
   designs: { total: number; withComposition: number };
-  masters: { total: number; withRate: number };
+  // Grilles that pay every active master a rate
+  grilleRates: { total: number; rated: number };
 };
 
 export type PageIds = Partial<
@@ -230,27 +238,70 @@ const loadOrders = async (client: CoreApiClient): Promise<DashboardOrder[]> => {
   }));
 };
 
+// A refund leaves on its own day, as in «Деньги»: the payment it returns
+// stays on the day it came. A role that may not read «Деньги» sees the
+// payments alone.
+const loadRefunds = async (
+  client: CoreApiClient,
+): Promise<DashboardPayment[]> => {
+  try {
+    const nodes = await fetchAllPages(async (after) => {
+      const { moneyEntries } = await client.query({
+        moneyEntries: {
+          __args: {
+            filter: { kind: { eq: 'REFUND' } },
+            first: PAGE_SIZE,
+            after,
+          },
+          edges: { node: { date: true, amount: MONEY } },
+          pageInfo: PAGE_INFO,
+        },
+      });
+
+      return moneyEntries;
+    });
+
+    return nodes.flatMap((node) => {
+      const paidOn = toDay(node.date);
+      const amount = fromCurrency(node.amount);
+
+      return paidOn === null || amount === null
+        ? []
+        : [{ paidOn, amount: -amount }];
+    });
+  } catch (error) {
+    if (!isAccessError(error)) throw error;
+
+    return [];
+  }
+};
+
 const loadPayments = async (
   client: CoreApiClient,
 ): Promise<DashboardPayment[]> => {
-  const nodes = await fetchAllPages(async (after) => {
-    const { orderPayments } = await client.query({
-      orderPayments: {
-        __args: { first: PAGE_SIZE, after },
-        edges: { node: { paidOn: true, amount: MONEY } },
-        pageInfo: PAGE_INFO,
-      },
-    });
+  const [nodes, refunds] = await Promise.all([
+    fetchAllPages(async (after) => {
+      const { orderPayments } = await client.query({
+        orderPayments: {
+          __args: { first: PAGE_SIZE, after },
+          edges: { node: { paidOn: true, amount: MONEY } },
+          pageInfo: PAGE_INFO,
+        },
+      });
 
-    return orderPayments;
-  });
+      return orderPayments;
+    }),
+    loadRefunds(client),
+  ]);
 
-  return nodes.flatMap((node) => {
+  const received = nodes.flatMap((node) => {
     const paidOn = toDay(node.paidOn);
     const amount = fromCurrency(node.amount);
 
     return paidOn === null || amount === null ? [] : [{ paidOn, amount }];
   });
+
+  return [...received, ...refunds];
 };
 
 const loadItems = async (client: CoreApiClient): Promise<DashboardItem[]> => {
@@ -262,8 +313,10 @@ const loadItems = async (client: CoreApiClient): Promise<DashboardItem[]> => {
           node: {
             orderId: true,
             quantity: true,
+            product: true,
+            widthCm: true,
             areaSquareMeters: true,
-            design: { grilleKind: { name: true } },
+            design: { name: true },
           },
         },
         pageInfo: PAGE_INFO,
@@ -273,108 +326,95 @@ const loadItems = async (client: CoreApiClient): Promise<DashboardItem[]> => {
     return orderItems;
   });
 
-  return nodes.flatMap((node) =>
-    node.orderId
-      ? [
-          {
-            orderId: node.orderId,
-            kindName: textOrNull(node.design?.grilleKind?.name),
-            area:
-              Number(node.areaSquareMeters ?? 0) * Number(node.quantity ?? 1),
-          },
-        ]
-      : [],
-  );
+  return nodes.flatMap((node) => {
+    if (!node.orderId) return [];
+
+    const product = toProduct(String(node.product));
+    const units = computeItemUnits({
+      product,
+      widthCm: node.widthCm ?? null,
+      areaSquareMeters:
+        node.areaSquareMeters === null || node.areaSquareMeters === undefined
+          ? null
+          : Number(node.areaSquareMeters),
+    });
+
+    return [
+      {
+        orderId: node.orderId,
+        grilleName: textOrNull(node.design?.name),
+        isRailing: product === 'RAILING',
+        units: (units ?? 0) * Number(node.quantity ?? 1),
+      },
+    ];
+  });
 };
 
 const loadChecks = async (
   client: CoreApiClient,
 ): Promise<Omit<DataChecks, 'materials'>> => {
-  const [designNodes, normNodes, masterNodes, ruleNodes, rateNodes] =
-    await Promise.all([
-      fetchAllPages(async (after) => {
-        const { designs } = await client.query({
-          designs: {
-            __args: { first: PAGE_SIZE, after },
-            edges: { node: { id: true } },
-            pageInfo: PAGE_INFO,
-          },
-        });
+  const [catalog, normNodes, masterNodes, ruleNodes] = await Promise.all([
+    loadWorkshopCatalog(client),
+    fetchAllPages(async (after) => {
+      const { materialNorms } = await client.query({
+        materialNorms: {
+          __args: { first: PAGE_SIZE, after },
+          edges: { node: { designId: true } },
+          pageInfo: PAGE_INFO,
+        },
+      });
 
-        return designs;
-      }),
-      fetchAllPages(async (after) => {
-        const { materialNorms } = await client.query({
-          materialNorms: {
-            __args: { first: PAGE_SIZE, after },
-            edges: { node: { designId: true } },
-            pageInfo: PAGE_INFO,
-          },
-        });
+      return materialNorms;
+    }),
+    fetchAllPages(async (after) => {
+      const { masters } = await client.query({
+        masters: {
+          __args: { first: PAGE_SIZE, after },
+          edges: { node: { id: true, isActive: true, categories: true } },
+          pageInfo: PAGE_INFO,
+        },
+      });
 
-        return materialNorms;
-      }),
-      fetchAllPages(async (after) => {
-        const { masters } = await client.query({
-          masters: {
-            __args: { first: PAGE_SIZE, after },
-            edges: { node: { id: true, isActive: true, categories: true } },
-            pageInfo: PAGE_INFO,
-          },
-        });
+      return masters;
+    }),
+    fetchAllPages(async (after) => {
+      const { payRules } = await client.query({
+        payRules: {
+          __args: { first: PAGE_SIZE, after },
+          edges: { node: PAY_RULE_SELECTION },
+          pageInfo: PAGE_INFO,
+        },
+      });
 
-        return masters;
-      }),
-      fetchAllPages(async (after) => {
-        const { payRules } = await client.query({
-          payRules: {
-            __args: { first: PAGE_SIZE, after },
-            edges: { node: { workerId: true, work: true } },
-            pageInfo: PAGE_INFO,
-          },
-        });
-
-        return payRules;
-      }),
-      fetchAllPages(async (after) => {
-        const { workshopRates } = await client.query({
-          workshopRates: {
-            __args: { first: PAGE_SIZE, after },
-            edges: { node: { workerId: true } },
-            pageInfo: PAGE_INFO,
-          },
-        });
-
-        return workshopRates;
-      }),
-    ]);
+      return payRules;
+    }),
+  ]);
 
   const composed = new Set(normNodes.map((node) => node.designId));
-  const workshopMasters = masterNodes.filter(
-    (node) =>
-      node.isActive !== false &&
-      (node.categories ?? []).some((category) => category === 'MASTER'),
-  );
-  // A rate with no worker is the usual one for its kind: every master has it.
-  const hasCommonRate = rateNodes.some((node) => !node.workerId);
-  const ratedWorkers = new Set([
-    ...rateNodes.map((node) => node.workerId),
-    ...ruleNodes
-      .filter((node) => node.work === 'MASTER')
-      .map((node) => node.workerId),
-  ]);
+  const rules = toPayRules(ruleNodes);
+  const workshopMasters = masterNodes
+    .filter(
+      (node) =>
+        node.isActive !== false &&
+        (node.categories ?? []).some((category) => category === 'MASTER'),
+    )
+    .map((node) => ({
+      id: node.id,
+      ruleRate: masterRuleRate(
+        rules.filter((rule) => rule.workerId === node.id),
+      ),
+    }));
 
   return {
     designs: {
-      total: designNodes.length,
-      withComposition: designNodes.filter((node) => composed.has(node.id))
-        .length,
+      total: catalog.designs.length,
+      withComposition: catalog.designs.filter((design) =>
+        composed.has(design.id),
+      ).length,
     },
-    masters: {
-      total: workshopMasters.length,
-      withRate: hasCommonRate
-        ? workshopMasters.length
-        : workshopMasters.filter((node) => ratedWorkers.has(node.id)).length,
+    grilleRates: {
+      total: catalog.designs.length,
+      rated: countGrillesRatedForAll({ catalog, masters: workshopMasters }),
     },
   };
 };

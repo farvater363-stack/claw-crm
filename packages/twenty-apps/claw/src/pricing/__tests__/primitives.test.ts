@@ -135,31 +135,49 @@ describe('toStoredUzbekPhone', () => {
 });
 
 describe('productionStartOnStatusChange', () => {
+  const stamp = (
+    overrides: Partial<Parameters<typeof productionStartOnStatusChange>[0]>,
+  ) =>
+    productionStartOnStatusChange({
+      status: 'PRODUCTION',
+      previousStatus: 'MEASURED',
+      productionStartDate: null,
+      productionStartTyped: false,
+      today: '2026-10-05',
+      ...overrides,
+    });
+
   it('stamps «Начало» when the order goes into production', () => {
-    expect(
-      productionStartOnStatusChange({
-        status: 'PRODUCTION',
-        productionStartDate: null,
-        today: '2026-10-05',
-      }),
-    ).toBe('2026-10-05');
+    expect(stamp({})).toBe('2026-10-05');
   });
 
   it('keeps a start typed by hand and ignores other statuses', () => {
+    expect(stamp({ productionStartDate: '2026-10-01' })).toBeUndefined();
     expect(
-      productionStartOnStatusChange({
-        status: 'PRODUCTION',
-        productionStartDate: '2026-10-01',
-        today: '2026-10-05',
-      }),
-    ).toBeNull();
+      stamp({ status: 'MEASURED', previousStatus: 'NEW' }),
+    ).toBeUndefined();
+  });
+
+  it('clears «Начало» when the order is taken back before production', () => {
     expect(
-      productionStartOnStatusChange({
+      stamp({
         status: 'MEASURED',
-        productionStartDate: null,
-        today: '2026-10-05',
+        previousStatus: 'PRODUCTION',
+        productionStartDate: '2026-10-01',
       }),
     ).toBeNull();
+  });
+
+  it('keeps «Начало» on cancel, or when typed in the same change', () => {
+    const takenBack = {
+      previousStatus: 'PRODUCTION',
+      productionStartDate: '2026-10-01',
+    };
+
+    expect(stamp({ ...takenBack, status: 'CANCELLED' })).toBeUndefined();
+    expect(
+      stamp({ ...takenBack, status: 'MEASURED', productionStartTyped: true }),
+    ).toBeUndefined();
   });
 });
 
@@ -229,12 +247,15 @@ describe('readyAtOnStatusChange', () => {
     ['QUALITY_CHECK', 'PRODUCTION', null, today],
     ['INSTALLED', 'PRODUCTION', null, today],
     ['INSTALLED', null, null, today],
-    ['INSTALLED', 'QUALITY_CHECK', null, null],
-    ['QUALITY_CHECK', 'INSTALLED', null, null],
-    ['QUALITY_CHECK', 'PRODUCTION', '2026-09-20', null],
-    ['PRODUCTION', 'QUALITY_CHECK', null, null],
-    ['CANCELLED', 'PRODUCTION', null, null],
-    [null, 'PRODUCTION', null, null],
+    ['INSTALLED', 'QUALITY_CHECK', '2026-09-20', undefined],
+    ['QUALITY_CHECK', 'INSTALLED', '2026-09-20', undefined],
+    ['QUALITY_CHECK', 'PRODUCTION', '2026-09-20', undefined],
+    ['PRODUCTION', 'QUALITY_CHECK', '2026-09-20', null],
+    ['PRODUCTION', 'INSTALLED', '2026-09-20', null],
+    ['PRODUCTION', 'QUALITY_CHECK', null, undefined],
+    ['CANCELLED', 'QUALITY_CHECK', '2026-09-20', undefined],
+    ['CANCELLED', 'PRODUCTION', null, undefined],
+    [null, 'PRODUCTION', null, undefined],
   ] as const)(
     'status %s from %s with readyAt %s writes %s',
     (status, previousStatus, readyAt, expected) => {

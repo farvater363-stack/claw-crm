@@ -11,6 +11,7 @@ import {
 import {
   CANCEL_REASON_OPTIONS,
   ORDER_STATUS_OPTIONS,
+  PAID_MONEY_ON_CANCEL_OPTIONS,
   PAYMENT_METHOD_OPTIONS,
   type PaymentMethod,
 } from 'src/constants/select-options';
@@ -62,7 +63,7 @@ import {
   TextInput,
   Wrap,
 } from 'src/ui/kit';
-import { formatWhole } from 'src/ui/format';
+import { formatMoney, formatWhole } from 'src/ui/format';
 import { SPACE, TABULAR_NUMBERS } from 'src/ui/tokens';
 import { isAccessError } from 'src/utils/is-access-error';
 import { randomUuid } from 'src/utils/random-uuid';
@@ -78,12 +79,13 @@ type Draft = StepDraft & {
   comment: string;
   receivedById: string;
   cancelReason: string;
+  paidMoneyOnCancel: string;
 };
 
 const EMPTY_FIELDS = {
   step: { measurerId: '', measurementDate: '', masterId: '', installerId: '' },
   payment: { amount: '', method: 'CASH', comment: '', receivedById: '' },
-  cancel: { cancelReason: '' },
+  cancel: { cancelReason: '', paidMoneyOnCancel: '' },
   visor: {},
 } as const satisfies Record<Kind, Partial<Draft>>;
 
@@ -299,6 +301,10 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
   const visors = visorWarning(
     order.visorsWithoutOpening.map((visor) => visor.name),
   );
+  // A role that may not read the sums is not asked: the order then waits for
+  // its answer among the cancelled ones that took money.
+  const paidToAsk =
+    order.canSeeMoney && (order.paid ?? 0) > 0 ? order.paid : null;
   const place = [
     order.districtLabel,
     order.floor === null ? null : `${order.floor} этаж`,
@@ -442,8 +448,25 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
       return;
     }
 
+    const paidMoneyOnCancel =
+      PAID_MONEY_ON_CANCEL_OPTIONS.find(
+        (option) => option.value === draft.paidMoneyOnCancel,
+      )?.value ?? null;
+
+    if (paidToAsk !== null && paidMoneyOnCancel === null) {
+      setFieldError({ kind: 'cancel', text: 'Выберите, что с деньгами' });
+
+      return;
+    }
+
     void run('cancel', () =>
-      cancelOrder(new CoreApiClient(), order.id, order.status, cancelReason),
+      cancelOrder(
+        new CoreApiClient(),
+        order.id,
+        order.status,
+        cancelReason,
+        paidToAsk === null ? null : paidMoneyOnCancel,
+      ),
     );
   };
 
@@ -676,6 +699,20 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
                 onChange={(cancelReason) => change({ cancelReason })}
               />
             </Field>
+            {paidToAsk === null ? null : (
+              <Field
+                label={`Клиент заплатил ${formatMoney(paidToAsk)}. Деньги`}
+              >
+                <SelectInput
+                  label="Деньги"
+                  value={draft.paidMoneyOnCancel}
+                  options={withEmpty('Выберите', PAID_MONEY_ON_CANCEL_OPTIONS)}
+                  onChange={(paidMoneyOnCancel) =>
+                    change({ paidMoneyOnCancel })
+                  }
+                />
+              </Field>
+            )}
             {errorLineOf('cancel')}
             <InlineConfirm
               question={`Отменить заказ ${order.name}?`}

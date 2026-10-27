@@ -5,6 +5,7 @@ import {
 } from 'twenty-sdk/define';
 
 import { syncOrderClient } from 'src/clients/sync-order-client';
+import { isCancelled } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import {
@@ -35,6 +36,7 @@ type UpdatedOrder = {
   clientFullName: StoredFullName;
   clientId: string | null;
   cancelReason: string | null;
+  paidMoneyOnCancel: string | null;
   productionStartDate: string | null;
   installationDeadline: string | null;
   total: { amountMicros?: number | string | null } | null;
@@ -135,7 +137,7 @@ const handler = async (
         readyAt: after.readyAt ?? null,
         today: todayInTashkent(),
       })
-    : null;
+    : undefined;
 
   const measuredAt = statusChanged
     ? measuredAtOnStatusChange({
@@ -148,10 +150,12 @@ const handler = async (
   const productionStartDate = statusChanged
     ? productionStartOnStatusChange({
         status: after.status ?? null,
+        previousStatus: before.status ?? null,
         productionStartDate: after.productionStartDate ?? null,
+        productionStartTyped: updatedFields.includes('productionStartDate'),
         today: todayInTashkent(),
       })
-    : null;
+    : undefined;
 
   const installationDeadline = updatedFields.includes('productionStartDate')
     ? deadlineOnStartChange({
@@ -163,12 +167,21 @@ const handler = async (
       })
     : undefined;
 
+  // An answer about the money belongs to that cancel: an order taken back from
+  // it drops the answer, which removes its refund, and is asked again next time.
+  const isUncancelled =
+    statusChanged &&
+    isCancelled(before.status ?? null) &&
+    !isCancelled(after.status ?? null) &&
+    (after.paidMoneyOnCancel ?? null) !== null;
+
   // One mutation, so INSTALLED does not fire the trigger twice.
   const stamps: Record<string, unknown> = {
-    ...(productionStartDate !== null && { productionStartDate }),
+    ...(isUncancelled && { paidMoneyOnCancel: null }),
+    ...(productionStartDate !== undefined && { productionStartDate }),
     ...(installationDeadline !== undefined && { installationDeadline }),
     ...(installedAt !== null && { installedAt }),
-    ...(readyAt !== null && { readyAt }),
+    ...(readyAt !== undefined && { readyAt }),
     ...(measuredAt !== null && { measuredAt }),
   };
 

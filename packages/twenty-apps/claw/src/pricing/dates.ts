@@ -1,6 +1,8 @@
 import {
+  isCancelled,
   isInstalled,
   isMeasured,
+  isSold,
   isStatusIn,
   READY_AT_STATUSES,
 } from 'src/constants/order-status-sets';
@@ -35,6 +37,8 @@ export const todayInTashkent = (now: Date = new Date()): string =>
 
 // Stamped only when an order enters a ready status from a non-ready one, so the
 // move from «Отправлено на установку» to «Установлен» does not stamp it again.
+// An order sent back to the workshop loses it, to be stamped when it is ready
+// again. Undefined leaves it as it is.
 export const readyAtOnStatusChange = ({
   status,
   previousStatus,
@@ -45,12 +49,18 @@ export const readyAtOnStatusChange = ({
   previousStatus: string | null;
   readyAt: string | null;
   today: string;
-}): string | null =>
-  readyAt === null &&
-  isStatusIn(READY_AT_STATUSES, status) &&
-  !isStatusIn(READY_AT_STATUSES, previousStatus)
-    ? today
-    : null;
+}): string | null | undefined => {
+  const isReady = isStatusIn(READY_AT_STATUSES, status);
+  const wasReady = isStatusIn(READY_AT_STATUSES, previousStatus);
+
+  if (isReady && !wasReady && readyAt === null) return today;
+
+  if (wasReady && !isReady && !isCancelled(status) && readyAt !== null) {
+    return null;
+  }
+
+  return undefined;
+};
 
 // The installation pay is dated by it, so an order taken back from installed and
 // installed again moves to the day it really was installed, unless that date was
@@ -76,17 +86,31 @@ export const installedAtOnStatusChange = ({
 };
 
 // «Начало» is the day the order went into production, unless typed by hand;
-// sales are dated by it.
+// sales are dated by it. An order taken back before production loses it, so
+// its derived «Срок» goes too and it is not late for work nobody is doing.
+// Undefined leaves it as it is.
 export const productionStartOnStatusChange = ({
   status,
+  previousStatus,
   productionStartDate,
+  productionStartTyped,
   today,
 }: {
   status: string | null;
+  previousStatus: string | null;
   productionStartDate: string | null;
+  productionStartTyped: boolean;
   today: string;
-}): string | null =>
-  status === 'PRODUCTION' && productionStartDate === null ? today : null;
+}): string | null | undefined => {
+  if (status === 'PRODUCTION' && productionStartDate === null) return today;
+
+  const isTakenBack =
+    isSold(previousStatus) && !isSold(status) && !isCancelled(status);
+
+  return isTakenBack && productionStartDate !== null && !productionStartTyped
+    ? null
+    : undefined;
+};
 
 // «Срок» follows a corrected «Начало» while it is still the derived one; a
 // deadline typed by hand stays. Undefined leaves it as it is.
@@ -107,7 +131,10 @@ export const deadlineOnStartChange = ({
     return undefined;
   }
 
-  if (previousStart === null || deadline !== addDays(previousStart, daysAfterStart)) {
+  if (
+    previousStart === null ||
+    deadline !== addDays(previousStart, daysAfterStart)
+  ) {
     return undefined;
   }
 

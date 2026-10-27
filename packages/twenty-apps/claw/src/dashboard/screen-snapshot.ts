@@ -3,12 +3,25 @@ import { todayInTashkent } from 'src/pricing/dates';
 // The renderer seeds each user's localStorage before the first render, so a
 // screen can draw its last numbers at once and refresh them quietly. Bump the
 // version whenever a snapshot's data shape changes, so an old one is dropped.
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 3;
 const KEY_PREFIX = 'claw:screen-snapshot:';
 
-type StoredSnapshot<TData> = { version: number; day: string; data: TData };
+type StoredSnapshot<TData> = {
+  version: number;
+  day: string;
+  savedAt: number;
+  data: TData;
+};
 
-export const readScreenSnapshot = <TData>(screen: string): TData | null => {
+export type ScreenSnapshot<TData> = { data: TData; savedAt: number };
+
+export const readScreenSnapshot = <TData>(screen: string): TData | null =>
+  readScreenSnapshotWithTime<TData>(screen)?.data ?? null;
+
+// The time lets the screen say how old the numbers it draws at once are.
+export const readScreenSnapshotWithTime = <TData>(
+  screen: string,
+): ScreenSnapshot<TData> | null => {
   try {
     const stored = localStorage.getItem(KEY_PREFIX + screen);
 
@@ -19,7 +32,7 @@ export const readScreenSnapshot = <TData>(screen: string): TData | null => {
     // Yesterday's plan for the day would be wrong, not just old
     return snapshot.version === SNAPSHOT_VERSION &&
       snapshot.day === todayInTashkent()
-      ? snapshot.data
+      ? { data: snapshot.data, savedAt: snapshot.savedAt }
       : null;
   } catch {
     return null;
@@ -31,6 +44,7 @@ export const writeScreenSnapshot = <TData>(screen: string, data: TData) => {
     const snapshot: StoredSnapshot<TData> = {
       version: SNAPSHOT_VERSION,
       day: todayInTashkent(),
+      savedAt: Date.now(),
       data,
     };
 

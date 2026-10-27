@@ -17,6 +17,7 @@ import {
   BarRow,
   Card,
   ChipRow,
+  FreshnessLine,
   GroupTitle,
   KpiTile,
   ListLine,
@@ -40,13 +41,14 @@ import {
   type TodayData,
 } from 'src/dashboard/load-dashboard';
 import {
-  readScreenSnapshot,
+  readScreenSnapshotWithTime,
   writeScreenSnapshot,
 } from 'src/dashboard/screen-snapshot';
 import { useReloadOnReturn } from 'src/dashboard/reload-on-return';
 import {
   buildToday,
   countWord,
+  DUE_SOON_DAYS,
   daySummary,
   dayTitle,
   plural,
@@ -60,6 +62,7 @@ import {
 } from 'src/money/money-forms';
 import { RecordSheet } from 'src/money/money-sheets';
 import { MoneyToday } from 'src/money/money-today';
+import { CancelledPaymentsQuestion } from 'src/orders/cancelled-payments-question';
 import { recordMoneyEntry } from 'src/money/record-money-entry';
 import { acceptPayment } from 'src/order-header/load-order-header';
 import { buildPayment } from 'src/order-header/order-steps';
@@ -87,6 +90,11 @@ const SAVE_FAILED = 'Не сохранилось. Проверьте интер�
 // Triggers write the payment into the order a moment after it is saved.
 const SETTLE_MILLISECONDS = 3_000;
 const SHORT_LIST = 4;
+// Waiting longer than this for an installation or a payment is worth a look.
+const LONG_WAIT_DAYS = 7;
+// Past midnight the plan for the day is yesterday's; a glance at the date
+// once a minute is enough to notice.
+const DAY_CHECK_MILLISECONDS = 60_000;
 
 type LoadState =
   | { status: 'loading' }
@@ -127,10 +135,12 @@ const orderTitle = (order: DashboardOrder) =>
 const Header = ({
   title,
   subtitle,
+  freshness,
   actions,
 }: {
   title: string;
   subtitle: string;
+  freshness: React.ReactNode;
   actions: React.ReactNode;
 }) => {
   const colors = usePalette();
@@ -163,6 +173,7 @@ const Header = ({
         >
           {subtitle}
         </div>
+        {freshness}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.sm }}>
         {actions}
@@ -331,13 +342,15 @@ const DayPlan = ({
         {view.awaitingInstall.length > 0 ? (
           <>
             <GroupTitle>Ждут установки</GroupTitle>
-            {view.awaitingInstall.map((order) => (
+            {view.awaitingInstall.map(({ order, daysReady }) => (
               <PlanRow
                 key={order.id}
-                when={order.deadline ? `до ${shortDay(order.deadline)}` : '—'}
+                when={daysReady === null ? '—' : `${daysReady} дн`}
+                whenTone={(daysReady ?? 0) > LONG_WAIT_DAYS ? 'bad' : 'muted'}
                 tag={<Tag accent="success" text="установка" />}
                 title={orderTitle(order)}
                 details={joined([
+                  order.readyAt ? `готов ${shortDay(order.readyAt)}` : null,
                   order.place,
                   order.area
                     ? `${order.area.toLocaleString('ru-RU')} м²`
@@ -422,7 +435,9 @@ const DayPlan = ({
                 when={
                   daysSinceInstall === null ? '—' : `${daysSinceInstall} дн`
                 }
-                whenTone={(daysSinceInstall ?? 0) > 7 ? 'bad' : 'muted'}
+                whenTone={
+                  (daysSinceInstall ?? 0) > LONG_WAIT_DAYS ? 'bad' : 'muted'
+                }
                 tag={<Tag accent="warning" text="долг" />}
                 title={orderTitle(order)}
                 details={joined([
@@ -447,13 +462,16 @@ const DayPlan = ({
 
 export const TodayScreen = () => {
   const { ref, width } = useElementWidth();
-  const [state, setState] = useState<LoadState>(() => {
-    const snapshot = readScreenSnapshot<TodayData>('today');
-
-    return snapshot === null
+  const [snapshot] = useState(() =>
+    readScreenSnapshotWithTime<TodayData>('today'),
+  );
+  const [state, setState] = useState<LoadState>(
+    snapshot === null
       ? { status: 'loading' }
-      : { status: 'ready', data: snapshot };
-  });
+      : { status: 'ready', data: snapshot.data },
+  );
+  const [updatedAt, setUpdatedAt] = useState(snapshot?.savedAt ?? null);
+  const [isRefreshFailed, setIsRefreshFailed] = useState(false);
   const [pageIds, setPageIds] = useState<PageIds>({});
   const [callClient, setCallClient] = useState<ClientCard | null>(null);
   const [payment, setPayment] = useState<PaymentDraft | null>(null);
@@ -473,15 +491,29 @@ export const TodayScreen = () => {
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Over a snapshot a failed first load keeps the numbers instead of an error
-  const startsFromSnapshot = useRef(state.status === 'ready');
+  const startsFromSnapshot = useRef(snapshot !== null);
+  const latestRequest = useRef(0);
+  const shownDay = useRef(snapshot?.data.today ?? null);
 
   const load = useCallback(async (isQuiet = false) => {
+    const request = ++latestRequest.current;
+
     try {
       const data = await loadToday(new CoreApiClient());
 
+      // An older answer arriving late must not put back older totals
+      if (request !== latestRequest.current) return;
+
       writeScreenSnapshot('today', data);
+      shownDay.current = data.today;
       setState({ status: 'ready', data });
+      setUpdatedAt(Date.now());
+      setIsRefreshFailed(false);
     } catch (caught) {
+      if (request !== latestRequest.current) return;
+
+      setIsRefreshFailed(true);
+
       if (!isQuiet) {
         setState({
           status: 'error',
@@ -491,28 +523,35 @@ export const TodayScreen = () => {
     }
   }, []);
 
+  const reloadQuietly = useCallback(() => {
+    void load(true);
+    setMoneyVersion((version) => version + 1);
+  }, [load]);
+
   useEffect(() => {
     void load(startsFromSnapshot.current);
     findPageIds(new MetadataApiClient())
       .then(setPageIds)
       .catch(() => setPageIds({}));
 
+    const dayCheck = setInterval(() => {
+      if (shownDay.current !== null && shownDay.current !== todayInTashkent()) {
+        reloadQuietly();
+      }
+    }, DAY_CHECK_MILLISECONDS);
+
     return () => {
+      clearInterval(dayCheck);
       if (settleTimer.current !== null) clearTimeout(settleTimer.current);
     };
-  }, [load]);
-
-  const reloadQuietly = useCallback(() => void load(true), [load]);
+  }, [load, reloadQuietly]);
 
   useReloadOnReturn(reloadQuietly);
 
   const loadAgainSoon = () => {
     if (settleTimer.current !== null) clearTimeout(settleTimer.current);
 
-    settleTimer.current = setTimeout(
-      () => void load(true),
-      SETTLE_MILLISECONDS,
-    );
+    settleTimer.current = setTimeout(reloadQuietly, SETTLE_MILLISECONDS);
   };
 
   const openPage = (key: keyof PageIds) => {
@@ -663,6 +702,13 @@ export const TodayScreen = () => {
         <Header
           title={dayTitle(data.today)}
           subtitle={daySummary(view)}
+          freshness={
+            <FreshnessLine
+              updatedAt={updatedAt}
+              isFailed={isRefreshFailed}
+              onRetry={reloadQuietly}
+            />
+          }
           actions={
             <>
               {pageIds.newMeasurement !== undefined ? (
@@ -786,6 +832,7 @@ export const TodayScreen = () => {
           }
           right={
             <>
+              <CancelledPaymentsQuestion refreshCount={moneyVersion} />
               <Card
                 title="Деньги сегодня"
                 action={
@@ -796,7 +843,7 @@ export const TodayScreen = () => {
                   ) : undefined
                 }
               >
-                <MoneyToday key={moneyVersion} />
+                <MoneyToday refreshCount={moneyVersion} />
               </Card>
               <Card
                 title="Заказы по этапам"
@@ -854,7 +901,7 @@ export const TodayScreen = () => {
                 />
                 {view.dueSoon.length > 0 ? (
                   <ListLine
-                    title="Сдать на этой неделе"
+                    title={`Сдать за ${DUE_SOON_DAYS} дней`}
                     details={view.dueSoon.map((order) => order.name).join(', ')}
                     trailing={
                       <Pill

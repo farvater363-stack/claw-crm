@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  countGrillesRatedForAll,
   keptSquareMeterRates,
   NO_KEPT_RATES,
   planItemPayRows,
@@ -207,5 +208,42 @@ describe('planItemPayRows', () => {
     });
 
     expect(row).toMatchObject({ rate: 52_000, amount: 104_000, isOwn: false });
+  });
+});
+
+describe('countGrillesRatedForAll', () => {
+  const catalog: WorkshopCatalog = {
+    kinds: [],
+    designs: [
+      { id: 'romb', name: 'Ромб', grilleKindId: null },
+      { id: 'sun', name: 'Солнце', grilleKindId: null },
+      { id: 'rail', name: 'Классика', grilleKindId: null, product: 'RAILING' },
+      { id: 'vine', name: 'Лоза', grilleKindId: null },
+    ],
+    rates: [
+      rate({ designId: 'romb', rate: 40_000 }),
+      rate({ designId: 'sun', workerId: 'master-1', rate: 60_000 }),
+      rate({ designId: 'rail', rate: 30_000 }),
+    ],
+  };
+  const masters = [
+    { id: 'master-1', ruleRate: null },
+    { id: 'master-2', ruleRate: null },
+  ];
+
+  it('counts a grille only when every master is paid for it', () => {
+    expect(countGrillesRatedForAll({ catalog, masters })).toBe(2);
+  });
+
+  it('lets a master’s old rule per m² pay grilles but not railings', () => {
+    expect(
+      countGrillesRatedForAll({
+        catalog: {
+          ...catalog,
+          rates: catalog.rates.filter((entry) => entry.designId !== 'rail'),
+        },
+        masters: masters.map((master) => ({ ...master, ruleRate: 20_000 })),
+      }),
+    ).toBe(3);
   });
 });

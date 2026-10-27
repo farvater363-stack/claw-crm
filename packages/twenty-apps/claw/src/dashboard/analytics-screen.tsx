@@ -7,13 +7,14 @@ import {
   ANALYTICS_PERIODS,
   type AnalyticsPeriod,
   buildFunnel,
-  buildKinds,
+  buildGrilles,
   buildMeasurers,
   buildMetrics,
   buildMonthBars,
   buildRefusals,
   buildSources,
   buildStageDays,
+  marginCoverage,
   type MetricKey,
   type MetricView,
   periodRanges,
@@ -87,7 +88,8 @@ const TILES: {
   { key: 'received', label: 'Получено денег', format: money },
   { key: 'average', label: 'Средний чек', format: money },
   { key: 'conversion', label: 'Замер → продажа', format: percent },
-  { key: 'area', label: 'Сделано м²', format: area },
+  // Railings are counted in п.м. and do not add to it
+  { key: 'area', label: 'Сделано м² решёток', format: area },
   { key: 'revenue', label: 'Выручка (готовые)', format: money },
   { key: 'margin', label: 'Заработали на заказах', format: money },
   { key: 'onTime', label: 'Сдано в срок', format: percent },
@@ -156,7 +158,11 @@ export const AnalyticsScreen = () => {
   }
 
   const { data } = state;
-  const source = { orders: data.orders, payments: data.payments };
+  const source = {
+    orders: data.orders,
+    payments: data.payments,
+    today: data.today,
+  };
   const ranges = periodRanges(period, offset, data.today);
   const metrics = buildMetrics(source, ranges, data.today);
   const bars = buildMonthBars(
@@ -170,16 +176,22 @@ export const AnalyticsScreen = () => {
   const measurers = buildMeasurers(data.orders, ranges.current);
   const refusals = buildRefusals(data.orders, ranges.current);
   const stageDays = buildStageDays(data.orders, ranges.current);
-  const kinds = buildKinds(data.orders, data.items, ranges.current);
+  const grilles = buildGrilles(
+    data.orders,
+    data.items,
+    ranges.current,
+    data.today,
+  );
+  const marginCounted = marginCoverage(data.orders, ranges.current);
   const { checks } = data;
   const isCostComplete =
     checks.materials.priced === checks.materials.total &&
     checks.designs.withComposition === checks.designs.total &&
-    checks.masters.withRate === checks.masters.total;
+    checks.grilleRates.rated === checks.grilleRates.total;
   const checkCount = [
     checks.materials.priced === checks.materials.total,
     checks.designs.withComposition === checks.designs.total,
-    checks.masters.withRate === checks.masters.total,
+    checks.grilleRates.rated === checks.grilleRates.total,
   ].filter(Boolean).length;
   const openPage = (key: keyof PageIds) => {
     const pageLayoutId = pageIds[key];
@@ -192,7 +204,10 @@ export const AnalyticsScreen = () => {
   const tile = ({ key, label, format }: (typeof TILES)[number]) => {
     const metric: MetricView = metrics[key];
     const isMarginUnsure = key === 'margin' && !isCostComplete;
-    const tone: ValueTone = isMarginUnsure ? 'muted' : 'plain';
+    const isMarginPartial =
+      key === 'margin' && marginCounted.counted < marginCounted.total;
+    const tone: ValueTone =
+      isMarginUnsure || isMarginPartial ? 'muted' : 'plain';
 
     return (
       <TrendTile
@@ -200,12 +215,14 @@ export const AnalyticsScreen = () => {
         label={label}
         value={format(metric.value)}
         series={metric.series}
-        change={isMarginUnsure ? null : metric.change}
+        change={isMarginUnsure || isMarginPartial ? null : metric.change}
         tone={tone}
         note={
           isMarginUnsure
             ? 'не хватает данных, см. внизу'
-            : metric.value === null
+            : isMarginPartial
+              ? `по ${marginCounted.counted} из ${marginCounted.total} заказов`
+              : metric.value === null
               ? key === 'conversion'
                 ? 'никто не решил после замера'
                 : 'нет заказов за период'
@@ -378,7 +395,7 @@ export const AnalyticsScreen = () => {
                 { title: 'Заявки', isNumber: true, render: (row) => row.leads },
                 { title: 'Продано', isNumber: true, render: (row) => row.sold },
                 {
-                  title: 'Конверсия',
+                  title: 'Конверсия из заявок',
                   isNumber: true,
                   render: (row) => percent(row.conversionPercent),
                 },
@@ -406,7 +423,10 @@ export const AnalyticsScreen = () => {
             columnGap: SPACE.lg,
           }}
         >
-          <Card title="Замерщики" subtitle="замеры за период">
+          <Card
+            title="Замерщики"
+            subtitle="замеры за период; конверсия, как «Замер → продажа», среди решивших"
+          >
             {measurers.length === 0 ? (
               <QuietLine text="За период замеров не было." />
             ) : (
@@ -491,19 +511,24 @@ export const AnalyticsScreen = () => {
             />
           </Card>
 
-          <Card title="Что берут" subtitle="м² у проданных за период">
-            {kinds.length === 0 ? (
+          <Card
+            title="Что берут"
+            subtitle="м² решёток и п.м. перилл у проданных за период"
+          >
+            {grilles.length === 0 ? (
               <QuietLine text="За период продаж не было." />
             ) : (
               <Bars>
-                {kinds.map((row) => (
+                {grilles.map((row) => (
                   <BarRow
                     key={row.label}
                     label={row.label}
-                    value={`${area(row.area)} м²`}
+                    value={`${area(row.amount)} ${row.unit}`}
                     level={levelOf(
-                      row.area,
-                      kinds.map((other) => other.area),
+                      row.amount,
+                      grilles
+                        .filter((other) => other.unit === row.unit)
+                        .map((other) => other.amount),
                     )}
                   />
                 ))}
@@ -533,10 +558,10 @@ export const AnalyticsScreen = () => {
               {checks.designs.total}. Заполняются в «Ценах».
             </CheckLine>
             <CheckLine
-              isDone={checks.masters.withRate === checks.masters.total}
+              isDone={checks.grilleRates.rated === checks.grilleRates.total}
             >
-              Ставки цеха: есть у {checks.masters.withRate} из{' '}
-              {checks.masters.total} мастеров. Заполняются в «ЗП».
+              Ставки цеха для всех мастеров: у {checks.grilleRates.rated} из{' '}
+              {checks.grilleRates.total} решёток. Заполняются в «ЗП».
             </CheckLine>
           </div>
           <QuietLine text="Выручка считает заказы, дошедшие до «Готов». Касса и чистая прибыль с расходами будут в «Деньгах»." />

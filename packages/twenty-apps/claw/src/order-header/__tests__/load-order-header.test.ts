@@ -163,7 +163,6 @@ describe('loadOrderHeader', () => {
     expect(order?.nextOpeningNumber).toBe(1);
   });
 
-
   it('reads the order with money in whole sums and the district by its label', async () => {
     const { client, queries } = fakeClient();
 
@@ -310,7 +309,7 @@ describe('writes', () => {
     const { client, mutations } = fakeClient();
 
     expect(
-      await cancelOrder(client, 'order-1', 'PRODUCTION', 'TOO_EXPENSIVE'),
+      await cancelOrder(client, 'order-1', 'PRODUCTION', 'TOO_EXPENSIVE', null),
     ).toBe('saved');
     expect(mutations).toEqual([
       {
@@ -325,11 +324,25 @@ describe('writes', () => {
     ]);
   });
 
+  it('writes what became of the money when the client had paid', async () => {
+    const { client, mutations } = fakeClient();
+
+    await cancelOrder(client, 'order-1', 'PRODUCTION', 'OTHER', 'KEPT');
+
+    expect(mutations[0]?.updateOrders.__args).toMatchObject({
+      data: {
+        status: 'CANCELLED',
+        cancelReason: 'OTHER',
+        paidMoneyOnCancel: 'KEPT',
+      },
+    });
+  });
+
   it('reports a cancel of an order that is no longer in that status as moved', async () => {
     const { client, mutations } = fakeClient({ updatedOrders: [] });
 
     expect(
-      await cancelOrder(client, 'order-1', 'PRODUCTION', 'TOO_EXPENSIVE'),
+      await cancelOrder(client, 'order-1', 'PRODUCTION', 'TOO_EXPENSIVE', null),
     ).toBe('moved');
     expect(mutations).toHaveLength(1);
   });
@@ -337,7 +350,7 @@ describe('writes', () => {
   it('matches an order without a status by its empty status', async () => {
     const { client, mutations } = fakeClient();
 
-    await cancelOrder(client, 'order-1', null, 'TOO_EXPENSIVE');
+    await cancelOrder(client, 'order-1', null, 'TOO_EXPENSIVE', null);
 
     expect(mutations[0]?.updateOrders.__args).toMatchObject({
       filter: { id: { eq: 'order-1' }, status: { is: 'NULL' } },
