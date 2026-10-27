@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { EMPTY_LOCATION } from 'src/location/location';
+
 import {
   applyPaymentChanges,
   buildMeasurementPayload,
@@ -71,6 +73,10 @@ const scheduled = (
   measurementDate: '2026-10-05T09:00:00.000Z',
   comment: 'Домофон не работает, звонить',
   source: 'INSTAGRAM',
+  locationLat: null,
+  locationLng: null,
+  locationNote: null,
+  locationPhotos: [],
   ...overrides,
 });
 
@@ -95,6 +101,7 @@ const draft = (overrides: Partial<MeasurementDraft>): MeasurementDraft => ({
     }),
   ],
   services: [],
+  location: EMPTY_LOCATION,
   ...overrides,
 });
 
@@ -221,6 +228,10 @@ describe('buildMeasurementPayload', () => {
         comment: null,
         discountKind: 'PERCENT',
         discountValue: null,
+        locationLat: null,
+        locationLng: null,
+        locationNote: null,
+        locationPhotos: [],
       },
       items: [
         {
@@ -960,6 +971,38 @@ describe('scheduled orders', () => {
       ),
       comment: 'Домофон не работает, звонить',
       source: 'INSTAGRAM',
+      location: EMPTY_LOCATION,
+    });
+  });
+
+  it('brings the point, the note and the photos the office already set', () => {
+    expect(
+      draftFromScheduledOrder(
+        scheduled({
+          locationLat: 41.3111,
+          locationLng: 69.2797,
+          locationNote: 'Вход со двора',
+          locationPhotos: [
+            {
+              fileId: 'file-1',
+              label: 'Подъезд',
+              url: 'https://crm.example.test/1',
+            },
+          ],
+        }),
+      ).location,
+    ).toEqual({
+      lat: 41.3111,
+      lng: 69.2797,
+      note: 'Вход со двора',
+      savedPhotos: [
+        {
+          fileId: 'file-1',
+          label: 'Подъезд',
+          url: 'https://crm.example.test/1',
+        },
+      ],
+      newPhotos: [],
     });
   });
 
@@ -986,6 +1029,7 @@ describe('scheduled orders', () => {
       floor: '',
       comment: '',
       source: '',
+      location: EMPTY_LOCATION,
     });
   });
 });
@@ -1357,5 +1401,58 @@ describe('withCashHolder', () => {
     const card = { ...payment, method: 'CARD' as const };
 
     expect(withCashHolder(card, 'worker-measurer')).toEqual(card);
+  });
+});
+
+describe('the location in Новый замер', () => {
+  it('saves the point, the note and the kept photos with the order', () => {
+    expect(
+      buildMeasurementPayload(
+        draft({
+          location: {
+            ...EMPTY_LOCATION,
+            lat: 41.3111,
+            lng: 69.2797,
+            note: ' Вход со двора ',
+            savedPhotos: [
+              {
+                fileId: 'file-1',
+                label: 'Подъезд',
+                url: 'https://crm.example.test/1',
+              },
+            ],
+          },
+        }),
+        'member-1',
+        context(),
+      ),
+    ).toMatchObject({
+      isValid: true,
+      order: {
+        locationLat: 41.3111,
+        locationLng: 69.2797,
+        locationNote: 'Вход со двора',
+        locationPhotos: [{ fileId: 'file-1', label: 'Подъезд' }],
+      },
+    });
+  });
+
+  it('saves a замер without a point', () => {
+    expect(
+      buildMeasurementPayload(draft({}), 'member-1', context()),
+    ).toMatchObject({
+      isValid: true,
+      order: { locationLat: null, locationLng: null, locationNote: null },
+    });
+  });
+
+  it('keeps a note of spaces as no note', () => {
+    expect(
+      buildMeasurementPayload(
+        draft({ location: { ...EMPTY_LOCATION, note: '   ' } }),
+        'member-1',
+        context(),
+      ),
+    ).toMatchObject({ order: { locationNote: null } });
   });
 });

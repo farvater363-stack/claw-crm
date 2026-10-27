@@ -55,7 +55,7 @@ export const useUpdateDroppedRecordOnBoard = () => {
         ] !== targetRecordGroupValue;
 
       // Asked before the card moves, so «Не отменять» leaves it where it was.
-      const { proceed, paidMoneyOnCancel } =
+      const { proceed, orderCancelFields } =
         isMovedToAnotherGroup &&
         isOrderCancelWithoutMoneyAnswer(objectMetadataItem.nameSingular, {
           [recordGroupColumnName]: targetRecordGroupValue,
@@ -65,7 +65,7 @@ export const useUpdateDroppedRecordOnBoard = () => {
               recordIds: [recordId],
               action: 'cancel',
             })
-          : { proceed: true, paidMoneyOnCancel: null };
+          : { proceed: true, orderCancelFields: null };
 
       if (!proceed) {
         return;
@@ -201,7 +201,7 @@ export const useUpdateDroppedRecordOnBoard = () => {
         updateOneRecordInput: {
           [recordGroupColumnName]: targetRecordGroupValue,
           ...(isDefined(newPosition) && { position: newPosition }),
-          ...(isDefined(paidMoneyOnCancel) && { paidMoneyOnCancel }),
+          ...orderCancelFields,
         },
       });
     },

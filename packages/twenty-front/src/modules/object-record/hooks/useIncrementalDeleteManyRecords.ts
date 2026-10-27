@@ -1,5 +1,10 @@
 import { useConfirmOrderMoneyBeforeCancel } from '@/claw-order-money/hooks/useConfirmOrderMoneyBeforeCancel';
-import { buildOrderCancelInput } from '@/claw-order-money/utils/orderMoney';
+import {
+  buildOrderCancelInput,
+  isOrderMoneyWorkspace,
+  ORDER_PAYMENT_OBJECT_NAME_SINGULAR,
+} from '@/claw-order-money/utils/orderMoney';
+import { useDeleteManyRecords } from '@/object-record/hooks/useDeleteManyRecords';
 import { useRefetchFindManyRecords } from '@/object-record/hooks/useRefetchFindManyRecords';
 import { useUpdateManyRecords } from '@/object-record/hooks/useUpdateManyRecords';
 import { triggerUpdateRecordOptimisticEffectByBatch } from '@/apollo/optimistic-effect/utils/triggerUpdateRecordOptimisticEffectByBatch';
@@ -71,6 +76,16 @@ export const useIncrementalDeleteManyRecords = <T>({
   });
   const { updateManyRecords } = useUpdateManyRecords({ objectNameSingular });
   const { confirmOrderMoneyBeforeCancel } = useConfirmOrderMoneyBeforeCancel();
+  // The hook needs an object that exists, and only Claw CRM workspaces have
+  // order payments; elsewhere it is bound to this object and never called.
+  const { deleteManyRecords: deleteOrderPayments } = useDeleteManyRecords({
+    objectNameSingular: isOrderMoneyWorkspace(
+      objectMetadataItems,
+      objectNameSingular,
+    )
+      ? ORDER_PAYMENT_OBJECT_NAME_SINGULAR
+      : objectNameSingular,
+  });
   const { removeNavigationMenuItemsByTargetRecordIds } =
     useRemoveNavigationMenuItemByTargetRecordId();
 
@@ -239,33 +254,44 @@ export const useIncrementalDeleteManyRecords = <T>({
     try {
       await incrementalFetchAndMutate(
         async ({ recordIds, totalCount, abortSignal }) => {
-          // An order the client paid for is cancelled, never deleted.
-          const { proceed, paidRecordIds, paidMoneyOnCancel } =
-            await confirmOrderMoneyBeforeCancel({
-              objectNameSingular,
-              recordIds,
-              action: 'delete',
-            });
+          // An order the client paid for is cancelled, unless it goes
+          // together with its payments.
+          const {
+            proceed,
+            paidRecordIds,
+            orderCancelFields,
+            paymentIdsToDelete,
+          } = await confirmOrderMoneyBeforeCancel({
+            objectNameSingular,
+            recordIds,
+            action: 'delete',
+          });
 
           if (!proceed) {
             hasKeptRecords = true;
             return;
           }
 
-          const recordIdsToDelete = recordIds.filter(
-            (recordId) => !paidRecordIds.includes(recordId),
-          );
+          const recordIdsToDelete = isDefined(orderCancelFields)
+            ? recordIds.filter((recordId) => !paidRecordIds.includes(recordId))
+            : recordIds;
 
-          if (isNonEmptyArray(paidRecordIds) && isDefined(paidMoneyOnCancel)) {
+          if (isNonEmptyArray(paidRecordIds) && isDefined(orderCancelFields)) {
             hasKeptRecords = true;
 
             await updateManyRecords({
               recordIdsToUpdate: paidRecordIds,
               updateOneRecordInput: buildOrderCancelInput(
                 {},
-                paidMoneyOnCancel,
+                orderCancelFields,
               ),
               abortSignal,
+            });
+          }
+
+          if (isNonEmptyArray(paymentIdsToDelete)) {
+            await deleteOrderPayments({
+              recordIdsToDelete: paymentIdsToDelete,
             });
           }
 

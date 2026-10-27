@@ -130,6 +130,11 @@ export const findClientByPhone = async (
           measurementDate: latest.measurementDate ?? null,
           comment: null,
           source: latest.source ?? null,
+          // A returning client may live elsewhere now; the point is never copied.
+          locationLat: null,
+          locationLng: null,
+          locationNote: null,
+          locationPhotos: [],
         };
   const personName = trimFullName(person?.name ?? null);
   // A person created from a phone alone is named by that phone.

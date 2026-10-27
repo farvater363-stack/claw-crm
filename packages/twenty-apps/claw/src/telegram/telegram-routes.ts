@@ -1,0 +1,200 @@
+import {
+  callTelegram,
+  findLinkedChat,
+  type OrderPost,
+  sendOrderPost,
+  TelegramError,
+  type TelegramFetch,
+} from 'src/telegram/telegram-api';
+
+export type TelegramGroupRow = {
+  id: string;
+  linkCode: string | null;
+  chatId: string | null;
+  chatTitle: string | null;
+};
+
+export type TelegramGroupStore = {
+  read: () => Promise<TelegramGroupRow | null>;
+  create: (linkCode: string) => Promise<TelegramGroupRow>;
+  saveChat: (
+    id: string,
+    chatId: string,
+    chatTitle: string,
+    nextLinkCode: string,
+  ) => Promise<void>;
+};
+
+export type TelegramRouteDependencies = {
+  token: string | undefined;
+  store: TelegramGroupStore;
+  fetchImpl: TelegramFetch;
+  newLinkCode: () => string;
+  loadPost: (orderId: string) => Promise<Omit<OrderPost, 'chatId'>>;
+};
+
+export type TelegramLinkAnswer = {
+  linked: boolean;
+  chatTitle: string | null;
+  code: string;
+  // What to send in the group: privacy mode, on by default, passes a bot only
+  // the commands addressed to it by name.
+  linkCommand: string;
+  isBotConfigured: boolean;
+};
+
+export type TelegramLinkCheckAnswer = {
+  linked: boolean;
+  chatTitle: string | null;
+  problem: 'webhook' | 'not-found' | 'no-token' | null;
+};
+
+export type TelegramSendAnswer =
+  | { sent: true }
+  | {
+      sent: false;
+      problem: 'not-linked' | 'no-token' | 'telegram';
+      detail: string | null;
+    };
+
+const hasToken = (token: string | undefined): token is string =>
+  token !== undefined && token.trim() !== '';
+
+const LINK_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+// One bot serves every workspace and anyone can add it to a group, so a code
+// must not be guessable: a guessed one would send orders, phones included,
+// to a stranger's group.
+export const newLinkCode = (): string =>
+  Array.from(
+    crypto.getRandomValues(new Uint8Array(10)),
+    (byte) => LINK_CODE_ALPHABET[byte % LINK_CODE_ALPHABET.length],
+  ).join('');
+
+const readOrCreate = async (
+  store: TelegramGroupStore,
+  newLinkCode: () => string,
+): Promise<TelegramGroupRow> => {
+  const row = await store.read();
+
+  return row ?? store.create(newLinkCode());
+};
+
+const botUsername = async (
+  token: string,
+  fetchImpl: TelegramFetch,
+): Promise<string | null> => {
+  const me = (await callTelegram(token, 'getMe', {}, fetchImpl).catch(
+    () => null,
+  )) as { username?: string } | null;
+
+  return me?.username ?? null;
+};
+
+export const getTelegramLink = async ({
+  token,
+  store,
+  fetchImpl,
+  newLinkCode,
+}: TelegramRouteDependencies): Promise<TelegramLinkAnswer> => {
+  const row = await readOrCreate(store, newLinkCode);
+  const code = row.linkCode ?? '';
+  const username = hasToken(token) ? await botUsername(token, fetchImpl) : null;
+
+  return {
+    linked: row.chatId !== null && row.chatId !== '',
+    chatTitle: row.chatTitle,
+    code,
+    linkCommand:
+      username === null ? `/link ${code}` : `/link@${username} ${code}`,
+    isBotConfigured: hasToken(token),
+  };
+};
+
+// The bot only sends, so it has no webhook and reads its updates on demand.
+// getUpdates fails while a webhook is set: the token is then in use elsewhere.
+export const checkTelegramLink = async ({
+  token,
+  store,
+  fetchImpl,
+  newLinkCode,
+}: TelegramRouteDependencies): Promise<TelegramLinkCheckAnswer> => {
+  const row = await readOrCreate(store, newLinkCode);
+
+  if (!hasToken(token)) {
+    return { linked: false, chatTitle: row.chatTitle, problem: 'no-token' };
+  }
+
+  const webhook = (await callTelegram(
+    token,
+    'getWebhookInfo',
+    {},
+    fetchImpl,
+  )) as {
+    url?: string;
+  };
+
+  if (webhook.url) {
+    return { linked: false, chatTitle: row.chatTitle, problem: 'webhook' };
+  }
+
+  const updates = (await callTelegram(
+    token,
+    'getUpdates',
+    // The newest hundred; without an offset Telegram returns the oldest.
+    { allowed_updates: ['message'], offset: -100 },
+    fetchImpl,
+  )) as unknown[];
+  const chat = findLinkedChat(updates, row.linkCode ?? '');
+
+  if (chat === null) {
+    return {
+      linked: row.chatId !== null && row.chatId !== '',
+      chatTitle: row.chatTitle,
+      problem: 'not-found',
+    };
+  }
+
+  // A used code is spent, so a later /link of it cannot move the group.
+  await store.saveChat(row.id, chat.chatId, chat.title, newLinkCode());
+
+  return { linked: true, chatTitle: chat.title, problem: null };
+};
+
+export const sendOrderToTelegram = async (
+  { token, store, fetchImpl, loadPost }: TelegramRouteDependencies,
+  orderId: string,
+): Promise<TelegramSendAnswer> => {
+  if (!hasToken(token)) {
+    return { sent: false, problem: 'no-token', detail: null };
+  }
+
+  const row = await store.read();
+
+  if (row?.chatId === null || row?.chatId === undefined || row.chatId === '') {
+    return { sent: false, problem: 'not-linked', detail: null };
+  }
+
+  try {
+    await sendOrderPost(
+      token,
+      { chatId: row.chatId, ...(await loadPost(orderId)) },
+      fetchImpl,
+    );
+  } catch (error) {
+    // Answered, not thrown: a failed route is asked again, and the card that
+    // already went out would be posted twice.
+    return {
+      sent: false,
+      problem: 'telegram',
+      detail:
+        error instanceof TelegramError
+          ? error.description
+          : error instanceof Error
+            ? error.message
+            : String(error),
+    };
+  }
+
+  return { sent: true };
+};

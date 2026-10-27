@@ -35,6 +35,11 @@ const WORKSHOP_WRITABLE_ORDER_FIELDS: string[] = [
   IDS.order.finishedPhotos,
   // «Печать схемы» saves the sheet it prints on the order
   IDS.order.schemePdf,
+  // Установщики fix the point on site
+  IDS.order.locationLat,
+  IDS.order.locationLng,
+  IDS.order.locationNote,
+  IDS.order.locationPhotos,
   // Twenty writes the author itself on every update, through the same check
   // as the caller's fields, and overwrites whatever the caller sent: locked,
   // «Готово» would be refused; open, it still cannot be falsified.

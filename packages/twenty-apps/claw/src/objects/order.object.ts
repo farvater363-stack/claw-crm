@@ -22,6 +22,7 @@ import {
 } from 'src/constants/select-options';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
+import { MAX_LOCATION_PHOTOS } from 'src/location/location';
 import { money } from 'src/objects/money-field';
 
 // Цех may not read sale prices, and every role can read the timeline, so
@@ -290,6 +291,34 @@ export default defineObject({
       icon: 'IconPhoto',
       isNullable: true,
       universalSettings: { maxNumberOfValues: 10 },
+    },
+    {
+      universalIdentifier: IDS.order.locationLat,
+      type: FieldType.NUMBER,
+      name: 'locationLat',
+      label: 'Широта',
+      icon: 'IconMapPin',
+      isNullable: true,
+      universalSettings: { decimals: 6, dataType: NumberDataType.FLOAT },
+    },
+    {
+      universalIdentifier: IDS.order.locationLng,
+      type: FieldType.NUMBER,
+      name: 'locationLng',
+      label: 'Долгота',
+      icon: 'IconMapPin',
+      isNullable: true,
+      universalSettings: { decimals: 6, dataType: NumberDataType.FLOAT },
+    },
+    text(IDS.order.locationNote, 'locationNote', 'Как найти', 'IconRoute'),
+    {
+      universalIdentifier: IDS.order.locationPhotos,
+      type: FieldType.FILES,
+      name: 'locationPhotos',
+      label: 'Фото входа / дома',
+      icon: 'IconPhoto',
+      isNullable: true,
+      universalSettings: { maxNumberOfValues: MAX_LOCATION_PHOTOS },
     },
     {
       universalIdentifier: IDS.order.schemePdf,
