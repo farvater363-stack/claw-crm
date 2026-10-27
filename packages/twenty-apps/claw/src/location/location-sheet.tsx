@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import { getDevicePosition } from 'src/location/current-position';
 import {
   hasPoint,
   type LocationDraft,
-  TASHKENT_CENTER,
+  pickMapCenter,
 } from 'src/location/location';
 import { LocationMap } from 'src/location/location-map';
 import { canAddPhotos, removeSavedPhoto } from 'src/location/location-photos';
@@ -54,11 +55,36 @@ export const LocationEditor = ({
 }: LocationSheetProps) => {
   const colors = usePalette();
   const [draft, setDraft] = useState(initial);
-  const [view, setView] = useState<MapView>(() =>
-    hasPoint(initial)
-      ? { lat: initial.lat ?? 0, lng: initial.lng ?? 0, zoom: DEFAULT_ZOOM }
-      : { ...TASHKENT_CENTER, zoom: DEFAULT_ZOOM },
-  );
+  const [view, setView] = useState<MapView>(() => ({
+    ...pickMapCenter(initial, null),
+    zoom: DEFAULT_ZOOM,
+  }));
+  const hasUserMovedMap = useRef(false);
+  const [opensWithoutPoint] = useState(() => !hasPoint(initial));
+
+  useEffect(() => {
+    if (!opensWithoutPoint) return;
+
+    let isMounted = true;
+
+    void getDevicePosition().then((devicePosition) => {
+      // GPS can take seconds; never pull the map from where the user put it.
+      if (!isMounted || hasUserMovedMap.current || devicePosition === null) {
+        return;
+      }
+
+      setView((current) => ({ ...current, ...devicePosition }));
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [opensWithoutPoint]);
+
+  const moveMap = (nextView: MapView) => {
+    hasUserMovedMap.current = true;
+    setView(nextView);
+  };
 
   const addPhotos = async (files: File[]) => {
     const added = files
@@ -94,7 +120,7 @@ export const LocationEditor = ({
       <LocationMap
         view={view}
         heightPx={MAP_HEIGHT_PX}
-        onViewChange={setView}
+        onViewChange={moveMap}
       />
       <Hint text="Двигайте карту, точка остаётся в центре" isSmall />
       <TextArea

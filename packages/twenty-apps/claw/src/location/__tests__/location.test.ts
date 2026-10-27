@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { EMPTY_LOCATION, hasPoint } from 'src/location/location';
+import {
+  EMPTY_LOCATION,
+  hasPoint,
+  pickMapCenter,
+  TASHKENT_CENTER,
+} from 'src/location/location';
 import { describeSavedLocation } from 'src/location/location-field';
 
 describe('hasPoint', () => {
@@ -34,5 +39,28 @@ describe('describeSavedLocation', () => {
         ],
       }),
     ).toBe('✓ Точка сохранена · Как найти · 1 фото');
+  });
+});
+
+describe('pickMapCenter', () => {
+  const devicePosition = { lat: 41.35, lng: 69.3 };
+
+  it('keeps a saved point over the device position', () => {
+    expect(pickMapCenter({ lat: 41.3, lng: 69.2 }, devicePosition)).toEqual({
+      lat: 41.3,
+      lng: 69.2,
+    });
+  });
+
+  it('uses the device position when there is no point', () => {
+    expect(pickMapCenter({ lat: null, lng: null }, devicePosition)).toEqual(
+      devicePosition,
+    );
+  });
+
+  it('falls back to the city centre', () => {
+    expect(pickMapCenter({ lat: null, lng: null }, null)).toEqual(
+      TASHKENT_CENTER,
+    );
   });
 });

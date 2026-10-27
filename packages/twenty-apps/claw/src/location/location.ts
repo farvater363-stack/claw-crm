@@ -27,3 +27,18 @@ export const hasPoint = ({
   lat,
   lng,
 }: Pick<LocationDraft, 'lat' | 'lng'>): boolean => lat !== null && lng !== null;
+
+export type MapCenter = { lat: number; lng: number };
+
+// A saved point wins over the device: whoever fixes a point from the заказ
+// page is usually in the workshop, not at the address.
+export const pickMapCenter = (
+  draft: Pick<LocationDraft, 'lat' | 'lng'>,
+  devicePosition: MapCenter | null,
+): MapCenter => {
+  if (draft.lat !== null && draft.lng !== null) {
+    return { lat: draft.lat, lng: draft.lng };
+  }
+
+  return devicePosition ?? TASHKENT_CENTER;
+};
