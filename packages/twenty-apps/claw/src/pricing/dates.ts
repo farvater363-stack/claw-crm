@@ -1,4 +1,5 @@
 import {
+  isCancelled,
   isInstalled,
   isMeasured,
   isStatusIn,
@@ -35,6 +36,8 @@ export const todayInTashkent = (now: Date = new Date()): string =>
 
 // Stamped only when an order enters a ready status from a non-ready one, so the
 // move from «Отправлено на установку» to «Установлен» does not stamp it again.
+// An order sent back to the workshop loses it, to be stamped when it is ready
+// again. Undefined leaves it as it is.
 export const readyAtOnStatusChange = ({
   status,
   previousStatus,
@@ -45,12 +48,18 @@ export const readyAtOnStatusChange = ({
   previousStatus: string | null;
   readyAt: string | null;
   today: string;
-}): string | null =>
-  readyAt === null &&
-  isStatusIn(READY_AT_STATUSES, status) &&
-  !isStatusIn(READY_AT_STATUSES, previousStatus)
-    ? today
-    : null;
+}): string | null | undefined => {
+  const isReady = isStatusIn(READY_AT_STATUSES, status);
+  const wasReady = isStatusIn(READY_AT_STATUSES, previousStatus);
+
+  if (isReady && !wasReady && readyAt === null) return today;
+
+  if (wasReady && !isReady && !isCancelled(status) && readyAt !== null) {
+    return null;
+  }
+
+  return undefined;
+};
 
 // The installation pay is dated by it, so an order taken back from installed and
 // installed again moves to the day it really was installed, unless that date was

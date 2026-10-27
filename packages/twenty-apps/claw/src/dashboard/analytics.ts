@@ -6,6 +6,7 @@ import {
   isSold,
   isStatusIn,
   LEAD_STATUSES,
+  READY_AT_STATUSES,
 } from 'src/constants/order-status-sets';
 import { CANCEL_REASON_OPTIONS } from 'src/constants/select-options';
 import {
@@ -173,13 +174,17 @@ const percentOf = (part: number, whole: number): number | null =>
   whole === 0 ? null : Math.round((part / whole) * 100);
 
 // The day the client agreed: the order went to the workshop then. Orders
-// that skipped the step carry their later dates instead.
-export const soldOn = (order: DashboardOrder): string | null =>
+// that skipped the step carry their later dates instead. «Начало» can be typed
+// ahead, but a sale is never dated after today.
+export const soldOn = (order: DashboardOrder, today: string): string | null =>
   isSold(order.status)
-    ? (order.productionStart ??
-      order.readyAt ??
-      order.installedAt ??
-      order.createdOn)
+    ? minDay(
+        order.productionStart ??
+          order.readyAt ??
+          order.installedAt ??
+          order.createdOn,
+        today,
+      )
     : null;
 
 // Measured or further on: an order sold without a recorded measurement was
@@ -189,13 +194,45 @@ const wasMeasured = (order: DashboardOrder) =>
   isSold(order.status) ||
   (!isStatusIn(LEAD_STATUSES, order.status) && !isCancelled(order.status));
 
+// An order sent back to the workshop from data before readyAt was cleared on
+// the way still carries it.
 const readyIn = (orders: readonly DashboardOrder[], range: DayRange) =>
   orders.filter(
-    (order) => !isCancelled(order.status) && isIn(order.readyAt, range),
+    (order) =>
+      isStatusIn(READY_AT_STATUSES, order.status) &&
+      isIn(order.readyAt, range),
   );
 
-const soldIn = (orders: readonly DashboardOrder[], range: DayRange) =>
-  orders.filter((order) => isIn(soldOn(order), range));
+const soldIn = (
+  orders: readonly DashboardOrder[],
+  range: DayRange,
+  today: string,
+) => orders.filter((order) => isIn(soldOn(order, today), range));
+
+// A sale with no sum yet would pull the average down as a zero.
+export const averageTotal = (
+  orders: readonly DashboardOrder[],
+): number | null => {
+  const totals = orders.flatMap((order) =>
+    order.total === null ? [] : [order.total],
+  );
+
+  return totals.length === 0
+    ? null
+    : Math.round(sumOf(totals) / totals.length);
+};
+
+// Of the clients measured who have decided, the share that bought.
+const decidedConversion = (measured: readonly DashboardOrder[]) => {
+  const decided = measured.filter(
+    (order) => isSold(order.status) || isCancelled(order.status),
+  );
+
+  return percentOf(
+    decided.filter((order) => isSold(order.status)).length,
+    decided.length,
+  );
+};
 
 export type MetricKey =
   | 'sold'
@@ -210,52 +247,42 @@ export type MetricKey =
 type Source = {
   orders: readonly DashboardOrder[];
   payments: readonly DashboardPayment[];
+  today: string;
 };
 
 const METRICS: Record<
   MetricKey,
   (source: Source, range: DayRange) => number | null
 > = {
-  sold: ({ orders }, range) =>
-    sumOf(soldIn(orders, range).map((order) => order.total)),
+  sold: ({ orders, today }, range) =>
+    sumOf(soldIn(orders, range, today).map((order) => order.total)),
   received: ({ payments }, range) =>
     sumOf(
       payments
         .filter((payment) => isIn(payment.paidOn, range))
         .map((payment) => payment.amount),
     ),
-  average: ({ orders }, range) => {
-    const sold = soldIn(orders, range);
-
-    return sold.length === 0
-      ? null
-      : Math.round(sumOf(sold.map((order) => order.total)) / sold.length);
-  },
-  // Of the clients measured in the period who have decided, the share that bought
-  conversion: ({ orders }, range) => {
-    const decided = orders.filter(
-      (order) =>
-        isIn(order.measuredOn, range) &&
-        (isSold(order.status) || isCancelled(order.status)),
-    );
-
-    return percentOf(
-      decided.filter((order) => isSold(order.status)).length,
-      decided.length,
-    );
-  },
+  average: ({ orders, today }, range) =>
+    averageTotal(soldIn(orders, range, today)),
+  conversion: ({ orders }, range) =>
+    decidedConversion(
+      orders.filter((order) => isIn(order.measuredOn, range)),
+    ),
   area: ({ orders }, range) =>
     Math.round(sumOf(readyIn(orders, range).map((order) => order.area)) * 10) /
     10,
   // Mardon's rule: revenue counts the orders that reached «Готов».
   revenue: ({ orders }, range) =>
     sumOf(readyIn(orders, range).map((order) => order.total)),
+  // Orders with no margin worked out are left out; see marginCoverage.
   margin: ({ orders }, range) => {
-    const ready = readyIn(orders, range);
+    const counted = readyIn(orders, range).filter(
+      (order) => order.margin !== null,
+    );
 
-    return ready.length === 0
+    return counted.length === 0
       ? null
-      : sumOf(ready.map((order) => order.margin));
+      : sumOf(counted.map((order) => order.margin));
   },
   onTime: ({ orders }, range) => {
     const withDeadline = readyIn(orders, range).filter(
@@ -269,6 +296,19 @@ const METRICS: Record<
       withDeadline.length,
     );
   },
+};
+
+// How many of the period's ready orders the margin was counted over.
+export const marginCoverage = (
+  orders: readonly DashboardOrder[],
+  range: DayRange,
+): { counted: number; total: number } => {
+  const ready = readyIn(orders, range);
+
+  return {
+    counted: ready.filter((order) => order.margin !== null).length,
+    total: ready.length,
+  };
 };
 
 const PERCENT_METRICS: readonly MetricKey[] = ['conversion', 'onTime'];
@@ -445,11 +485,9 @@ export const buildMeasurers = (
         name,
         measured: measured.length,
         sold: sold.length,
-        conversionPercent: percentOf(sold.length, measured.length),
-        averageOrder:
-          sold.length === 0
-            ? null
-            : Math.round(sumOf(sold.map((order) => order.total)) / sold.length),
+        // The same share as «Замер → продажа»
+        conversionPercent: decidedConversion(measured),
+        averageOrder: averageTotal(sold),
       };
     })
     .sort((left, right) => right.measured - left.measured);
@@ -539,30 +577,52 @@ export const buildStageDays = (
   };
 };
 
-export type GrilleRow = { label: string; area: number };
+export type GrilleRow = { label: string; amount: number; unit: 'м²' | 'п.м.' };
 
 const NO_GRILLE = 'Решётка не выбрана';
+const RAILINGS = 'Перилла';
 const GRILLE_ROWS = 6;
 
-// What the clients who agreed in the period chose, in м².
+const roundTenth = (value: number) => Math.round(value * 10) / 10;
+
+// What the clients who agreed in the period chose: м² of each grille, and
+// railings in п.м. on a row of their own, as metres do not add to м².
 export const buildGrilles = (
   orders: readonly DashboardOrder[],
   items: readonly DashboardItem[],
   range: DayRange,
+  today: string,
 ): GrilleRow[] => {
-  const sold = new Set(soldIn(orders, range).map((order) => order.id));
+  const sold = new Set(soldIn(orders, range, today).map((order) => order.id));
   const areas = new Map<string, number>();
+  let railingMeters = 0;
 
   for (const item of items) {
-    if (!sold.has(item.orderId) || item.area <= 0) continue;
+    if (!sold.has(item.orderId) || item.units <= 0) continue;
+
+    if (item.isRailing) {
+      railingMeters += item.units;
+      continue;
+    }
 
     const label = item.grilleName ?? NO_GRILLE;
 
-    areas.set(label, (areas.get(label) ?? 0) + item.area);
+    areas.set(label, (areas.get(label) ?? 0) + item.units);
   }
 
-  return [...areas]
-    .map(([label, area]) => ({ label, area: Math.round(area * 10) / 10 }))
-    .sort((left, right) => right.area - left.area)
+  const grilles: GrilleRow[] = [...areas]
+    .map(([label, area]) => ({
+      label,
+      amount: roundTenth(area),
+      unit: 'м²' as const,
+    }))
+    .sort((left, right) => right.amount - left.amount)
     .slice(0, GRILLE_ROWS);
+
+  return railingMeters > 0
+    ? [
+        ...grilles,
+        { label: RAILINGS, amount: roundTenth(railingMeters), unit: 'п.м.' },
+      ]
+    : grilles;
 };

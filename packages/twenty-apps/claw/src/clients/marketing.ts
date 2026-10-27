@@ -101,7 +101,11 @@ export const sourceRowsBetween = (
     .map((source) => {
       const ofSource = inPeriod.filter((order) => order.source === source);
       const sold = ofSource.filter((order) => isSold(order.status));
-      const revenue = sold.reduce((sum, order) => sum + (order.total ?? 0), 0);
+      const priced = sold.filter((order) => order.total !== null);
+      const revenue = priced.reduce(
+        (sum, order) => sum + (order.total ?? 0),
+        0,
+      );
 
       return {
         source,
@@ -124,8 +128,9 @@ export const sourceRowsBetween = (
             ? null
             : Math.round((sold.length / ofSource.length) * 100),
         revenue,
+        // A sale with no sum yet would pull the average down as a zero
         averageOrder:
-          sold.length === 0 ? null : Math.round(revenue / sold.length),
+          priced.length === 0 ? null : Math.round(revenue / priced.length),
         topRefusal: topRefusalOf(ofSource),
       };
     })

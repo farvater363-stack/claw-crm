@@ -135,7 +135,7 @@ const handler = async (
         readyAt: after.readyAt ?? null,
         today: todayInTashkent(),
       })
-    : null;
+    : undefined;
 
   const measuredAt = statusChanged
     ? measuredAtOnStatusChange({
@@ -168,7 +168,7 @@ const handler = async (
     ...(productionStartDate !== null && { productionStartDate }),
     ...(installationDeadline !== undefined && { installationDeadline }),
     ...(installedAt !== null && { installedAt }),
-    ...(readyAt !== null && { readyAt }),
+    ...(readyAt !== undefined && { readyAt }),
     ...(measuredAt !== null && { measuredAt }),
   };
 
