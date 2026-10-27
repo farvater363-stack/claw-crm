@@ -119,7 +119,6 @@ const createWorkspaceAppRouter = ({
       children: [
         {
           element: <WorkspaceAppProviders />,
-          loader: async () => Promise.resolve(null),
           children: [
             {
               element: <MinimalMetadataGate />,
