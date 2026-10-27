@@ -39,6 +39,10 @@ import {
   type PageIds,
   type TodayData,
 } from 'src/dashboard/load-dashboard';
+import {
+  readScreenSnapshot,
+  writeScreenSnapshot,
+} from 'src/dashboard/screen-snapshot';
 import { useReloadOnReturn } from 'src/dashboard/reload-on-return';
 import {
   buildToday,
@@ -443,7 +447,13 @@ const DayPlan = ({
 
 export const TodayScreen = () => {
   const { ref, width } = useElementWidth();
-  const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [state, setState] = useState<LoadState>(() => {
+    const snapshot = readScreenSnapshot<TodayData>('today');
+
+    return snapshot === null
+      ? { status: 'loading' }
+      : { status: 'ready', data: snapshot };
+  });
   const [pageIds, setPageIds] = useState<PageIds>({});
   const [callClient, setCallClient] = useState<ClientCard | null>(null);
   const [payment, setPayment] = useState<PaymentDraft | null>(null);
@@ -462,9 +472,15 @@ export const TodayScreen = () => {
   const expenseAttemptId = useRef<string | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Over a snapshot a failed first load keeps the numbers instead of an error
+  const startsFromSnapshot = useRef(state.status === 'ready');
+
   const load = useCallback(async (isQuiet = false) => {
     try {
-      setState({ status: 'ready', data: await loadToday(new CoreApiClient()) });
+      const data = await loadToday(new CoreApiClient());
+
+      writeScreenSnapshot('today', data);
+      setState({ status: 'ready', data });
     } catch (caught) {
       if (!isQuiet) {
         setState({
@@ -476,7 +492,7 @@ export const TodayScreen = () => {
   }, []);
 
   useEffect(() => {
-    void load();
+    void load(startsFromSnapshot.current);
     findPageIds(new MetadataApiClient())
       .then(setPageIds)
       .catch(() => setPageIds({}));
