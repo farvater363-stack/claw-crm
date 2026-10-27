@@ -25,6 +25,14 @@ export class ResolverValidationPipe implements PipeTransform {
   async transform(value: unknown, metadata: ArgumentMetadata) {
     const { metatype } = metadata;
 
+    // Nest hands every non-args resolver param (@Parent, @Context and
+    // decorators like @AuthWorkspace) to pipes as 'custom'. Those carry this
+    // server's own values, not client input, and validating them deep-copies
+    // them once per resolved field. Nest's ValidationPipe skips them too.
+    if (metadata.type === 'custom') {
+      return value;
+    }
+
     if (!metatype || !this.toValidate(metatype)) {
       return value;
     }

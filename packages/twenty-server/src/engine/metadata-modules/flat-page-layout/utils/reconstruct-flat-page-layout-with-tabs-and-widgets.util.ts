@@ -1,3 +1,4 @@
+import groupBy from 'lodash.groupby';
 import { isDefined } from 'twenty-shared/utils';
 
 import { type FlatPageLayoutTabMaps } from 'src/engine/metadata-modules/flat-page-layout-tab/types/flat-page-layout-tab-maps.type';
@@ -22,6 +23,51 @@ const getResolvedPageLayoutTabId = (widget: FlatPageLayoutWidget): string =>
     property: 'pageLayoutTabId',
   });
 
+// Groups tabs and widgets once, so reconstructing every layout of a workspace
+// stays linear instead of scanning all tabs and widgets per layout.
+export const buildFlatPageLayoutWithTabsAndWidgetsReconstructor = ({
+  flatPageLayoutTabMaps,
+  flatPageLayoutWidgetMaps,
+}: {
+  flatPageLayoutTabMaps: FlatPageLayoutTabMaps;
+  flatPageLayoutWidgetMaps: FlatPageLayoutWidgetMaps;
+}): ((layout: FlatPageLayout) => FlatPageLayoutWithTabsAndWidgets) => {
+  const tabsByPageLayoutId = groupBy(
+    Object.values(flatPageLayoutTabMaps.byUniversalIdentifier)
+      .filter(isDefined)
+      .filter((tab) => !isDefined(tab.deletedAt))
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    (tab) => tab.pageLayoutId,
+  );
+
+  const widgetsByPageLayoutTabId = groupBy(
+    Object.values(flatPageLayoutWidgetMaps.byUniversalIdentifier)
+      .filter(isDefined)
+      .filter((widget) => !isDefined(widget.deletedAt)),
+    getResolvedPageLayoutTabId,
+  );
+
+  return (layout) => {
+    const tabsWithWidgets: FlatPageLayoutTabWithWidgets[] = (
+      tabsByPageLayoutId[layout.id] ?? []
+    ).map((tab) => {
+      const widgets = widgetsByPageLayoutTabId[tab.id] ?? [];
+
+      return {
+        ...tab,
+        widgets,
+        widgetIds: widgets.map((widget) => widget.id),
+      };
+    });
+
+    return {
+      ...layout,
+      tabs: tabsWithWidgets,
+      tabIds: tabsWithWidgets.map((tab) => tab.id),
+    };
+  };
+};
+
 export const reconstructFlatPageLayoutWithTabsAndWidgets = ({
   layout,
   flatPageLayoutTabMaps,
@@ -30,35 +76,8 @@ export const reconstructFlatPageLayoutWithTabsAndWidgets = ({
   layout: FlatPageLayout;
   flatPageLayoutTabMaps: FlatPageLayoutTabMaps;
   flatPageLayoutWidgetMaps: FlatPageLayoutWidgetMaps;
-}): FlatPageLayoutWithTabsAndWidgets => {
-  const tabs = Object.values(flatPageLayoutTabMaps.byUniversalIdentifier)
-    .filter(isDefined)
-    .filter(
-      (tab) => tab.pageLayoutId === layout.id && !isDefined(tab.deletedAt),
-    )
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-
-  const tabsWithWidgets: FlatPageLayoutTabWithWidgets[] = tabs.map((tab) => {
-    const widgets = Object.values(
-      flatPageLayoutWidgetMaps.byUniversalIdentifier,
-    )
-      .filter(isDefined)
-      .filter(
-        (widget) =>
-          getResolvedPageLayoutTabId(widget) === tab.id &&
-          !isDefined(widget.deletedAt),
-      );
-
-    return {
-      ...tab,
-      widgets,
-      widgetIds: widgets.map((widget) => widget.id),
-    };
-  });
-
-  return {
-    ...layout,
-    tabs: tabsWithWidgets,
-    tabIds: tabsWithWidgets.map((tab) => tab.id),
-  };
-};
+}): FlatPageLayoutWithTabsAndWidgets =>
+  buildFlatPageLayoutWithTabsAndWidgetsReconstructor({
+    flatPageLayoutTabMaps,
+    flatPageLayoutWidgetMaps,
+  })(layout);
