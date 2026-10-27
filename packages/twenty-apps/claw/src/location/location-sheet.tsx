@@ -46,7 +46,7 @@ const PhotoWithRemove = ({
   </span>
 );
 
-export const LocationSheet = ({
+export const LocationEditor = ({
   initial,
   isBusy = false,
   onSave,
@@ -90,21 +90,7 @@ export const LocationSheet = ({
   const photoCount = draft.savedPhotos.length + draft.newPhotos.length;
 
   return (
-    <Sheet
-      title="Точка на карте"
-      isBusy={isBusy}
-      onClose={onClose}
-      footer={
-        <Button
-          variant="primary"
-          isBusy={isBusy}
-          isWideOnPhone
-          onClick={() => onSave({ ...draft, lat: view.lat, lng: view.lng })}
-        >
-          Сохранить точку
-        </Button>
-      }
-    >
+    <div style={{ display: 'grid', gap: SPACE.md }}>
       <LocationMap
         view={view}
         heightPx={MAP_HEIGHT_PX}
@@ -117,7 +103,7 @@ export const LocationSheet = ({
         placeholder="Вход со двора, домофон, цвет ворот"
         onChange={(note) => setDraft((current) => ({ ...current, note }))}
       />
-      <div style={{ display: 'grid', gap: SPACE.sm }}>
+      <div style={{ display: 'grid', gap: SPACE.sm, justifyItems: 'start' }}>
         <span style={{ ...TYPE.label, color: colors.muted }}>
           Фото входа / дома
         </span>
@@ -161,6 +147,31 @@ export const LocationSheet = ({
           <Hint text="Больше 10 фото не помещается" isSmall />
         )}
       </div>
-    </Sheet>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.sm }}>
+        <Button
+          variant="primary"
+          isBusy={isBusy}
+          isWideOnPhone
+          onClick={() => onSave({ ...draft, lat: view.lat, lng: view.lng })}
+        >
+          Сохранить точку
+        </Button>
+        <Button
+          onClick={() => {
+            if (!isBusy) onClose();
+          }}
+        >
+          Отмена
+        </Button>
+      </div>
+    </div>
   );
 };
+
+// Новый замер is a whole page, where a sheet can cover it; a record page
+// widget cannot cover the widgets below it and shows the editor inline.
+export const LocationSheet = (props: LocationSheetProps) => (
+  <Sheet title="Точка на карте" isBusy={props.isBusy} onClose={props.onClose}>
+    <LocationEditor {...props} />
+  </Sheet>
+);

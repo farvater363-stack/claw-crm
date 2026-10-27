@@ -8,7 +8,7 @@ import {
 } from 'src/location/load-order-location';
 import { hasPoint, type LocationDraft } from 'src/location/location';
 import { LocationMap } from 'src/location/location-map';
-import { LocationSheet } from 'src/location/location-sheet';
+import { LocationEditor } from 'src/location/location-sheet';
 import { saveOrderLocation } from 'src/location/save-order-location';
 import { DEFAULT_ZOOM } from 'src/location/map-tiles';
 import { Button, ErrorNote, Hint, Thumbnail, usePalette } from 'src/ui/kit';
@@ -135,6 +135,24 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
     }
   };
 
+  if (isEditing) {
+    return (
+      <div style={{ display: 'grid', gap: SPACE.md }}>
+        {saveError !== null ? (
+          <ErrorNote text={`Не удалось сохранить точку: ${saveError}`} />
+        ) : null}
+        <LocationEditor
+          initial={location}
+          isBusy={isSaving}
+          onSave={(draft) => {
+            void save(draft);
+          }}
+          onClose={() => setIsEditing(false)}
+        />
+      </div>
+    );
+  }
+
   const photos = location.savedPhotos;
 
   return (
@@ -220,16 +238,6 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
         ) : (
           <ErrorNote text="Бот не настроен на сервере" />
         )
-      ) : null}
-      {isEditing ? (
-        <LocationSheet
-          initial={location}
-          isBusy={isSaving}
-          onSave={(draft) => {
-            void save(draft);
-          }}
-          onClose={() => setIsEditing(false)}
-        />
       ) : null}
     </div>
   );
