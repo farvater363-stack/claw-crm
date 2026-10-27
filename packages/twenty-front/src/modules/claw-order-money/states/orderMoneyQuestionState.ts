@@ -5,6 +5,7 @@ export type OrderMoneyQuestion = {
   title: string;
   subtitle: string;
   abortButtonText: string;
+  openedAt: number;
   answer: (paidMoneyOnCancel: PaidMoneyOnCancel | null) => void;
 };
 

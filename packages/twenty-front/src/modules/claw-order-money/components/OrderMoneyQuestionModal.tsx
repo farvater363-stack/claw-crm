@@ -10,6 +10,10 @@ import { ConfirmationDialog } from '@/ui/layout/dialog/components/ConfirmationDi
 import { useDialog } from '@/ui/layout/dialog/hooks/useDialog';
 import { useAtomState } from '@/ui/utilities/state/jotai/hooks/useAtomState';
 
+// Long enough for the dialog's open animation and for whatever opened it
+// (a closing side panel, a closing select) to finish moving focus.
+const DISMISSAL_GRACE_PERIOD_MS = 500;
+
 const StyledAnswerButton = styled(Button)`
   box-sizing: border-box;
   margin-top: ${themeCssVariables.spacing[2]};
@@ -19,7 +23,7 @@ export const OrderMoneyQuestionModal = () => {
   const [orderMoneyQuestion, setOrderMoneyQuestion] = useAtomState(
     orderMoneyQuestionState,
   );
-  const { closeDialog } = useDialog();
+  const { closeDialog, openDialog } = useDialog();
 
   if (!isDefined(orderMoneyQuestion)) {
     return null;
@@ -29,6 +33,20 @@ export const OrderMoneyQuestionModal = () => {
     setOrderMoneyQuestion(null);
     closeDialog(ORDER_MONEY_QUESTION_DIALOG_ID);
     orderMoneyQuestion.answer(paidMoneyOnCancel);
+  };
+
+  // Only a dismissal of a fully open dialog counts as «no»; one fired while it
+  // opens comes from the UI it replaced, so the dialog comes back.
+  const handleDismiss = () => {
+    if (
+      performance.now() - orderMoneyQuestion.openedAt <
+      DISMISSAL_GRACE_PERIOD_MS
+    ) {
+      setTimeout(() => openDialog(ORDER_MONEY_QUESTION_DIALOG_ID));
+      return;
+    }
+
+    handleAnswer(null);
   };
 
   // The dialog's own confirm button is «Не отменять», so Enter and closing
@@ -62,7 +80,7 @@ export const OrderMoneyQuestionModal = () => {
       confirmButtonText={orderMoneyQuestion.abortButtonText}
       confirmButtonColor="neutral"
       onConfirmClick={() => handleAnswer(null)}
-      onClose={() => handleAnswer(null)}
+      onClose={handleDismiss}
     />
   );
 };

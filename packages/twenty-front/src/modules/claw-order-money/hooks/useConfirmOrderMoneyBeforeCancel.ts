@@ -11,6 +11,9 @@ import {
   type PaidMoneyOnCancel,
   sumPaidAmountMicros,
 } from '@/claw-order-money/utils/orderMoney';
+import { isSidePanelClosingState } from '@/side-panel/states/isSidePanelClosingState';
+import { waitForSidePanelClose } from '@/ui/layout/side-panel/utils/waitForSidePanelClose';
+import { useStore } from 'jotai';
 import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
 import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
 import { useDialog } from '@/ui/layout/dialog/hooks/useDialog';
@@ -40,17 +43,27 @@ export const useConfirmOrderMoneyBeforeCancel = () => {
   const { objectMetadataItems } = useObjectMetadataItems();
   const setOrderMoneyQuestion = useSetAtomState(orderMoneyQuestionState);
   const { openDialog } = useDialog();
+  const store = useStore();
 
   const askInTurn = (
     question: ReturnType<typeof buildOrderMoneyQuestion>,
   ): Promise<PaidMoneyOnCancel | null> => {
-    const turn = previousQuestion.then(
-      () =>
-        new Promise<PaidMoneyOnCancel | null>((resolve) => {
-          setOrderMoneyQuestion({ ...question, answer: resolve });
-          openDialog(ORDER_MONEY_QUESTION_DIALOG_ID);
-        }),
-    );
+    const turn = previousQuestion.then(async () => {
+      // A command run from the side panel closes it first; a dialog opened
+      // during that teardown loses its focus and clicks to it.
+      if (store.get(isSidePanelClosingState.atom)) {
+        await waitForSidePanelClose();
+      }
+
+      return new Promise<PaidMoneyOnCancel | null>((resolve) => {
+        setOrderMoneyQuestion({
+          ...question,
+          openedAt: performance.now(),
+          answer: resolve,
+        });
+        openDialog(ORDER_MONEY_QUESTION_DIALOG_ID);
+      });
+    });
 
     previousQuestion = turn;
 
@@ -82,7 +95,9 @@ export const useConfirmOrderMoneyBeforeCancel = () => {
           filter: { orderId: { in: recordIds } },
           limit: PAYMENTS_PAGE_SIZE,
         },
-        fetchPolicy: 'network-only',
+        // Kept out of the cache: this partial OrderPayment.amount would
+        // overwrite the full one and make the open record page refetch.
+        fetchPolicy: 'no-cache',
       })
       .then(({ data }) =>
         (data?.orderPayments.edges ?? []).map(({ node }) => node),
