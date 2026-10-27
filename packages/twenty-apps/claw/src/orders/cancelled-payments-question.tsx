@@ -2,14 +2,30 @@ import { useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { AppPath, navigate } from 'twenty-sdk/front-component';
 
-import { type PaidMoneyOnCancel } from 'src/constants/select-options';
+import {
+  type PaidMoneyOnCancel,
+  type Wallet,
+  WALLET_OPTIONS,
+} from 'src/constants/select-options';
 import {
   answerPaidMoney,
   type CancelledWithMoney,
   loadCancelledWithMoney,
+  parseRefundAmount,
 } from 'src/orders/paid-money-on-cancel';
-import { Button, ErrorNote, Section, StaticRow, Wrap } from 'src/ui/kit';
-import { formatMoney } from 'src/ui/format';
+import {
+  Button,
+  Columns,
+  ErrorNote,
+  Field,
+  Hint,
+  Section,
+  SelectInput,
+  StaticRow,
+  TextInput,
+  Wrap,
+} from 'src/ui/kit';
+import { formatMoney, formatWhole } from 'src/ui/format';
 import { TABULAR_NUMBERS } from 'src/ui/tokens';
 import { isAccessError } from 'src/utils/is-access-error';
 
@@ -39,6 +55,13 @@ export const CancelledPaymentsQuestion = ({
     text: string;
     retry: (() => void) | null;
   } | null>(null);
+  // «Вернули клиенту» opens what went back and from where under its row.
+  const [refundDraft, setRefundDraft] = useState<{
+    orderId: string;
+    amount: string;
+    wallet: string;
+    error: string | null;
+  } | null>(null);
 
   const latestRequest = useRef(0);
 
@@ -58,6 +81,7 @@ export const CancelledPaymentsQuestion = ({
   const answer = async (
     orderId: string,
     paidMoneyOnCancel: PaidMoneyOnCancel,
+    refund: { amount: number; wallet: Wallet } | null = null,
   ) => {
     if (busyId !== null) return;
 
@@ -65,8 +89,16 @@ export const CancelledPaymentsQuestion = ({
     setFailure(null);
 
     try {
-      await answerPaidMoney(new CoreApiClient(), orderId, paidMoneyOnCancel);
+      await answerPaidMoney(
+        new CoreApiClient(),
+        orderId,
+        paidMoneyOnCancel,
+        refund,
+      );
       latestRequest.current += 1;
+      setRefundDraft((current) =>
+        current?.orderId === orderId ? null : current,
+      );
       setOrders((current) => current.filter((order) => order.id !== orderId));
     } catch (error) {
       const isDenied = isAccessError(error);
@@ -75,11 +107,41 @@ export const CancelledPaymentsQuestion = ({
         orderId,
         text: isDenied ? NO_RIGHTS : SAVE_ERROR,
         // Trying again cannot help a role that may not make the change.
-        retry: isDenied ? null : () => void answer(orderId, paidMoneyOnCancel),
+        retry: isDenied
+          ? null
+          : () => void answer(orderId, paidMoneyOnCancel, refund),
       });
     } finally {
       setBusyId(null);
     }
+  };
+
+  const openRefund = (order: CancelledWithMoney) =>
+    setRefundDraft({
+      orderId: order.id,
+      amount: formatWhole(order.paid),
+      wallet: order.wallet ?? 'CASH',
+      error: null,
+    });
+
+  const saveRefund = (order: CancelledWithMoney) => {
+    if (refundDraft === null) return;
+
+    const amount = parseRefundAmount(refundDraft.amount, order.paid);
+    const wallet = WALLET_OPTIONS.find(
+      (option) => option.value === refundDraft.wallet,
+    )?.value;
+
+    if (!amount.ok || wallet === undefined) {
+      setRefundDraft({
+        ...refundDraft,
+        error: amount.ok ? 'Выберите, откуда вернули' : amount.error,
+      });
+
+      return;
+    }
+
+    void answer(order.id, 'REFUNDED', { amount: amount.amount, wallet });
   };
 
   return (
@@ -97,7 +159,7 @@ export const CancelledPaymentsQuestion = ({
           <Wrap>
             <Button
               isBusy={busyId === order.id}
-              onClick={() => void answer(order.id, 'REFUNDED')}
+              onClick={() => openRefund(order)}
             >
               Вернули клиенту
             </Button>
@@ -108,6 +170,50 @@ export const CancelledPaymentsQuestion = ({
               Остаются у нас
             </Button>
           </Wrap>
+          {refundDraft?.orderId === order.id ? (
+            <>
+              <Columns>
+                <Field label="Сколько вернули">
+                  <TextInput
+                    label="Сколько вернули"
+                    inputMode="numeric"
+                    isMoney
+                    suffix="сум"
+                    value={refundDraft.amount}
+                    onChange={(amount) =>
+                      setRefundDraft({ ...refundDraft, amount, error: null })
+                    }
+                    onEnter={() => saveRefund(order)}
+                    onCancel={() => setRefundDraft(null)}
+                  />
+                </Field>
+                <Field label="Откуда">
+                  <SelectInput
+                    label="Откуда"
+                    value={refundDraft.wallet}
+                    options={WALLET_OPTIONS}
+                    onChange={(wallet) =>
+                      setRefundDraft({ ...refundDraft, wallet, error: null })
+                    }
+                  />
+                </Field>
+              </Columns>
+              {refundDraft.error === null ? null : (
+                <Hint text={refundDraft.error} tone="danger" />
+              )}
+              <Wrap>
+                <Button
+                  isBusy={busyId === order.id}
+                  onClick={() => saveRefund(order)}
+                >
+                  Сохранить
+                </Button>
+                <Button variant="link" onClick={() => setRefundDraft(null)}>
+                  Отмена
+                </Button>
+              </Wrap>
+            </>
+          ) : null}
           {failure?.orderId === order.id ? (
             <ErrorNote
               text={failure.text}

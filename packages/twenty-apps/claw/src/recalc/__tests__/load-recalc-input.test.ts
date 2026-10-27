@@ -22,6 +22,7 @@ const fakeClient = (
     designs = [] as Record<string, unknown>[],
     norms = [] as Record<string, unknown>[],
     materials = [] as Record<string, unknown>[],
+    refunds = [] as Record<string, unknown>[],
   } = {},
 ) => {
   const queries: Request[] = [];
@@ -39,6 +40,7 @@ const fakeClient = (
         materialNorms: page(norms),
         materials: page(materials),
         orderPayments: page(payments),
+        moneyEntries: page(refunds),
       };
     },
   } as unknown as CoreApiClient;
@@ -101,6 +103,57 @@ describe('loadRecalcInput', () => {
     expect(input?.paymentsTotal).toBe(700_000);
     expect(queries[0].orderPayments.__args).toMatchObject({
       filter: { orderId: { eq: 'order-1' } },
+    });
+  });
+
+  describe('refunds', () => {
+    const paidWith = async (
+      order: Record<string, unknown>,
+      refunds: Record<string, unknown>[],
+    ) => {
+      const { client, queries } = fakeClient(
+        [{ amount: uzs(500_000) }, { amount: uzs(300_000) }],
+        { order, refunds },
+      );
+      const input = await loadRecalcInput(client, 'order-1', NO_REFRESH);
+
+      return { paid: input?.paymentsTotal, queries };
+    };
+
+    it('still counts the refund of the current cancel as paid', async () => {
+      expect(
+        (
+          await paidWith({ id: 'order-1', status: 'CANCELLED' }, [
+            { id: 'order-1', amount: uzs(800_000) },
+          ])
+        ).paid,
+      ).toBe(800_000);
+    });
+
+    it('counts off a refund of a cancel the order was taken back from', async () => {
+      const { paid, queries } = await paidWith(
+        { id: 'order-1', status: 'PRODUCTION', refundEntryId: 'refund-2' },
+        [{ id: 'order-1', amount: uzs(600_000) }],
+      );
+
+      expect(paid).toBe(200_000);
+      expect(queries[0].moneyEntries.__args).toMatchObject({
+        filter: { orderId: { eq: 'order-1' }, kind: { eq: 'REFUND' } },
+      });
+    });
+
+    it('never counts below nothing', async () => {
+      expect(
+        (
+          await paidWith(
+            { id: 'order-1', status: 'PRODUCTION', refundEntryId: 'refund-3' },
+            [
+              { id: 'order-1', amount: uzs(800_000) },
+              { id: 'refund-2', amount: uzs(300_000) },
+            ],
+          )
+        ).paid,
+      ).toBe(0);
     });
   });
 

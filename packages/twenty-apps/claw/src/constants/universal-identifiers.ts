@@ -105,6 +105,9 @@ export const IDS = {
     masterPenalty: '35d2b49a-ce2c-40e5-9223-2062c5068e80',
     cancelReason: '874cc84a-6a9a-43ba-9379-2d081bb0e54c',
     paidMoneyOnCancel: '2401d67f-4f56-4770-8a22-e3fce6fa74ce',
+    refundAmount: '405cce35-9a04-488a-aaef-0396980ca900',
+    refundWallet: 'a3ad94b7-234e-4e77-bba5-5cf37bbd2168',
+    refundEntryId: 'a99a2dd6-d2e5-4be3-960c-1b4a9e549049',
     materialState: '8c327466-7748-43f2-ab96-b3f821211df1',
     materialNote: 'c856c580-ed9b-4172-bca6-265d8231f5c9',
     missingNorms: 'bda1c379-315c-44cb-a323-5c1a90bd6fe3',
@@ -383,6 +386,7 @@ export const IDS = {
     workshop: 'd15c1c8c-d736-4d80-82a4-f8dab38341c2',
     measurerOwnOrders: 'fc994d42-940b-4b76-bfce-c19499a9a383',
     measurerMeasuringStatuses: '84ace946-7c6f-46e6-be8c-67fffe7bc472',
+    workshopNotCancelled: 'd08958cf-b442-4198-b318-c47a651460e1',
   },
   view: {
     ordersKanban: 'dfcc304e-6ee3-49be-820a-abc525d06583',

@@ -6,16 +6,21 @@ import {
 
 import { syncOrderClient } from 'src/clients/sync-order-client';
 import { IDS } from 'src/constants/universal-identifiers';
-import { cancelInsteadOfDelete } from 'src/orders/paid-money-on-cancel';
+import {
+  cancelInsteadOfDelete,
+  deleteRefundsOfOrder,
+  loadOrderMoney,
+  netPaid,
+  refundEntryIdOf,
+} from 'src/orders/paid-money-on-cancel';
 import { deletePaymentsOfOrder } from 'src/payments/follow-order';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
-import { fromCurrency } from 'src/recalc/money';
 
 type DeletedOrder = {
   clientId: string | null;
   status: string | null;
   cancelReason: string | null;
-  paid: { amountMicros?: number | string | null } | null;
+  refundEntryId: string | null;
 };
 
 const handler = async (
@@ -25,8 +30,20 @@ const handler = async (
   const client = createRecalcClient();
 
   // Twenty's own delete cannot be stopped or asked about: the order comes
-  // back cancelled and its money question waits on «Сегодня».
-  if ((fromCurrency(order?.paid ?? null) ?? 0) > 0) {
+  // back cancelled and its money question waits on «Сегодня». The payments
+  // are read again rather than the stored «Оплачено»: «Удалить вместе с
+  // оплатами» removes them just before, and their recalc may not have run.
+  const { payments, refunds } = await loadOrderMoney(client, payload.recordId);
+  const paid = netPaid(
+    payments.reduce((sum, payment) => sum + payment.amount, 0),
+    refunds,
+    refundEntryIdOf({
+      id: payload.recordId,
+      refundEntryId: order?.refundEntryId ?? null,
+    }),
+  );
+
+  if (paid > 0) {
     await cancelInsteadOfDelete(
       client,
       payload.recordId,
@@ -37,6 +54,7 @@ const handler = async (
   }
 
   await deletePaymentsOfOrder(client, payload.recordId);
+  await deleteRefundsOfOrder(client, payload.recordId);
 
   if (!order?.clientId) return;
 
@@ -54,7 +72,7 @@ export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderDeleted,
   name: 'on-order-deleted',
   description:
-    "Brings back a deleted order the client paid for as cancelled; otherwise deletes its payments and recalculates its client's totals",
+    "Brings back a deleted order the client paid for as cancelled; otherwise deletes its payments and refunds and recalculates its client's totals",
   timeoutSeconds: 30,
   databaseEventTriggerSettings: { eventName: 'order.deleted' },
   handler,

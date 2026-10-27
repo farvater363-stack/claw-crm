@@ -23,6 +23,7 @@ import { clientAfterPhoneChange } from 'src/recalc/link-client-by-phone';
 import { fromCurrency } from 'src/recalc/money';
 import { recalcOrder } from 'src/recalc/recalc-order';
 import { type StoredFullName } from 'src/utils/full-name';
+import { randomUuid } from 'src/utils/random-uuid';
 import { isEnteringWrittenOff } from 'src/warehouse/plan-order-materials';
 
 type UpdatedOrder = {
@@ -36,7 +37,6 @@ type UpdatedOrder = {
   clientFullName: StoredFullName;
   clientId: string | null;
   cancelReason: string | null;
-  paidMoneyOnCancel: string | null;
   productionStartDate: string | null;
   installationDeadline: string | null;
   total: { amountMicros?: number | string | null } | null;
@@ -168,16 +168,22 @@ const handler = async (
     : undefined;
 
   // An answer about the money belongs to that cancel: an order taken back from
-  // it drops the answer, which removes its refund, and is asked again next time.
+  // it drops the answer and is asked again next time. A refund already
+  // written stays, since the money really left: the new record id leaves it
+  // out of reach of the next answer, and the recalc counts it off «Оплачено».
   const isUncancelled =
     statusChanged &&
     isCancelled(before.status ?? null) &&
-    !isCancelled(after.status ?? null) &&
-    (after.paidMoneyOnCancel ?? null) !== null;
+    !isCancelled(after.status ?? null);
 
   // One mutation, so INSTALLED does not fire the trigger twice.
   const stamps: Record<string, unknown> = {
-    ...(isUncancelled && { paidMoneyOnCancel: null }),
+    ...(isUncancelled && {
+      paidMoneyOnCancel: null,
+      refundAmount: { amountMicros: null, currencyCode: 'UZS' },
+      refundWallet: null,
+      refundEntryId: randomUuid(),
+    }),
     ...(productionStartDate !== undefined && { productionStartDate }),
     ...(installationDeadline !== undefined && { installationDeadline }),
     ...(installedAt !== null && { installedAt }),

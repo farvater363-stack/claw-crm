@@ -7,9 +7,14 @@ import {
   type OrderStatus,
   type PaidMoneyOnCancel,
   type PaymentMethod,
+  type Wallet,
   type WorkerCategory,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
+import {
+  largestWallet,
+  paidMoneyAnswerData,
+} from 'src/orders/paid-money-on-cancel';
 import { STEP_STATUS, type StepWrite } from 'src/order-header/order-steps';
 import { numberOpenings } from 'src/order-sketch/order-sketch';
 import { fromCurrency, toCurrency } from 'src/recalc/money';
@@ -35,6 +40,8 @@ export type HeaderOrder = {
   balance: number | null;
   // False for a role that may not read the sums or the phone (the workshop)
   canSeeMoney: boolean;
+  // The wallet most of the payments came into, offered first for a refund
+  largestWallet: Wallet | null;
   masterId: string | null;
   installerId: string | null;
   cancelReason: string | null;
@@ -128,6 +135,7 @@ const NO_MONEY = {
   total: null,
   paid: null,
   balance: null,
+  largestWallet: null,
 } as const;
 
 // A role that may not read the sums or the phone is refused the whole query,
@@ -136,15 +144,30 @@ const loadOrderNode = async (client: CoreApiClient, orderId: string) => {
   const byId = { filter: { id: { eq: orderId } }, first: 1 };
 
   try {
-    const { orders } = await client.query({
+    const { orders, orderPayments } = await client.query({
       orders: {
         __args: byId,
         edges: { node: { ...ORDER_FIELDS, ...MONEY_AND_PHONE_FIELDS } },
       },
+      orderPayments: {
+        __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
+        edges: { node: { amount: MONEY, method: true } },
+      },
     });
     const node = orders?.edges[0]?.node;
 
-    return node ? { ...node, canSeeMoney: true } : null;
+    return node
+      ? {
+          ...node,
+          canSeeMoney: true,
+          largestWallet: largestWallet(
+            (orderPayments?.edges ?? []).map(({ node: payment }) => ({
+              amount: fromCurrency(payment.amount) ?? 0,
+              method: (payment.method ?? null) as PaymentMethod | null,
+            })),
+          ),
+        }
+      : null;
   } catch (error) {
     if (!isAccessError(error)) throw error;
 
@@ -276,6 +299,7 @@ export const loadOrderHeader = async (
       paid: fromCurrency(node.paid),
       balance: fromCurrency(node.balance),
       canSeeMoney: node.canSeeMoney,
+      largestWallet: node.largestWallet,
       masterId: node.masterId ?? null,
       installerId: node.installerId ?? null,
       cancelReason: node.cancelReason ?? null,
@@ -305,11 +329,10 @@ const updateOrderInStatus = async (
   shownStatus: OrderStatus | null,
   data:
     | StepWrite
-    | {
+    | ({
         status: OrderStatus;
         cancelReason: CancelReason;
-        paidMoneyOnCancel?: PaidMoneyOnCancel;
-      },
+      } & Partial<ReturnType<typeof paidMoneyAnswerData>>),
 ): Promise<OrderWriteOutcome> => {
   const { updateOrders } = await client.mutation({
     updateOrders: {
@@ -340,13 +363,16 @@ export const cancelOrder = (
   orderId: string,
   shownStatus: OrderStatus | null,
   cancelReason: CancelReason,
-  // Asked only when the client has paid
+  // Asked only when the client has paid; the refund only when it went back
   paidMoneyOnCancel: PaidMoneyOnCancel | null,
+  refund: { amount: number; wallet: Wallet } | null = null,
 ): Promise<OrderWriteOutcome> =>
   updateOrderInStatus(client, orderId, shownStatus, {
     status: STEP_STATUS.cancelled,
     cancelReason,
-    ...(paidMoneyOnCancel === null ? {} : { paidMoneyOnCancel }),
+    ...(paidMoneyOnCancel === null
+      ? {}
+      : paidMoneyAnswerData(paidMoneyOnCancel, refund)),
   });
 
 // No name is sent: the payment's trigger writes it. The id belongs to one

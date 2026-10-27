@@ -18,6 +18,7 @@ import {
   SOURCE_OPTIONS,
   CONTRACT_STATE_OPTIONS,
   URGENCY_OPTIONS,
+  WALLET_OPTIONS,
 } from 'src/constants/select-options';
 import { withoutAuditOfAdminOnlyFields } from 'src/constants/admin-only-fields';
 import { IDS } from 'src/constants/universal-identifiers';
@@ -109,7 +110,37 @@ export default defineObject({
       isNullable: true,
       options: PAID_MONEY_ON_CANCEL_OPTIONS,
     },
-    text(IDS.order.clientName, 'clientName', 'Имя одной строкой (старое)', 'IconUser'),
+    // Empty means the whole sum paid, from the wallet most of it came into.
+    money(
+      IDS.order.refundAmount,
+      'refundAmount',
+      'Возвращено клиенту',
+      NOT_AUDIT_LOGGED,
+    ),
+    {
+      universalIdentifier: IDS.order.refundWallet,
+      type: FieldType.SELECT,
+      name: 'refundWallet',
+      label: 'Возврат из',
+      icon: 'IconWallet',
+      isNullable: true,
+      options: WALLET_OPTIONS,
+    },
+    // The «Деньги» record the refund of this cancel goes to; empty means the
+    // order's own id. A reopened order gets a new one, so the refund of an
+    // earlier cancel stays as it was.
+    text(
+      IDS.order.refundEntryId,
+      'refundEntryId',
+      'Запись возврата',
+      'IconLink',
+    ),
+    text(
+      IDS.order.clientName,
+      'clientName',
+      'Имя одной строкой (старое)',
+      'IconUser',
+    ),
     {
       universalIdentifier: IDS.order.clientFullName,
       type: FieldType.FULL_NAME,
@@ -440,7 +471,8 @@ export default defineObject({
       name: 'signedContracts',
       label: 'Подписанные договоры',
       icon: 'IconSignature',
-      relationTargetObjectMetadataUniversalIdentifier: IDS.signedContract.object,
+      relationTargetObjectMetadataUniversalIdentifier:
+        IDS.signedContract.object,
       relationTargetFieldMetadataUniversalIdentifier: IDS.signedContract.order,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },

@@ -232,6 +232,7 @@ describe('workshop', () => {
         IDS.order.total,
         IDS.order.paid,
         IDS.order.balance,
+        IDS.order.refundAmount,
         IDS.orderItem.pricePerSquareMeter,
         IDS.orderItem.lineTotal,
         IDS.orderExtraService.price,
@@ -608,6 +609,45 @@ describe('file uploads', () => {
   });
 });
 
+describe('workshop rows', () => {
+  const rules = workshopRole.config.rowLevelPermissionPredicates ?? [];
+
+  // It cannot read the money, so it cannot answer what became of it.
+  it('cannot cancel an order', () => {
+    expect(rules).toEqual([
+      expect.objectContaining({
+        objectUniversalIdentifier: IDS.order.object,
+        fieldUniversalIdentifier: IDS.order.status,
+        operand: RowLevelPermissionPredicateOperand.IS,
+        value: [
+          'NEW',
+          'MEASUREMENT_SCHEDULED',
+          'MEASURED',
+          'PRODUCTION',
+          'QUALITY_CHECK',
+          'INSTALLED',
+        ],
+      }),
+    ]);
+    expect(rules[0]?.universalIdentifier).not.toBe(
+      IDS.role.measurerMeasuringStatuses,
+    );
+  });
+
+  it('cannot change the refund wallet', () => {
+    expect(readOnlyFieldIds(workshopRole)).toContain(IDS.order.refundWallet);
+  });
+});
+
+describe('refund record of an order', () => {
+  it.each([managerRole, measurerRole, workshopRole])(
+    'is written by the app alone',
+    (role) => {
+      expect(readOnlyFieldIds(role)).toContain(IDS.order.refundEntryId);
+    },
+  );
+});
+
 describe('measurer rows', () => {
   const rules = measurerRole.config.rowLevelPermissionPredicates ?? [];
 
@@ -677,8 +717,8 @@ describe('measurer rows', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('leaves the other roles without rules', () => {
-    for (const role of [managerRole, workshopRole, functionsRole]) {
+  it('leaves the manager and the functions without rules', () => {
+    for (const role of [managerRole, functionsRole]) {
       expect(role.config.rowLevelPermissionPredicates ?? []).toEqual([]);
     }
   });

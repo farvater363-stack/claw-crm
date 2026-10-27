@@ -130,7 +130,8 @@ export type RecalcInput = {
   extraServiceCatalog: ExtraServiceCatalogEntry[];
   grilles: GrillePrice[];
   master: MasterSnapshot | null;
-  // Sum of the order's payments that are not deleted
+  // Sum of the order's payments that are not deleted, less the refunds of
+  // cancels it was taken back from
   paymentsTotal: number;
   // The part of it paid by the day the order went to the workshop
   prepaymentsTotal: number;

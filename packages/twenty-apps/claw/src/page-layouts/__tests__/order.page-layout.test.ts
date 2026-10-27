@@ -190,6 +190,8 @@ describe('order fields', () => {
       IDS.order.status,
       IDS.order.cancelReason,
       IDS.order.paidMoneyOnCancel,
+      IDS.order.refundAmount,
+      IDS.order.refundWallet,
     ]);
   });
 
@@ -221,6 +223,7 @@ describe('order fields', () => {
       IDS.order.areaSquareMeters,
       IDS.order.prepayment,
       IDS.order.deadlineState,
+      IDS.order.refundEntryId,
     ]) {
       expect(listed).not.toContain(gone);
     }
