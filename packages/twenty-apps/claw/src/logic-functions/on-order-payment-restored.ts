@@ -6,6 +6,7 @@ import {
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
+import { followPaymentsOfRefundedOrder } from 'src/orders/paid-money-on-cancel';
 import { recalcOrder } from 'src/recalc/recalc-order';
 
 const handler = async (
@@ -16,7 +17,10 @@ const handler = async (
   const orderId = payload.properties.after?.orderId;
 
   if (orderId) {
-    await recalcOrder(createRecalcClient(), orderId);
+    const client = createRecalcClient();
+
+    await recalcOrder(client, orderId);
+    await followPaymentsOfRefundedOrder(client, orderId);
   }
 };
 

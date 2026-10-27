@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { AppPath, navigate } from 'twenty-sdk/front-component';
 
@@ -40,9 +40,16 @@ export const CancelledPaymentsQuestion = ({
     retry: (() => void) | null;
   } | null>(null);
 
+  const latestRequest = useRef(0);
+
   useEffect(() => {
+    const request = ++latestRequest.current;
+
     loadCancelledWithMoney(new CoreApiClient())
-      .then(setOrders)
+      .then((next) => {
+        // A list loaded before an answer was saved would bring its row back
+        if (request === latestRequest.current) setOrders(next);
+      })
       .catch(() => undefined);
   }, [refreshCount]);
 
@@ -59,6 +66,7 @@ export const CancelledPaymentsQuestion = ({
 
     try {
       await answerPaidMoney(new CoreApiClient(), orderId, paidMoneyOnCancel);
+      latestRequest.current += 1;
       setOrders((current) => current.filter((order) => order.id !== orderId));
     } catch (error) {
       const isDenied = isAccessError(error);

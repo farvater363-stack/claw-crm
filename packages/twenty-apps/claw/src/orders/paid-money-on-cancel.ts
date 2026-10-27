@@ -5,6 +5,7 @@ import {
   type PaymentMethod,
   type Wallet,
 } from 'src/constants/select-options';
+import { isCancelled } from 'src/constants/order-status-sets';
 import {
   createMoneyEntry,
   deleteMoneyEntries,
@@ -45,41 +46,59 @@ export const refundOf = (
 };
 
 // One refund per order: its entry takes the order's id, so a retry or a
-// changed answer finds that record instead of adding another.
+// changed answer finds that record instead of adding another. Only a cancelled
+// order answered «Вернули» has one; its sum follows the payments, its day stays.
 export const followRefundAnswer = async (
   client: CoreApiClient,
-  order: { id: string; name: string; answer: string | null },
+  order: {
+    id: string;
+    name: string;
+    status: string | null;
+    answer: string | null;
+  },
 ): Promise<void> => {
-  if (order.answer !== 'REFUNDED') {
+  const { orderPayments } =
+    order.answer === 'REFUNDED' && isCancelled(order.status)
+      ? await client.query({
+          orderPayments: {
+            __args: { filter: { orderId: { eq: order.id } }, first: PAGE_SIZE },
+            edges: { node: { amount: MONEY, method: true } },
+          },
+        })
+      : { orderPayments: undefined };
+  const refund =
+    orderPayments === undefined
+      ? null
+      : refundOf(
+          orderPayments.edges.map(({ node }) => ({
+            amount: fromCurrency(node.amount) ?? 0,
+            method: (node.method ?? null) as PaymentMethod | null,
+          })),
+        );
+
+  if (refund === null) {
     await deleteMoneyEntries(client, [order.id]);
 
     return;
   }
 
-  const { orderPayments } = await client.query({
-    orderPayments: {
-      __args: { filter: { orderId: { eq: order.id } }, first: PAGE_SIZE },
-      edges: { node: { amount: MONEY, method: true } },
-    },
-  });
-  const refund = refundOf(
-    (orderPayments?.edges ?? []).map(({ node }) => ({
-      amount: fromCurrency(node.amount) ?? 0,
-      method: (node.method ?? null) as PaymentMethod | null,
-    })),
-  );
-
-  if (refund === null) return;
-
   // An upsert does not reach a record in the trash: an answer changed back
   // to «Вернули» brings the old one out first.
   await restoreMoneyEntries(client, [order.id]);
+
+  const { moneyEntries } = await client.query({
+    moneyEntries: {
+      __args: { filter: { id: { eq: order.id } }, first: 1 },
+      edges: { node: { date: true } },
+    },
+  });
+
   await createMoneyEntry(client, order.id, {
     kind: 'REFUND',
     name: `Возврат клиенту · ${order.name}`,
     amount: refund.amount,
     wallet: refund.wallet,
-    date: todayInTashkent(),
+    date: moneyEntries?.edges[0]?.node.date ?? todayInTashkent(),
     category: null,
     comment: null,
     orderId: order.id,
@@ -88,6 +107,29 @@ export const followRefundAnswer = async (
     countedAmount: null,
     toWallet: null,
     recountId: null,
+  });
+};
+
+// A payment changed on an order whose money went back moves the refund with it.
+export const followPaymentsOfRefundedOrder = async (
+  client: CoreApiClient,
+  orderId: string,
+): Promise<void> => {
+  const { orders } = await client.query({
+    orders: {
+      __args: { filter: { id: { eq: orderId } }, first: 1 },
+      edges: { node: { name: true, status: true, paidMoneyOnCancel: true } },
+    },
+  });
+  const order = orders?.edges[0]?.node;
+
+  if (order?.paidMoneyOnCancel !== 'REFUNDED') return;
+
+  await followRefundAnswer(client, {
+    id: orderId,
+    name: order.name ?? '',
+    status: order.status ?? null,
+    answer: order.paidMoneyOnCancel,
   });
 };
 

@@ -10,6 +10,7 @@ import {
   type PaymentEventRecord,
 } from 'src/payments/apply-payment-fix';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
+import { followPaymentsOfRefundedOrder } from 'src/orders/paid-money-on-cancel';
 import { recalcOrder } from 'src/recalc/recalc-order';
 
 const handler = async (
@@ -22,10 +23,12 @@ const handler = async (
 
   if (after.orderId) {
     await recalcOrder(client, after.orderId);
+    await followPaymentsOfRefundedOrder(client, after.orderId);
   }
 
   if (before.orderId && before.orderId !== after.orderId) {
     await recalcOrder(client, before.orderId);
+    await followPaymentsOfRefundedOrder(client, before.orderId);
   }
 };
 

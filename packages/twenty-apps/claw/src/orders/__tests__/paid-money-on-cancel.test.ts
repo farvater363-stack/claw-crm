@@ -47,6 +47,58 @@ describe('refundOf', () => {
 });
 
 describe('followRefundAnswer', () => {
+  it('removes the refund of an order that is not cancelled', async () => {
+    const { client, mutation } = fakeClient([
+      { amount: 400_000, method: 'CASH' },
+    ]);
+
+    await followRefundAnswer(client, {
+      id: 'order-1',
+      name: '№12',
+      status: 'PRODUCTION',
+      answer: 'REFUNDED',
+    });
+
+    expect(mutation).toHaveBeenCalledTimes(1);
+    expect(mutation.mock.calls[0]?.[0]).toHaveProperty('deleteMoneyEntries');
+  });
+
+  it('keeps the day of a refund already written', async () => {
+    const { client, mutation } = fakeClient([
+      { amount: 400_000, method: 'CASH' },
+    ]);
+
+    vi.mocked(client.query)
+      .mockResolvedValueOnce({
+        orderPayments: {
+          edges: [
+            {
+              node: {
+                amount: { amountMicros: 400_000_000_000 },
+                method: 'CASH',
+              },
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        moneyEntries: { edges: [{ node: { date: '2026-10-03' } }] },
+      });
+
+    await followRefundAnswer(client, {
+      id: 'order-1',
+      name: '№12',
+      status: 'CANCELLED',
+      answer: 'REFUNDED',
+    });
+
+    const created =
+      mutation.mock.calls[mutation.mock.calls.length - 1]?.[0].createMoneyEntry
+        .__args;
+
+    expect(created.data.date).toBe('2026-10-03');
+  });
+
   it('writes one refund under the order id when the money went back', async () => {
     const { client, mutation } = fakeClient([
       { amount: 400_000, method: 'CASH' },
@@ -55,6 +107,7 @@ describe('followRefundAnswer', () => {
     await followRefundAnswer(client, {
       id: 'order-1',
       name: '№12',
+      status: 'CANCELLED',
       answer: 'REFUNDED',
     });
 
@@ -79,6 +132,7 @@ describe('followRefundAnswer', () => {
     await followRefundAnswer(client, {
       id: 'order-1',
       name: '№12',
+      status: 'CANCELLED',
       answer: 'KEPT',
     });
 

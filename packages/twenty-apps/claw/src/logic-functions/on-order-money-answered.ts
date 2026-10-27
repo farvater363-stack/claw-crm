@@ -10,6 +10,7 @@ import { createRecalcClient } from 'src/recalc/create-recalc-client';
 
 type AnsweredOrder = {
   name: string | null;
+  status: string | null;
   paidMoneyOnCancel: string | null;
 };
 
@@ -23,6 +24,7 @@ const handler = async (
   await followRefundAnswer(createRecalcClient(), {
     id: payload.recordId,
     name: after.name ?? '',
+    status: after.status ?? null,
     answer: after.paidMoneyOnCancel ?? null,
   });
 };
