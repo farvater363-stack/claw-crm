@@ -7,4 +7,11 @@ export default defineApplication({
   displayName: 'Claw CRM',
   description:
     'Заказы, замеры, цены, маржа и ЗП работников для производства решёток',
+  serverVariables: {
+    TELEGRAM_BOT_TOKEN: {
+      description: 'Токен Telegram-бота для отправки заказов в группу',
+      isSecret: true,
+      isRequired: false,
+    },
+  },
 });
