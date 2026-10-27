@@ -3,7 +3,10 @@ import { objectMetadataItemFamilySelector } from '@/object-metadata/states/objec
 import { getFieldMetadataItemById } from '@/object-metadata/utils/getFieldMetadataItemById';
 import { resolveOpenRecordIn } from '@/object-record/record-index/utils/resolveOpenRecordIn';
 import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
-import { type FrontComponentToolCall } from 'twenty-sdk/front-component';
+import {
+  type FrontComponentToolCall,
+  type GetCurrentPositionFailureReason,
+} from 'twenty-sdk/front-component';
 import { useLingui } from '@lingui/react/macro';
 import { isNonEmptyString } from '@sniptt/guards';
 import { useRef } from 'react';
@@ -59,6 +62,18 @@ import { useNavigateApp } from '~/hooks/useNavigateApp';
 
 const FRONT_COMPONENT_CLIPBOARD_MAX_LENGTH = 64 * 1024;
 const FRONT_COMPONENT_CLIPBOARD_RATE_LIMIT_MS = 1000;
+
+const FRONT_COMPONENT_GEOLOCATION_TIMEOUT_MS = 10_000;
+const FRONT_COMPONENT_GEOLOCATION_MAXIMUM_AGE_MS = 60_000;
+
+const GEOLOCATION_ERROR_CODE_TO_FAILURE_REASON: Record<
+  number,
+  GetCurrentPositionFailureReason
+> = {
+  1: 'denied',
+  2: 'unavailable',
+  3: 'timeout',
+};
 
 const FRONT_COMPONENT_UPLOAD_FILE_NAME_MAX_LENGTH = 200;
 
@@ -496,6 +511,39 @@ export const useFrontComponentExecutionContext = ({
       await copyToClipboardWithoutSuccessToast(text);
     };
 
+  // Front components run in a worker inside a null-origin iframe, which has no
+  // geolocation, so the host page asks on their behalf.
+  const getCurrentPosition: FrontComponentHostCommunicationApi['getCurrentPosition'] =
+    () =>
+      new Promise((resolve) => {
+        if (!isDefined(navigator.geolocation)) {
+          resolve({ status: 'failed', reason: 'unsupported' });
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (position) =>
+            resolve({
+              status: 'located',
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracyMeters: position.coords.accuracy,
+            }),
+          (error) =>
+            resolve({
+              status: 'failed',
+              reason:
+                GEOLOCATION_ERROR_CODE_TO_FAILURE_REASON[error.code] ??
+                'unavailable',
+            }),
+          {
+            enableHighAccuracy: true,
+            timeout: FRONT_COMPONENT_GEOLOCATION_TIMEOUT_MS,
+            maximumAge: FRONT_COMPONENT_GEOLOCATION_MAXIMUM_AGE_MS,
+          },
+        );
+      });
+
   const hostUploadFile: FrontComponentHostCommunicationApi['uploadFile'] =
     async (file, params) => {
       // Arguments come from sandboxed application code: reject malformed
@@ -614,6 +662,7 @@ export const useFrontComponentExecutionContext = ({
       closeSidePanel,
       updateProgress,
       copyToClipboard,
+      getCurrentPosition,
       uploadFile: hostUploadFile,
       storageSet,
       storageDelete,

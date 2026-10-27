@@ -11,6 +11,10 @@ export const FRONT_COMPONENT_HOST_COMMUNICATION_API_NOOP: FrontComponentHostComm
     closeSidePanel: async () => {},
     updateProgress: async () => {},
     copyToClipboard: async () => {},
+    getCurrentPosition: async () => ({
+      status: 'failed',
+      reason: 'unsupported',
+    }),
     uploadFile: async () => ({ status: 'failed', reason: 'upload-failed' }),
     storageSet: async () => {},
     storageDelete: async () => {},

@@ -120,6 +120,19 @@ export type RequestAccessTokenRefreshFunction = () => Promise<string>;
 
 export type CopyToClipboardFunction = (text: string) => Promise<void>;
 
+export type GetCurrentPositionFailureReason =
+  | 'unsupported'
+  | 'denied'
+  | 'unavailable'
+  | 'timeout';
+
+export type GetCurrentPositionResult =
+  | { status: 'located'; lat: number; lng: number; accuracyMeters: number }
+  | { status: 'failed'; reason: GetCurrentPositionFailureReason };
+
+export type GetCurrentPositionFunction =
+  () => Promise<GetCurrentPositionResult>;
+
 export type UploadedFrontComponentFile = {
   fileId: string;
   path: string;
@@ -175,6 +188,7 @@ export type FrontComponentHostCommunicationApiStore = {
   closeSidePanel?: CloseSidePanelFunction;
   updateProgress?: UpdateProgressFunction;
   copyToClipboard?: CopyToClipboardFunction;
+  getCurrentPosition?: GetCurrentPositionFunction;
   uploadFile?: UploadFileFunction;
   storageSet?: StorageSetFunction;
   storageDelete?: StorageDeleteFunction;
