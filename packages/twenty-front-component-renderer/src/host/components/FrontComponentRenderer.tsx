@@ -80,7 +80,23 @@ export const FrontComponentRenderer = (props: FrontComponentRendererProps) => {
     <FrontComponentRendererContent
       key={sessionKey}
       sessionKey={sessionKey}
-      {...props}
+      componentUrl={props.componentUrl}
+      applicationAccessToken={props.applicationAccessToken}
+      apiUrl={props.apiUrl}
+      functionsBaseUrl={props.functionsBaseUrl}
+      sdkClientUrls={props.sdkClientUrls}
+      sharedDependenciesUrl={props.sharedDependenciesUrl}
+      applicationVariables={props.applicationVariables}
+      storageNamespace={props.storageNamespace}
+      keepAliveKey={props.keepAliveKey}
+      executionContext={props.executionContext}
+      frontComponentHostCommunicationApi={
+        props.frontComponentHostCommunicationApi
+      }
+      mediaSessionHost={props.mediaSessionHost}
+      onError={props.onError}
+      colorScheme={props.colorScheme}
+      loadingFallback={props.loadingFallback}
     />
   );
 };

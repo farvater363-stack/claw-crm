@@ -219,6 +219,7 @@ export const FrontComponentWorkerEffect = ({
     applicationVariables,
     storageNamespace,
     sessionKey,
+    isReadyRef,
     geometryTracker,
     mediaSessionHost,
     setError,
