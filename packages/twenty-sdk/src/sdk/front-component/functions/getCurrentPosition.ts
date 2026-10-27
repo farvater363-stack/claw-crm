@@ -9,8 +9,9 @@ export const getCurrentPosition: GetCurrentPositionFunction = () => {
   const getCurrentPositionFunction =
     frontComponentHostCommunicationApi.getCurrentPosition;
 
+  // Resolve like the host does, so callers handle one shape on old hosts too.
   if (!isDefined(getCurrentPositionFunction)) {
-    throw new Error('getCurrentPositionFunction is not set');
+    return Promise.resolve({ status: 'failed', reason: 'unsupported' });
   }
 
   return getCurrentPositionFunction();

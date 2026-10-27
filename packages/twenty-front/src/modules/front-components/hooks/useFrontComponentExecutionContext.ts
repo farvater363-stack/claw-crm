@@ -512,7 +512,9 @@ export const useFrontComponentExecutionContext = ({
     };
 
   // Front components run in a worker inside a null-origin iframe, which has no
-  // geolocation, so the host page asks on their behalf.
+  // geolocation, so the host page asks on their behalf. The browser grants it
+  // per origin, so every installed app shares one permission: acceptable while
+  // each workspace runs a single trusted app; gate per application otherwise.
   const getCurrentPosition: FrontComponentHostCommunicationApi['getCurrentPosition'] =
     () =>
       new Promise((resolve) => {
