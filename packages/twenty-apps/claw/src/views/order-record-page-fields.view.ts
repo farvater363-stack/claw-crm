@@ -74,6 +74,7 @@ export default defineView({
       // Last, for corrections: the header moves an order forward
       'status',
       'cancelReason',
+      'paidMoneyOnCancel',
     ]),
     ...section(groups.itemsAndTotal, [
       'subtotal',

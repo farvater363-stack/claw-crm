@@ -8,7 +8,8 @@ import { IDS } from 'src/constants/universal-identifiers';
 // and «Склад» remove money entries; «Цены» removes grilles, their kinds,
 // services and composition rows; the accrual sync removes pay lines that are
 // no longer due and «ЗП» removes pay rules, workshop rates and payouts.
-// Deleting or restoring an order takes its payments with it.
+// Deleting or restoring an order takes its payments with it, and an order the
+// client paid for is restored as cancelled instead of deleted.
 const readUpdateSoftDelete = (objectUniversalIdentifier: string) => ({
   objectUniversalIdentifier,
   canReadObjectRecords: true,
@@ -43,5 +44,6 @@ export default defineApplicationRole({
     readUpdateSoftDelete(IDS.purchase.object),
     readUpdateSoftDelete(IDS.masterPayment.object),
     readUpdateSoftDelete(IDS.orderPayment.object),
+    readUpdateSoftDelete(IDS.order.object),
   ],
 });

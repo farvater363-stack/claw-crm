@@ -148,6 +148,15 @@ export const CANCEL_REASON_OPTIONS = toOptions([
   ['OTHER', 'Другое', 'gray'],
 ] as const);
 
+// What happened to the money of a cancelled order the client had paid for.
+export const PAID_MONEY_ON_CANCEL_OPTIONS = toOptions([
+  ['REFUNDED', 'Вернули клиенту', 'orange'],
+  ['KEPT', 'Остаются у нас', 'green'],
+] as const);
+
+export type PaidMoneyOnCancel =
+  (typeof PAID_MONEY_ON_CANCEL_OPTIONS)[number]['value'];
+
 // Set from the client's orders, never by hand.
 export const CLIENT_STATUS_OPTIONS = toOptions([
   ['NEW', 'Новый', 'gray'],
@@ -267,6 +276,8 @@ export const MONEY_ENTRY_KIND_OPTIONS = toOptions([
   ['HANDOVER', 'Сдал деньги', 'sky'],
   ['COUNT_DIFFERENCE', 'Разница при пересчёте', 'yellow'],
   ['OPENING_BALANCE', 'Начальный остаток', 'gray'],
+  // Written by the app when a cancelled order's money is answered «Вернули»
+  ['REFUND', 'Возврат клиенту', 'orange'],
 ] as const);
 
 export type MoneyEntryKind = (typeof MONEY_ENTRY_KIND_OPTIONS)[number]['value'];
