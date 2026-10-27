@@ -1,3 +1,4 @@
+import groupBy from 'lodash.groupby';
 import { isDefined } from 'twenty-shared/utils';
 
 import { type FlatPageLayoutTabMaps } from 'src/engine/metadata-modules/flat-page-layout-tab/types/flat-page-layout-tab-maps.type';
@@ -21,26 +22,6 @@ const getResolvedPageLayoutTabId = (widget: FlatPageLayoutWidget): string =>
     flatEntity: widget,
     property: 'pageLayoutTabId',
   });
-
-const groupBy = <TItem>(
-  items: TItem[],
-  getKey: (item: TItem) => string,
-): Map<string, TItem[]> => {
-  const groups = new Map<string, TItem[]>();
-
-  for (const item of items) {
-    const key = getKey(item);
-    const group = groups.get(key);
-
-    if (isDefined(group)) {
-      group.push(item);
-    } else {
-      groups.set(key, [item]);
-    }
-  }
-
-  return groups;
-};
 
 // Groups tabs and widgets once, so reconstructing every layout of a workspace
 // stays linear instead of scanning all tabs and widgets per layout.
@@ -68,9 +49,9 @@ export const buildFlatPageLayoutWithTabsAndWidgetsReconstructor = ({
 
   return (layout) => {
     const tabsWithWidgets: FlatPageLayoutTabWithWidgets[] = (
-      tabsByPageLayoutId.get(layout.id) ?? []
+      tabsByPageLayoutId[layout.id] ?? []
     ).map((tab) => {
-      const widgets = widgetsByPageLayoutTabId.get(tab.id) ?? [];
+      const widgets = widgetsByPageLayoutTabId[tab.id] ?? [];
 
       return {
         ...tab,

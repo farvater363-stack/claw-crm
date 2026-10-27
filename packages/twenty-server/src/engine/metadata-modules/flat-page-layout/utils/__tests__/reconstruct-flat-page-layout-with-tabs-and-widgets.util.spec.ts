@@ -27,11 +27,19 @@ const tab = (
   deletedAt: deleted ? '2026-01-01' : null,
 });
 
-const widget = (id: string, pageLayoutTabId: string, deleted = false) => ({
+const widget = (
+  id: string,
+  pageLayoutTabId: string,
+  {
+    deleted = false,
+    overrides,
+  }: { deleted?: boolean; overrides?: object } = {},
+) => ({
   id,
   universalIdentifier: `widget-${id}`,
   applicationUniversalIdentifier: 'app',
   pageLayoutTabId,
+  overrides,
   deletedAt: deleted ? '2026-01-01' : null,
 });
 
@@ -48,7 +56,8 @@ const flatPageLayoutWidgetMaps = mapsOf<FlatPageLayoutWidgetMaps>([
   widget('w1', 'a1'),
   widget('w2', 'a2'),
   widget('w3', 'a1'),
-  widget('w-deleted', 'a1', true),
+  widget('w-deleted', 'a1', { deleted: true }),
+  widget('w-moved', 'a1', { overrides: { pageLayoutTabId: 'a2' } }),
   widget('w4', 'b2'),
 ]);
 
@@ -65,7 +74,7 @@ describe('reconstructFlatPageLayoutWithTabsAndWidgets', () => {
     expect(layoutA.tabIds).toEqual(['a1', 'a2']);
     expect(layoutA.tabs.map((tab) => tab.widgetIds)).toEqual([
       ['w1', 'w3'],
-      ['w2'],
+      ['w2', 'w-moved'],
     ]);
     expect(reconstructLayout(layout('b')).tabs[0].widgetIds).toEqual(['w4']);
     expect(reconstructLayout(layout('c')).tabs).toEqual([]);

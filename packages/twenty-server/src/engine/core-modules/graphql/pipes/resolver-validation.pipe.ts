@@ -20,22 +20,16 @@ const safeClassValidatorValidateWrapper = async (
   }
 };
 
-// @nestjs/graphql passes @Parent() to pipes with its numeric GqlParamtype.ROOT,
-// which it does not export
-const GQL_PARENT_PARAM_TYPE = 0;
-
 @Injectable()
 export class ResolverValidationPipe implements PipeTransform {
   async transform(value: unknown, metadata: ArgumentMetadata) {
     const { metatype } = metadata;
 
-    // Parents and custom decorators (@AuthWorkspace, ...) carry this server's
-    // own values, not client input, and validating them deep-copies them once
-    // per resolved field. Nest's ValidationPipe skips custom decorators too.
-    if (
-      metadata.type === 'custom' ||
-      (metadata.type as unknown) === GQL_PARENT_PARAM_TYPE
-    ) {
+    // Nest hands every non-args resolver param (@Parent, @Context and
+    // decorators like @AuthWorkspace) to pipes as 'custom'. Those carry this
+    // server's own values, not client input, and validating them deep-copies
+    // them once per resolved field. Nest's ValidationPipe skips them too.
+    if (metadata.type === 'custom') {
       return value;
     }
 
