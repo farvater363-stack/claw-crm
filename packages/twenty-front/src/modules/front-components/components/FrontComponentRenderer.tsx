@@ -70,16 +70,18 @@ export const FrontComponentRenderer = ({
     frontComponentId,
   });
 
+  // cache-and-network keeps `loading` true while it refreshes a cached
+  // front component, so render from the cache instead of waiting on it
   const frontComponent = data?.frontComponent;
 
   return (
     <>
       <FrontComponentLoadErrorToastEffect errorMessage={error?.message} />
-      {loading && loadingFallback}
+      {loading && !isDefined(frontComponent) && loadingFallback}
       {!loading &&
         (!isDefined(frontComponent) || isDefined(error)) &&
         unavailableFallback}
-      {!loading && isDefined(frontComponent) && !isDefined(error) && (
+      {isDefined(frontComponent) && !isDefined(error) && (
         <FrontComponentRendererContent
           key={frontComponent.id}
           frontComponent={frontComponent}
@@ -208,7 +210,10 @@ const FrontComponentRendererContent = ({
     checksum: frontComponent.builtComponentChecksum,
   });
 
-  const isSdkClientReady = !usesSdkClient || !sdkClientChecksumsLoading;
+  const isSdkClientReady =
+    !usesSdkClient ||
+    isDefined(sdkClientChecksums) ||
+    !sdkClientChecksumsLoading;
   const isReadyToRender =
     isDefined(initialApplicationTokenPair) && isSdkClientReady;
 
