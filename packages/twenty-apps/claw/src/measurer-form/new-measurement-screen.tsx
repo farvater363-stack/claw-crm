@@ -169,6 +169,9 @@ import {
 } from 'src/ui/tokens';
 import { joinFullName, trimFullName } from 'src/utils/full-name';
 import { fetchFieldMetadataId } from 'src/utils/fetch-field-metadata-id';
+import { EMPTY_LOCATION, type SavedLocationPhoto } from 'src/location/location';
+import { LocationField } from 'src/location/location-field';
+import { saveOrderLocation } from 'src/location/save-order-location';
 import { askFunction } from 'src/utils/ask-function';
 import { createThumbnailUrl } from 'src/utils/photo-thumbnail';
 import { randomUuid } from 'src/utils/random-uuid';
@@ -186,6 +189,7 @@ type SaveResult = {
   items: SavedItem[];
   failedOpeningNumbers: number[];
   photoFailureOpeningNumbers: number[];
+  isLocationPhotoFailed: boolean;
   isVisorFailed: boolean;
   isServiceFailed: boolean;
   isPaymentFailed: boolean;
@@ -248,6 +252,7 @@ const createEmptyDraft = (): MeasurementDraft => ({
   comment: '',
   openings: [createOpening()],
   services: [],
+  location: EMPTY_LOCATION,
 });
 
 const describeError = (error: unknown) =>
@@ -401,6 +406,10 @@ const loadScheduledOrders = async (
           measurementDate: true,
           comment: true,
           source: true,
+          locationLat: true,
+          locationLng: true,
+          locationNote: true,
+          locationPhotos: { fileId: true, label: true, url: true },
         },
       },
     },
@@ -421,6 +430,15 @@ const loadScheduledOrders = async (
       measurementDate: node.measurementDate ?? null,
       comment: node.comment ?? null,
       source: node.source ?? null,
+      locationLat:
+        typeof node.locationLat === 'number' ? node.locationLat : null,
+      locationLng:
+        typeof node.locationLng === 'number' ? node.locationLng : null,
+      locationNote: node.locationNote ?? null,
+      locationPhotos: (node.locationPhotos ?? []).filter(
+        (photo): photo is SavedLocationPhoto =>
+          typeof photo?.fileId === 'string' && typeof photo.url === 'string',
+      ),
     })),
   );
 };
@@ -859,6 +877,7 @@ export const NewMeasurement = () => {
     source: '',
     comment: '',
     measurementDate: toDateTimeLocalInputValue(new Date()),
+    location: EMPTY_LOCATION,
   } as const;
 
   const pickVisit = (orderId: string) => {
@@ -1332,6 +1351,15 @@ export const NewMeasurement = () => {
       }
     }
 
+    // Like the opening photos, the entrance photos go up only once the order
+    // exists, so a failed upload never costs the measurer the замер.
+    const isLocationPhotoFailed =
+      draft.location.newPhotos.length > 0 &&
+      (await saveOrderLocation(orderId, draft.location).then(
+        () => false,
+        () => true,
+      ));
+
     let isVisorFailed = false;
     const savedItemIds = new Set(items.map((item) => item.id));
 
@@ -1443,6 +1471,7 @@ export const NewMeasurement = () => {
       items,
       failedOpeningNumbers,
       photoFailureOpeningNumbers,
+      isLocationPhotoFailed,
       isVisorFailed,
       isServiceFailed,
       isPaymentFailed,
@@ -1732,6 +1761,11 @@ export const NewMeasurement = () => {
                       describePhotoUploadFailure(
                         result.photoFailureOpeningNumbers,
                       ),
+                    ]
+                  : []),
+                ...(result.isLocationPhotoFailed
+                  ? [
+                      'Заказ сохранён, но фото входа не загрузились. Откройте заказ и добавьте их в «Адрес и точка».',
                     ]
                   : []),
               ]}
@@ -2451,6 +2485,12 @@ export const NewMeasurement = () => {
             {clientFields}
           </>
         )}
+        <LocationField
+          location={draft.location}
+          onChange={(location) =>
+            setDraft((current) => ({ ...current, location }))
+          }
+        />
       </div>
     );
 

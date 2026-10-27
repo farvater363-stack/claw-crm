@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { EMPTY_LOCATION } from 'src/location/location';
+
 import {
   contractDataFromDraft,
   contractDataFromOrder,
@@ -20,6 +22,7 @@ const SERVICE_OPTIONS: ServiceOption[] = [
 ];
 
 const DRAFT: MeasurementDraft = {
+  location: EMPTY_LOCATION,
   clientFirstName: 'Азиз',
   clientLastName: 'Рахимов',
   clientPhone: '90 123 45 67',

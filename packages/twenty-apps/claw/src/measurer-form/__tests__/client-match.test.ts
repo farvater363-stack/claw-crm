@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { EMPTY_LOCATION } from 'src/location/location';
+
 import {
   type ClientMatch,
   describeClientMatch,
@@ -13,6 +15,7 @@ import {
 const draft = (
   overrides: Partial<MeasurementDraft> = {},
 ): MeasurementDraft => ({
+  location: EMPTY_LOCATION,
   clientFirstName: '',
   clientLastName: '',
   clientPhone: '99 888 77 66',

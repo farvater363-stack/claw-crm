@@ -9,6 +9,11 @@ import {
   SOURCE_OPTIONS,
 } from 'src/constants/select-options';
 import {
+  type LocationDraft,
+  type SavedLocationPhoto,
+} from 'src/location/location';
+import { toFilesFieldValue } from 'src/location/location-photos';
+import {
   buildShapeOutline,
   createShapeDraft,
   outlineHeightCm,
@@ -93,6 +98,7 @@ export type MeasurementDraft = {
   comment: string;
   openings: OpeningDraft[];
   services: ServiceDraft[];
+  location: LocationDraft;
 };
 
 export type OrderPayload = {
@@ -108,6 +114,11 @@ export type OrderPayload = {
   comment: string | null;
   discountKind: DiscountKind;
   discountValue: number | null;
+  locationLat: number | null;
+  locationLng: number | null;
+  locationNote: string | null;
+  // The photos already saved and kept; new ones are uploaded after the save
+  locationPhotos: { fileId: string; label: string }[];
 };
 
 export type OrderItemPayload = {
@@ -706,6 +717,10 @@ export type ScheduledOrder = {
   measurementDate: string | null;
   comment: string | null;
   source: string | null;
+  locationLat: number | null;
+  locationLng: number | null;
+  locationNote: string | null;
+  locationPhotos: SavedLocationPhoto[];
 };
 
 // Sorts after every real date
@@ -775,6 +790,13 @@ export const draftFromScheduledOrder = (
   // these fields back, so an unseen text would be replaced.
   comment: order.comment ?? '',
   source: isSource(order.source) ? order.source : '',
+  location: {
+    lat: order.locationLat,
+    lng: order.locationLng,
+    note: order.locationNote ?? '',
+    savedPhotos: order.locationPhotos,
+    newPhotos: [],
+  },
 });
 
 // The order header writes this key to sessionStorage before it opens the form.
@@ -1050,6 +1072,10 @@ export const buildMeasurementPayload = (
         preview.subtotal !== null && discountValue.ok
           ? discountValue.value
           : null,
+      locationLat: draft.location.lat,
+      locationLng: draft.location.lng,
+      locationNote: emptyToNull(draft.location.note),
+      locationPhotos: toFilesFieldValue(draft.location.savedPhotos, []),
     },
     items,
     visors,

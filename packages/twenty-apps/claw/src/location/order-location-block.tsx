@@ -1,21 +1,19 @@
 import { useEffect, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
-import { uploadFile, useSelectedRecordIds } from 'twenty-sdk/front-component';
+import { useSelectedRecordIds } from 'twenty-sdk/front-component';
 
-import { IDS } from 'src/constants/universal-identifiers';
 import {
   loadOrderLocation,
   type OrderLocation,
 } from 'src/location/load-order-location';
 import { hasPoint, type LocationDraft } from 'src/location/location';
 import { LocationMap } from 'src/location/location-map';
-import { toFilesFieldValue } from 'src/location/location-photos';
 import { LocationSheet } from 'src/location/location-sheet';
+import { saveOrderLocation } from 'src/location/save-order-location';
 import { DEFAULT_ZOOM } from 'src/location/map-tiles';
 import { Button, ErrorNote, Hint, Thumbnail, usePalette } from 'src/ui/kit';
 import { SPACE, TYPE } from 'src/ui/tokens';
 import { askFunction } from 'src/utils/ask-function';
-import { fetchOrderFieldMetadataId } from 'src/utils/order-field-metadata-id';
 
 const PREVIEW_HEIGHT_PX = 200;
 const THUMBNAIL_SIZE_PX = 64;
@@ -29,47 +27,6 @@ type SendState =
 
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
-
-// Uploads the new photos first: a FILES update replaces the whole list, so
-// the kept ones are sent again alongside them.
-export const saveOrderLocation = async (
-  orderId: string,
-  draft: LocationDraft,
-): Promise<void> => {
-  const uploaded: { fileId: string; label: string }[] = [];
-
-  if (draft.newPhotos.length > 0) {
-    const fieldMetadataId = await fetchOrderFieldMetadataId(
-      IDS.order.locationPhotos,
-    );
-
-    for (const photo of draft.newPhotos) {
-      const result = await uploadFile(photo.file, {
-        fieldMetadataId,
-        fileName: photo.file.name,
-      });
-
-      if (result.status === 'uploaded') {
-        uploaded.push({ fileId: result.file.fileId, label: photo.file.name });
-      }
-    }
-  }
-
-  await new CoreApiClient().mutation({
-    updateOrder: {
-      __args: {
-        id: orderId,
-        data: {
-          locationLat: draft.lat,
-          locationLng: draft.lng,
-          locationNote: draft.note.trim() === '' ? null : draft.note.trim(),
-          locationPhotos: toFilesFieldValue(draft.savedPhotos, uploaded),
-        },
-      },
-      id: true,
-    },
-  });
-};
 
 const problemText = (problem: unknown, detail: unknown): string =>
   problem === 'no-token'
