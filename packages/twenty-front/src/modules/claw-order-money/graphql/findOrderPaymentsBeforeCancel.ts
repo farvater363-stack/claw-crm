@@ -10,6 +10,7 @@ export const FIND_ORDER_PAYMENTS_BEFORE_CANCEL = gql`
         node {
           id
           orderId
+          method
           amount {
             amountMicros
           }

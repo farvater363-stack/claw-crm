@@ -1,14 +1,21 @@
 import { ORDER_MONEY_QUESTION_DIALOG_ID } from '@/claw-order-money/constants/OrderMoneyQuestionDialogId';
 import { FIND_ORDER_PAYMENTS_BEFORE_CANCEL } from '@/claw-order-money/graphql/findOrderPaymentsBeforeCancel';
-import { orderMoneyQuestionState } from '@/claw-order-money/states/orderMoneyQuestionState';
 import {
+  type OrderMoneyQuestion,
+  orderMoneyQuestionState,
+} from '@/claw-order-money/states/orderMoneyQuestionState';
+import {
+  buildOrderCancelFields,
   buildOrderMoneyQuestion,
   getPaidAmountMicrosByOrderId,
   getPaidOrderIds,
+  getRefundDefaults,
+  hasOrderRefundFields,
   isOrderMoneyWorkspace,
+  type OrderCancelFields,
   type OrderMoneyAction,
+  type OrderMoneyAnswer,
   type OrderPaymentNode,
-  type PaidMoneyOnCancel,
   sumPaidAmountMicros,
 } from '@/claw-order-money/utils/orderMoney';
 import { isSidePanelClosingState } from '@/side-panel/states/isSidePanelClosingState';
@@ -18,12 +25,15 @@ import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient
 import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
 import { useDialog } from '@/ui/layout/dialog/hooks/useDialog';
 import { useSetAtomState } from '@/ui/utilities/state/jotai/hooks/useSetAtomState';
-import { isNonEmptyArray } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 
 export type OrderMoneyDecision = {
   proceed: boolean;
   paidRecordIds: string[];
-  paidMoneyOnCancel: PaidMoneyOnCancel | null;
+  // Sent with the status when the paid orders are cancelled
+  orderCancelFields: OrderCancelFields | null;
+  // Deleted before the paid orders when they go together with their payments
+  paymentIdsToDelete: string[];
 };
 
 // Twenty caps a page at 200 records; a selection of orders has a few payments each.
@@ -32,7 +42,8 @@ const PAYMENTS_PAGE_SIZE = 200;
 const NO_QUESTION: OrderMoneyDecision = {
   proceed: true,
   paidRecordIds: [],
-  paidMoneyOnCancel: null,
+  orderCancelFields: null,
+  paymentIdsToDelete: [],
 };
 
 // One dialog serves every caller, so a multi-card drag asks one order at a time.
@@ -46,8 +57,8 @@ export const useConfirmOrderMoneyBeforeCancel = () => {
   const store = useStore();
 
   const askInTurn = (
-    question: ReturnType<typeof buildOrderMoneyQuestion>,
-  ): Promise<PaidMoneyOnCancel | null> => {
+    question: Omit<OrderMoneyQuestion, 'openedAt' | 'answer'>,
+  ): Promise<OrderMoneyAnswer> => {
     const turn = previousQuestion.then(async () => {
       // A command run from the side panel closes it first; a dialog opened
       // during that teardown loses its focus and clicks to it.
@@ -55,7 +66,7 @@ export const useConfirmOrderMoneyBeforeCancel = () => {
         await waitForSidePanelClose();
       }
 
-      return new Promise<PaidMoneyOnCancel | null>((resolve) => {
+      return new Promise<OrderMoneyAnswer>((resolve) => {
         setOrderMoneyQuestion({
           ...question,
           openedAt: performance.now(),
@@ -111,18 +122,46 @@ export const useConfirmOrderMoneyBeforeCancel = () => {
       return NO_QUESTION;
     }
 
-    const paidMoneyOnCancel = await askInTurn(
-      buildOrderMoneyQuestion({
+    const paidAmountMicros = sumPaidAmountMicros(paidRecordIds, paidByOrderId);
+    const hasRefundFields = hasOrderRefundFields(objectMetadataItems);
+
+    const answer = await askInTurn({
+      ...buildOrderMoneyQuestion({
         action,
-        paidAmountMicros: sumPaidAmountMicros(paidRecordIds, paidByOrderId),
+        paidAmountMicros,
         paidOrderCount: paidRecordIds.length,
       }),
-    );
+      action,
+      refundDefaults: getRefundDefaults({
+        hasRefundFields,
+        paidRecordIds,
+        paidAmountMicros,
+        payments,
+      }),
+    });
+
+    if (answer === null) {
+      return { ...NO_QUESTION, proceed: false, paidRecordIds };
+    }
+
+    if ('deleteWithPayments' in answer) {
+      return {
+        ...NO_QUESTION,
+        paidRecordIds,
+        paymentIdsToDelete: payments
+          .filter(
+            ({ orderId }) =>
+              isDefined(orderId) && paidRecordIds.includes(orderId),
+          )
+          .map(({ id }) => id)
+          .filter(isDefined),
+      };
+    }
 
     return {
-      proceed: paidMoneyOnCancel !== null,
+      ...NO_QUESTION,
       paidRecordIds,
-      paidMoneyOnCancel,
+      orderCancelFields: buildOrderCancelFields({ answer, hasRefundFields }),
     };
   };
 
