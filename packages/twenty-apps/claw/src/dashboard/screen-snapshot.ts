@@ -3,7 +3,7 @@ import { todayInTashkent } from 'src/pricing/dates';
 // The renderer seeds each user's localStorage before the first render, so a
 // screen can draw its last numbers at once and refresh them quietly. Bump the
 // version whenever a snapshot's data shape changes, so an old one is dropped.
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2;
 const KEY_PREFIX = 'claw:screen-snapshot:';
 
 type StoredSnapshot<TData> = { version: number; day: string; data: TData };
