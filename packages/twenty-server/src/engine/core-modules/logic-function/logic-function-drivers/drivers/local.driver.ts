@@ -3,6 +3,7 @@ import { dirname, join } from 'path';
 
 import { build } from 'esbuild';
 import { NODE_ESM_CJS_BANNER } from 'twenty-shared/application';
+import { isDefined } from 'twenty-shared/utils';
 
 import {
   type LogicFunctionDriver,
@@ -15,8 +16,11 @@ import {
 
 import { LocalChildProcessRunnerService } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-child-process-runner.service';
 import { LocalLayerManagerService } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-layer-manager.service';
+import { LocalWarmProcessPool } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-warm-process-pool.service';
 import { LocalPrebuiltBundleService } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-prebuilt-bundle.service';
 import { type LocalDriverOptions } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/types/local-driver.type';
+import { LAYER_BUILD_READY_SENTINEL } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/constants/local-driver.constant';
+import { getLocalSdkLayerPath } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/utils/get-local-sdk-layer-path.util';
 import { ConsoleListener } from 'src/engine/core-modules/logic-function/logic-function-drivers/utils/intercept-console';
 import { TemporaryDirManager } from 'src/engine/core-modules/logic-function/logic-function-drivers/utils/temporary-dir-manager';
 import { type LogicFunctionResourceService } from 'src/engine/core-modules/logic-function/logic-function-resource/logic-function-resource.service';
@@ -36,6 +40,7 @@ export class LocalDriver implements LogicFunctionDriver {
   private readonly layerManager: LocalLayerManagerService;
   private readonly childProcessRunner: LocalChildProcessRunnerService;
   private readonly prebuiltBundle: LocalPrebuiltBundleService;
+  private readonly warmProcessPool: LocalWarmProcessPool | null;
 
   constructor(options: LocalDriverOptions) {
     this.logicFunctionResourceService = options.logicFunctionResourceService;
@@ -50,6 +55,8 @@ export class LocalDriver implements LogicFunctionDriver {
       options.cacheLockService,
       options.logicFunctionResourceService,
     );
+    this.warmProcessPool =
+      options.reuseProcesses === true ? new LocalWarmProcessPool() : null;
   }
 
   async transpile({
@@ -134,6 +141,20 @@ export class LocalDriver implements LogicFunctionDriver {
       flatApplication,
       applicationUniversalIdentifier,
     });
+
+    if (isDefined(this.warmProcessPool)) {
+      return this.executeInWarmProcess({
+        warmProcessPool: this.warmProcessPool,
+        flatLogicFunction,
+        flatApplication,
+        applicationUniversalIdentifier,
+        payload,
+        context,
+        env: env ?? {},
+        timeoutMs,
+        executionMode,
+      });
+    }
 
     const startTime = Date.now();
     const temporaryDirManager = new TemporaryDirManager();
@@ -253,5 +274,178 @@ export class LocalDriver implements LogicFunctionDriver {
     } finally {
       await temporaryDirManager.clean();
     }
+  }
+
+  private async executeInWarmProcess({
+    warmProcessPool,
+    flatLogicFunction,
+    flatApplication,
+    applicationUniversalIdentifier,
+    payload,
+    context,
+    env,
+    timeoutMs,
+    executionMode,
+  }: Pick<
+    LogicFunctionExecuteParams,
+    | 'flatLogicFunction'
+    | 'flatApplication'
+    | 'applicationUniversalIdentifier'
+    | 'payload'
+    | 'context'
+  > & {
+    warmProcessPool: LocalWarmProcessPool;
+    env: Record<string, string>;
+    timeoutMs: number;
+    executionMode: LogicFunctionExecutionMode;
+  }): Promise<LogicFunctionExecuteResult> {
+    const startTime = Date.now();
+    const key = await this.buildWarmProcessKey({
+      flatLogicFunction,
+      flatApplication,
+      applicationUniversalIdentifier,
+      executionMode,
+    });
+
+    const warmProcess =
+      warmProcessPool.acquire(key) ??
+      (await this.spawnWarmProcess({
+        warmProcessPool,
+        key,
+        flatLogicFunction,
+        flatApplication,
+        applicationUniversalIdentifier,
+        env,
+        executionMode,
+      }));
+
+    const { isReusable, ok, result, errorType, error, stack, logs } =
+      await warmProcessPool.run(warmProcess, {
+        payload,
+        context,
+        env,
+        timeoutMs,
+      });
+
+    if (isReusable) {
+      warmProcessPool.release(warmProcess);
+    } else {
+      await warmProcessPool.discard(warmProcess);
+    }
+
+    const duration = Date.now() - startTime;
+
+    if (ok) {
+      return {
+        data: (result ?? null) as object | null,
+        logs,
+        duration,
+        billedDurationMs: duration,
+        status: LogicFunctionExecutionStatus.SUCCESS,
+      };
+    }
+
+    return {
+      data: null,
+      logs,
+      duration,
+      billedDurationMs: duration,
+      error: {
+        errorType: errorType ?? 'UnhandledError',
+        errorMessage: error || 'Unknown error',
+        stackTrace: stack ? String(stack).split('\n') : [],
+      },
+      status: LogicFunctionExecutionStatus.ERROR,
+    };
+  }
+
+  private async spawnWarmProcess({
+    warmProcessPool,
+    key,
+    flatLogicFunction,
+    flatApplication,
+    applicationUniversalIdentifier,
+    env,
+    executionMode,
+  }: Pick<
+    LogicFunctionExecuteParams,
+    'flatLogicFunction' | 'flatApplication' | 'applicationUniversalIdentifier'
+  > & {
+    warmProcessPool: LocalWarmProcessPool;
+    key: string;
+    env: Record<string, string>;
+    executionMode: LogicFunctionExecutionMode;
+  }) {
+    const temporaryDirManager = new TemporaryDirManager();
+    const { sourceTemporaryDir } = await temporaryDirManager.init();
+
+    try {
+      await this.childProcessRunner.assembleNodeModules({
+        sourceTemporaryDir,
+        flatApplication,
+        applicationUniversalIdentifier,
+      });
+
+      const builtFileAbsPath =
+        executionMode === LogicFunctionExecutionMode.PREBUILT
+          ? await this.prebuiltBundle.copyPrebuiltBundleIntoExecutionDir({
+              flatLogicFunction,
+              sourceTemporaryDir,
+            })
+          : await this.logicFunctionResourceService.copyBuiltCodeInMemory({
+              workspaceId: flatLogicFunction.workspaceId,
+              applicationUniversalIdentifier,
+              builtHandlerPath: flatLogicFunction.builtHandlerPath,
+              inMemoryDestinationPath: sourceTemporaryDir,
+            });
+
+      return await warmProcessPool.spawn({
+        key,
+        temporaryDirManager,
+        sourceTemporaryDir,
+        builtFileAbsPath,
+        handlerName: flatLogicFunction.handlerName,
+        env,
+      });
+    } catch (error) {
+      await temporaryDirManager.clean();
+
+      throw error;
+    }
+  }
+
+  // Everything a warm process has loaded: the function code, its deps layer
+  // and the SDK client layer, which is rebuilt when the workspace schema
+  // changes (its ready marker is rewritten then).
+  private async buildWarmProcessKey({
+    flatLogicFunction,
+    flatApplication,
+    applicationUniversalIdentifier,
+    executionMode,
+  }: Pick<
+    LogicFunctionExecuteParams,
+    'flatLogicFunction' | 'flatApplication' | 'applicationUniversalIdentifier'
+  > & { executionMode: LogicFunctionExecutionMode }): Promise<string> {
+    const { mtimeMs: sdkLayerBuiltAt } = await fs.stat(
+      join(
+        getLocalSdkLayerPath({
+          workspaceId: flatApplication.workspaceId,
+          applicationUniversalIdentifier,
+        }),
+        LAYER_BUILD_READY_SENTINEL,
+      ),
+    );
+
+    return [
+      flatLogicFunction.workspaceId,
+      applicationUniversalIdentifier,
+      flatLogicFunction.id,
+      flatLogicFunction.checksum ?? String(flatLogicFunction.updatedAt),
+      flatLogicFunction.builtHandlerPath,
+      flatLogicFunction.handlerName,
+      executionMode,
+      flatApplication.yarnLockChecksum ?? 'default',
+      sdkLayerBuiltAt,
+    ].join('|');
   }
 }

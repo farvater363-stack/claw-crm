@@ -736,6 +736,15 @@ export class ConfigVariables {
 
   @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.LOGIC_FUNCTION_CONFIG,
+    description:
+      'With the LOCAL driver, keep logic function processes warm and reuse them across runs instead of starting one per run. Only for applications that keep no state between runs at module level',
+    type: ConfigVariableType.BOOLEAN,
+  })
+  @IsOptional()
+  LOGIC_FUNCTION_LOCAL_REUSE_PROCESSES = false;
+
+  @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.LOGIC_FUNCTION_CONFIG,
     description: 'Throttle limit for logic function execution',
     type: ConfigVariableType.NUMBER,
   })

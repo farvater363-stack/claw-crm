@@ -40,6 +40,10 @@ export class LogicFunctionDriverFactory extends DriverFactoryBase<LogicFunctionD
       return `lambda|${this.configGroupHashService.computeHash(ConfigVariablesGroup.LOGIC_FUNCTION_CONFIG)}`;
     }
 
+    if (driverType === LogicFunctionDriverType.LOCAL) {
+      return `local|reuse:${this.twentyConfigService.get('LOGIC_FUNCTION_LOCAL_REUSE_PROCESSES')}`;
+    }
+
     return driverType;
   }
 
@@ -56,6 +60,9 @@ export class LogicFunctionDriverFactory extends DriverFactoryBase<LogicFunctionD
           sdkClientArchiveService: this.sdkClientArchiveService,
           cacheLockService: this.cacheLockService,
           workspaceCacheService: this.workspaceCacheService,
+          reuseProcesses: this.twentyConfigService.get(
+            'LOGIC_FUNCTION_LOCAL_REUSE_PROCESSES',
+          ),
         });
 
       case LogicFunctionDriverType.LAMBDA: {
