@@ -16,7 +16,7 @@ import { t } from '@lingui/core/macro';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { FrontComponentRenderer as SharedFrontComponentRenderer } from 'twenty-front-component-renderer';
 import { type FrontComponentToolCall } from 'twenty-sdk/front-component';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 import { useToast } from 'twenty-ui/components';
 import { useThemeColorScheme } from 'twenty-ui/theme';
 import { REACT_APP_SERVER_BASE_URL } from '~/config';
@@ -70,16 +70,22 @@ export const FrontComponentRenderer = ({
     frontComponentId,
   });
 
+  // cache-and-network keeps `loading` true while it refreshes a cached
+  // front component, so visible ones render from the cache instead of waiting.
+  // Headless ones wait: a refreshed checksum would reboot them and run their
+  // side effects twice.
   const frontComponent = data?.frontComponent;
+  const canRender =
+    isDefined(frontComponent) && (!loading || !frontComponent.isHeadless);
 
   return (
     <>
       <FrontComponentLoadErrorToastEffect errorMessage={error?.message} />
-      {loading && loadingFallback}
+      {loading && !canRender && loadingFallback}
       {!loading &&
         (!isDefined(frontComponent) || isDefined(error)) &&
         unavailableFallback}
-      {!loading && isDefined(frontComponent) && !isDefined(error) && (
+      {canRender && !isDefined(error) && (
         <FrontComponentRendererContent
           key={frontComponent.id}
           frontComponent={frontComponent}
@@ -208,7 +214,21 @@ const FrontComponentRendererContent = ({
     checksum: frontComponent.builtComponentChecksum,
   });
 
-  const isSdkClientReady = !usesSdkClient || !sdkClientChecksumsLoading;
+  // Only whole screens stay warm between opens: commands, tool calls and
+  // components bound to a record or a menu item start fresh each time
+  const keepAliveKey =
+    !frontComponent.isHeadless &&
+    !isDefined(toolCall) &&
+    !isDefined(commandMenuItemId) &&
+    !isDefined(timelineActivityId) &&
+    !isNonEmptyArray(selectedRecordIds)
+      ? frontComponentId
+      : undefined;
+
+  const isSdkClientReady =
+    !usesSdkClient ||
+    !sdkClientChecksumsLoading ||
+    (isDefined(sdkClientChecksums) && !frontComponent.isHeadless);
   const isReadyToRender =
     isDefined(initialApplicationTokenPair) && isSdkClientReady;
 
@@ -260,6 +280,7 @@ const FrontComponentRendererContent = ({
             mediaSessionHost={mediaSessionHost}
             applicationVariables={initialApplicationVariables}
             storageNamespace={storageNamespace}
+            keepAliveKey={keepAliveKey}
             onError={handleError}
             loadingFallback={loadingFallback}
           />

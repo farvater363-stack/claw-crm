@@ -7,11 +7,13 @@ import { type FrontComponentThread } from '@/types/FrontComponentThread';
 type FrontComponentGeometryTrackerEffectProps = {
   thread: FrontComponentThread;
   geometryTracker: GeometryTracker;
+  isKeptAlive: boolean;
 };
 
 export const FrontComponentGeometryTrackerEffect = ({
   thread,
   geometryTracker,
+  isKeptAlive,
 }: FrontComponentGeometryTrackerEffectProps) => {
   useEffect(() => {
     let hasWarnedAboutGeometryPushFailure = false;
@@ -28,9 +30,13 @@ export const FrontComponentGeometryTrackerEffect = ({
     });
 
     return () => {
-      geometryTracker.reset();
+      if (isKeptAlive) {
+        geometryTracker.pause();
+      } else {
+        geometryTracker.reset();
+      }
     };
-  }, [thread, geometryTracker]);
+  }, [thread, geometryTracker, isKeptAlive]);
 
   return null;
 };

@@ -13,4 +13,5 @@ export type GeometryTracker = {
   ) => void;
   getViewportGeometry: () => ViewportGeometrySnapshot;
   reset: () => void;
+  pause: () => void;
 };

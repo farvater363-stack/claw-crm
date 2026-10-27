@@ -10,6 +10,9 @@ import { type GeometryTracker } from '@/host/geometry/types/GeometryTracker';
 import { type FrontComponentMediaSessionHost } from '@/host/media/types/FrontComponentMediaSessionHost';
 import { fetchComponentSource } from '@/host/component-source/utils/fetchComponentSource';
 import { fetchSdkClientSources } from '@/host/component-source/utils/fetchSdkClientSources';
+import { createDelegatingMediaSessionHost } from '@/host/keep-alive/utils/createDelegatingMediaSessionHost';
+import { parkFrontComponentSession } from '@/host/keep-alive/utils/parkedFrontComponentSessions';
+import { setFrontComponentSessionVisibility } from '@/host/keep-alive/utils/setFrontComponentSessionVisibility';
 import { buildFrontComponentStorageSnapshots } from '@/host/storage/utils/buildFrontComponentStorageSnapshots';
 import { FRONT_COMPONENT_SANDBOX_DOCUMENT } from '@/remote/sandbox/generated/frontComponentSandboxDocument';
 import { createFrontComponentSandboxIframe } from '@/remote/sandbox/utils/createFrontComponentSandboxIframe';
@@ -29,6 +32,10 @@ type FrontComponentWorkerEffectProps = {
   sharedDependenciesUrl?: string;
   applicationVariables?: Record<string, string>;
   storageNamespace?: string;
+  sessionKey?: string;
+  // Read at unmount: a session parked before it is ready would render later
+  // without an execution context
+  isReadyRef: React.RefObject<boolean>;
   geometryTracker: GeometryTracker;
   mediaSessionHost?: FrontComponentMediaSessionHost;
   setReceiver: React.Dispatch<React.SetStateAction<RemoteReceiver | null>>;
@@ -45,6 +52,8 @@ export const FrontComponentWorkerEffect = ({
   sharedDependenciesUrl,
   applicationVariables,
   storageNamespace,
+  sessionKey,
+  isReadyRef,
   geometryTracker,
   mediaSessionHost,
   setReceiver,
@@ -77,17 +86,25 @@ export const FrontComponentWorkerEffect = ({
 
     const hostFetch = createHostFetchEnforcingPolicy(hostFetchPolicy);
 
+    const mediaSessionHostSink = isDefined(mediaSessionHost)
+      ? { current: mediaSessionHost }
+      : null;
+
     const thread = createFrontComponentHostThread({
       hostMessagePort: channel.port1,
       hostFetch,
       geometryTracker,
-      mediaSessionHost,
+      mediaSessionHost: isDefined(mediaSessionHostSink)
+        ? createDelegatingMediaSessionHost(mediaSessionHostSink)
+        : undefined,
     });
+
+    const errorSink = { current: (error: Error) => setError(error) };
 
     const handleSandboxMessage = createFrontComponentSandboxMessageHandler({
       sandboxIframe,
       workerMessagePort: channel.port2,
-      onSandboxError: setError,
+      onSandboxError: (error) => errorSink.current(error),
     });
 
     window.addEventListener('message', handleSandboxMessage);
@@ -153,7 +170,9 @@ export const FrontComponentWorkerEffect = ({
         });
       } catch (error) {
         if (!isCancelled) {
-          setError(error instanceof Error ? error : new Error(String(error)));
+          errorSink.current(
+            error instanceof Error ? error : new Error(String(error)),
+          );
         }
       }
     };
@@ -163,13 +182,32 @@ export const FrontComponentWorkerEffect = ({
     setReceiver(newReceiver);
     isInitializedRef.current = true;
 
-    return () => {
+    const destroy = () => {
       isCancelled = true;
       window.removeEventListener('message', handleSandboxMessage);
-      setThread(null);
       channel.port1.close();
       sandboxIframe.remove();
+    };
+
+    return () => {
       isInitializedRef.current = false;
+
+      if (isDefined(sessionKey) && isReadyRef.current === true) {
+        setFrontComponentSessionVisibility({ thread }, 'hidden');
+        parkFrontComponentSession(sessionKey, {
+          receiver: newReceiver,
+          thread,
+          geometryTracker,
+          errorSink,
+          mediaSessionHostSink,
+          destroy,
+        });
+
+        return;
+      }
+
+      setThread(null);
+      destroy();
     };
   }, [
     componentUrl,
@@ -180,6 +218,8 @@ export const FrontComponentWorkerEffect = ({
     sharedDependenciesUrl,
     applicationVariables,
     storageNamespace,
+    sessionKey,
+    isReadyRef,
     geometryTracker,
     mediaSessionHost,
     setError,

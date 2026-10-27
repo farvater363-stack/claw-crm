@@ -39,6 +39,7 @@ describe('FrontComponentGeometryTrackerEffect', () => {
         createElement(FrontComponentGeometryTrackerEffect, {
           thread,
           geometryTracker,
+          isKeptAlive: false,
         }),
       );
     });
@@ -55,6 +56,7 @@ describe('FrontComponentGeometryTrackerEffect', () => {
         createElement(FrontComponentGeometryTrackerEffect, {
           thread,
           geometryTracker,
+          isKeptAlive: false,
         }),
       );
     });
@@ -78,6 +80,7 @@ describe('FrontComponentGeometryTrackerEffect', () => {
         createElement(FrontComponentGeometryTrackerEffect, {
           thread: createStubThread(),
           geometryTracker,
+          isKeptAlive: false,
         }),
       );
     });
@@ -97,6 +100,7 @@ describe('FrontComponentGeometryTrackerEffect', () => {
         createElement(FrontComponentGeometryTrackerEffect, {
           thread: createStubThread(),
           geometryTracker,
+          isKeptAlive: false,
         }),
       );
     });
@@ -106,11 +110,33 @@ describe('FrontComponentGeometryTrackerEffect', () => {
         createElement(FrontComponentGeometryTrackerEffect, {
           thread: createStubThread(),
           geometryTracker,
+          isKeptAlive: false,
         }),
       );
     });
 
     expect(geometryTracker.setPushGeometryUpdates).toHaveBeenCalledTimes(2);
     expect(geometryTracker.reset).toHaveBeenCalledTimes(1);
+  });
+
+  it('should only pause a kept-alive tracker on unmount, keeping its observations', () => {
+    const geometryTracker = createGeometryTrackerStub();
+
+    act(() => {
+      root.render(
+        createElement(FrontComponentGeometryTrackerEffect, {
+          thread: createStubThread(),
+          geometryTracker,
+          isKeptAlive: true,
+        }),
+      );
+    });
+
+    act(() => {
+      root.unmount();
+    });
+
+    expect(geometryTracker.pause).toHaveBeenCalledTimes(1);
+    expect(geometryTracker.reset).not.toHaveBeenCalled();
   });
 });
