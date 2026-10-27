@@ -2,7 +2,7 @@ import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { buildOrderCard } from 'src/telegram/order-card';
 import { loadOrderPost } from 'src/telegram/load-order-post';
 import {
-  newFourDigitCode,
+  newLinkCode,
   type TelegramGroupRow,
   type TelegramRouteDependencies,
 } from 'src/telegram/telegram-routes';
@@ -43,7 +43,7 @@ export const createTelegramRouteDependencies =
     return {
       token: process.env.TELEGRAM_BOT_TOKEN,
       fetchImpl: fetch,
-      newLinkCode: newFourDigitCode,
+      newLinkCode,
       store: {
         read: async () => {
           const { telegramGroups } = await client.query({
@@ -68,10 +68,13 @@ export const createTelegramRouteDependencies =
 
           return toRow(createTelegramGroup);
         },
-        saveChat: async (id, chatId, chatTitle) => {
+        saveChat: async (id, chatId, chatTitle, nextLinkCode) => {
           await client.mutation({
             updateTelegramGroup: {
-              __args: { id, data: { chatId, chatTitle } },
+              __args: {
+                id,
+                data: { chatId, chatTitle, linkCode: nextLinkCode },
+              },
               id: true,
             },
           });

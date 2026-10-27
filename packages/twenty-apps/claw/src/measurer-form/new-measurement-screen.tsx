@@ -1356,7 +1356,7 @@ export const NewMeasurement = () => {
     const isLocationPhotoFailed =
       draft.location.newPhotos.length > 0 &&
       (await saveOrderLocation(orderId, draft.location).then(
-        () => false,
+        (failedCount) => failedCount > 0,
         () => true,
       ));
 

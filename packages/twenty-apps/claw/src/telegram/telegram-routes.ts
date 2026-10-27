@@ -17,7 +17,12 @@ export type TelegramGroupRow = {
 export type TelegramGroupStore = {
   read: () => Promise<TelegramGroupRow | null>;
   create: (linkCode: string) => Promise<TelegramGroupRow>;
-  saveChat: (id: string, chatId: string, chatTitle: string) => Promise<void>;
+  saveChat: (
+    id: string,
+    chatId: string,
+    chatTitle: string,
+    nextLinkCode: string,
+  ) => Promise<void>;
 };
 
 export type TelegramRouteDependencies = {
@@ -52,8 +57,16 @@ export type TelegramSendAnswer =
 const hasToken = (token: string | undefined): token is string =>
   token !== undefined && token.trim() !== '';
 
-export const newFourDigitCode = (): string =>
-  String(Math.floor(1000 + Math.random() * 9000));
+const LINK_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+// One bot serves every workspace and anyone can add it to a group, so a code
+// must not be guessable: a guessed one would send orders, phones included,
+// to a stranger's group.
+export const newLinkCode = (): string =>
+  Array.from(
+    crypto.getRandomValues(new Uint8Array(10)),
+    (byte) => LINK_CODE_ALPHABET[byte % LINK_CODE_ALPHABET.length],
+  ).join('');
 
 const readOrCreate = async (
   store: TelegramGroupStore,
@@ -109,7 +122,8 @@ export const checkTelegramLink = async ({
   const updates = (await callTelegram(
     token,
     'getUpdates',
-    { allowed_updates: ['message'] },
+    // The newest hundred; without an offset Telegram returns the oldest.
+    { allowed_updates: ['message'], offset: -100 },
     fetchImpl,
   )) as unknown[];
   const chat = findLinkedChat(updates, row.linkCode ?? '');
@@ -122,7 +136,8 @@ export const checkTelegramLink = async ({
     };
   }
 
-  await store.saveChat(row.id, chat.chatId, chat.title);
+  // A used code is spent, so a later /link of it cannot move the group.
+  await store.saveChat(row.id, chat.chatId, chat.title, newLinkCode());
 
   return { linked: true, chatTitle: chat.title, problem: null };
 };
@@ -148,11 +163,18 @@ export const sendOrderToTelegram = async (
       fetchImpl,
     );
   } catch (error) {
-    if (error instanceof TelegramError) {
-      return { sent: false, problem: 'telegram', detail: error.description };
-    }
-
-    throw error;
+    // Answered, not thrown: a failed route is asked again, and the card that
+    // already went out would be posted twice.
+    return {
+      sent: false,
+      problem: 'telegram',
+      detail:
+        error instanceof TelegramError
+          ? error.description
+          : error instanceof Error
+            ? error.message
+            : String(error),
+    };
   }
 
   return { sent: true };

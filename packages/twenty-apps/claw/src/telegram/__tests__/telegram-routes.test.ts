@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   checkTelegramLink,
   getTelegramLink,
+  newLinkCode,
   sendOrderToTelegram,
   type TelegramGroupRow,
   type TelegramRouteDependencies,
@@ -12,10 +13,12 @@ const dependencies = (
   overrides: Partial<TelegramRouteDependencies> & {
     row?: TelegramGroupRow | null;
     telegram?: Record<string, unknown>;
+    failOn?: string;
   } = {},
 ) => {
   let row = overrides.row === undefined ? null : overrides.row;
   const telegramCalls: string[] = [];
+  const telegramBodies: Record<string, unknown> = {};
   const telegram = overrides.telegram ?? {};
 
   const result: TelegramRouteDependencies = {
@@ -27,20 +30,24 @@ const dependencies = (
 
         return row;
       },
-      saveChat: async (_id, chatId, chatTitle) => {
-        row = { ...(row as TelegramGroupRow), chatId, chatTitle };
+      saveChat: async (_id, chatId, chatTitle, linkCode) => {
+        row = { ...(row as TelegramGroupRow), chatId, chatTitle, linkCode };
       },
     },
-    fetchImpl: (async (url: string) => {
+    fetchImpl: (async (url: string, init?: RequestInit) => {
       const method = String(url).split('/').pop() ?? '';
 
       telegramCalls.push(method);
+      telegramBodies[method] =
+        typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body;
+
+      if (overrides.failOn === method) throw new TypeError('network down');
 
       return new Response(
         JSON.stringify({ ok: true, result: telegram[method] ?? {} }),
       );
     }) as typeof fetch,
-    newLinkCode: () => '4821',
+    newLinkCode: () => 'NEXTCODE',
     loadPost: async () => ({
       cardHtml: '<b>Заказ №1</b>',
       photos: [],
@@ -49,7 +56,7 @@ const dependencies = (
     ...overrides,
   };
 
-  return { result, telegramCalls, currentRow: () => row };
+  return { result, telegramCalls, telegramBodies, currentRow: () => row };
 };
 
 const LINKED: TelegramGroupRow = {
@@ -66,10 +73,10 @@ describe('telegram routes', () => {
     expect(await getTelegramLink(result)).toEqual({
       linked: false,
       chatTitle: null,
-      code: '4821',
+      code: 'NEXTCODE',
       isBotConfigured: true,
     });
-    expect(currentRow()?.linkCode).toBe('4821');
+    expect(currentRow()?.linkCode).toBe('NEXTCODE');
   });
 
   it('sends nothing while no group is linked', async () => {
@@ -140,5 +147,70 @@ describe('telegram routes', () => {
       sent: true,
     });
     expect(telegramCalls).toEqual(['sendMessage']);
+  });
+});
+
+describe('telegram routes, after review', () => {
+  it('reads the newest updates, not the oldest hundred', async () => {
+    const { result, telegramBodies } = dependencies({
+      row: { ...LINKED, chatId: null, chatTitle: null },
+      telegram: { getWebhookInfo: { url: '' }, getUpdates: [] },
+    });
+
+    await checkTelegramLink(result);
+
+    expect(telegramBodies.getUpdates).toMatchObject({ offset: -100 });
+  });
+
+  it('gives the workspace a new code once a group is linked', async () => {
+    const { result, currentRow } = dependencies({
+      row: { ...LINKED, chatId: null, chatTitle: null },
+      telegram: {
+        getWebhookInfo: { url: '' },
+        getUpdates: [
+          {
+            update_id: 1,
+            message: {
+              chat: { id: -1002, type: 'supergroup', title: 'Монтаж' },
+              text: '/link 4821',
+            },
+          },
+        ],
+      },
+    });
+
+    await checkTelegramLink(result);
+
+    expect(currentRow()?.linkCode).toBe('NEXTCODE');
+  });
+
+  // A route that fails after the card went out would be asked again and
+  // post the card a second time.
+  it('answers instead of failing when the album breaks after the card', async () => {
+    const { result } = dependencies({
+      row: LINKED,
+      failOn: 'sendPhoto',
+      loadPost: async () => ({
+        cardHtml: '<b>Заказ №1</b>',
+        photos: [{ fileName: 'a.jpg', bytes: new Blob(['x']) }],
+        point: null,
+      }),
+    });
+
+    expect(await sendOrderToTelegram(result, 'order-1')).toEqual({
+      sent: false,
+      problem: 'telegram',
+      detail: 'network down',
+    });
+  });
+});
+
+describe('link codes', () => {
+  it("are long enough that nobody guesses another workspace's", () => {
+    const codes = new Set(Array.from({ length: 50 }, () => newLinkCode()));
+
+    expect(codes.size).toBe(50);
+
+    for (const code of codes) expect(code).toMatch(/^[A-Z2-7]{10}$/);
   });
 });

@@ -23,7 +23,9 @@ type SendState =
   | { status: 'sending' }
   | { status: 'sent' }
   | { status: 'not-linked'; code: string; isBotConfigured: boolean }
-  | { status: 'failed'; text: string };
+  // A code comes along when relinking may help: the group was upgraded or
+  // the bot removed, and Telegram refuses the old chat.
+  | { status: 'failed'; text: string; relinkCode: string | null };
 
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -35,6 +37,22 @@ const problemText = (problem: unknown, detail: unknown): string =>
       ? 'Бот подключён к другому сервису; привязка не работает'
       : `Telegram не принял сообщение${typeof detail === 'string' && detail !== '' ? `: ${detail}` : ''}`;
 
+const LinkSteps = ({
+  text,
+  checkNote,
+  onCheck,
+}: {
+  text: string;
+  checkNote: string | null;
+  onCheck: () => void;
+}) => (
+  <div style={{ display: 'grid', gap: SPACE.sm, justifyItems: 'start' }}>
+    <Hint text={text} />
+    <Button onClick={onCheck}>Проверить</Button>
+    {checkNote !== null ? <Hint text={checkNote} isSmall /> : null}
+  </div>
+);
+
 const OrderLocationOf = ({ orderId }: { orderId: string }) => {
   const colors = usePalette();
   const [location, setLocation] = useState<OrderLocation | null>(null);
@@ -44,6 +62,7 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [send, setSend] = useState<SendState>({ status: 'idle' });
   const [checkNote, setCheckNote] = useState<string | null>(null);
+  const [photoNotice, setPhotoNotice] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
 
   useEffect(() => {
@@ -63,7 +82,13 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
     setSaveError(null);
 
     try {
-      await saveOrderLocation(orderId, draft);
+      const failedCount = await saveOrderLocation(orderId, draft);
+
+      setPhotoNotice(
+        failedCount > 0
+          ? `Точка сохранена, но ${failedCount} фото не загрузились. Добавьте их ещё раз.`
+          : null,
+      );
       setIsEditing(false);
       setSavedCount((count) => count + 1);
     } catch (error) {
@@ -101,12 +126,21 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
         return;
       }
 
+      const relinkCode =
+        answer.problem === 'telegram'
+          ? await askFunction('telegram-link').then(
+              (link) => String(link.code ?? '') || null,
+              () => null,
+            )
+          : null;
+
       setSend({
         status: 'failed',
         text: problemText(answer.problem, answer.detail),
+        relinkCode,
       });
     } catch (error) {
-      setSend({ status: 'failed', text: errorText(error) });
+      setSend({ status: 'failed', text: errorText(error), relinkCode: null });
     }
   };
 
@@ -217,24 +251,26 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
       {send.status === 'sent' ? (
         <Hint text="Отправлено в группу" tone="success" />
       ) : null}
+      {photoNotice !== null ? <Hint text={photoNotice} tone="warning" /> : null}
       {send.status === 'failed' ? <ErrorNote text={send.text} /> : null}
+      {send.status === 'failed' && send.relinkCode !== null ? (
+        <LinkSteps
+          text={`Если группу поменяли или бота удалили, добавьте бота в группу монтажа и отправьте там: /link ${send.relinkCode}`}
+          checkNote={checkNote}
+          onCheck={() => {
+            void checkLink();
+          }}
+        />
+      ) : null}
       {send.status === 'not-linked' ? (
         send.isBotConfigured ? (
-          <div style={{ display: 'grid', gap: SPACE.sm }}>
-            <Hint
-              text={`Группа ещё не привязана. Добавьте бота в группу монтажа и отправьте там: /link ${send.code}`}
-            />
-            <div>
-              <Button
-                onClick={() => {
-                  void checkLink();
-                }}
-              >
-                Проверить
-              </Button>
-            </div>
-            {checkNote !== null ? <Hint text={checkNote} isSmall /> : null}
-          </div>
+          <LinkSteps
+            text={`Группа ещё не привязана. Добавьте бота в группу монтажа и отправьте там: /link ${send.code}`}
+            checkNote={checkNote}
+            onCheck={() => {
+              void checkLink();
+            }}
+          />
         ) : (
           <ErrorNote text="Бот не настроен на сервере" />
         )
