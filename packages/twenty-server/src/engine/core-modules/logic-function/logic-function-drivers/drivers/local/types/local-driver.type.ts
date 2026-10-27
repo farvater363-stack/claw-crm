@@ -8,4 +8,5 @@ export interface LocalDriverOptions {
   sdkClientArchiveService: SdkClientArchiveService;
   cacheLockService: CacheLockService;
   workspaceCacheService: WorkspaceCacheService;
+  reuseProcesses?: boolean;
 }
