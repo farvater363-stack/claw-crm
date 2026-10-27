@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { EMPTY_LOCATION } from 'src/location/location';
+
 import {
   type ClientMatch,
   describeClientMatch,
@@ -13,6 +15,7 @@ import {
 const draft = (
   overrides: Partial<MeasurementDraft> = {},
 ): MeasurementDraft => ({
+  location: EMPTY_LOCATION,
   clientFirstName: '',
   clientLastName: '',
   clientPhone: '99 888 77 66',
@@ -41,6 +44,10 @@ const match: ClientMatch = {
     measurementDate: '2026-09-01T09:00:00Z',
     comment: 'старый комментарий',
     source: 'INSTAGRAM',
+    locationLat: 41.3111,
+    locationLng: 69.2797,
+    locationNote: 'Старый подъезд',
+    locationPhotos: [],
   },
   ordersCount: 1,
 };
@@ -81,3 +88,10 @@ describe('describeClientMatch', () => {
     );
   });
 });
+
+describe('a returning client', () => {
+  it('never takes the point of an earlier order', () => {
+    expect(draftFromClientMatch(match, draft()).location).toBeUndefined();
+  });
+});
+

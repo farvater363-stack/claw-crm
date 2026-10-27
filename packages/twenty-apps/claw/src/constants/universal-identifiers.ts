@@ -93,6 +93,10 @@ export const IDS = {
     masterPayPaid: '70bd7edf-4777-424b-bf2b-e8a36b62836e', // Retired: replaced by masterPayment; ids are never reused.
     finishedPhotos: '6b04cb33-43a9-469d-9a6a-ea292aa5fe71',
     schemePdf: '75fb8090-4f46-45a6-b728-a254631587a8',
+    locationLat: 'a9f97f36-e25b-4e10-88da-c3398ceebe1b',
+    locationLng: '4e44a91a-4f0e-4fe2-acbd-5e2e275613c7',
+    locationNote: '219e4a27-9f32-4edd-9ec0-60b683e64c15',
+    locationPhotos: 'fc601b7b-2df1-460d-b73a-ffc52a954ea8',
     comment: 'ed094a90-c3ca-47c2-ab65-33e0732a91af',
     client: 'e392b98e-243e-4aa2-b6a8-ba55e7f39260',
     manager: 'fa3cea15-e2db-4f8e-ba7e-dfaae0bec003',
@@ -539,6 +543,16 @@ export const IDS = {
     pageLayoutTab: 'd0188e8e-e3fa-466d-b6eb-6c4b5d3ffaae',
     pageLayoutWidget: '7ebd5c31-94d3-4db2-be4d-66862455b4a0',
   },
+  telegramGroup: {
+    object: 'e423a62f-3646-4b92-8d23-10a604845b91',
+    chatTitle: 'f8c7451d-2ed9-49b9-bfaa-2004942b76b4',
+    chatId: 'a84189e0-4463-4577-b9c5-edc1e60fe5c8',
+    linkCode: '5a6319d1-8896-4f66-a375-aa4d6c0e2567',
+  },
+  orderLocation: {
+    frontComponent: '9cfe49ed-0700-41ae-867c-cc018074c944',
+    orderPageWidget: '565514a5-2dd2-41c6-a6a5-378d8a4ab43d',
+  },
   measurementNotes: {
     frontComponent: '74aa9d07-1296-4578-a9e4-a623002c5b4b',
     orderPageWidget: '4102beab-e8d1-4e1a-a324-982bf1a35ed3',
@@ -601,6 +615,9 @@ export const IDS = {
     orderPageWidget: 'c3f20c9e-1adf-4934-b5cf-60c268d8b3f8',
   },
   logicFunction: {
+    telegramLink: 'a45ad886-1316-4de3-a1f3-5f9d0db30206',
+    telegramLinkCheck: '9f28d8cf-2b77-47f9-b804-d9ad29fde26f',
+    telegramSend: 'a997d0b7-29fc-4269-a55a-147c494325d4',
     onOrderCreated: '9f84f9bb-0b71-4991-8531-fc479be51150',
     onOrderUpdated: 'c3672a4c-6d41-4174-81b8-639b406da5d7',
     onOrderItemCreated: 'ffd1f222-de4a-48c1-bc31-3d3589e73f47',

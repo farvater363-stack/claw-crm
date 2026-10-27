@@ -169,6 +169,11 @@ import {
 } from 'src/ui/tokens';
 import { joinFullName, trimFullName } from 'src/utils/full-name';
 import { fetchFieldMetadataId } from 'src/utils/fetch-field-metadata-id';
+import { EMPTY_LOCATION, type SavedLocationPhoto } from 'src/location/location';
+import { LocationField } from 'src/location/location-field';
+import { saveOrderLocation } from 'src/location/save-order-location';
+import { askFunction } from 'src/utils/ask-function';
+import { createThumbnailUrl } from 'src/utils/photo-thumbnail';
 import { randomUuid } from 'src/utils/random-uuid';
 
 type SavedItem = {
@@ -184,6 +189,7 @@ type SaveResult = {
   items: SavedItem[];
   failedOpeningNumbers: number[];
   photoFailureOpeningNumbers: number[];
+  isLocationPhotoFailed: boolean;
   isVisorFailed: boolean;
   isServiceFailed: boolean;
   isPaymentFailed: boolean;
@@ -197,7 +203,6 @@ type SaveResult = {
 
 const ORDER_NAME_POLL_ATTEMPTS = 20;
 const ORDER_NAME_POLL_INTERVAL_MS = 750;
-const THUMBNAIL_MAX_SIDE_PX = 160;
 const USAGE_SAMPLE_SIZE = 500;
 // A list beside its pane from this page width (a tablet held upright)
 const TWO_PANE_MIN_WIDTH = 720;
@@ -247,6 +252,7 @@ const createEmptyDraft = (): MeasurementDraft => ({
   comment: '',
   openings: [createOpening()],
   services: [],
+  location: EMPTY_LOCATION,
 });
 
 const describeError = (error: unknown) =>
@@ -400,6 +406,10 @@ const loadScheduledOrders = async (
           measurementDate: true,
           comment: true,
           source: true,
+          locationLat: true,
+          locationLng: true,
+          locationNote: true,
+          locationPhotos: { fileId: true, label: true, url: true },
         },
       },
     },
@@ -420,6 +430,15 @@ const loadScheduledOrders = async (
       measurementDate: node.measurementDate ?? null,
       comment: node.comment ?? null,
       source: node.source ?? null,
+      locationLat:
+        typeof node.locationLat === 'number' ? node.locationLat : null,
+      locationLng:
+        typeof node.locationLng === 'number' ? node.locationLng : null,
+      locationNote: node.locationNote ?? null,
+      locationPhotos: (node.locationPhotos ?? []).filter(
+        (photo): photo is SavedLocationPhoto =>
+          typeof photo?.fileId === 'string' && typeof photo.url === 'string',
+      ),
     })),
   );
 };
@@ -431,42 +450,6 @@ const createSaveIds = () => ({
   order: randomUuid(),
   payment: randomUuid(),
 });
-
-const readAsDataUrl = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
-
-// A tablet photo is several MB; previewing it at full size would push every
-// one through the sandbox bridge as a data URL.
-const createThumbnailUrl = async (file: File): Promise<string | null> => {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(
-      1,
-      THUMBNAIL_MAX_SIDE_PX / Math.max(bitmap.width, bitmap.height),
-    );
-    const canvas = new OffscreenCanvas(
-      Math.max(1, Math.round(bitmap.width * scale)),
-      Math.max(1, Math.round(bitmap.height * scale)),
-    );
-
-    canvas
-      .getContext('2d')
-      ?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-
-    return await readAsDataUrl(
-      await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 }),
-    );
-  } catch {
-    return null;
-  }
-};
 
 const attachOpeningPhotos = async (
   item: SavedItem,
@@ -523,35 +506,6 @@ const waitForOrderName = async (orderId: string): Promise<string | null> => {
   }
 
   return null;
-};
-
-// Asked of the app's own functions, which run as the application: a measurer
-// may read only their own orders and no workers.
-const askFunction = async (path: string): Promise<Record<string, unknown>> => {
-  const request = () =>
-    fetch(
-      `${process.env.TWENTY_FUNCTIONS_URL ?? `${process.env.TWENTY_API_URL}/s`}/${path}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
-        },
-      },
-    );
-  let response = await request();
-
-  // The token lasts half an hour and only an API call renews it; a measurer
-  // may spend longer than that at one address. The route answers an expired
-  // token with a 500, not a 401.
-  if (!response.ok) {
-    await new CoreApiClient().query({
-      orders: { __args: { first: 1 }, edges: { node: { id: true } } },
-    });
-    response = await request();
-  }
-
-  if (!response.ok) throw new Error(`${path}: ${response.status}`);
-
-  return (await response.json()) as Record<string, unknown>;
 };
 
 const loadNextOrderName = async (): Promise<string | null> => {
@@ -923,6 +877,7 @@ export const NewMeasurement = () => {
     source: '',
     comment: '',
     measurementDate: toDateTimeLocalInputValue(new Date()),
+    location: EMPTY_LOCATION,
   } as const;
 
   const pickVisit = (orderId: string) => {
@@ -1396,6 +1351,15 @@ export const NewMeasurement = () => {
       }
     }
 
+    // Like the opening photos, the entrance photos go up only once the order
+    // exists, so a failed upload never costs the measurer the замер.
+    const isLocationPhotoFailed =
+      draft.location.newPhotos.length > 0 &&
+      (await saveOrderLocation(orderId, draft.location).then(
+        (failedCount) => failedCount > 0,
+        () => true,
+      ));
+
     let isVisorFailed = false;
     const savedItemIds = new Set(items.map((item) => item.id));
 
@@ -1507,6 +1471,7 @@ export const NewMeasurement = () => {
       items,
       failedOpeningNumbers,
       photoFailureOpeningNumbers,
+      isLocationPhotoFailed,
       isVisorFailed,
       isServiceFailed,
       isPaymentFailed,
@@ -1796,6 +1761,11 @@ export const NewMeasurement = () => {
                       describePhotoUploadFailure(
                         result.photoFailureOpeningNumbers,
                       ),
+                    ]
+                  : []),
+                ...(result.isLocationPhotoFailed
+                  ? [
+                      'Заказ сохранён, но фото входа не загрузились. Откройте заказ и добавьте их в «Адрес и точка».',
                     ]
                   : []),
               ]}
@@ -2515,6 +2485,12 @@ export const NewMeasurement = () => {
             {clientFields}
           </>
         )}
+        <LocationField
+          location={draft.location}
+          onChange={(location) =>
+            setDraft((current) => ({ ...current, location }))
+          }
+        />
       </div>
     );
 

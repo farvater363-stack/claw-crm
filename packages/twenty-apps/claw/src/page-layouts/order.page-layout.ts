@@ -69,6 +69,15 @@ export default definePageLayout({
           },
         },
         {
+          universalIdentifier: IDS.orderLocation.orderPageWidget,
+          title: 'Адрес и точка',
+          type: 'FRONT_COMPONENT',
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier: IDS.orderLocation.frontComponent,
+          },
+        },
+        {
           universalIdentifier: IDS.orderSketch.orderPageWidget,
           title: 'Схема',
           type: 'FRONT_COMPONENT',
