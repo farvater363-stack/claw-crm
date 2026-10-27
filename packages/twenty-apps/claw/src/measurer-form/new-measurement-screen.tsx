@@ -169,6 +169,7 @@ import {
 } from 'src/ui/tokens';
 import { joinFullName, trimFullName } from 'src/utils/full-name';
 import { fetchFieldMetadataId } from 'src/utils/fetch-field-metadata-id';
+import { askFunction } from 'src/utils/ask-function';
 import { createThumbnailUrl } from 'src/utils/photo-thumbnail';
 import { randomUuid } from 'src/utils/random-uuid';
 
@@ -487,35 +488,6 @@ const waitForOrderName = async (orderId: string): Promise<string | null> => {
   }
 
   return null;
-};
-
-// Asked of the app's own functions, which run as the application: a measurer
-// may read only their own orders and no workers.
-const askFunction = async (path: string): Promise<Record<string, unknown>> => {
-  const request = () =>
-    fetch(
-      `${process.env.TWENTY_FUNCTIONS_URL ?? `${process.env.TWENTY_API_URL}/s`}/${path}`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
-        },
-      },
-    );
-  let response = await request();
-
-  // The token lasts half an hour and only an API call renews it; a measurer
-  // may spend longer than that at one address. The route answers an expired
-  // token with a 500, not a 401.
-  if (!response.ok) {
-    await new CoreApiClient().query({
-      orders: { __args: { first: 1 }, edges: { node: { id: true } } },
-    });
-    response = await request();
-  }
-
-  if (!response.ok) throw new Error(`${path}: ${response.status}`);
-
-  return (await response.json()) as Record<string, unknown>;
 };
 
 const loadNextOrderName = async (): Promise<string | null> => {
