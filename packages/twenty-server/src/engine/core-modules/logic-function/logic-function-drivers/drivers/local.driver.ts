@@ -317,7 +317,6 @@ export class LocalDriver implements LogicFunctionDriver {
         flatLogicFunction,
         flatApplication,
         applicationUniversalIdentifier,
-        env,
         executionMode,
       }));
 
@@ -367,7 +366,6 @@ export class LocalDriver implements LogicFunctionDriver {
     flatLogicFunction,
     flatApplication,
     applicationUniversalIdentifier,
-    env,
     executionMode,
   }: Pick<
     LogicFunctionExecuteParams,
@@ -375,7 +373,6 @@ export class LocalDriver implements LogicFunctionDriver {
   > & {
     warmProcessPool: LocalWarmProcessPoolService;
     key: string;
-    env: Record<string, string>;
     executionMode: LogicFunctionExecutionMode;
   }) {
     const temporaryDirManager = new TemporaryDirManager();
