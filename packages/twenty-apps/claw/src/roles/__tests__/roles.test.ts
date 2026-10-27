@@ -133,7 +133,7 @@ describe('workshop', () => {
 
   // Walks every identifier of the order, so a field added later is read-only
   // for the workshop until somebody classifies it here.
-  it('may change only the status, the stage, the finished photos and the printed scheme of an order', () => {
+  it('may change only the status, the stage, the finished photos, the printed scheme and the location of an order', () => {
     const limited = new Set([
       ...hiddenFieldIds(workshopRole),
       ...readOnlyFieldIds(workshopRole),
@@ -165,6 +165,11 @@ describe('workshop', () => {
       IDS.order.productionStage,
       IDS.order.finishedPhotos,
       IDS.order.schemePdf,
+      // Установщики fix the point on site
+      IDS.order.locationLat,
+      IDS.order.locationLng,
+      IDS.order.locationNote,
+      IDS.order.locationPhotos,
       // Twenty writes the author itself on every update, through the same
       // check as the caller's fields, and overwrites whatever the caller sent:
       // locked, «Готово» would be refused; open, it still cannot be falsified.
@@ -299,6 +304,25 @@ describe('workshop', () => {
 
   it('has «В работе» in its menu', () => {
     expect(readableObjectIds(workshopRole)).toContain(IDS.master.object);
+  });
+});
+
+describe('order location', () => {
+  it('lets the manager write the point, the note and the entrance photos', () => {
+    const limited = [
+      ...hiddenFieldIds(managerRole),
+      ...readOnlyFieldIds(managerRole),
+    ];
+
+    for (const id of [
+      IDS.order.locationLat,
+      IDS.order.locationLng,
+      IDS.order.locationNote,
+      IDS.order.locationPhotos,
+    ]) {
+      expect(id).toBeDefined();
+      expect(limited).not.toContain(id);
+    }
   });
 });
 

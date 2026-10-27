@@ -93,6 +93,10 @@ export const IDS = {
     masterPayPaid: '70bd7edf-4777-424b-bf2b-e8a36b62836e', // Retired: replaced by masterPayment; ids are never reused.
     finishedPhotos: '6b04cb33-43a9-469d-9a6a-ea292aa5fe71',
     schemePdf: '75fb8090-4f46-45a6-b728-a254631587a8',
+    locationLat: 'a9f97f36-e25b-4e10-88da-c3398ceebe1b',
+    locationLng: '4e44a91a-4f0e-4fe2-acbd-5e2e275613c7',
+    locationNote: '219e4a27-9f32-4edd-9ec0-60b683e64c15',
+    locationPhotos: 'fc601b7b-2df1-460d-b73a-ffc52a954ea8',
     comment: 'ed094a90-c3ca-47c2-ab65-33e0732a91af',
     client: 'e392b98e-243e-4aa2-b6a8-ba55e7f39260',
     manager: 'fa3cea15-e2db-4f8e-ba7e-dfaae0bec003',
