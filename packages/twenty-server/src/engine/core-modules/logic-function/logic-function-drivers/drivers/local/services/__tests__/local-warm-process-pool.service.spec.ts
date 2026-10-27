@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 
-import { LocalWarmProcessPool } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-warm-process-pool.service';
+import { LocalWarmProcessPoolService } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-warm-process-pool.service';
 import { TemporaryDirManager } from 'src/engine/core-modules/logic-function/logic-function-drivers/utils/temporary-dir-manager';
 
 const HANDLER_SOURCE = `
@@ -9,6 +9,16 @@ export const main = async (payload) => {
   if (payload.action === 'throw') throw new Error('handler failed');
   if (payload.action === 'hang') await new Promise(() => {});
   if (payload.action === 'crash') process.exit(3);
+  if (payload.action === 'home') return { home: process.env.HOME };
+  if (payload.action === 'leave-rejection') {
+    setTimeout(() => Promise.reject(new Error('late failure')), 50);
+    return {};
+  }
+  if (payload.action === 'log-then-hang') {
+    console.error('about to hang');
+    process.stderr.write('raw stderr\\n');
+    await new Promise(() => {});
+  }
   console.log('run for', process.env.RUN_USER);
   return { pid: process.pid, user: process.env.RUN_USER, leftover: process.env.ONLY_FIRST_RUN ?? null };
 };
@@ -22,8 +32,8 @@ const context = {
   workspaceMemberId: null,
 };
 
-describe('LocalWarmProcessPool', () => {
-  const pool = new LocalWarmProcessPool();
+describe('LocalWarmProcessPoolService', () => {
+  const pool = new LocalWarmProcessPoolService();
 
   // Real child processes run against real clocks
   beforeAll(() => jest.useRealTimers());
@@ -41,7 +51,6 @@ describe('LocalWarmProcessPool', () => {
       sourceTemporaryDir,
       builtFileAbsPath,
       handlerName: 'main',
-      env: { RUN_USER: 'first' },
     });
   };
 
@@ -113,5 +122,37 @@ describe('LocalWarmProcessPool', () => {
 
   it('hands out nothing for a key without an idle process', () => {
     expect(pool.acquire('unknown')).toBeUndefined();
+  });
+
+  it("restores a server env var that a run's env shadowed", async () => {
+    const warmProcess = await spawnWarmProcess('shadow');
+
+    await run(warmProcess, 'ok', { HOME: '/shadowed' });
+
+    expect((await run(warmProcess, 'home', {})).result).toEqual({
+      home: process.env.HOME,
+    });
+
+    await pool.discard(warmProcess);
+  });
+
+  it('never hands out an idle process that work from an earlier run broke', async () => {
+    const warmProcess = await spawnWarmProcess('leftover');
+
+    expect((await run(warmProcess, 'leave-rejection', {})).ok).toBe(true);
+    pool.release(warmProcess);
+
+    await new Promise((resolve) => warmProcess.child.once('exit', resolve));
+
+    expect(pool.acquire('leftover')).toBeUndefined();
+  });
+
+  it("keeps a timed-out run's raw output", async () => {
+    const warmProcess = await spawnWarmProcess('silent-hang');
+    const timedOut = await run(warmProcess, 'log-then-hang', {}, 1_000);
+
+    expect(timedOut.logs).toMatch(/ERROR raw stderr/);
+
+    await pool.discard(warmProcess);
   });
 });

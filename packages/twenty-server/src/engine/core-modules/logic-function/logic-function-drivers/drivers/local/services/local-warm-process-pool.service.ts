@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 
 import { type LogicFunctionExecutionContext } from 'twenty-shared/logic-function';
+import { isDefined } from 'twenty-shared/utils';
 
 import { type TemporaryDirManager } from 'src/engine/core-modules/logic-function/logic-function-drivers/utils/temporary-dir-manager';
 import { HANDLER_NAME_REGEX } from 'src/engine/metadata-modules/logic-function/constants/handler.contant';
@@ -29,10 +30,13 @@ type WarmProcess = {
   child: ChildProcess;
   temporaryDirManager: TemporaryDirManager;
   idleTimer?: ReturnType<typeof setTimeout>;
+  // stdout and stderr of the current run, for runs that end without a result
+  output: string;
 };
 
 // Runs every 'run' message it gets, one at a time, with that run's env and
-// console output, and stays alive for the next one.
+// console output, and stays alive for the next one. The bundle is imported on
+// the first run, after its env is set, for modules that read env at import.
 const buildPersistentRunnerCode = ({
   builtFileAbsPath,
   handlerName,
@@ -44,35 +48,53 @@ const buildPersistentRunnerCode = ({
   const { pathToFileURL } = require('node:url');
   const { format } = require('node:util');
 
-  const handlerPromise = import(pathToFileURL(${JSON.stringify(builtFileAbsPath)}).href).then((mod) => {
+  const loadHandler = () => import(pathToFileURL(${JSON.stringify(builtFileAbsPath)}).href).then((mod) => {
     const handlerFn = mod?.${handlerName.split('.').join('?.')};
     if (typeof handlerFn !== 'function') {
       throw new Error('Export "' + ${JSON.stringify(handlerName)} + '" not found in function bundle');
     }
     return handlerFn;
   });
-  handlerPromise.catch(() => {});
 
   const LEVELS = { log: 'INFO', info: 'INFO', debug: 'DEBUG', warn: 'WARN', error: 'ERROR' };
-  let runEnvKeys = [];
+  let handlerPromise = null;
+  let isRunning = false;
+
+  // Work a run left behind must not fail a later, unrelated run: an idle
+  // process exits instead, and the pool never hands it out again
+  const exitWhenIdle = (error) => {
+    if (!isRunning) {
+      process.stderr.write(String(error?.stack ?? error) + '\\n', () => process.exit(1));
+    }
+  };
+  process.on('unhandledRejection', exitWhenIdle);
+  process.on('uncaughtException', exitWhenIdle);
 
   process.on('message', async (msg) => {
     if (!msg || msg.type !== 'run') return;
+    isRunning = true;
 
     let logs = '';
     const originalConsole = {};
     for (const [method, level] of Object.entries(LEVELS)) {
       originalConsole[method] = console[method];
       console[method] = (...args) => {
-        logs += new Date().toISOString() + ' ' + level + ' ' + format(...args) + '\\n';
+        const timestamp = new Date().toISOString();
+        for (const line of format(...args).split('\\n')) {
+          logs += timestamp + ' ' + level + ' ' + line + '\\n';
+        }
       };
     }
 
-    for (const key of runEnvKeys) delete process.env[key];
-    runEnvKeys = Object.keys(msg.env || {});
-    Object.assign(process.env, msg.env || {});
+    const runEnv = msg.env || {};
+    const shadowedEnv = {};
+    for (const key of Object.keys(runEnv)) {
+      shadowedEnv[key] = process.env[key];
+      process.env[key] = runEnv[key];
+    }
 
     try {
+      handlerPromise ??= loadHandler();
       const handlerFn = await handlerPromise;
       const result = await handlerFn(msg.payload, msg.context);
       process.send({ ok: true, result, logs });
@@ -85,12 +107,17 @@ const buildPersistentRunnerCode = ({
         logs,
       });
     } finally {
+      for (const [key, value] of Object.entries(shadowedEnv)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
       Object.assign(console, originalConsole);
+      isRunning = false;
     }
   });
 `;
 
-export class LocalWarmProcessPool {
+export class LocalWarmProcessPoolService {
   private readonly idleProcessesByKey = new Map<string, WarmProcess[]>();
 
   async spawn({
@@ -99,14 +126,12 @@ export class LocalWarmProcessPool {
     sourceTemporaryDir,
     builtFileAbsPath,
     handlerName,
-    env,
   }: {
     key: string;
     temporaryDirManager: TemporaryDirManager;
     sourceTemporaryDir: string;
     builtFileAbsPath: string;
     handlerName: string;
-    env: Record<string, string>;
   }): Promise<WarmProcess> {
     if (!HANDLER_NAME_REGEX.test(handlerName)) {
       throw new Error(
@@ -122,23 +147,38 @@ export class LocalWarmProcessPool {
       'utf8',
     );
 
-    // Strip NODE_OPTIONS to prevent tsx loader from being inherited. The first
-    // run's env is also set at start, for modules that read it at import time.
-    const { NODE_OPTIONS: _n1, ...cleanProcessEnv } = process.env;
-    const { NODE_OPTIONS: _n2, ...cleanUserEnv } = env;
+    // Strip NODE_OPTIONS to prevent tsx loader from being inherited
+    const { NODE_OPTIONS: _nodeOptions, ...cleanProcessEnv } = process.env;
 
     const child = spawn(process.execPath, [runnerPath], {
-      env: { ...cleanProcessEnv, ...cleanUserEnv },
+      env: cleanProcessEnv,
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     });
 
-    // Output outside a run (a crash) has no execution to belong to
-    child.stdout?.resume();
-    child.stderr?.resume();
+    const warmProcess: WarmProcess = {
+      key,
+      child,
+      temporaryDirManager,
+      output: '',
+    };
 
-    const warmProcess: WarmProcess = { key, child, temporaryDirManager };
+    const appendOutput = (level: 'INFO' | 'ERROR') => (chunk: Buffer) => {
+      const timestamp = new Date().toISOString();
 
-    child.once('exit', () => this.forget(warmProcess));
+      warmProcess.output += String(chunk)
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => `${timestamp} ${level} ${line}\n`)
+        .join('');
+    };
+
+    child.stdout?.on('data', appendOutput('INFO'));
+    child.stderr?.on('data', appendOutput('ERROR'));
+
+    child.once('exit', () => {
+      this.forget(warmProcess);
+      void temporaryDirManager.clean();
+    });
 
     return warmProcess;
   }
@@ -151,7 +191,7 @@ export class LocalWarmProcessPool {
       this.idleProcessesByKey.delete(key);
     }
 
-    if (warmProcess?.idleTimer !== undefined) {
+    if (isDefined(warmProcess?.idleTimer)) {
       clearTimeout(warmProcess.idleTimer);
       warmProcess.idleTimer = undefined;
     }
@@ -175,6 +215,8 @@ export class LocalWarmProcessPool {
   ): Promise<WarmProcessRunResult> {
     const { child } = warmProcess;
 
+    warmProcess.output = '';
+
     return new Promise((resolve) => {
       let settled = false;
 
@@ -194,7 +236,7 @@ export class LocalWarmProcessPool {
         settle({
           ok: false,
           error: `Exited with code ${code}`,
-          logs: '',
+          logs: warmProcess.output,
           isReusable: false,
         });
 
@@ -202,7 +244,7 @@ export class LocalWarmProcessPool {
         settle({
           ok: false,
           error: `Timed out after ${timeoutMs}ms`,
-          logs: '',
+          logs: warmProcess.output,
           isReusable: false,
         });
       }, timeoutMs);
@@ -252,14 +294,14 @@ export class LocalWarmProcessPool {
   }
 
   private forget(warmProcess: WarmProcess): void {
-    if (warmProcess.idleTimer !== undefined) {
+    if (isDefined(warmProcess.idleTimer)) {
       clearTimeout(warmProcess.idleTimer);
       warmProcess.idleTimer = undefined;
     }
 
     const idleProcesses = this.idleProcessesByKey.get(warmProcess.key);
 
-    if (idleProcesses === undefined) return;
+    if (!isDefined(idleProcesses)) return;
 
     const remaining = idleProcesses.filter(
       (idleProcess) => idleProcess !== warmProcess,

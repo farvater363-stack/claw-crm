@@ -16,7 +16,7 @@ import {
 
 import { LocalChildProcessRunnerService } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-child-process-runner.service';
 import { LocalLayerManagerService } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-layer-manager.service';
-import { LocalWarmProcessPool } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-warm-process-pool.service';
+import { LocalWarmProcessPoolService } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-warm-process-pool.service';
 import { LocalPrebuiltBundleService } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/services/local-prebuilt-bundle.service';
 import { type LocalDriverOptions } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/types/local-driver.type';
 import { LAYER_BUILD_READY_SENTINEL } from 'src/engine/core-modules/logic-function/logic-function-drivers/drivers/local/constants/local-driver.constant';
@@ -40,7 +40,7 @@ export class LocalDriver implements LogicFunctionDriver {
   private readonly layerManager: LocalLayerManagerService;
   private readonly childProcessRunner: LocalChildProcessRunnerService;
   private readonly prebuiltBundle: LocalPrebuiltBundleService;
-  private readonly warmProcessPool: LocalWarmProcessPool | null;
+  private readonly warmProcessPool: LocalWarmProcessPoolService | null;
 
   constructor(options: LocalDriverOptions) {
     this.logicFunctionResourceService = options.logicFunctionResourceService;
@@ -56,7 +56,9 @@ export class LocalDriver implements LogicFunctionDriver {
       options.logicFunctionResourceService,
     );
     this.warmProcessPool =
-      options.reuseProcesses === true ? new LocalWarmProcessPool() : null;
+      options.reuseProcesses === true
+        ? new LocalWarmProcessPoolService()
+        : null;
   }
 
   async transpile({
@@ -294,7 +296,7 @@ export class LocalDriver implements LogicFunctionDriver {
     | 'payload'
     | 'context'
   > & {
-    warmProcessPool: LocalWarmProcessPool;
+    warmProcessPool: LocalWarmProcessPoolService;
     env: Record<string, string>;
     timeoutMs: number;
     executionMode: LogicFunctionExecutionMode;
@@ -371,7 +373,7 @@ export class LocalDriver implements LogicFunctionDriver {
     LogicFunctionExecuteParams,
     'flatLogicFunction' | 'flatApplication' | 'applicationUniversalIdentifier'
   > & {
-    warmProcessPool: LocalWarmProcessPool;
+    warmProcessPool: LocalWarmProcessPoolService;
     key: string;
     env: Record<string, string>;
     executionMode: LogicFunctionExecutionMode;
@@ -405,7 +407,6 @@ export class LocalDriver implements LogicFunctionDriver {
         sourceTemporaryDir,
         builtFileAbsPath,
         handlerName: flatLogicFunction.handlerName,
-        env,
       });
     } catch (error) {
       await temporaryDirManager.clean();
@@ -426,15 +427,20 @@ export class LocalDriver implements LogicFunctionDriver {
     LogicFunctionExecuteParams,
     'flatLogicFunction' | 'flatApplication' | 'applicationUniversalIdentifier'
   > & { executionMode: LogicFunctionExecutionMode }): Promise<string> {
-    const { mtimeMs: sdkLayerBuiltAt } = await fs.stat(
-      join(
-        getLocalSdkLayerPath({
-          workspaceId: flatApplication.workspaceId,
-          applicationUniversalIdentifier,
-        }),
-        LAYER_BUILD_READY_SENTINEL,
-      ),
-    );
+    // A layer rebuilt by another job right now gets a key of its own, so the
+    // run starts a fresh process instead of failing
+    const sdkLayerBuiltAt = await fs
+      .stat(
+        join(
+          getLocalSdkLayerPath({
+            workspaceId: flatApplication.workspaceId,
+            applicationUniversalIdentifier,
+          }),
+          LAYER_BUILD_READY_SENTINEL,
+        ),
+      )
+      .then(({ mtimeMs }) => String(mtimeMs))
+      .catch(() => `rebuilding-${Date.now()}`);
 
     return [
       flatLogicFunction.workspaceId,
