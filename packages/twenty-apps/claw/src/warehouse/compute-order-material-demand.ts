@@ -25,7 +25,7 @@ export type DemandNorm = {
   quantityPerUnit: number | null;
 };
 
-// The grilles and composition rows every demand is worked out from
+// The grilles and composition rows every demand is worked out from.
 export type DemandCatalog = {
   grilles: { id: string; name: string | null }[];
   norms: DemandNorm[];

@@ -42,7 +42,14 @@ export const recalcOrder = async (
 
   const plan = planOrderRecalc(input);
 
-  if (options.stopIfUnchanged && isEmptyRecalcPlan(plan)) {
+  // Only an order with lines derives all of its sums; one without keeps a
+  // typed area that the pay lines are read from. A late run of the same order
+  // that wrote stale pay lines is not caught by this either way.
+  if (
+    options.stopIfUnchanged &&
+    isEmptyRecalcPlan(plan) &&
+    input.items.length + input.extraServiceLines.length > 0
+  ) {
     return;
   }
 

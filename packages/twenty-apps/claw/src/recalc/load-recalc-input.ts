@@ -325,7 +325,7 @@ export const loadRecalcInput = async (
     demandCatalog: {
       grilles: (designs?.edges ?? []).map(({ node }) => ({
         id: node.id,
-        name: node.name ?? null,
+        name: node.name || null,
       })),
       norms,
     },

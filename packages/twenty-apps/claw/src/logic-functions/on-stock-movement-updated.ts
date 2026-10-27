@@ -22,6 +22,8 @@ export default defineLogicFunction({
       'countedQuantity',
       'unitPrice',
       'date',
+      // A write-off the order sync upserts back after a delete arrives as an update.
+      'deletedAt',
     ],
     batchMode: true,
   },

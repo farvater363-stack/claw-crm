@@ -387,7 +387,8 @@ export const loadToday = async (client: CoreApiClient): Promise<TodayData> => {
       loadCallBackClients(client),
       loadStockData(client),
       // Asked with prices alongside the rest, so the owner waits for one
-      // round; a role that may not read them is asked again without.
+      // round; a role that may not read them is asked again without, and so
+      // is one refused a priced part, which then sees the books unpriced.
       loadStockBooks(client, true).catch((error: unknown) => {
         if (isAccessError(error)) return null;
 
