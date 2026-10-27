@@ -131,15 +131,59 @@ describe('syncOrderMaterials', () => {
     expect(await syncOrderMaterials(seenOnly.client, 'order-1')).toBe(false);
     expect(seenOnly.mutations).toEqual([]);
 
+    // The written-off movement's own trigger recalculates the warehouse.
     expect(
       await syncOrderMaterials(entering.client, 'order-1', {
         entersWrittenOff: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(entering.mutations.map((request) => Object.keys(request))).toEqual([
       ['createOrderMaterial'],
       ['createStockMovement'],
     ]);
+  });
+
+  it('writes the movements after every other change, for their trigger to read', async () => {
+    const { client, mutations } = fakeClient(
+      [
+        {
+          id: 'stale-line',
+          materialId: 'material-2',
+          plannedQuantity: 1,
+          writtenOffQuantity: null,
+        },
+      ],
+      { status: 'PRODUCTION', missingNorms: 'Старая' },
+    );
+
+    await syncOrderMaterials(client, 'order-1', { entersWrittenOff: true });
+
+    expect(mutations.map((request) => Object.keys(request)[0])).toEqual([
+      'createOrderMaterial',
+      'deleteOrderMaterial',
+      'updateOrder',
+      'createStockMovement',
+    ]);
+  });
+
+  it('reads no grilles or norms when the caller passes them', async () => {
+    const { client, queryCount } = fakeClient([]);
+
+    await syncOrderMaterials(client, 'order-1', {
+      catalog: {
+        grilles: [{ id: 'design-1', name: 'Тест' }],
+        norms: [
+          {
+            designId: 'design-1',
+            extraServiceId: null,
+            materialId: 'material-1',
+            quantityPerUnit: 2,
+          },
+        ],
+      },
+    });
+
+    expect(queryCount()).toBe(1);
   });
 
   it('writes nothing on a re-run for a line that is already written off', async () => {

@@ -43,6 +43,29 @@ type UpdatedOrder = {
 // Fields that matter to the client alone; the order's own sums do not move.
 const CLIENT_ONLY_FIELDS = ['clientId', 'cancelReason'];
 
+// What the recalc writes on the order, and the author stamp every write
+// changes. «Итого» can also be typed, but a typed one changes the sum before
+// the discount, so that run is never a no-op. The deadline is left out: typed,
+// the contract's term moves with it while the sums may not.
+const RECALC_SUM_FIELDS = [
+  'areaSquareMeters',
+  'subtotal',
+  'discount',
+  'total',
+  'costTotal',
+  'prepaid',
+  'paid',
+  'balance',
+  'margin',
+  'marginPercent',
+  'daysLate',
+  'deadlineState',
+  'masterPayCalculated',
+  'masterPenalty',
+  'masterPayTotal',
+  'updatedBy',
+];
+
 const handler = async (
   payload: DatabaseEventPayload<ObjectRecordUpdateEvent<UpdatedOrder>>,
 ): Promise<void> => {
@@ -169,6 +192,9 @@ const handler = async (
           status: after.status ?? null,
           previousStatus: before.status ?? null,
         }),
+      stopIfUnchanged: updatedFields.every((field) =>
+        RECALC_SUM_FIELDS.includes(field),
+      ),
     });
   }
 

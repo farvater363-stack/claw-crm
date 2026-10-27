@@ -2,7 +2,10 @@ import { type CoreApiClient } from 'twenty-client-sdk/core';
 
 import { syncContractState } from 'src/contract/sync-contract-state';
 import { syncOrderAccruals } from 'src/payroll/sync-order-accruals';
-import { planOrderRecalc } from 'src/pricing/plan-order-recalc';
+import {
+  isEmptyRecalcPlan,
+  planOrderRecalc,
+} from 'src/pricing/plan-order-recalc';
 import { applyRecalcPlan } from 'src/recalc/apply-recalc-plan';
 import { loadRecalcInput } from 'src/recalc/load-recalc-input';
 import { recalcWarehouse } from 'src/warehouse/recalc-warehouse';
@@ -18,6 +21,9 @@ export const recalcOrder = async (
     linesRemoved?: boolean;
     typedTotal?: number | null;
     recostCustomItems?: boolean;
+    // The event is only the recalc's own sums coming back; the run that wrote
+    // them has done the pay lines, contract and materials already.
+    stopIfUnchanged?: boolean;
   } = {},
 ): Promise<void> => {
   const refresh = {
@@ -34,7 +40,13 @@ export const recalcOrder = async (
     return;
   }
 
-  await applyRecalcPlan(client, orderId, planOrderRecalc(input));
+  const plan = planOrderRecalc(input);
+
+  if (options.stopIfUnchanged && isEmptyRecalcPlan(plan)) {
+    return;
+  }
+
+  await applyRecalcPlan(client, orderId, plan);
 
   // Straight after the totals and the master's pay are stored, which is all the lines are built from:
   // nothing runs this again for an installed order, so a failure in the stock steps below must not leave it without pay lines.
@@ -64,6 +76,7 @@ export const recalcOrder = async (
   if (
     await syncOrderMaterials(client, orderId, {
       entersWrittenOff: options.entersWrittenOff,
+      catalog: input.demandCatalog,
     })
   ) {
     await recalcWarehouse(client);

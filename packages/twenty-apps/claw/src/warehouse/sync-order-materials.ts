@@ -6,9 +6,7 @@ import { toNumber } from 'src/recalc/load-recalc-input';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
 import {
   computeOrderMaterialDemand,
-  type DemandExtraServiceLine,
-  type DemandItem,
-  type OrderMaterialDemand,
+  type DemandCatalog,
 } from 'src/warehouse/compute-order-material-demand';
 import {
   isEmptyOrderMaterialsPlan,
@@ -21,12 +19,9 @@ const PAGE_SIZE = 200;
 const toText = (value: unknown): string | null =>
   value === null || value === undefined || value === '' ? null : String(value);
 
-const loadDemand = async (
+const loadDemandCatalog = async (
   client: CoreApiClient,
-  orderId: string,
-  items: DemandItem[],
-  extraServiceLines: DemandExtraServiceLine[],
-): Promise<OrderMaterialDemand> => {
+): Promise<DemandCatalog> => {
   const [designs, norms] = await Promise.all([
     fetchAllPages(async (after) => {
       const { designs } = await client.query({
@@ -60,10 +55,7 @@ const loadDemand = async (
     }),
   ]);
 
-  return computeOrderMaterialDemand({
-    orderId,
-    items,
-    extraServiceLines,
+  return {
     grilles: designs.map((node) => ({ id: node.id, name: toText(node.name) })),
     norms: norms.map((node) => ({
       designId: toText(node.designId),
@@ -72,13 +64,22 @@ const loadDemand = async (
       materialId: toText(node.materialId),
       quantityPerUnit: toNumber(node.quantityPerUnit),
     })),
-  });
+  };
 };
 
+// True when the warehouse still needs a recalc from the caller: written
+// movements get theirs from the stock-movement trigger.
 export const syncOrderMaterials = async (
   client: CoreApiClient,
   orderId: string,
-  { entersWrittenOff = false }: { entersWrittenOff?: boolean } = {},
+  {
+    entersWrittenOff = false,
+    catalog,
+  }: {
+    entersWrittenOff?: boolean;
+    // Already read by the caller, so it is not read again
+    catalog?: DemandCatalog;
+  } = {},
 ): Promise<boolean> => {
   const byOrder = { orderId: { eq: orderId } };
   const {
@@ -135,21 +136,23 @@ export const syncOrderMaterials = async (
   // Material state only matters from the measured step on; skipping the grilles and norms
   // before that keeps new orders from paging them and triggering a warehouse recalc.
   const demand = keepsOrderDemand(status)
-    ? await loadDemand(
-        client,
+    ? computeOrderMaterialDemand({
         orderId,
-        (orderItems?.edges ?? []).map(({ node }) => ({
+        items: (orderItems?.edges ?? []).map(({ node }) => ({
           designId: toText(node.designId),
           areaSquareMeters: toNumber(node.areaSquareMeters),
           quantity: toNumber(node.quantity),
           product: toProduct(node.product),
           widthCm: toNumber(node.widthCm),
         })),
-        (orderExtraServices?.edges ?? []).map(({ node }) => ({
-          extraServiceId: toText(node.extraServiceId),
-          quantity: toNumber(node.quantity),
-        })),
-      )
+        extraServiceLines: (orderExtraServices?.edges ?? []).map(
+          ({ node }) => ({
+            extraServiceId: toText(node.extraServiceId),
+            quantity: toNumber(node.quantity),
+          }),
+        ),
+        ...(catalog ?? (await loadDemandCatalog(client))),
+      })
     : { quantityByMaterialId: new Map<string, number>(), missingNorms: null };
 
   const plan = planOrderMaterials({
@@ -183,15 +186,6 @@ export const syncOrderMaterials = async (
     });
   }
 
-  for (const { id, ...data } of plan.movementUpserts) {
-    await client.mutation({
-      createStockMovement: {
-        __args: { data: { id, ...data }, upsert: true },
-        id: true,
-      },
-    });
-  }
-
   for (const id of plan.lineDeletes) {
     await client.mutation({
       deleteOrderMaterial: { __args: { id }, id: true },
@@ -207,5 +201,19 @@ export const syncOrderMaterials = async (
     });
   }
 
-  return missingNormsChanged || !isEmptyOrderMaterialsPlan(plan);
+  // Last, so the stock-movement trigger's warehouse recalc reads everything
+  // above; only a deleted line carries no write-off a movement could point at.
+  for (const { id, ...data } of plan.movementUpserts) {
+    await client.mutation({
+      createStockMovement: {
+        __args: { data: { id, ...data }, upsert: true },
+        id: true,
+      },
+    });
+  }
+
+  return (
+    plan.movementUpserts.length === 0 &&
+    (missingNormsChanged || !isEmptyOrderMaterialsPlan(plan))
+  );
 };

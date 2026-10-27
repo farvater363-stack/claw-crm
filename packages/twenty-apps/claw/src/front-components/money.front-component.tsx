@@ -184,14 +184,16 @@ const WALLET_TITLES: Record<Wallet, string> = {
 const loadState = async (): Promise<LoadState> => {
   try {
     const client = new CoreApiClient();
-    const books = await loadMoneyBooks(client);
-    // Profit still shows without the shelf; the shelf's losses are then left
-    // out, not guessed.
-    const stock = await loadStockBooks(client, true).catch((error) => {
-      console.error(error);
+    const [books, stock] = await Promise.all([
+      loadMoneyBooks(client),
+      // Profit still shows without the shelf; the shelf's losses are then
+      // left out, not guessed.
+      loadStockBooks(client, true).catch((error) => {
+        console.error(error);
 
-      return null;
-    });
+        return null;
+      }),
+    ]);
 
     return { status: 'ready', books, stock };
   } catch (error) {
@@ -1103,7 +1105,8 @@ const Money = () => {
                             dayOfMonth: String(item.dayOfMonth ?? ''),
                             wallet: item.wallet ?? 'CASH',
                             category: (item.category ?? '') as
-                              ExpenseCategory | '',
+                              | ExpenseCategory
+                              | '',
                           },
                         })
                       }
