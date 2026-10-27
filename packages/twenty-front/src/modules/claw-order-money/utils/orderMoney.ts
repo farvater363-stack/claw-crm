@@ -97,6 +97,32 @@ export const getPaidAmountMicrosByOrderId = (payments: OrderPaymentNode[]) =>
     };
   }, {});
 
+export type OrderPaidNode = {
+  id: string;
+  paid?: { amountMicros?: number | string | null } | null;
+};
+
+// The order's own «Оплачено» already nets out refunds of an earlier cancel;
+// the payments alone would offer that money back a second time.
+export const withOrderPaid = (
+  paidByOrderId: Record<string, number>,
+  orders: OrderPaidNode[],
+) =>
+  orders.reduce<Record<string, number>>(
+    (netPaidByOrderId, order) =>
+      isDefined(order.paid?.amountMicros) &&
+      isDefined(netPaidByOrderId[order.id])
+        ? {
+            ...netPaidByOrderId,
+            [order.id]: Math.min(
+              netPaidByOrderId[order.id],
+              Number(order.paid.amountMicros),
+            ),
+          }
+        : netPaidByOrderId,
+    paidByOrderId,
+  );
+
 export const getPaidOrderIds = (
   orderIds: string[],
   paidByOrderId: Record<string, number>,

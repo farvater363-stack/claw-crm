@@ -1,5 +1,8 @@
 import { ORDER_MONEY_QUESTION_DIALOG_ID } from '@/claw-order-money/constants/OrderMoneyQuestionDialogId';
-import { FIND_ORDER_PAYMENTS_BEFORE_CANCEL } from '@/claw-order-money/graphql/findOrderPaymentsBeforeCancel';
+import {
+  FIND_ORDER_PAYMENTS_BEFORE_CANCEL,
+  FIND_ORDERS_PAID_BEFORE_CANCEL,
+} from '@/claw-order-money/graphql/findOrderPaymentsBeforeCancel';
 import {
   type OrderMoneyQuestion,
   orderMoneyQuestionState,
@@ -8,6 +11,7 @@ import {
   buildOrderCancelFields,
   buildOrderMoneyQuestion,
   getPaidAmountMicrosByOrderId,
+  withOrderPaid,
   getPaidOrderIds,
   getRefundDefaults,
   hasOrderRefundFields,
@@ -15,6 +19,7 @@ import {
   type OrderCancelFields,
   type OrderMoneyAction,
   type OrderMoneyAnswer,
+  type OrderPaidNode,
   type OrderPaymentNode,
   sumPaidAmountMicros,
 } from '@/claw-order-money/utils/orderMoney';
@@ -115,7 +120,22 @@ export const useConfirmOrderMoneyBeforeCancel = () => {
       )
       .catch(() => []);
 
-    const paidByOrderId = getPaidAmountMicrosByOrderId(payments);
+    const orders = await apolloCoreClient
+      .query<{ orders: { edges: { node: OrderPaidNode }[] } }>({
+        query: FIND_ORDERS_PAID_BEFORE_CANCEL,
+        variables: {
+          filter: { id: { in: recordIds } },
+          limit: recordIds.length,
+        },
+        fetchPolicy: 'no-cache',
+      })
+      .then(({ data }) => (data?.orders.edges ?? []).map(({ node }) => node))
+      .catch(() => []);
+
+    const paidByOrderId = withOrderPaid(
+      getPaidAmountMicrosByOrderId(payments),
+      orders,
+    );
     const paidRecordIds = getPaidOrderIds(recordIds, paidByOrderId);
 
     if (!isNonEmptyArray(paidRecordIds)) {

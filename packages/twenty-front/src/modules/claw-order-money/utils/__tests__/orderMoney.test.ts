@@ -13,6 +13,7 @@ import {
   isOrderMoneyWorkspace,
   parseRefundAmountMicros,
   sumPaidAmountMicros,
+  withOrderPaid,
 } from '@/claw-order-money/utils/orderMoney';
 
 const CLAW_OBJECTS = [
@@ -276,5 +277,22 @@ describe('refund details', () => {
         hasRefundFields: false,
       }),
     ).toEqual({ paidMoneyOnCancel: 'REFUNDED' });
+  });
+});
+
+describe('withOrderPaid', () => {
+  it('takes the order paid when a refund lowered it', () => {
+    expect(
+      withOrderPaid({ a: 662_025_000_000, b: 100_000_000 }, [
+        { id: 'a', paid: { amountMicros: 162_025_000_000 } },
+        { id: 'b', paid: null },
+      ]),
+    ).toEqual({ a: 162_025_000_000, b: 100_000_000 });
+  });
+
+  it('ignores orders with no payments loaded', () => {
+    expect(withOrderPaid({}, [{ id: 'a', paid: { amountMicros: 5 } }])).toEqual(
+      {},
+    );
   });
 });
