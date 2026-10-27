@@ -4,7 +4,7 @@ import { dashboardOrder } from 'src/dashboard/__tests__/dashboard-order';
 import {
   addMonths,
   buildFunnel,
-  buildKinds,
+  buildGrilles,
   buildMeasurers,
   buildMetrics,
   buildMonthBars,
@@ -263,12 +263,12 @@ describe('buildStageDays', () => {
   });
 });
 
-describe('buildKinds', () => {
-  it('adds up the area of each grille kind the period’s buyers chose', () => {
+describe('buildGrilles', () => {
+  it('adds up the area of each grille the period’s buyers chose', () => {
     const range = { start: '2026-10-01', end: '2026-10-09' };
 
     expect(
-      buildKinds(
+      buildGrilles(
         [
           dashboardOrder({
             id: 'sold',
@@ -278,16 +278,16 @@ describe('buildKinds', () => {
           dashboardOrder({ id: 'open', status: 'MEASURED' }),
         ],
         [
-          { orderId: 'sold', kindName: 'Ромб', area: 4 },
-          { orderId: 'sold', kindName: 'Ромб', area: 2.5 },
-          { orderId: 'sold', kindName: null, area: 1 },
-          { orderId: 'open', kindName: 'Солнце', area: 9 },
+          { orderId: 'sold', grilleName: 'Ромб', area: 4 },
+          { orderId: 'sold', grilleName: 'Ромб', area: 2.5 },
+          { orderId: 'sold', grilleName: null, area: 1 },
+          { orderId: 'open', grilleName: 'Солнце', area: 9 },
         ],
         range,
       ),
     ).toEqual([
       { label: 'Ромб', area: 6.5 },
-      { label: 'Вид не указан', area: 1 },
+      { label: 'Решётка не выбрана', area: 1 },
     ]);
   });
 });

@@ -7,7 +7,7 @@ import {
   ANALYTICS_PERIODS,
   type AnalyticsPeriod,
   buildFunnel,
-  buildKinds,
+  buildGrilles,
   buildMeasurers,
   buildMetrics,
   buildMonthBars,
@@ -170,7 +170,7 @@ export const AnalyticsScreen = () => {
   const measurers = buildMeasurers(data.orders, ranges.current);
   const refusals = buildRefusals(data.orders, ranges.current);
   const stageDays = buildStageDays(data.orders, ranges.current);
-  const kinds = buildKinds(data.orders, data.items, ranges.current);
+  const grilles = buildGrilles(data.orders, data.items, ranges.current);
   const { checks } = data;
   const isCostComplete =
     checks.materials.priced === checks.materials.total &&
@@ -492,18 +492,18 @@ export const AnalyticsScreen = () => {
           </Card>
 
           <Card title="Что берут" subtitle="м² у проданных за период">
-            {kinds.length === 0 ? (
+            {grilles.length === 0 ? (
               <QuietLine text="За период продаж не было." />
             ) : (
               <Bars>
-                {kinds.map((row) => (
+                {grilles.map((row) => (
                   <BarRow
                     key={row.label}
                     label={row.label}
                     value={`${area(row.area)} м²`}
                     level={levelOf(
                       row.area,
-                      kinds.map((other) => other.area),
+                      grilles.map((other) => other.area),
                     )}
                   />
                 ))}

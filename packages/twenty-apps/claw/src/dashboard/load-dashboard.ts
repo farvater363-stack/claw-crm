@@ -61,7 +61,7 @@ export type DashboardPayment = { paidOn: string; amount: number };
 
 export type DashboardItem = {
   orderId: string;
-  kindName: string | null;
+  grilleName: string | null;
   area: number;
 };
 
@@ -263,7 +263,7 @@ const loadItems = async (client: CoreApiClient): Promise<DashboardItem[]> => {
             orderId: true,
             quantity: true,
             areaSquareMeters: true,
-            design: { grilleKind: { name: true } },
+            design: { name: true },
           },
         },
         pageInfo: PAGE_INFO,
@@ -278,7 +278,7 @@ const loadItems = async (client: CoreApiClient): Promise<DashboardItem[]> => {
       ? [
           {
             orderId: node.orderId,
-            kindName: textOrNull(node.design?.grilleKind?.name),
+            grilleName: textOrNull(node.design?.name),
             area:
               Number(node.areaSquareMeters ?? 0) * Number(node.quantity ?? 1),
           },

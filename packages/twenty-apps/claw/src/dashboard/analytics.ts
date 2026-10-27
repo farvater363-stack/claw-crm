@@ -539,24 +539,24 @@ export const buildStageDays = (
   };
 };
 
-export type KindRow = { label: string; area: number };
+export type GrilleRow = { label: string; area: number };
 
-const NO_KIND = 'Вид не указан';
-const KIND_ROWS = 6;
+const NO_GRILLE = 'Решётка не выбрана';
+const GRILLE_ROWS = 6;
 
 // What the clients who agreed in the period chose, in м².
-export const buildKinds = (
+export const buildGrilles = (
   orders: readonly DashboardOrder[],
   items: readonly DashboardItem[],
   range: DayRange,
-): KindRow[] => {
+): GrilleRow[] => {
   const sold = new Set(soldIn(orders, range).map((order) => order.id));
   const areas = new Map<string, number>();
 
   for (const item of items) {
     if (!sold.has(item.orderId) || item.area <= 0) continue;
 
-    const label = item.kindName ?? NO_KIND;
+    const label = item.grilleName ?? NO_GRILLE;
 
     areas.set(label, (areas.get(label) ?? 0) + item.area);
   }
@@ -564,5 +564,5 @@ export const buildKinds = (
   return [...areas]
     .map(([label, area]) => ({ label, area: Math.round(area * 10) / 10 }))
     .sort((left, right) => right.area - left.area)
-    .slice(0, KIND_ROWS);
+    .slice(0, GRILLE_ROWS);
 };
