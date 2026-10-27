@@ -6,6 +6,7 @@ import {
   type DashboardOrder,
   type DashboardPayment,
 } from 'src/dashboard/load-dashboard';
+import { computeDeadlineState } from 'src/pricing/compute-deadline-state';
 import { addDays } from 'src/pricing/dates';
 
 // The steps an order passes before it is installed, in their order.
@@ -24,10 +25,11 @@ export const WORKSHOP_STAGES: { stage: string | null; label: string }[] = [
   { stage: 'PAINTING', label: 'Покраска' },
 ];
 
-// An order the workshop must hand over this soon is listed under «Сдать скоро».
-const DUE_SOON_DAYS = 7;
+// «Сдать за 7 дней»: today and the six days after it.
+export const DUE_SOON_DAYS = 7;
 
 export type LateOrder = { order: DashboardOrder; daysLate: number };
+export type ReadyOrder = { order: DashboardOrder; daysReady: number | null };
 export type OwingOrder = {
   order: DashboardOrder;
   daysSinceInstall: number | null;
@@ -36,7 +38,7 @@ export type OwingOrder = {
 export type TodayView = {
   visits: DashboardOrder[];
   missedVisits: DashboardOrder[];
-  awaitingInstall: DashboardOrder[];
+  awaitingInstall: ReadyOrder[];
   calls: ClientCard[];
   late: LateOrder[];
   owing: OwingOrder[];
@@ -90,16 +92,25 @@ export const buildToday = ({
       .sort((left, right) =>
         (left.measurementDay ?? '').localeCompare(right.measurementDay ?? ''),
       ),
+    // Its deadline was met when it got ready; what matters now is the wait.
     awaitingInstall: orders
       .filter((order) => order.status === 'QUALITY_CHECK')
-      .sort(byDeadline),
+      .map((order) => ({
+        order,
+        daysReady:
+          order.readyAt === null ? null : daysBetween(order.readyAt, today),
+      }))
+      .sort((left, right) => (right.daysReady ?? 0) - (left.daysReady ?? 0)),
     calls: buildCallBackLists(callBackClients, today).due,
+    // The same rule as the order's «Просрочен» badge, so the two never disagree
     late: orders
       .filter(
         (order) =>
-          isStatusIn(OPEN_STATUSES, order.status) &&
-          order.deadline !== null &&
-          order.deadline < today,
+          computeDeadlineState({
+            status: order.status,
+            deadline: order.deadline,
+            today,
+          }) === 'OVERDUE',
       )
       .map((order) => ({
         order,
@@ -154,12 +165,14 @@ export const buildToday = ({
       count: inProduction.filter((order) => order.productionStage === stage)
         .length,
     })),
-    dueSoon: inProduction
+    // Any order not built yet: one measured with a promised date counts too.
+    dueSoon: orders
       .filter(
         (order) =>
+          isStatusIn(OPEN_STATUSES, order.status) &&
           order.deadline !== null &&
           order.deadline >= today &&
-          order.deadline <= addDays(today, DUE_SOON_DAYS),
+          order.deadline < addDays(today, DUE_SOON_DAYS),
       )
       .sort(byDeadline),
   };

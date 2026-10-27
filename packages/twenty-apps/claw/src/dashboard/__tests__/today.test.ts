@@ -183,6 +183,80 @@ describe('buildToday', () => {
     expect(view.undecided).toEqual({ count: 1, total: 2_000_000 });
   });
 
+  it('lists every order due within 7 days counting today, not only those in the workshop', () => {
+    const view = build([
+      dashboardOrder({ id: 'today', status: 'PRODUCTION', deadline: TODAY }),
+      dashboardOrder({
+        id: 'sixth-day',
+        status: 'MEASURED',
+        deadline: '2026-10-14',
+      }),
+      dashboardOrder({
+        id: 'eighth-day',
+        status: 'PRODUCTION',
+        deadline: '2026-10-15',
+      }),
+      dashboardOrder({
+        id: 'built',
+        status: 'QUALITY_CHECK',
+        deadline: '2026-10-09',
+      }),
+      dashboardOrder({
+        id: 'cancelled',
+        status: 'CANCELLED',
+        deadline: '2026-10-09',
+      }),
+    ]);
+
+    expect(view.dueSoon.map((order) => order.id)).toEqual([
+      'today',
+      'sixth-day',
+    ]);
+  });
+
+  it('marks an order late exactly when its own deadline state is overdue', () => {
+    const view = build([
+      dashboardOrder({
+        id: 'rolled-back',
+        status: 'MEASURED',
+        deadline: '2026-10-06',
+      }),
+      dashboardOrder({
+        id: 'cancelled',
+        status: 'CANCELLED',
+        deadline: '2026-10-06',
+      }),
+    ]);
+
+    expect(view.late.map(({ order }) => order.id)).toEqual(['rolled-back']);
+  });
+
+  it('shows how long built orders have waited for installation, the longest first', () => {
+    const view = build([
+      dashboardOrder({
+        id: 'yesterday',
+        status: 'QUALITY_CHECK',
+        readyAt: '2026-10-07',
+        deadline: '2026-10-20',
+      }),
+      dashboardOrder({
+        id: 'weeks',
+        status: 'QUALITY_CHECK',
+        readyAt: '2026-09-20',
+        deadline: '2026-09-25',
+      }),
+      dashboardOrder({ id: 'unstamped', status: 'QUALITY_CHECK' }),
+    ]);
+
+    expect(
+      view.awaitingInstall.map(({ order, daysReady }) => [order.id, daysReady]),
+    ).toEqual([
+      ['weeks', 18],
+      ['yesterday', 1],
+      ['unstamped', null],
+    ]);
+  });
+
   it('takes the calls due today or missed from the call-back list', () => {
     const view = build([], {
       callBackClients: [

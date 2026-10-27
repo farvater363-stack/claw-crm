@@ -12,6 +12,14 @@ export const formatDayMonth = (isoDate: string): string =>
     timeZone: 'UTC',
   });
 
+// «14:05» on the workshop's clock, whatever zone the viewer's device is in.
+export const formatClockTime = (moment: number): string =>
+  new Date(moment).toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tashkent',
+  });
+
 // A sum has no fraction, so its comma can only group thousands; a quantity
 // keeps the Russian decimal comma («3,6 м»).
 export const formatWhole = (value: number): string =>
