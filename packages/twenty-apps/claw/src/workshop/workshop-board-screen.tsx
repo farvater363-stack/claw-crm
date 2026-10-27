@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
-import { MetadataApiClient } from 'twenty-client-sdk/metadata';
 import { uploadFile } from 'twenty-sdk/front-component';
 
 import { isInProduction } from 'src/constants/order-status-sets';
@@ -22,6 +21,7 @@ import {
 import { RADIUS, SPACE, TABULAR_NUMBERS, TYPE } from 'src/ui/tokens';
 import { formatDayMonth, formatQuantity } from 'src/ui/format';
 import { isAccessError } from 'src/utils/is-access-error';
+import { fetchOrderFieldMetadataId } from 'src/utils/order-field-metadata-id';
 import {
   addFinishedPhotos,
   buildFinishedPhotoLabel,
@@ -79,27 +79,6 @@ const photosNotAttachedNote = (orderName: string) =>
   `Заказ ${orderName} уже ушёл дальше, фото не прикреплены`;
 
 class SomePhotosFailedError extends Error {}
-
-// uploadFile needs this workspace's id for order.finishedPhotos, which
-// differs from the universalIdentifier the app declares.
-const fetchFinishedPhotosFieldMetadataId = async (): Promise<string> => {
-  const { objects } = await new MetadataApiClient().query({
-    objects: {
-      __args: {
-        paging: { first: 1 },
-        filter: { universalIdentifier: { eq: IDS.order.object } },
-      },
-      edges: { node: { fieldsList: { id: true, universalIdentifier: true } } },
-    },
-  });
-  const fieldMetadataId = objects.edges[0]?.node.fieldsList?.find(
-    (field) => field.universalIdentifier === IDS.order.finishedPhotos,
-  )?.id;
-
-  if (!fieldMetadataId) throw new Error('order.finishedPhotos field not found');
-
-  return fieldMetadataId;
-};
 
 type WriteError = { orderId: string; text: string; retry?: () => void };
 type Layout = 'stages' | 'masters';
@@ -1126,7 +1105,7 @@ export const WorkshopBoard = () => {
 
     setPhotosNote(null);
     void write(order.id, async () => {
-      const fieldMetadataId = await fetchFinishedPhotosFieldMetadataId();
+      const fieldMetadataId = await fetchOrderFieldMetadataId(IDS.order.finishedPhotos);
       const uploaded: FinishedPhoto[] = [];
 
       for (const file of files) {
