@@ -74,6 +74,7 @@ describe('telegram routes', () => {
       linked: false,
       chatTitle: null,
       code: 'NEXTCODE',
+      linkCommand: '/link NEXTCODE',
       isBotConfigured: true,
     });
     expect(currentRow()?.linkCode).toBe('NEXTCODE');
@@ -212,5 +213,31 @@ describe('link codes', () => {
     expect(codes.size).toBe(50);
 
     for (const code of codes) expect(code).toMatch(/^[A-Z2-7]{10}$/);
+  });
+});
+
+// With group privacy on, the default, a bot hears a command only when it is
+// addressed by name, so the line to send must carry the bot's username.
+describe('the link line', () => {
+  it('names the bot so it hears the code without being an admin', async () => {
+    const { result } = dependencies({
+      row: { ...LINKED, chatId: null, chatTitle: null, linkCode: 'ABCDEFGHJK' },
+      telegram: { getMe: { username: 'claw_test_bot' } },
+    });
+
+    expect(await getTelegramLink(result)).toMatchObject({
+      linkCommand: '/link@claw_test_bot ABCDEFGHJK',
+    });
+  });
+
+  it('falls back to the plain command when the bot cannot be asked', async () => {
+    const { result } = dependencies({
+      token: undefined,
+      row: { ...LINKED, chatId: null, chatTitle: null, linkCode: 'ABCDEFGHJK' },
+    });
+
+    expect(await getTelegramLink(result)).toMatchObject({
+      linkCommand: '/link ABCDEFGHJK',
+    });
   });
 });

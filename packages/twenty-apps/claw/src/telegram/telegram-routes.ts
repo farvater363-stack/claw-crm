@@ -37,6 +37,9 @@ export type TelegramLinkAnswer = {
   linked: boolean;
   chatTitle: string | null;
   code: string;
+  // What to send in the group: privacy mode, on by default, passes a bot only
+  // the commands addressed to it by name.
+  linkCommand: string;
   isBotConfigured: boolean;
 };
 
@@ -77,17 +80,33 @@ const readOrCreate = async (
   return row ?? store.create(newLinkCode());
 };
 
+const botUsername = async (
+  token: string,
+  fetchImpl: TelegramFetch,
+): Promise<string | null> => {
+  const me = (await callTelegram(token, 'getMe', {}, fetchImpl).catch(
+    () => null,
+  )) as { username?: string } | null;
+
+  return me?.username ?? null;
+};
+
 export const getTelegramLink = async ({
   token,
   store,
+  fetchImpl,
   newLinkCode,
 }: TelegramRouteDependencies): Promise<TelegramLinkAnswer> => {
   const row = await readOrCreate(store, newLinkCode);
+  const code = row.linkCode ?? '';
+  const username = hasToken(token) ? await botUsername(token, fetchImpl) : null;
 
   return {
     linked: row.chatId !== null && row.chatId !== '',
     chatTitle: row.chatTitle,
-    code: row.linkCode ?? '',
+    code,
+    linkCommand:
+      username === null ? `/link ${code}` : `/link@${username} ${code}`,
     isBotConfigured: hasToken(token),
   };
 };

@@ -22,10 +22,10 @@ type SendState =
   | { status: 'idle' }
   | { status: 'sending' }
   | { status: 'sent' }
-  | { status: 'not-linked'; code: string; isBotConfigured: boolean }
+  | { status: 'not-linked'; linkCommand: string; isBotConfigured: boolean }
   // A code comes along when relinking may help: the group was upgraded or
   // the bot removed, and Telegram refuses the old chat.
-  | { status: 'failed'; text: string; relinkCode: string | null };
+  | { status: 'failed'; text: string; relinkCommand: string | null };
 
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -119,17 +119,17 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
 
         setSend({
           status: 'not-linked',
-          code: String(link.code ?? ''),
+          linkCommand: String(link.linkCommand ?? ''),
           isBotConfigured: link.isBotConfigured === true,
         });
 
         return;
       }
 
-      const relinkCode =
+      const relinkCommand =
         answer.problem === 'telegram'
           ? await askFunction('telegram-link').then(
-              (link) => String(link.code ?? '') || null,
+              (link) => String(link.linkCommand ?? '') || null,
               () => null,
             )
           : null;
@@ -137,10 +137,14 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
       setSend({
         status: 'failed',
         text: problemText(answer.problem, answer.detail),
-        relinkCode,
+        relinkCommand,
       });
     } catch (error) {
-      setSend({ status: 'failed', text: errorText(error), relinkCode: null });
+      setSend({
+        status: 'failed',
+        text: errorText(error),
+        relinkCommand: null,
+      });
     }
   };
 
@@ -253,9 +257,9 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
       ) : null}
       {photoNotice !== null ? <Hint text={photoNotice} tone="warning" /> : null}
       {send.status === 'failed' ? <ErrorNote text={send.text} /> : null}
-      {send.status === 'failed' && send.relinkCode !== null ? (
+      {send.status === 'failed' && send.relinkCommand !== null ? (
         <LinkSteps
-          text={`Если группу поменяли или бота удалили, добавьте бота в группу монтажа и отправьте там: /link ${send.relinkCode}`}
+          text={`Если группу поменяли или бота удалили, добавьте бота в группу монтажа и отправьте там: ${send.relinkCommand}`}
           checkNote={checkNote}
           onCheck={() => {
             void checkLink();
@@ -265,7 +269,7 @@ const OrderLocationOf = ({ orderId }: { orderId: string }) => {
       {send.status === 'not-linked' ? (
         send.isBotConfigured ? (
           <LinkSteps
-            text={`Группа ещё не привязана. Добавьте бота в группу монтажа и отправьте там: /link ${send.code}`}
+            text={`Группа ещё не привязана. Добавьте бота в группу монтажа и отправьте там: ${send.linkCommand}`}
             checkNote={checkNote}
             onCheck={() => {
               void checkLink();
