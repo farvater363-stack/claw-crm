@@ -62,6 +62,7 @@ import {
 } from 'src/money/money-forms';
 import { RecordSheet } from 'src/money/money-sheets';
 import { MoneyToday } from 'src/money/money-today';
+import { CancelledPaymentsQuestion } from 'src/orders/cancelled-payments-question';
 import { recordMoneyEntry } from 'src/money/record-money-entry';
 import { acceptPayment } from 'src/order-header/load-order-header';
 import { buildPayment } from 'src/order-header/order-steps';
@@ -831,6 +832,7 @@ export const TodayScreen = () => {
           }
           right={
             <>
+              <CancelledPaymentsQuestion refreshCount={moneyVersion} />
               <Card
                 title="Деньги сегодня"
                 action={

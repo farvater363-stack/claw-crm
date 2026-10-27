@@ -26,7 +26,12 @@ const openOrder = (orderId: string) =>
 // Orders cancelled or deleted in Twenty's own screens, which cannot ask: the
 // money question waits here until somebody answers it. Nothing to answer, or
 // a role that may not read the sums, shows nothing.
-export const CancelledPaymentsQuestion = () => {
+// Reloaded quietly on each change of refreshCount; a failed reload keeps the rows shown.
+export const CancelledPaymentsQuestion = ({
+  refreshCount,
+}: {
+  refreshCount: number;
+}) => {
   const [orders, setOrders] = useState<CancelledWithMoney[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [failure, setFailure] = useState<{
@@ -38,8 +43,8 @@ export const CancelledPaymentsQuestion = () => {
   useEffect(() => {
     loadCancelledWithMoney(new CoreApiClient())
       .then(setOrders)
-      .catch(() => setOrders([]));
-  }, []);
+      .catch(() => undefined);
+  }, [refreshCount]);
 
   if (orders.length === 0) return null;
 
