@@ -20,7 +20,10 @@ import {
   fromUpdatePageLayoutInputToFlatPageLayoutToUpdateOrThrow,
   type UpdatePageLayoutInputWithId,
 } from 'src/engine/metadata-modules/flat-page-layout/utils/from-update-page-layout-input-to-flat-page-layout-to-update-or-throw.util';
-import { reconstructFlatPageLayoutWithTabsAndWidgets } from 'src/engine/metadata-modules/flat-page-layout/utils/reconstruct-flat-page-layout-with-tabs-and-widgets.util';
+import {
+  buildFlatPageLayoutWithTabsAndWidgetsReconstructor,
+  reconstructFlatPageLayoutWithTabsAndWidgets,
+} from 'src/engine/metadata-modules/flat-page-layout/utils/reconstruct-flat-page-layout-with-tabs-and-widgets.util';
 import { CreatePageLayoutInput } from 'src/engine/metadata-modules/page-layout/dtos/inputs/create-page-layout.input';
 import { UpdatePageLayoutInput } from 'src/engine/metadata-modules/page-layout/dtos/inputs/update-page-layout.input';
 import { type PageLayoutDTO } from 'src/engine/metadata-modules/page-layout/dtos/page-layout.dto';
@@ -66,13 +69,15 @@ export class PageLayoutService {
       .filter((layout) => !isDefined(layout.deletedAt))
       .sort(compareFlatPageLayoutsByCreation);
 
+    const reconstructLayout =
+      buildFlatPageLayoutWithTabsAndWidgetsReconstructor({
+        flatPageLayoutTabMaps,
+        flatPageLayoutWidgetMaps,
+      });
+
     return activeLayouts.map((layout) =>
       fromFlatPageLayoutWithTabsAndWidgetsToPageLayoutDto(
-        reconstructFlatPageLayoutWithTabsAndWidgets({
-          layout,
-          flatPageLayoutTabMaps,
-          flatPageLayoutWidgetMaps,
-        }),
+        reconstructLayout(layout),
       ),
     );
   }
@@ -101,13 +106,15 @@ export class PageLayoutService {
       flatPageLayoutMaps,
     });
 
+    const reconstructLayout =
+      buildFlatPageLayoutWithTabsAndWidgetsReconstructor({
+        flatPageLayoutTabMaps,
+        flatPageLayoutWidgetMaps,
+      });
+
     return activeLayouts.map((layout) =>
       fromFlatPageLayoutWithTabsAndWidgetsToPageLayoutDto(
-        reconstructFlatPageLayoutWithTabsAndWidgets({
-          layout,
-          flatPageLayoutTabMaps,
-          flatPageLayoutWidgetMaps,
-        }),
+        reconstructLayout(layout),
       ),
     );
   }
@@ -135,6 +142,12 @@ export class PageLayoutService {
       flatObjectMetadataMaps,
       flatPageLayoutMaps,
     });
+    const reconstructLayout =
+      buildFlatPageLayoutWithTabsAndWidgetsReconstructor({
+        flatPageLayoutTabMaps,
+        flatPageLayoutWidgetMaps,
+      });
+
     const page = paginateMetadataOrderedItems({
       items: activeLayouts,
       pagination,
@@ -143,11 +156,7 @@ export class PageLayoutService {
       ...page,
       items: page.items.map((layout) =>
         fromFlatPageLayoutWithTabsAndWidgetsToPageLayoutDto(
-          reconstructFlatPageLayoutWithTabsAndWidgets({
-            layout,
-            flatPageLayoutTabMaps,
-            flatPageLayoutWidgetMaps,
-          }),
+          reconstructLayout(layout),
         ),
       ),
       totalCount: activeLayouts.length,
