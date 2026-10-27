@@ -304,7 +304,7 @@ export const useUpdateManyRecords = <T extends ObjectRecord = ObjectRecord>({
       return updateManyRecordsWithoutMoneyQuestion(props);
     }
 
-    const { proceed, paidRecordIds, paidMoneyOnCancel } =
+    const { proceed, paidRecordIds, orderCancelFields } =
       await confirmOrderMoneyBeforeCancel({
         objectNameSingular,
         recordIds: props.recordIdsToUpdate.filter(
@@ -331,13 +331,13 @@ export const useUpdateManyRecords = <T extends ObjectRecord = ObjectRecord>({
       : [];
 
     const paidUpdatedRecords =
-      isNonEmptyArray(paidRecordIds) && isDefined(paidMoneyOnCancel)
+      isNonEmptyArray(paidRecordIds) && isDefined(orderCancelFields)
         ? await updateManyRecordsWithoutMoneyQuestion({
             ...props,
             recordIdsToUpdate: paidRecordIds,
             updateOneRecordInput: buildOrderCancelInput(
               props.updateOneRecordInput,
-              paidMoneyOnCancel,
+              orderCancelFields,
             ),
           })
         : [];

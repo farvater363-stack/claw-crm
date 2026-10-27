@@ -14,6 +14,7 @@ import {
   PAID_MONEY_ON_CANCEL_OPTIONS,
   PAYMENT_METHOD_OPTIONS,
   type PaymentMethod,
+  WALLET_OPTIONS,
 } from 'src/constants/select-options';
 import { IDS } from 'src/constants/universal-identifiers';
 import {
@@ -46,6 +47,7 @@ import {
   ORDER_STEPS,
   type StepDraft,
 } from 'src/order-header/order-steps';
+import { parseRefundAmount } from 'src/orders/paid-money-on-cancel';
 import { todayInTashkent } from 'src/pricing/dates';
 import {
   Button,
@@ -80,12 +82,19 @@ type Draft = StepDraft & {
   receivedById: string;
   cancelReason: string;
   paidMoneyOnCancel: string;
+  refundAmount: string;
+  refundWallet: string;
 };
 
 const EMPTY_FIELDS = {
   step: { measurerId: '', measurementDate: '', masterId: '', installerId: '' },
   payment: { amount: '', method: 'CASH', comment: '', receivedById: '' },
-  cancel: { cancelReason: '', paidMoneyOnCancel: '' },
+  cancel: {
+    cancelReason: '',
+    paidMoneyOnCancel: '',
+    refundAmount: '',
+    refundWallet: '',
+  },
   visor: {},
 } as const satisfies Record<Kind, Partial<Draft>>;
 
@@ -332,6 +341,14 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
             : '',
       });
     }
+
+    // Usually all of it went back, the way most of it came in.
+    if (next === 'cancel' && paidToAsk !== null) {
+      change({
+        refundAmount: formatWhole(paidToAsk),
+        refundWallet: order.largestWallet ?? 'CASH',
+      });
+    }
   };
 
   const closePanel = () => {
@@ -459,6 +476,26 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
       return;
     }
 
+    const isRefunded = paidToAsk !== null && paidMoneyOnCancel === 'REFUNDED';
+    const refundAmount = isRefunded
+      ? parseRefundAmount(draft.refundAmount, paidToAsk)
+      : null;
+    const refundWallet =
+      WALLET_OPTIONS.find((option) => option.value === draft.refundWallet)
+        ?.value ?? null;
+
+    if (refundAmount !== null && !refundAmount.ok) {
+      setFieldError({ kind: 'cancel', text: refundAmount.error });
+
+      return;
+    }
+
+    if (isRefunded && refundWallet === null) {
+      setFieldError({ kind: 'cancel', text: 'Выберите, откуда вернули' });
+
+      return;
+    }
+
     void run('cancel', () =>
       cancelOrder(
         new CoreApiClient(),
@@ -466,6 +503,9 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
         order.status,
         cancelReason,
         paidToAsk === null ? null : paidMoneyOnCancel,
+        refundAmount !== null && refundWallet !== null
+          ? { amount: refundAmount.amount, wallet: refundWallet }
+          : null,
       ),
     );
   };
@@ -713,6 +753,29 @@ const OneOrderHeader = ({ orderId }: OneOrderHeaderProps) => {
                 />
               </Field>
             )}
+            {paidToAsk !== null && draft.paidMoneyOnCancel === 'REFUNDED' ? (
+              <Columns>
+                <Field label="Сколько вернули">
+                  <TextInput
+                    label="Сколько вернули"
+                    inputMode="numeric"
+                    isMoney
+                    suffix="сум"
+                    value={draft.refundAmount}
+                    onChange={(refundAmount) => change({ refundAmount })}
+                    onCancel={closePanel}
+                  />
+                </Field>
+                <Field label="Откуда">
+                  <SelectInput
+                    label="Откуда"
+                    value={draft.refundWallet}
+                    options={WALLET_OPTIONS}
+                    onChange={(refundWallet) => change({ refundWallet })}
+                  />
+                </Field>
+              </Columns>
+            ) : null}
             {errorLineOf('cancel')}
             <InlineConfirm
               question={`Отменить заказ ${order.name}?`}

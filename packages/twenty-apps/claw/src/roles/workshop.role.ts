@@ -2,9 +2,11 @@ import {
   defineRole,
   FieldType,
   RelationType,
+  RowLevelPermissionPredicateOperand,
   SystemPermissionFlag,
 } from 'twenty-sdk/define';
 
+import { BOARD_STATUSES } from 'src/constants/order-status-sets';
 import { IDS } from 'src/constants/universal-identifiers';
 import orderObject from 'src/objects/order.object';
 import {
@@ -66,6 +68,20 @@ const HIDDEN_ORDER_FIELDS: string[] = [
   IDS.order.prepaid,
   IDS.order.paid,
   IDS.order.balance,
+  IDS.order.refundAmount,
+];
+
+// Twenty checks every written order against this rule as well as filtering
+// reads: a login that cannot see the money cannot answer what became of it,
+// so it cannot cancel an order, and a cancelled one leaves the wall.
+const ORDER_ROW_RULES = [
+  {
+    universalIdentifier: IDS.role.workshopNotCancelled,
+    objectUniversalIdentifier: IDS.order.object,
+    fieldUniversalIdentifier: IDS.order.status,
+    operand: RowLevelPermissionPredicateOperand.IS,
+    value: [...BOARD_STATUSES],
+  },
 ];
 
 const WORKSHOP_HIDDEN_FIELD_IDS_BY_OBJECT: Record<string, string[]> = {
@@ -182,6 +198,7 @@ export default defineRole({
         })),
     ),
   ],
+  rowLevelPermissionPredicates: ORDER_ROW_RULES,
   // The workshop photographs a finished order before it leaves; without it
   // every upload is rejected.
   permissionFlagUniversalIdentifiers: [SystemPermissionFlag.UPLOAD_FILE],

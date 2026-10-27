@@ -324,7 +324,7 @@ export const useUpdateOneRecord = () => {
       return updateOneRecordWithoutMoneyQuestion(args);
     }
 
-    const { proceed, paidMoneyOnCancel } = await confirmOrderMoneyBeforeCancel({
+    const { proceed, orderCancelFields } = await confirmOrderMoneyBeforeCancel({
       objectNameSingular: args.objectNameSingular,
       recordIds: [args.idToUpdate],
       action: 'cancel',
@@ -353,8 +353,8 @@ export const useUpdateOneRecord = () => {
 
     return updateOneRecordWithoutMoneyQuestion({
       ...args,
-      updateOneRecordInput: isDefined(paidMoneyOnCancel)
-        ? buildOrderCancelInput(args.updateOneRecordInput, paidMoneyOnCancel)
+      updateOneRecordInput: isDefined(orderCancelFields)
+        ? buildOrderCancelInput(args.updateOneRecordInput, orderCancelFields)
         : args.updateOneRecordInput,
     });
   };

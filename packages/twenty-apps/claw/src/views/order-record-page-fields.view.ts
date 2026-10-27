@@ -75,6 +75,8 @@ export default defineView({
       'status',
       'cancelReason',
       'paidMoneyOnCancel',
+      'refundAmount',
+      'refundWallet',
     ]),
     ...section(groups.itemsAndTotal, [
       'subtotal',

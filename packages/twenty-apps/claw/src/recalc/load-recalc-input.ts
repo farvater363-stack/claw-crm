@@ -22,6 +22,7 @@ import {
 import { materialCostByOwner } from 'src/prices/material-cost';
 import { todayInTashkent } from 'src/pricing/dates';
 import { type RecalcInput } from 'src/pricing/plan-order-recalc';
+import { netPaid, refundEntryIdOf } from 'src/orders/paid-money-on-cancel';
 import { fromCurrency } from 'src/recalc/money';
 import { type DemandCatalog } from 'src/warehouse/compute-order-material-demand';
 import { PAGE_INFO, withRemainingPages } from 'src/utils/fetch-all-pages';
@@ -88,6 +89,7 @@ export const loadRecalcInput = async (
     designs: firstDesigns,
     extraServices: firstExtraServices,
     orderPayments,
+    moneyEntries: refundEntries,
     payRules: firstPayRules,
     payAccruals,
     materialNorms: firstMaterialNorms,
@@ -123,6 +125,7 @@ export const loadRecalcInput = async (
           masterPayTotal: money,
           status: true,
           deadlineState: true,
+          refundEntryId: true,
           masterId: true,
           master: { penaltyPercentPerDay: true },
         },
@@ -206,6 +209,15 @@ export const loadRecalcInput = async (
     orderPayments: {
       __args: { filter: { orderId: { eq: orderId } }, first: PAGE_SIZE },
       edges: { node: { amount: money, paidOn: true } },
+    },
+    // A refund of a cancel the order was taken back from is money the client
+    // no longer has paid.
+    moneyEntries: {
+      __args: {
+        filter: { orderId: { eq: orderId }, kind: { eq: 'REFUND' } },
+        first: PAGE_SIZE,
+      },
+      edges: { node: { id: true, amount: money } },
     },
   });
 
@@ -380,7 +392,17 @@ export const loadRecalcInput = async (
             },
           }
         : null,
-    paymentsTotal: payments.reduce((sum, { amount }) => sum + amount, 0),
+    paymentsTotal: netPaid(
+      payments.reduce((sum, { amount }) => sum + amount, 0),
+      (refundEntries?.edges ?? []).map(({ node }) => ({
+        id: node.id,
+        amount: fromCurrency(node.amount) ?? 0,
+      })),
+      refundEntryIdOf({
+        id: orderId,
+        refundEntryId: order.refundEntryId ?? null,
+      }),
+    ),
     // Until the order goes to the workshop, every payment so far is a prepayment.
     prepaymentsTotal: payments
       .filter(

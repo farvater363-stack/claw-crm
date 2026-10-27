@@ -3,16 +3,32 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   cancelInsteadOfDelete,
+  deleteRefundsOfOrder,
   followRefundAnswer,
+  netPaid,
+  paidMoneyAnswerData,
+  parseRefundAmount,
+  refundEntryIdOf,
   refundOf,
+  restoreRefundsOfOrder,
 } from 'src/orders/paid-money-on-cancel';
 
-const fakeClient = (payments: { amount: number; method: string | null }[]) => {
+const uzs = (amount: number) => ({ amountMicros: amount * 1_000_000 });
+
+const fakeClient = (
+  payments: { amount: number; method: string | null }[],
+  refunds: { id: string; amount: number }[] = [],
+) => {
   const mutation = vi.fn().mockResolvedValue({});
   const query = vi.fn().mockResolvedValue({
     orderPayments: {
       edges: payments.map(({ amount, method }) => ({
-        node: { amount: { amountMicros: amount * 1_000_000 }, method },
+        node: { amount: uzs(amount), method },
+      })),
+    },
+    moneyEntries: {
+      edges: refunds.map(({ id, amount }) => ({
+        node: { id, amount: uzs(amount) },
       })),
     },
   });
@@ -23,26 +39,138 @@ const fakeClient = (payments: { amount: number; method: string | null }[]) => {
   };
 };
 
+const NO_ANSWER = { amount: null, wallet: null };
+
+const ORDER = {
+  id: 'order-1',
+  name: '№12',
+  status: 'CANCELLED',
+  answer: 'REFUNDED',
+  refundAmount: null,
+  refundWallet: null,
+  refundEntryId: null,
+};
+
+const createdEntry = (mutation: ReturnType<typeof vi.fn>) =>
+  mutation.mock.calls[mutation.mock.calls.length - 1]?.[0].createMoneyEntry
+    .__args;
+
 describe('refundOf', () => {
   it('returns the whole sum from the wallet most of it came into', () => {
     expect(
-      refundOf([
-        { amount: 300_000, method: 'CASH' },
-        { amount: 500_000, method: 'CARD' },
-        { amount: 100_000, method: null },
-      ]),
+      refundOf(
+        [
+          { amount: 300_000, method: 'CASH' },
+          { amount: 500_000, method: 'CARD' },
+          { amount: 100_000, method: null },
+        ],
+        0,
+        NO_ANSWER,
+      ),
     ).toEqual({ amount: 900_000, wallet: 'CARD' });
   });
 
   it('puts a transfer back from the account', () => {
-    expect(refundOf([{ amount: 200_000, method: 'TRANSFER' }])).toEqual({
-      amount: 200_000,
-      wallet: 'ACCOUNT',
-    });
+    expect(
+      refundOf([{ amount: 200_000, method: 'TRANSFER' }], 0, NO_ANSWER),
+    ).toEqual({ amount: 200_000, wallet: 'ACCOUNT' });
   });
 
   it('has nothing to return when nothing was paid', () => {
-    expect(refundOf([])).toBeNull();
+    expect(refundOf([], 0, NO_ANSWER)).toBeNull();
+  });
+
+  it('takes the answered sum and wallet', () => {
+    expect(
+      refundOf([{ amount: 500_000, method: 'CASH' }], 0, {
+        amount: 200_000,
+        wallet: 'CARD',
+      }),
+    ).toEqual({ amount: 200_000, wallet: 'CARD' });
+  });
+
+  it('never returns more than was paid and not yet returned', () => {
+    expect(
+      refundOf([{ amount: 500_000, method: 'CASH' }], 100_000, {
+        amount: 900_000,
+        wallet: null,
+      }),
+    ).toEqual({ amount: 400_000, wallet: 'CASH' });
+  });
+
+  it('has nothing to return once an earlier refund took it all', () => {
+    expect(
+      refundOf([{ amount: 500_000, method: 'CASH' }], 500_000, NO_ANSWER),
+    ).toBeNull();
+  });
+});
+
+describe('netPaid', () => {
+  const REFUNDS = [
+    { id: 'order-1', amount: 300_000 },
+    { id: 'refund-2', amount: 100_000 },
+  ];
+
+  it('counts off the refunds of earlier cancels, not the current one', () => {
+    expect(netPaid(1_000_000, REFUNDS, 'refund-2')).toBe(700_000);
+  });
+
+  it('counts off every refund of a reopened order', () => {
+    expect(netPaid(1_000_000, REFUNDS, 'refund-3')).toBe(600_000);
+  });
+
+  it('never goes below nothing', () => {
+    expect(netPaid(0, REFUNDS, 'refund-3')).toBe(0);
+  });
+});
+
+describe('refundEntryIdOf', () => {
+  it('is the order id until the order is reopened', () => {
+    expect(refundEntryIdOf({ id: 'order-1', refundEntryId: null })).toBe(
+      'order-1',
+    );
+    expect(refundEntryIdOf({ id: 'order-1', refundEntryId: 'refund-2' })).toBe(
+      'refund-2',
+    );
+  });
+});
+
+describe('parseRefundAmount', () => {
+  it('reads a grouped whole sum', () => {
+    expect(parseRefundAmount('300 000', 500_000)).toEqual({
+      ok: true,
+      amount: 300_000,
+    });
+  });
+
+  it.each(['', '0', 'много'])('refuses %j', (typed) => {
+    expect(parseRefundAmount(typed, 500_000).ok).toBe(false);
+  });
+
+  it('refuses more than was paid', () => {
+    expect(parseRefundAmount('600 000', 500_000)).toMatchObject({ ok: false });
+  });
+});
+
+describe('paidMoneyAnswerData', () => {
+  it('sends the sum and the wallet with «Вернули»', () => {
+    expect(
+      paidMoneyAnswerData('REFUNDED', { amount: 100_000, wallet: 'CARD' }),
+    ).toEqual({
+      paidMoneyOnCancel: 'REFUNDED',
+      refundAmount: { amountMicros: 100_000_000_000, currencyCode: 'UZS' },
+      refundWallet: 'CARD',
+    });
+  });
+
+  it('clears them with «Остаются»', () => {
+    expect(
+      paidMoneyAnswerData('KEPT', { amount: 100_000, wallet: 'CARD' }),
+    ).toEqual({
+      paidMoneyOnCancel: 'KEPT',
+      refundAmount: { amountMicros: null, currencyCode: 'UZS' },
+      refundWallet: null,
+    });
   });
 });
 
@@ -52,12 +180,7 @@ describe('followRefundAnswer', () => {
       { amount: 400_000, method: 'CASH' },
     ]);
 
-    await followRefundAnswer(client, {
-      id: 'order-1',
-      name: '№12',
-      status: 'PRODUCTION',
-      answer: 'REFUNDED',
-    });
+    await followRefundAnswer(client, { ...ORDER, status: 'PRODUCTION' });
 
     expect(mutation).toHaveBeenCalledTimes(1);
     expect(mutation.mock.calls[0]?.[0]).toHaveProperty('deleteMoneyEntries');
@@ -71,32 +194,17 @@ describe('followRefundAnswer', () => {
     vi.mocked(client.query)
       .mockResolvedValueOnce({
         orderPayments: {
-          edges: [
-            {
-              node: {
-                amount: { amountMicros: 400_000_000_000 },
-                method: 'CASH',
-              },
-            },
-          ],
+          edges: [{ node: { amount: uzs(400_000), method: 'CASH' } }],
         },
+        moneyEntries: { edges: [] },
       })
       .mockResolvedValueOnce({
         moneyEntries: { edges: [{ node: { date: '2026-10-03' } }] },
       });
 
-    await followRefundAnswer(client, {
-      id: 'order-1',
-      name: '№12',
-      status: 'CANCELLED',
-      answer: 'REFUNDED',
-    });
+    await followRefundAnswer(client, ORDER);
 
-    const created =
-      mutation.mock.calls[mutation.mock.calls.length - 1]?.[0].createMoneyEntry
-        .__args;
-
-    expect(created.data.date).toBe('2026-10-03');
+    expect(createdEntry(mutation).data.date).toBe('2026-10-03');
   });
 
   it('writes one refund under the order id when the money went back', async () => {
@@ -104,16 +212,9 @@ describe('followRefundAnswer', () => {
       { amount: 400_000, method: 'CASH' },
     ]);
 
-    await followRefundAnswer(client, {
-      id: 'order-1',
-      name: '№12',
-      status: 'CANCELLED',
-      answer: 'REFUNDED',
-    });
+    await followRefundAnswer(client, ORDER);
 
-    const created =
-      mutation.mock.calls[mutation.mock.calls.length - 1]?.[0].createMoneyEntry
-        .__args;
+    const created = createdEntry(mutation);
 
     expect(created.upsert).toBe(true);
     expect(created.data).toMatchObject({
@@ -126,15 +227,48 @@ describe('followRefundAnswer', () => {
     });
   });
 
+  it('writes the answered sum and wallet, capped at what was paid', async () => {
+    const { client, mutation } = fakeClient([
+      { amount: 400_000, method: 'CASH' },
+    ]);
+
+    await followRefundAnswer(client, {
+      ...ORDER,
+      refundAmount: 900_000,
+      refundWallet: 'CARD',
+    });
+
+    expect(createdEntry(mutation).data).toMatchObject({
+      wallet: 'CARD',
+      amount: { amountMicros: 400_000_000_000 },
+    });
+  });
+
+  it('writes a second cancel under its own id, net of the first refund', async () => {
+    const { client, mutation } = fakeClient(
+      [
+        { amount: 400_000, method: 'CASH' },
+        { amount: 1_000_000, method: 'CARD' },
+      ],
+      [{ id: 'order-1', amount: 400_000 }],
+    );
+
+    await followRefundAnswer(client, { ...ORDER, refundEntryId: 'refund-2' });
+
+    expect(mutation).not.toHaveBeenCalledWith(
+      expect.objectContaining({ deleteMoneyEntries: expect.anything() }),
+    );
+    expect(createdEntry(mutation).data).toMatchObject({
+      id: 'refund-2',
+      wallet: 'CARD',
+      amount: { amountMicros: 1_000_000_000_000 },
+    });
+  });
+
   it('removes the refund when the money stays', async () => {
     const { client, mutation } = fakeClient([]);
 
-    await followRefundAnswer(client, {
-      id: 'order-1',
-      name: '№12',
-      status: 'CANCELLED',
-      answer: 'KEPT',
-    });
+    await followRefundAnswer(client, { ...ORDER, answer: 'KEPT' });
 
     expect(mutation).toHaveBeenCalledTimes(1);
     expect(mutation).toHaveBeenCalledWith({
@@ -142,6 +276,57 @@ describe('followRefundAnswer', () => {
         __args: { filter: { id: { in: ['order-1'] } } },
         id: true,
       },
+    });
+  });
+
+  it('touches only the refund of the current cancel when an answer is cleared', async () => {
+    const { client, mutation } = fakeClient([]);
+
+    await followRefundAnswer(client, {
+      ...ORDER,
+      status: 'PRODUCTION',
+      answer: null,
+      refundEntryId: 'refund-2',
+    });
+
+    expect(mutation).toHaveBeenCalledWith({
+      deleteMoneyEntries: {
+        __args: { filter: { id: { in: ['refund-2'] } } },
+        id: true,
+      },
+    });
+  });
+});
+
+describe('refunds of a deleted order', () => {
+  it('go with the order', async () => {
+    const { client, mutation } = fakeClient([]);
+
+    await deleteRefundsOfOrder(client, 'order-1');
+
+    expect(mutation).toHaveBeenCalledWith({
+      deleteMoneyEntries: {
+        __args: {
+          filter: { orderId: { eq: 'order-1' }, kind: { eq: 'REFUND' } },
+        },
+        id: true,
+      },
+    });
+  });
+
+  it('come back only if they left with it', async () => {
+    const { client, mutation } = fakeClient([]);
+
+    await restoreRefundsOfOrder(client, 'order-1', '2026-10-20T10:00:00Z');
+    await restoreRefundsOfOrder(client, 'order-1', null);
+
+    expect(mutation).toHaveBeenCalledTimes(1);
+    expect(
+      mutation.mock.calls[0]?.[0].restoreMoneyEntries.__args.filter,
+    ).toEqual({
+      orderId: { eq: 'order-1' },
+      kind: { eq: 'REFUND' },
+      deletedAt: { gte: '2026-10-20T10:00:00Z' },
     });
   });
 });

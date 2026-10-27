@@ -163,6 +163,19 @@ describe('loadOrderHeader', () => {
     expect(order?.nextOpeningNumber).toBe(1);
   });
 
+  it('offers a refund from the wallet most of the payments came into', async () => {
+    const { client } = fakeClient({
+      payments: [
+        { amount: micros(100_000), method: 'CASH' },
+        { amount: micros(400_000), method: 'TRANSFER' },
+      ],
+    });
+
+    expect(
+      (await loadOrderHeader(client, 'order-1'))?.order.largestWallet,
+    ).toBe('ACCOUNT');
+  });
+
   it('reads the order with money in whole sums and the district by its label', async () => {
     const { client, queries } = fakeClient();
 
@@ -180,6 +193,7 @@ describe('loadOrderHeader', () => {
       paid: 500_000,
       balance: 910_000,
       canSeeMoney: true,
+      largestWallet: null,
       masterId: null,
       installerId: 'worker-2',
       cancelReason: null,
@@ -334,6 +348,25 @@ describe('writes', () => {
         status: 'CANCELLED',
         cancelReason: 'OTHER',
         paidMoneyOnCancel: 'KEPT',
+      },
+    });
+  });
+
+  it('sends what went back and from where in the same update as the cancel', async () => {
+    const { client, mutations } = fakeClient();
+
+    await cancelOrder(client, 'order-1', 'PRODUCTION', 'OTHER', 'REFUNDED', {
+      amount: 300_000,
+      wallet: 'CARD',
+    });
+
+    expect(mutations).toHaveLength(1);
+    expect(mutations[0]?.updateOrders.__args).toMatchObject({
+      data: {
+        status: 'CANCELLED',
+        paidMoneyOnCancel: 'REFUNDED',
+        refundAmount: { amountMicros: 300_000_000_000, currencyCode: 'UZS' },
+        refundWallet: 'CARD',
       },
     });
   });

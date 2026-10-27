@@ -6,6 +6,7 @@ import {
 
 import { syncOrderClient } from 'src/clients/sync-order-client';
 import { IDS } from 'src/constants/universal-identifiers';
+import { restoreRefundsOfOrder } from 'src/orders/paid-money-on-cancel';
 import { restorePaymentsOfOrder } from 'src/payments/follow-order';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 
@@ -27,6 +28,11 @@ const handler = async (
     payload.recordId,
     payload.properties.before?.deletedAt,
   );
+  await restoreRefundsOfOrder(
+    client,
+    payload.recordId,
+    payload.properties.before?.deletedAt,
+  );
 
   if (!order?.clientId) return;
 
@@ -44,7 +50,7 @@ export default defineLogicFunction({
   universalIdentifier: IDS.logicFunction.onOrderRestored,
   name: 'on-order-restored',
   description:
-    "Restores the payments of a restored order and recalculates its client's totals",
+    "Restores the payments and refunds of a restored order and recalculates its client's totals",
   timeoutSeconds: 30,
   databaseEventTriggerSettings: { eventName: 'order.restored' },
   handler,

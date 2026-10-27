@@ -4,6 +4,7 @@ import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient
 import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
 import { useConfirmOrderMoneyBeforeCancel } from '@/claw-order-money/hooks/useConfirmOrderMoneyBeforeCancel';
 import { useUpdateManyRecords } from '@/object-record/hooks/useUpdateManyRecords';
+import { useDeleteManyRecords } from '@/object-record/hooks/useDeleteManyRecords';
 import { useRefetchFindManyRecords } from '@/object-record/hooks/useRefetchFindManyRecords';
 import { useIncrementalDeleteManyRecords } from '@/object-record/hooks/useIncrementalDeleteManyRecords';
 import { useIncrementalFetchAndMutateRecords } from '@/object-record/hooks/useIncrementalFetchAndMutateRecords';
@@ -15,6 +16,9 @@ jest.mock('@/object-metadata/hooks/useObjectMetadataItem');
 jest.mock('@/claw-order-money/hooks/useConfirmOrderMoneyBeforeCancel');
 jest.mock('@/object-record/hooks/useUpdateManyRecords', () => ({
   useUpdateManyRecords: jest.fn(),
+}));
+jest.mock('@/object-record/hooks/useDeleteManyRecords', () => ({
+  useDeleteManyRecords: jest.fn(),
 }));
 jest.mock('@/object-record/hooks/useRefetchFindManyRecords', () => ({
   useRefetchFindManyRecords: jest.fn(),
@@ -54,6 +58,7 @@ const mockUseConfirmOrderMoneyBeforeCancel = jest.mocked(
 );
 const mockUseUpdateManyRecords = jest.mocked(useUpdateManyRecords);
 const mockUseRefetchFindManyRecords = jest.mocked(useRefetchFindManyRecords);
+const mockUseDeleteManyRecords = jest.mocked(useDeleteManyRecords);
 const mockUseApolloCoreClient = jest.mocked(useApolloCoreClient);
 const mockUseIncrementalFetchAndMutateRecords = jest.mocked(
   useIncrementalFetchAndMutateRecords,
@@ -76,6 +81,7 @@ describe('useIncrementalDeleteManyRecords', () => {
   const mockConfirmOrderMoneyBeforeCancel = jest.fn();
   const mockUpdateManyRecords = jest.fn();
   const mockRefetchFindManyRecords = jest.fn();
+  const mockDeleteOrderPayments = jest.fn();
 
   const renderDeleteHook = () =>
     renderHook(() =>
@@ -100,7 +106,8 @@ describe('useIncrementalDeleteManyRecords', () => {
     mockConfirmOrderMoneyBeforeCancel.mockResolvedValue({
       proceed: true,
       paidRecordIds: [],
-      paidMoneyOnCancel: null,
+      orderCancelFields: null,
+      paymentIdsToDelete: [],
     });
     mockUseConfirmOrderMoneyBeforeCancel.mockReturnValue({
       confirmOrderMoneyBeforeCancel: mockConfirmOrderMoneyBeforeCancel,
@@ -110,6 +117,9 @@ describe('useIncrementalDeleteManyRecords', () => {
     });
     mockUseRefetchFindManyRecords.mockReturnValue({
       refetchFindManyRecords: mockRefetchFindManyRecords,
+    });
+    mockUseDeleteManyRecords.mockReturnValue({
+      deleteManyRecords: mockDeleteOrderPayments,
     });
 
     mockMutate.mockResolvedValue({});
@@ -175,7 +185,8 @@ describe('useIncrementalDeleteManyRecords', () => {
     mockConfirmOrderMoneyBeforeCancel.mockResolvedValue({
       proceed: true,
       paidRecordIds: ['record-2'],
-      paidMoneyOnCancel: 'KEPT',
+      orderCancelFields: { paidMoneyOnCancel: 'KEPT' },
+      paymentIdsToDelete: [],
     });
     mockIncrementalFetchAndMutate.mockImplementation(async (mutateBatch) => {
       await mutateBatch(deleteBatchOf(['record-1', 'record-2']));
@@ -204,11 +215,50 @@ describe('useIncrementalDeleteManyRecords', () => {
     expect(mockRefetchFindManyRecords).toHaveBeenCalledTimes(1);
   });
 
+  it('should delete a paid order after its payments when asked to', async () => {
+    const callOrder: string[] = [];
+
+    mockConfirmOrderMoneyBeforeCancel.mockResolvedValue({
+      proceed: true,
+      paidRecordIds: ['record-2'],
+      orderCancelFields: null,
+      paymentIdsToDelete: ['payment-1', 'payment-2'],
+    });
+    mockDeleteOrderPayments.mockImplementation(async () => {
+      callOrder.push('payments');
+    });
+    mockMutate.mockImplementation(async () => {
+      callOrder.push('orders');
+      return {};
+    });
+    mockIncrementalFetchAndMutate.mockImplementation(async (mutateBatch) => {
+      await mutateBatch(deleteBatchOf(['record-1', 'record-2']));
+    });
+
+    const { result } = renderDeleteHook();
+
+    await expect(result.current.incrementalDeleteManyRecords()).resolves.toBe(
+      2,
+    );
+
+    expect(mockDeleteOrderPayments).toHaveBeenCalledWith({
+      recordIdsToDelete: ['payment-1', 'payment-2'],
+    });
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: { filter: { id: { in: ['record-1', 'record-2'] } } },
+      }),
+    );
+    expect(callOrder).toEqual(['payments', 'orders']);
+    expect(mockUpdateManyRecords).not.toHaveBeenCalled();
+  });
+
   it('should neither delete nor cancel when the money question is declined', async () => {
     mockConfirmOrderMoneyBeforeCancel.mockResolvedValue({
       proceed: false,
       paidRecordIds: ['record-2'],
-      paidMoneyOnCancel: null,
+      orderCancelFields: null,
+      paymentIdsToDelete: [],
     });
     mockIncrementalFetchAndMutate.mockImplementation(async (mutateBatch) => {
       await mutateBatch(deleteBatchOf(['record-1', 'record-2']));

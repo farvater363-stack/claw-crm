@@ -108,6 +108,8 @@ export const VIEW_PART_IDS = {
       masterPenalty: 'ff16e68c-b2f0-459c-8cb9-78e140abaa92',
       cancelReason: '9aafb5ea-45ac-4d11-a719-8d1f9fddd291',
       paidMoneyOnCancel: 'e5c4cf28-bc6f-4f0a-8e2d-f08173c07290',
+      refundAmount: '01a08e1a-b172-438f-8cbf-6e99603bba8d',
+      refundWallet: 'fdc2d962-fd4f-4024-ba74-11c5cf164326',
       masterPayTotal: 'e2f77e8a-3c9b-4bb4-82f6-5ef1321b95d3',
       finishedPhotos: '6756e9ca-32a0-4f13-8a42-6b00cb3a1fb1',
       number: '9935d210-8c15-4478-b013-288c7b644787', // Retired: the column left its view; ids are never reused.
