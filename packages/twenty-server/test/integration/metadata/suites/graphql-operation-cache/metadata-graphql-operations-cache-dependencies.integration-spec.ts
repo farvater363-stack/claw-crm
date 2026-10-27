@@ -230,6 +230,72 @@ const FIND_ALL_VIEWS_BASELINE_QUERY = gql`
   }
 `;
 
+// Mirrors PAGE_LAYOUT_FRAGMENT from twenty-front
+// (packages/twenty-front/src/modules/dashboards/graphql/fragments/pageLayoutFragment.ts)
+// for the fields that have their own resolvers
+const FIND_ALL_RECORD_PAGE_LAYOUTS_QUERY = gql`
+  query FindAllRecordPageLayouts {
+    getPageLayouts(pageLayoutType: RECORD_PAGE) {
+      id
+      applicationId
+      name
+      objectMetadataId
+      type
+      tabs {
+        id
+        applicationId
+        title
+        icon
+        position
+        layoutMode
+        pageLayoutId
+        widgets {
+          id
+          applicationId
+          title
+          type
+          objectMetadataId
+          conditionalDisplay
+          pageLayoutTabId
+          position {
+            ... on PageLayoutWidgetGridPosition {
+              layoutMode
+              row
+              column
+            }
+            ... on PageLayoutWidgetVerticalListPosition {
+              layoutMode
+              index
+            }
+          }
+          configuration {
+            ... on FieldsConfiguration {
+              configurationType
+              viewId
+            }
+            ... on FieldConfiguration {
+              configurationType
+              fieldMetadataId
+            }
+            ... on FrontComponentConfiguration {
+              configurationType
+              frontComponentId
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+// Never reaches page layout code, so the check also covers what
+// getPageLayouts itself reads, not only its field resolvers
+const FIND_ALL_RECORD_PAGE_LAYOUTS_BASELINE_QUERY = gql`
+  query FindAllRecordPageLayouts {
+    __typename
+  }
+`;
+
 describe('metadata GraphQL operations cache dependencies', () => {
   const recordAccessedCacheKeys = async (
     query: ASTNode,
@@ -289,6 +355,16 @@ describe('metadata GraphQL operations cache dependencies', () => {
       operationName: FIND_ALL_VIEWS_GRAPHQL_OPERATION,
       fullQuery: FIND_ALL_VIEWS_QUERY,
       baselineQuery: FIND_ALL_VIEWS_BASELINE_QUERY,
+    });
+
+    expect(undeclaredDependencies).toEqual([]);
+  });
+
+  it('declares every flat map the FindAllRecordPageLayouts resolvers read', async () => {
+    const undeclaredDependencies = await findUndeclaredDependencies({
+      operationName: 'FindAllRecordPageLayouts',
+      fullQuery: FIND_ALL_RECORD_PAGE_LAYOUTS_QUERY,
+      baselineQuery: FIND_ALL_RECORD_PAGE_LAYOUTS_BASELINE_QUERY,
     });
 
     expect(undeclaredDependencies).toEqual([]);
