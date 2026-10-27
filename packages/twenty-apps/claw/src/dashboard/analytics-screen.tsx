@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 import { MetadataApiClient } from 'twenty-client-sdk/metadata';
 import { AppPath, navigate } from 'twenty-sdk/front-component';
@@ -45,6 +45,10 @@ import {
   loadAnalytics,
   type PageIds,
 } from 'src/dashboard/load-dashboard';
+import {
+  readScreenSnapshot,
+  writeScreenSnapshot,
+} from 'src/dashboard/screen-snapshot';
 import { useReloadOnReturn } from 'src/dashboard/reload-on-return';
 import { useElementWidth } from 'src/measurer-form/measurer-form-ui';
 import { formatWhole } from 'src/ui/format';
@@ -95,17 +99,26 @@ const levelOf = (value: number, values: number[]) =>
 export const AnalyticsScreen = () => {
   const colors = usePalette();
   const { ref, width } = useElementWidth();
-  const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [state, setState] = useState<LoadState>(() => {
+    const snapshot = readScreenSnapshot<AnalyticsData>('analytics');
+
+    return snapshot === null
+      ? { status: 'loading' }
+      : { status: 'ready', data: snapshot };
+  });
   const [pageIds, setPageIds] = useState<PageIds>({});
   const [period, setPeriod] = useState<AnalyticsPeriod>('month');
   const [offset, setOffset] = useState(0);
 
+  // Over a snapshot a failed first load keeps the numbers instead of an error
+  const startsFromSnapshot = useRef(state.status === 'ready');
+
   const load = useCallback(async (isQuiet = false) => {
     try {
-      setState({
-        status: 'ready',
-        data: await loadAnalytics(new CoreApiClient()),
-      });
+      const data = await loadAnalytics(new CoreApiClient());
+
+      writeScreenSnapshot('analytics', data);
+      setState({ status: 'ready', data });
     } catch (caught) {
       if (!isQuiet) {
         setState({
@@ -117,7 +130,7 @@ export const AnalyticsScreen = () => {
   }, []);
 
   useEffect(() => {
-    void load();
+    void load(startsFromSnapshot.current);
     findPageIds(new MetadataApiClient())
       .then(setPageIds)
       .catch(() => setPageIds({}));

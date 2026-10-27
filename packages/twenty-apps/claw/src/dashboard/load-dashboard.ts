@@ -20,6 +20,7 @@ import {
 } from 'src/stock/stock-ledger';
 import { buildBuyList, type BuyLine } from 'src/stock/stock-screen';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
+import { isAccessError } from 'src/utils/is-access-error';
 
 // Twenty caps a page at 200 records.
 const PAGE_SIZE = 200;
@@ -288,9 +289,7 @@ const loadItems = async (client: CoreApiClient): Promise<DashboardItem[]> => {
 
 const loadChecks = async (
   client: CoreApiClient,
-  pricedMaterials: number,
-  materialCount: number,
-): Promise<DataChecks> => {
+): Promise<Omit<DataChecks, 'materials'>> => {
   const [designNodes, normNodes, masterNodes, ruleNodes, rateNodes] =
     await Promise.all([
       fetchAllPages(async (after) => {
@@ -366,7 +365,6 @@ const loadChecks = async (
   ]);
 
   return {
-    materials: { total: materialCount, priced: pricedMaterials },
     designs: {
       total: designNodes.length,
       withComposition: designNodes.filter((node) => composed.has(node.id))
@@ -382,13 +380,25 @@ const loadChecks = async (
 };
 
 export const loadToday = async (client: CoreApiClient): Promise<TodayData> => {
-  const [orders, payments, callBackClients, stock] = await Promise.all([
-    loadOrders(client),
-    loadPayments(client),
-    loadCallBackClients(client),
-    loadStockData(client),
-  ]);
-  const books = await loadStockBooks(client, stock.canSeePrice);
+  const [orders, payments, callBackClients, stock, pricedBooks] =
+    await Promise.all([
+      loadOrders(client),
+      loadPayments(client),
+      loadCallBackClients(client),
+      loadStockData(client),
+      // Asked with prices alongside the rest, so the owner waits for one
+      // round; a role that may not read them is asked again without, and so
+      // is one refused a priced part, which then sees the books unpriced.
+      loadStockBooks(client, true).catch((error: unknown) => {
+        if (isAccessError(error)) return null;
+
+        throw error;
+      }),
+    ]);
+  const books =
+    stock.canSeePrice && pricedBooks !== null
+      ? pricedBooks
+      : await loadStockBooks(client, false);
   const supplierPayments = books.payments ?? [];
   const purchases = summarizePurchases({
     purchases: books.purchases,
@@ -416,11 +426,12 @@ export const loadToday = async (client: CoreApiClient): Promise<TodayData> => {
 export const loadAnalytics = async (
   client: CoreApiClient,
 ): Promise<AnalyticsData> => {
-  const [orders, payments, items, stock] = await Promise.all([
+  const [orders, payments, items, stock, checks] = await Promise.all([
     loadOrders(client),
     loadPayments(client),
     loadItems(client),
     loadStockData(client),
+    loadChecks(client),
   ]);
   const pricedMaterials = stock.materials.filter((material) => {
     const price = stock.prices[material.id];
@@ -433,7 +444,10 @@ export const loadAnalytics = async (
     orders,
     payments,
     items,
-    checks: await loadChecks(client, pricedMaterials, stock.materials.length),
+    checks: {
+      ...checks,
+      materials: { total: stock.materials.length, priced: pricedMaterials },
+    },
   };
 };
 

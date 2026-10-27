@@ -10,6 +10,18 @@ import { recalcOrder } from 'src/recalc/recalc-order';
 
 const PRICE_KEY_FIELDS = ['extraServiceId'];
 
+// What the recalc writes on the line, and the author stamp every write
+// changes. A price typed by hand changes the line's total, so that run is
+// never a no-op.
+const RECALC_PRICE_FIELDS = [
+  'name',
+  'price',
+  'cost',
+  'lineTotal',
+  'lineCost',
+  'updatedBy',
+];
+
 const handler = async (
   payload: DatabaseEventPayload<
     ObjectRecordUpdateEvent<{ orderId: string | null }>
@@ -26,6 +38,9 @@ const handler = async (
       refreshPriceExtraServiceLineIds: shouldRefreshPrice
         ? [payload.recordId]
         : [],
+      stopIfUnchanged: updatedFields.every((field) =>
+        RECALC_PRICE_FIELDS.includes(field),
+      ),
     });
   }
 

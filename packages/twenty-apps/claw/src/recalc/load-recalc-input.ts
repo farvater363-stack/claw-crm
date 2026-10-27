@@ -23,6 +23,7 @@ import { materialCostByOwner } from 'src/prices/material-cost';
 import { todayInTashkent } from 'src/pricing/dates';
 import { type RecalcInput } from 'src/pricing/plan-order-recalc';
 import { fromCurrency } from 'src/recalc/money';
+import { type DemandCatalog } from 'src/warehouse/compute-order-material-demand';
 import { PAGE_INFO, withRemainingPages } from 'src/utils/fetch-all-pages';
 
 const PAGE_SIZE = 200;
@@ -58,6 +59,9 @@ const MATERIAL_SELECTION = {
   lastPurchasePrice: money,
 } as const;
 
+// The materials step works its demand out from the same grilles and norms.
+export type LoadedRecalcInput = RecalcInput & { demandCatalog: DemandCatalog };
+
 // planOrderRecalc compares with `!==`, so every value must have the exact type the planner produces.
 export const toNumber = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
@@ -76,7 +80,7 @@ export const loadRecalcInput = async (
     | 'typedTotal'
     | 'recostCustomItems'
   >,
-): Promise<RecalcInput | null> => {
+): Promise<LoadedRecalcInput | null> => {
   const {
     orders,
     orderItems,
@@ -318,6 +322,13 @@ export const loadRecalcInput = async (
     materialCostByOwner('orderId', norms, pricedMaterials).get(orderId) ?? null;
 
   return {
+    demandCatalog: {
+      grilles: (designs?.edges ?? []).map(({ node }) => ({
+        id: node.id,
+        name: node.name || null,
+      })),
+      norms,
+    },
     customMaterialCost,
     order: {
       areaSquareMeters: toNumber(order.areaSquareMeters),

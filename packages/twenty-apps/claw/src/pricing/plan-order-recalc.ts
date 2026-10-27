@@ -158,6 +158,11 @@ export type RecalcPlan = {
   }[];
 };
 
+export const isEmptyRecalcPlan = (plan: RecalcPlan): boolean =>
+  Object.keys(plan.orderUpdate).length === 0 &&
+  plan.itemUpdates.length === 0 &&
+  plan.extraServiceLineUpdates.length === 0;
+
 export const INSTALLATION_DAYS_AFTER_START = 7;
 
 const diff = <TRecord extends object>(

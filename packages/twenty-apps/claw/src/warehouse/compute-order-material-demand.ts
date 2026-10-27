@@ -25,6 +25,12 @@ export type DemandNorm = {
   quantityPerUnit: number | null;
 };
 
+// The grilles and composition rows every demand is worked out from.
+export type DemandCatalog = {
+  grilles: { id: string; name: string | null }[];
+  norms: DemandNorm[];
+};
+
 export type OrderMaterialDemand = {
   quantityByMaterialId: Map<string, number>;
   missingNorms: string | null;
@@ -82,9 +88,7 @@ export const computeOrderMaterialDemand = ({
   orderId?: string | null;
   items: DemandItem[];
   extraServiceLines: DemandExtraServiceLine[];
-  grilles: { id: string; name: string | null }[];
-  norms: DemandNorm[];
-}): OrderMaterialDemand => {
+} & DemandCatalog): OrderMaterialDemand => {
   const normsByGrille = groupValidNorms(norms, 'designId');
   const normsByService = groupValidNorms(norms, 'extraServiceId');
   const orderNorms =

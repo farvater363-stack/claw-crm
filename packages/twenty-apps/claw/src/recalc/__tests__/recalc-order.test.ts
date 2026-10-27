@@ -3,14 +3,24 @@ import { expect, it, vi } from 'vitest';
 
 import { syncOrderAccruals } from 'src/payroll/sync-order-accruals';
 import { applyRecalcPlan } from 'src/recalc/apply-recalc-plan';
+import { loadRecalcInput } from 'src/recalc/load-recalc-input';
 import { recalcOrder } from 'src/recalc/recalc-order';
 import { syncOrderMaterials } from 'src/warehouse/sync-order-materials';
 
+const { CATALOG } = vi.hoisted(() => ({
+  CATALOG: { grilles: [], norms: [] },
+}));
+
 vi.mock('src/recalc/load-recalc-input', () => ({
-  loadRecalcInput: vi.fn(async () => ({})),
+  loadRecalcInput: vi.fn(async () => ({
+    demandCatalog: CATALOG,
+    items: [{ id: 'item-1' }],
+    extraServiceLines: [],
+  })),
 }));
 vi.mock('src/pricing/plan-order-recalc', () => ({
   planOrderRecalc: vi.fn(() => ({})),
+  isEmptyRecalcPlan: vi.fn(() => true),
 }));
 vi.mock('src/recalc/apply-recalc-plan', () => ({ applyRecalcPlan: vi.fn() }));
 vi.mock('src/payroll/sync-order-accruals', () => ({
@@ -52,4 +62,44 @@ it('stores the totals again once the pay lines have changed', async () => {
   await recalcOrder(client, 'order-1');
 
   expect(applyRecalcPlan).toHaveBeenCalledTimes(1);
+});
+
+it('stops after planning when its own sums came back unchanged', async () => {
+  vi.mocked(applyRecalcPlan).mockClear();
+  vi.mocked(syncOrderAccruals).mockClear();
+  vi.mocked(syncOrderMaterials).mockClear();
+
+  await recalcOrder(client, 'order-1', { stopIfUnchanged: true });
+
+  expect(applyRecalcPlan).not.toHaveBeenCalled();
+  expect(syncOrderAccruals).not.toHaveBeenCalled();
+  expect(syncOrderMaterials).not.toHaveBeenCalled();
+});
+
+it('runs in full for an order without lines, whose typed area feeds the pay lines', async () => {
+  vi.mocked(loadRecalcInput).mockResolvedValueOnce({
+    demandCatalog: CATALOG,
+    items: [],
+    extraServiceLines: [],
+  } as never);
+  vi.mocked(syncOrderAccruals).mockClear();
+  vi.mocked(syncOrderAccruals).mockResolvedValueOnce(false);
+  vi.mocked(syncOrderMaterials).mockResolvedValue(false);
+
+  await recalcOrder(client, 'order-1', { stopIfUnchanged: true });
+
+  expect(syncOrderAccruals).toHaveBeenCalledWith(client, 'order-1');
+});
+
+it('hands the grilles and norms it read to the materials step', async () => {
+  vi.mocked(syncOrderMaterials).mockClear();
+  vi.mocked(syncOrderMaterials).mockResolvedValue(false);
+  vi.mocked(syncOrderAccruals).mockResolvedValueOnce(false);
+
+  await recalcOrder(client, 'order-1');
+
+  expect(syncOrderMaterials).toHaveBeenCalledWith(client, 'order-1', {
+    entersWrittenOff: undefined,
+    catalog: CATALOG,
+  });
 });
