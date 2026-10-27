@@ -16,7 +16,7 @@ import { t } from '@lingui/core/macro';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { FrontComponentRenderer as SharedFrontComponentRenderer } from 'twenty-front-component-renderer';
 import { type FrontComponentToolCall } from 'twenty-sdk/front-component';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 import { useToast } from 'twenty-ui/components';
 import { useThemeColorScheme } from 'twenty-ui/theme';
 import { REACT_APP_SERVER_BASE_URL } from '~/config';
@@ -214,6 +214,17 @@ const FrontComponentRendererContent = ({
     checksum: frontComponent.builtComponentChecksum,
   });
 
+  // Only whole screens stay warm between opens: commands, tool calls and
+  // components bound to a record or a menu item start fresh each time
+  const keepAliveKey =
+    !frontComponent.isHeadless &&
+    !isDefined(toolCall) &&
+    !isDefined(commandMenuItemId) &&
+    !isDefined(timelineActivityId) &&
+    !isNonEmptyArray(selectedRecordIds)
+      ? frontComponentId
+      : undefined;
+
   const isSdkClientReady =
     !usesSdkClient ||
     !sdkClientChecksumsLoading ||
@@ -269,6 +280,7 @@ const FrontComponentRendererContent = ({
             mediaSessionHost={mediaSessionHost}
             applicationVariables={initialApplicationVariables}
             storageNamespace={storageNamespace}
+            keepAliveKey={keepAliveKey}
             onError={handleError}
             loadingFallback={loadingFallback}
           />

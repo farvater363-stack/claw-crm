@@ -18,11 +18,13 @@ import {
   type RemoteReceiver,
   RemoteRootRenderer,
 } from '@remote-dom/react/host';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { isDefined } from 'twenty-shared/utils';
 
 import { ThemeProvider } from 'twenty-ui/theme';
+import { FrontComponentResumedSessionEffect } from '@/host/effect-components/FrontComponentResumedSessionEffect';
+import { claimFrontComponentSession } from '@/host/keep-alive/utils/parkedFrontComponentSessions';
 import { FrontComponentWorkerEffect } from '@/host/effect-components/FrontComponentWorkerEffect';
 import { componentRegistry } from '@/host/generated/host-component-registry';
 import { createFallbackComponentRegistry } from '@/host/utils/createFallbackComponentRegistry';
@@ -40,6 +42,9 @@ type FrontComponentRendererProps = {
   sharedDependenciesUrl?: string;
   applicationVariables?: Record<string, string>;
   storageNamespace?: string;
+  // Screens with a key are parked on unmount and resumed on the next mount
+  // with the same key, instead of booting a new sandbox
+  keepAliveKey?: string;
   executionContext: FrontComponentExecutionContext;
   frontComponentHostCommunicationApi: FrontComponentHostCommunicationApi;
   mediaSessionHost?: FrontComponentMediaSessionHost;
@@ -57,6 +62,7 @@ export const FrontComponentRenderer = ({
   sharedDependenciesUrl,
   applicationVariables,
   storageNamespace,
+  keepAliveKey,
   executionContext,
   frontComponentHostCommunicationApi,
   mediaSessionHost,
@@ -64,33 +70,65 @@ export const FrontComponentRenderer = ({
   colorScheme,
   loadingFallback,
 }: FrontComponentRendererProps) => {
-  const [receiver, setReceiver] = useState<RemoteReceiver | null>(null);
-  const [thread, setThread] = useState<FrontComponentThread | null>(null);
+  const sessionKey = isDefined(keepAliveKey)
+    ? [
+        keepAliveKey,
+        componentUrl,
+        sdkClientUrls?.core,
+        sdkClientUrls?.metadata,
+        sharedDependenciesUrl,
+        storageNamespace,
+      ].join('|')
+    : undefined;
+  const [resumedSession] = useState(() =>
+    isDefined(sessionKey) ? claimFrontComponentSession(sessionKey) : undefined,
+  );
+  const [receiver, setReceiver] = useState<RemoteReceiver | null>(
+    resumedSession?.receiver ?? null,
+  );
+  const [thread, setThread] = useState<FrontComponentThread | null>(
+    resumedSession?.thread ?? null,
+  );
   const [error, setError] = useState<Error | null>(null);
   const [isExecutionContextInitialized, setIsExecutionContextInitialized] =
     useState(false);
-  const [geometryTracker] = useState(() => createGeometryTracker());
+  const [geometryTracker] = useState(
+    () => resumedSession?.geometryTracker ?? createGeometryTracker(),
+  );
 
   const isReady = isDefined(receiver) && isExecutionContextInitialized;
+  const isReadyRef = useRef(isReady);
+
+  isReadyRef.current = isReady;
 
   return (
     <FrontComponentGeometryTrackerContext.Provider value={geometryTracker}>
       <div ref={geometryTracker.setRoot} style={ROOT_CONTAINER_STYLE}>
-        <FrontComponentWorkerEffect
-          componentUrl={componentUrl}
-          applicationAccessToken={applicationAccessToken}
-          apiUrl={apiUrl}
-          functionsBaseUrl={functionsBaseUrl}
-          sdkClientUrls={sdkClientUrls}
-          sharedDependenciesUrl={sharedDependenciesUrl}
-          applicationVariables={applicationVariables}
-          storageNamespace={storageNamespace}
-          geometryTracker={geometryTracker}
-          mediaSessionHost={mediaSessionHost}
-          setReceiver={setReceiver}
-          setThread={setThread}
-          setError={setError}
-        />
+        {isDefined(resumedSession) && isDefined(sessionKey) ? (
+          <FrontComponentResumedSessionEffect
+            session={resumedSession}
+            sessionKey={sessionKey}
+            setError={setError}
+          />
+        ) : (
+          <FrontComponentWorkerEffect
+            sessionKey={sessionKey}
+            isReadyRef={isReadyRef}
+            componentUrl={componentUrl}
+            applicationAccessToken={applicationAccessToken}
+            apiUrl={apiUrl}
+            functionsBaseUrl={functionsBaseUrl}
+            sdkClientUrls={sdkClientUrls}
+            sharedDependenciesUrl={sharedDependenciesUrl}
+            applicationVariables={applicationVariables}
+            storageNamespace={storageNamespace}
+            geometryTracker={geometryTracker}
+            mediaSessionHost={mediaSessionHost}
+            setReceiver={setReceiver}
+            setThread={setThread}
+            setError={setError}
+          />
+        )}
 
         {isDefined(error) && (
           <ThemeProvider colorScheme={colorScheme}>
