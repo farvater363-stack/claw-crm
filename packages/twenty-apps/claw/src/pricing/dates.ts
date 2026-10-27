@@ -2,6 +2,7 @@ import {
   isCancelled,
   isInstalled,
   isMeasured,
+  isSold,
   isStatusIn,
   READY_AT_STATUSES,
 } from 'src/constants/order-status-sets';
@@ -85,17 +86,31 @@ export const installedAtOnStatusChange = ({
 };
 
 // «Начало» is the day the order went into production, unless typed by hand;
-// sales are dated by it.
+// sales are dated by it. An order taken back before production loses it, so
+// its derived «Срок» goes too and it is not late for work nobody is doing.
+// Undefined leaves it as it is.
 export const productionStartOnStatusChange = ({
   status,
+  previousStatus,
   productionStartDate,
+  productionStartTyped,
   today,
 }: {
   status: string | null;
+  previousStatus: string | null;
   productionStartDate: string | null;
+  productionStartTyped: boolean;
   today: string;
-}): string | null =>
-  status === 'PRODUCTION' && productionStartDate === null ? today : null;
+}): string | null | undefined => {
+  if (status === 'PRODUCTION' && productionStartDate === null) return today;
+
+  const isTakenBack =
+    isSold(previousStatus) && !isSold(status) && !isCancelled(status);
+
+  return isTakenBack && productionStartDate !== null && !productionStartTyped
+    ? null
+    : undefined;
+};
 
 // «Срок» follows a corrected «Начало» while it is still the derived one; a
 // deadline typed by hand stays. Undefined leaves it as it is.
@@ -116,7 +131,10 @@ export const deadlineOnStartChange = ({
     return undefined;
   }
 
-  if (previousStart === null || deadline !== addDays(previousStart, daysAfterStart)) {
+  if (
+    previousStart === null ||
+    deadline !== addDays(previousStart, daysAfterStart)
+  ) {
     return undefined;
   }
 

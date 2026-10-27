@@ -148,10 +148,12 @@ const handler = async (
   const productionStartDate = statusChanged
     ? productionStartOnStatusChange({
         status: after.status ?? null,
+        previousStatus: before.status ?? null,
         productionStartDate: after.productionStartDate ?? null,
+        productionStartTyped: updatedFields.includes('productionStartDate'),
         today: todayInTashkent(),
       })
-    : null;
+    : undefined;
 
   const installationDeadline = updatedFields.includes('productionStartDate')
     ? deadlineOnStartChange({
@@ -165,7 +167,7 @@ const handler = async (
 
   // One mutation, so INSTALLED does not fire the trigger twice.
   const stamps: Record<string, unknown> = {
-    ...(productionStartDate !== null && { productionStartDate }),
+    ...(productionStartDate !== undefined && { productionStartDate }),
     ...(installationDeadline !== undefined && { installationDeadline }),
     ...(installedAt !== null && { installedAt }),
     ...(readyAt !== undefined && { readyAt }),

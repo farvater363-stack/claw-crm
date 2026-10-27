@@ -135,31 +135,49 @@ describe('toStoredUzbekPhone', () => {
 });
 
 describe('productionStartOnStatusChange', () => {
+  const stamp = (
+    overrides: Partial<Parameters<typeof productionStartOnStatusChange>[0]>,
+  ) =>
+    productionStartOnStatusChange({
+      status: 'PRODUCTION',
+      previousStatus: 'MEASURED',
+      productionStartDate: null,
+      productionStartTyped: false,
+      today: '2026-10-05',
+      ...overrides,
+    });
+
   it('stamps «Начало» when the order goes into production', () => {
-    expect(
-      productionStartOnStatusChange({
-        status: 'PRODUCTION',
-        productionStartDate: null,
-        today: '2026-10-05',
-      }),
-    ).toBe('2026-10-05');
+    expect(stamp({})).toBe('2026-10-05');
   });
 
   it('keeps a start typed by hand and ignores other statuses', () => {
+    expect(stamp({ productionStartDate: '2026-10-01' })).toBeUndefined();
     expect(
-      productionStartOnStatusChange({
-        status: 'PRODUCTION',
-        productionStartDate: '2026-10-01',
-        today: '2026-10-05',
-      }),
-    ).toBeNull();
+      stamp({ status: 'MEASURED', previousStatus: 'NEW' }),
+    ).toBeUndefined();
+  });
+
+  it('clears «Начало» when the order is taken back before production', () => {
     expect(
-      productionStartOnStatusChange({
+      stamp({
         status: 'MEASURED',
-        productionStartDate: null,
-        today: '2026-10-05',
+        previousStatus: 'PRODUCTION',
+        productionStartDate: '2026-10-01',
       }),
     ).toBeNull();
+  });
+
+  it('keeps «Начало» on cancel, or when typed in the same change', () => {
+    const takenBack = {
+      previousStatus: 'PRODUCTION',
+      productionStartDate: '2026-10-01',
+    };
+
+    expect(stamp({ ...takenBack, status: 'CANCELLED' })).toBeUndefined();
+    expect(
+      stamp({ ...takenBack, status: 'MEASURED', productionStartTyped: true }),
+    ).toBeUndefined();
   });
 });
 
