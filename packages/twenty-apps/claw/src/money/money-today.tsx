@@ -1,4 +1,10 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import {
@@ -88,17 +94,31 @@ const Line = ({
   );
 };
 
-// «Сегодня»: what has to be paid now, and who still holds client cash.
-export const MoneyToday = () => {
+// «Сегодня»: what has to be paid now, and who still holds client cash. Each
+// change of refreshCount reloads it quietly, over the numbers already shown.
+export const MoneyToday = ({ refreshCount }: { refreshCount: number }) => {
   const colors = usePalette();
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [failedId, setFailedId] = useState<string | null>(null);
   const attempts = useRef<Record<string, string>>({});
+  const latestRequest = useRef(0);
+
+  const reload = useCallback(async () => {
+    const request = ++latestRequest.current;
+    const next = await loadState();
+
+    // An older answer arriving late must not put back older numbers
+    if (request !== latestRequest.current) return;
+
+    setLoad((current) =>
+      next.status === 'error' && current.status === 'ready' ? current : next,
+    );
+  }, []);
 
   useEffect(() => {
-    void loadState().then(setLoad);
-  }, []);
+    void reload();
+  }, [reload, refreshCount]);
 
   if (load.status === 'loading') return <SkeletonRows count={3} />;
 
@@ -110,7 +130,7 @@ export const MoneyToday = () => {
         text="Не удалось загрузить деньги"
         onRetry={() => {
           setLoad({ status: 'loading' });
-          void loadState().then(setLoad);
+          void reload();
         }}
       />
     );
@@ -134,7 +154,7 @@ export const MoneyToday = () => {
     )
       .then(async () => {
         delete attempts.current[item.id];
-        setLoad(await loadState());
+        await reload();
       })
       .catch((error) => {
         console.error(error);

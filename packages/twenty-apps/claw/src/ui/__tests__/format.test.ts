@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  formatClockTime,
   formatDayMonth,
   formatMoney,
   formatQuantity,
@@ -12,6 +13,10 @@ import {
 const plain = (value: string) => value.replace(/\s/g, ' ');
 
 describe('format', () => {
+  it('tells the time on the Tashkent clock', () => {
+    expect(formatClockTime(Date.parse('2026-10-27T09:05:00Z'))).toBe('14:05');
+  });
+
   it('shows money with thousands groups, no decimals and the currency', () => {
     expect(plain(formatMoney(1234567.4))).toBe('1,234,567 сум');
     expect(plain(formatMoney(0))).toBe('0 сум');
