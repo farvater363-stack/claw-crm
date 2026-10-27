@@ -1,3 +1,11 @@
+import { useConfirmOrderMoneyBeforeCancel } from '@/claw-order-money/hooks/useConfirmOrderMoneyBeforeCancel';
+import {
+  buildOrderCancelInput,
+  isOrderCancelWithoutMoneyAnswer,
+  ORDER_CANCELLED_STATUS,
+} from '@/claw-order-money/utils/orderMoney';
+import { recordStoreFamilyState } from '@/object-record/record-store/states/recordStoreFamilyState';
+import { useStore } from 'jotai';
 import { triggerUpdateRecordOptimisticEffectByBatch } from '@/apollo/optimistic-effect/utils/triggerUpdateRecordOptimisticEffectByBatch';
 import { apiConfigState } from '@/client-config/states/apiConfigState';
 import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
@@ -21,7 +29,7 @@ import { getUpdatedFieldsFromRecordInput } from '@/object-record/utils/getUpdate
 import { getUpdateManyRecordsMutationResponseField } from '@/object-record/utils/getUpdateManyRecordsMutationResponseField';
 import { sanitizeRecordInput } from '@/object-record/utils/sanitizeRecordInput';
 import { useAtomStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomStateValue';
-import { isDefined } from 'twenty-shared/utils';
+import { isDefined, isNonEmptyArray } from 'twenty-shared/utils';
 import { sleep } from '~/utils/sleep';
 
 type UseUpdateManyRecordsProps = {
@@ -79,7 +87,10 @@ export const useUpdateManyRecords = <T extends ObjectRecord = ObjectRecord>({
     objectMetadataItem.namePlural,
   );
 
-  const updateManyRecords = async ({
+  const store = useStore();
+  const { confirmOrderMoneyBeforeCancel } = useConfirmOrderMoneyBeforeCancel();
+
+  const updateManyRecordsWithoutMoneyQuestion = async ({
     recordIdsToUpdate,
     updateOneRecordInput,
     delayInMsBetweenRequests,
@@ -281,6 +292,57 @@ export const useUpdateManyRecords = <T extends ObjectRecord = ObjectRecord>({
     }
 
     return updatedRecords;
+  };
+
+  const updateManyRecords = async (props: UpdateManyRecordsProps<T>) => {
+    if (
+      !isOrderCancelWithoutMoneyAnswer(
+        objectNameSingular,
+        props.updateOneRecordInput,
+      )
+    ) {
+      return updateManyRecordsWithoutMoneyQuestion(props);
+    }
+
+    const { proceed, paidRecordIds, paidMoneyOnCancel } =
+      await confirmOrderMoneyBeforeCancel({
+        objectNameSingular,
+        recordIds: props.recordIdsToUpdate.filter(
+          (recordId) =>
+            store.get(recordStoreFamilyState.atomFamily(recordId))?.status !==
+            ORDER_CANCELLED_STATUS,
+        ),
+        action: 'cancel',
+      });
+
+    if (!proceed) {
+      return [];
+    }
+
+    const unpaidRecordIds = props.recordIdsToUpdate.filter(
+      (recordId) => !paidRecordIds.includes(recordId),
+    );
+
+    const unpaidUpdatedRecords = isNonEmptyArray(unpaidRecordIds)
+      ? await updateManyRecordsWithoutMoneyQuestion({
+          ...props,
+          recordIdsToUpdate: unpaidRecordIds,
+        })
+      : [];
+
+    const paidUpdatedRecords =
+      isNonEmptyArray(paidRecordIds) && isDefined(paidMoneyOnCancel)
+        ? await updateManyRecordsWithoutMoneyQuestion({
+            ...props,
+            recordIdsToUpdate: paidRecordIds,
+            updateOneRecordInput: buildOrderCancelInput(
+              props.updateOneRecordInput,
+              paidMoneyOnCancel,
+            ),
+          })
+        : [];
+
+    return [...unpaidUpdatedRecords, ...paidUpdatedRecords];
   };
 
   return { updateManyRecords };

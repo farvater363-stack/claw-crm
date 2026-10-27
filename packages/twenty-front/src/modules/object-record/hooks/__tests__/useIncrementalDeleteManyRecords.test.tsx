@@ -2,6 +2,9 @@ import { dispatchObjectRecordOperationBrowserEvent } from '@/browser-event/utils
 import { useRemoveNavigationMenuItemByTargetRecordId } from '@/navigation-menu-item/common/hooks/useRemoveNavigationMenuItemByTargetRecordId';
 import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
 import { useObjectMetadataItem } from '@/object-metadata/hooks/useObjectMetadataItem';
+import { useConfirmOrderMoneyBeforeCancel } from '@/claw-order-money/hooks/useConfirmOrderMoneyBeforeCancel';
+import { useUpdateManyRecords } from '@/object-record/hooks/useUpdateManyRecords';
+import { useRefetchFindManyRecords } from '@/object-record/hooks/useRefetchFindManyRecords';
 import { useIncrementalDeleteManyRecords } from '@/object-record/hooks/useIncrementalDeleteManyRecords';
 import { useIncrementalFetchAndMutateRecords } from '@/object-record/hooks/useIncrementalFetchAndMutateRecords';
 import { useRefetchAggregateQueries } from '@/object-record/hooks/useRefetchAggregateQueries';
@@ -9,6 +12,13 @@ import { renderHook } from '@testing-library/react';
 import { getMockObjectMetadataItemOrThrow } from '~/testing/utils/getMockObjectMetadataItemOrThrow';
 
 jest.mock('@/object-metadata/hooks/useObjectMetadataItem');
+jest.mock('@/claw-order-money/hooks/useConfirmOrderMoneyBeforeCancel');
+jest.mock('@/object-record/hooks/useUpdateManyRecords', () => ({
+  useUpdateManyRecords: jest.fn(),
+}));
+jest.mock('@/object-record/hooks/useRefetchFindManyRecords', () => ({
+  useRefetchFindManyRecords: jest.fn(),
+}));
 jest.mock('@/object-metadata/hooks/useApolloCoreClient');
 jest.mock('@/object-record/hooks/useIncrementalFetchAndMutateRecords');
 jest.mock('@/object-record/hooks/useRefetchAggregateQueries');
@@ -39,6 +49,11 @@ jest.mock(
 );
 
 const mockUseObjectMetadataItem = jest.mocked(useObjectMetadataItem);
+const mockUseConfirmOrderMoneyBeforeCancel = jest.mocked(
+  useConfirmOrderMoneyBeforeCancel,
+);
+const mockUseUpdateManyRecords = jest.mocked(useUpdateManyRecords);
+const mockUseRefetchFindManyRecords = jest.mocked(useRefetchFindManyRecords);
 const mockUseApolloCoreClient = jest.mocked(useApolloCoreClient);
 const mockUseIncrementalFetchAndMutateRecords = jest.mocked(
   useIncrementalFetchAndMutateRecords,
@@ -58,6 +73,9 @@ describe('useIncrementalDeleteManyRecords', () => {
   const mockRemoveNavigationMenuItemsByTargetRecordIds = jest.fn();
   const mockRefetchAggregateQueries = jest.fn();
   const mockMutate = jest.fn();
+  const mockConfirmOrderMoneyBeforeCancel = jest.fn();
+  const mockUpdateManyRecords = jest.fn();
+  const mockRefetchFindManyRecords = jest.fn();
 
   const renderDeleteHook = () =>
     renderHook(() =>
@@ -78,6 +96,21 @@ describe('useIncrementalDeleteManyRecords', () => {
     jest.clearAllMocks();
 
     mockUseObjectMetadataItem.mockReturnValue({ objectMetadataItem });
+
+    mockConfirmOrderMoneyBeforeCancel.mockResolvedValue({
+      proceed: true,
+      paidRecordIds: [],
+      paidMoneyOnCancel: null,
+    });
+    mockUseConfirmOrderMoneyBeforeCancel.mockReturnValue({
+      confirmOrderMoneyBeforeCancel: mockConfirmOrderMoneyBeforeCancel,
+    });
+    mockUseUpdateManyRecords.mockReturnValue({
+      updateManyRecords: mockUpdateManyRecords,
+    });
+    mockUseRefetchFindManyRecords.mockReturnValue({
+      refetchFindManyRecords: mockRefetchFindManyRecords,
+    });
 
     mockMutate.mockResolvedValue({});
     mockUseApolloCoreClient.mockReturnValue({
@@ -136,6 +169,60 @@ describe('useIncrementalDeleteManyRecords', () => {
     expect(mockRefetchAggregateQueries).toHaveBeenCalledWith({
       objectMetadataNamePlural: objectMetadataItem.namePlural,
     });
+  });
+
+  it('should cancel a paid order with the answer instead of deleting it', async () => {
+    mockConfirmOrderMoneyBeforeCancel.mockResolvedValue({
+      proceed: true,
+      paidRecordIds: ['record-2'],
+      paidMoneyOnCancel: 'KEPT',
+    });
+    mockIncrementalFetchAndMutate.mockImplementation(async (mutateBatch) => {
+      await mutateBatch(deleteBatchOf(['record-1', 'record-2']));
+    });
+
+    const { result } = renderDeleteHook();
+
+    await expect(result.current.incrementalDeleteManyRecords()).resolves.toBe(
+      1,
+    );
+
+    expect(mockUpdateManyRecords).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recordIdsToUpdate: ['record-2'],
+        updateOneRecordInput: {
+          status: 'CANCELLED',
+          paidMoneyOnCancel: 'KEPT',
+        },
+      }),
+    );
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: { filter: { id: { in: ['record-1'] } } },
+      }),
+    );
+    expect(mockRefetchFindManyRecords).toHaveBeenCalledTimes(1);
+  });
+
+  it('should neither delete nor cancel when the money question is declined', async () => {
+    mockConfirmOrderMoneyBeforeCancel.mockResolvedValue({
+      proceed: false,
+      paidRecordIds: ['record-2'],
+      paidMoneyOnCancel: null,
+    });
+    mockIncrementalFetchAndMutate.mockImplementation(async (mutateBatch) => {
+      await mutateBatch(deleteBatchOf(['record-1', 'record-2']));
+    });
+
+    const { result } = renderDeleteHook();
+
+    await expect(result.current.incrementalDeleteManyRecords()).resolves.toBe(
+      0,
+    );
+
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(mockUpdateManyRecords).not.toHaveBeenCalled();
+    expect(mockRefetchFindManyRecords).toHaveBeenCalledTimes(1);
   });
 
   it('should report the records a failing run already deleted', async () => {

@@ -1,5 +1,7 @@
 import { useStore } from 'jotai';
 
+import { useConfirmOrderMoneyBeforeCancel } from '@/claw-order-money/hooks/useConfirmOrderMoneyBeforeCancel';
+import { isOrderCancelWithoutMoneyAnswer } from '@/claw-order-money/utils/orderMoney';
 import { RecordBoardContext } from '@/object-record/record-board/contexts/RecordBoardContext';
 import { extractRecordPositions } from '@/object-record/record-drag/utils/extractRecordPositions';
 import { recordGroupDefinitionsComponentSelector } from '@/object-record/record-group/states/selectors/recordGroupDefinitionsComponentSelector';
@@ -17,8 +19,9 @@ import { sortByProperty } from '~/utils/array/sortByProperty';
 
 export const useUpdateDroppedRecordOnBoard = () => {
   const store = useStore();
-  const { updateOneRecord, selectFieldMetadataItem } =
+  const { updateOneRecord, selectFieldMetadataItem, objectMetadataItem } =
     useContext(RecordBoardContext);
+  const { confirmOrderMoneyBeforeCancel } = useConfirmOrderMoneyBeforeCancel();
 
   const recordIndexRecordIdsByGroupCallbackFamilyState =
     useAtomComponentFamilyStateCallbackState(
@@ -32,7 +35,7 @@ export const useUpdateDroppedRecordOnBoard = () => {
   const { upsertRecordsInStore } = useUpsertRecordsInStore();
 
   const updateDroppedRecordOnBoard = useCallback(
-    (
+    async (
       {
         recordId,
         position: newPosition,
@@ -42,6 +45,32 @@ export const useUpdateDroppedRecordOnBoard = () => {
       },
       targetRecordGroupValue: RecordGroupDefinition['value'],
     ) => {
+      const recordGroupColumnName = getFieldMetadataItemGqlFieldName(
+        selectFieldMetadataItem,
+      );
+
+      const isMovedToAnotherGroup =
+        store.get(recordStoreFamilyState.atomFamily(recordId))?.[
+          recordGroupColumnName
+        ] !== targetRecordGroupValue;
+
+      // Asked before the card moves, so «Не отменять» leaves it where it was.
+      const { proceed, paidMoneyOnCancel } =
+        isMovedToAnotherGroup &&
+        isOrderCancelWithoutMoneyAnswer(objectMetadataItem.nameSingular, {
+          [recordGroupColumnName]: targetRecordGroupValue,
+        })
+          ? await confirmOrderMoneyBeforeCancel({
+              objectNameSingular: objectMetadataItem.nameSingular,
+              recordIds: [recordId],
+              action: 'cancel',
+            })
+          : { proceed: true, paidMoneyOnCancel: null };
+
+      if (!proceed) {
+        return;
+      }
+
       const initialRecord = store.get(
         recordStoreFamilyState.atomFamily(recordId),
       ) as Record<string, unknown> | null | undefined;
@@ -85,10 +114,6 @@ export const useUpdateDroppedRecordOnBoard = () => {
       }
 
       const targetRecordGroupId = targetRecordGroup.id;
-
-      const recordGroupColumnName = getFieldMetadataItemGqlFieldName(
-        selectFieldMetadataItem,
-      );
 
       const movingInsideSameRecordGroup =
         initialRecordGroupId === targetRecordGroupId;
@@ -176,10 +201,13 @@ export const useUpdateDroppedRecordOnBoard = () => {
         updateOneRecordInput: {
           [recordGroupColumnName]: targetRecordGroupValue,
           ...(isDefined(newPosition) && { position: newPosition }),
+          ...(isDefined(paidMoneyOnCancel) && { paidMoneyOnCancel }),
         },
       });
     },
     [
+      objectMetadataItem.nameSingular,
+      confirmOrderMoneyBeforeCancel,
       recordGroupDefinitions,
       recordIndexRecordIdsByGroupCallbackFamilyState,
       selectFieldMetadataItem,

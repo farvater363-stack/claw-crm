@@ -1,4 +1,12 @@
 import { triggerUpdateRecordOptimisticEffect } from '@/apollo/optimistic-effect/utils/triggerUpdateRecordOptimisticEffect';
+import { useConfirmOrderMoneyBeforeCancel } from '@/claw-order-money/hooks/useConfirmOrderMoneyBeforeCancel';
+import {
+  buildOrderCancelInput,
+  isOrderCancelWithoutMoneyAnswer,
+  ORDER_CANCELLED_STATUS,
+} from '@/claw-order-money/utils/orderMoney';
+import { recordStoreFamilyState } from '@/object-record/record-store/states/recordStoreFamilyState';
+import { useStore } from 'jotai';
 import { currentWorkspaceMemberState } from '@/auth/states/currentWorkspaceMemberState';
 import { dispatchObjectRecordOperationBrowserEvent } from '@/browser-event/utils/dispatchObjectRecordOperationBrowserEvent';
 import { useApolloCoreClient } from '@/object-metadata/hooks/useApolloCoreClient';
@@ -43,7 +51,10 @@ export const useUpdateOneRecord = () => {
   const { objectPermissionsByObjectMetadataId } = useObjectPermissions();
   const { refetchAggregateQueries } = useRefetchAggregateQueries();
 
-  const updateOneRecord = async <
+  const store = useStore();
+  const { confirmOrderMoneyBeforeCancel } = useConfirmOrderMoneyBeforeCancel();
+
+  const updateOneRecordWithoutMoneyQuestion = async <
     UpdatedObjectRecord extends ObjectRecord = ObjectRecord,
   >({
     objectNameSingular,
@@ -287,6 +298,65 @@ export const useUpdateOneRecord = () => {
     });
 
     return resultRecord;
+  };
+
+  const updateOneRecord = async <
+    UpdatedObjectRecord extends ObjectRecord = ObjectRecord,
+  >(
+    args: UpdateOneRecordArgs<UpdatedObjectRecord>,
+  ) => {
+    if (
+      !isOrderCancelWithoutMoneyAnswer(
+        args.objectNameSingular,
+        args.updateOneRecordInput,
+      )
+    ) {
+      return updateOneRecordWithoutMoneyQuestion(args);
+    }
+
+    // Read before the first await: a field input writes its new value to the
+    // store right after calling us.
+    const recordBeforeUpdate = store.get(
+      recordStoreFamilyState.atomFamily(args.idToUpdate),
+    );
+
+    if (recordBeforeUpdate?.status === ORDER_CANCELLED_STATUS) {
+      return updateOneRecordWithoutMoneyQuestion(args);
+    }
+
+    const { proceed, paidMoneyOnCancel } = await confirmOrderMoneyBeforeCancel({
+      objectNameSingular: args.objectNameSingular,
+      recordIds: [args.idToUpdate],
+      action: 'cancel',
+    });
+
+    if (!proceed) {
+      if (isDefined(recordBeforeUpdate)) {
+        upsertRecordsInStore({
+          partialRecords: [
+            {
+              ...Object.fromEntries(
+                Object.keys(args.updateOneRecordInput).map((fieldName) => [
+                  fieldName,
+                  recordBeforeUpdate[fieldName],
+                ]),
+              ),
+              id: args.idToUpdate,
+              __typename: recordBeforeUpdate.__typename,
+            },
+          ],
+        });
+      }
+
+      return null;
+    }
+
+    return updateOneRecordWithoutMoneyQuestion({
+      ...args,
+      updateOneRecordInput: isDefined(paidMoneyOnCancel)
+        ? buildOrderCancelInput(args.updateOneRecordInput, paidMoneyOnCancel)
+        : args.updateOneRecordInput,
+    });
   };
 
   return {
