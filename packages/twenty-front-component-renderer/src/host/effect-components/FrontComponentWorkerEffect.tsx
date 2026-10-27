@@ -10,6 +10,7 @@ import { type GeometryTracker } from '@/host/geometry/types/GeometryTracker';
 import { type FrontComponentMediaSessionHost } from '@/host/media/types/FrontComponentMediaSessionHost';
 import { fetchComponentSource } from '@/host/component-source/utils/fetchComponentSource';
 import { fetchSdkClientSources } from '@/host/component-source/utils/fetchSdkClientSources';
+import { createDelegatingMediaSessionHost } from '@/host/keep-alive/utils/createDelegatingMediaSessionHost';
 import { parkFrontComponentSession } from '@/host/keep-alive/utils/parkedFrontComponentSessions';
 import { setFrontComponentSessionVisibility } from '@/host/keep-alive/utils/setFrontComponentSessionVisibility';
 import { buildFrontComponentStorageSnapshots } from '@/host/storage/utils/buildFrontComponentStorageSnapshots';
@@ -85,11 +86,17 @@ export const FrontComponentWorkerEffect = ({
 
     const hostFetch = createHostFetchEnforcingPolicy(hostFetchPolicy);
 
+    const mediaSessionHostSink = isDefined(mediaSessionHost)
+      ? { current: mediaSessionHost }
+      : null;
+
     const thread = createFrontComponentHostThread({
       hostMessagePort: channel.port1,
       hostFetch,
       geometryTracker,
-      mediaSessionHost,
+      mediaSessionHost: isDefined(mediaSessionHostSink)
+        ? createDelegatingMediaSessionHost(mediaSessionHostSink)
+        : undefined,
     });
 
     const errorSink = { current: (error: Error) => setError(error) };
@@ -192,6 +199,7 @@ export const FrontComponentWorkerEffect = ({
           thread,
           geometryTracker,
           errorSink,
+          mediaSessionHostSink,
           destroy,
         });
 

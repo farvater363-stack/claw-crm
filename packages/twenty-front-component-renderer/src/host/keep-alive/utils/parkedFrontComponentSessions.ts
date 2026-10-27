@@ -1,3 +1,5 @@
+import { isDefined } from 'twenty-shared/utils';
+
 import { type FrontComponentSession } from '@/host/keep-alive/types/FrontComponentSession';
 
 // Each parked session holds a worker with its SDK client and React tree, so
@@ -12,7 +14,7 @@ export const parkFrontComponentSession = (
 ): void => {
   const replacedSession = parkedSessions.get(key);
 
-  if (replacedSession !== undefined && replacedSession !== session) {
+  if (isDefined(replacedSession) && replacedSession !== session) {
     replacedSession.destroy();
   }
 

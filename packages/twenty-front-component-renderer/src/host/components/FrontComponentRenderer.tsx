@@ -53,24 +53,14 @@ type FrontComponentRendererProps = {
   loadingFallback?: ReactNode;
 };
 
-export const FrontComponentRenderer = ({
+const computeSessionKey = ({
+  keepAliveKey,
   componentUrl,
-  applicationAccessToken,
-  apiUrl,
-  functionsBaseUrl,
   sdkClientUrls,
   sharedDependenciesUrl,
-  applicationVariables,
   storageNamespace,
-  keepAliveKey,
-  executionContext,
-  frontComponentHostCommunicationApi,
-  mediaSessionHost,
-  onError,
-  colorScheme,
-  loadingFallback,
-}: FrontComponentRendererProps) => {
-  const sessionKey = isDefined(keepAliveKey)
+}: FrontComponentRendererProps): string | undefined =>
+  isDefined(keepAliveKey)
     ? [
         keepAliveKey,
         componentUrl,
@@ -80,6 +70,38 @@ export const FrontComponentRenderer = ({
         storageNamespace,
       ].join('|')
     : undefined;
+
+// A new key (new code, SDK client or user) remounts, so a resumed session is
+// never parked under a second key and a stale one is never shown
+export const FrontComponentRenderer = (props: FrontComponentRendererProps) => {
+  const sessionKey = computeSessionKey(props);
+
+  return (
+    <FrontComponentRendererContent
+      key={sessionKey}
+      sessionKey={sessionKey}
+      {...props}
+    />
+  );
+};
+
+const FrontComponentRendererContent = ({
+  componentUrl,
+  applicationAccessToken,
+  apiUrl,
+  functionsBaseUrl,
+  sdkClientUrls,
+  sharedDependenciesUrl,
+  applicationVariables,
+  storageNamespace,
+  executionContext,
+  frontComponentHostCommunicationApi,
+  mediaSessionHost,
+  onError,
+  colorScheme,
+  loadingFallback,
+  sessionKey,
+}: FrontComponentRendererProps & { sessionKey?: string }) => {
   const [resumedSession] = useState(() =>
     isDefined(sessionKey) ? claimFrontComponentSession(sessionKey) : undefined,
   );
@@ -108,6 +130,7 @@ export const FrontComponentRenderer = ({
           <FrontComponentResumedSessionEffect
             session={resumedSession}
             sessionKey={sessionKey}
+            mediaSessionHost={mediaSessionHost}
             setError={setError}
           />
         ) : (
@@ -151,6 +174,7 @@ export const FrontComponentRenderer = ({
             <FrontComponentGeometryTrackerEffect
               thread={thread}
               geometryTracker={geometryTracker}
+              isKeptAlive={isDefined(sessionKey)}
             />
             <FrontComponentHostWindowEventsEffect thread={thread} />
             {isDefined(mediaSessionHost) && (

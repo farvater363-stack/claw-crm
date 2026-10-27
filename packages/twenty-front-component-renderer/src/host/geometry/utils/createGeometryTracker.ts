@@ -262,6 +262,22 @@ export const createGeometryTracker = (): GeometryTracker => {
     idleFrameCount = 0;
   };
 
+  // Kept-alive screens keep what the worker observes; their last snapshots go,
+  // so the next frame pushes current sizes instead of the ones before parking
+  const pause = (): void => {
+    pushGeometryUpdates = null;
+
+    if (isDefined(animationFrameHandle)) {
+      cancelAnimationFrame(animationFrameHandle);
+      animationFrameHandle = null;
+    }
+
+    wakeSources.detachAllSources();
+    lastElementSnapshots.clear();
+    lastViewportSnapshot = null;
+    idleFrameCount = 0;
+  };
+
   return {
     registerNode,
     unregisterNode,
@@ -271,5 +287,6 @@ export const createGeometryTracker = (): GeometryTracker => {
     setPushGeometryUpdates,
     getViewportGeometry: readViewportGeometry,
     reset,
+    pause,
   };
 };

@@ -10,4 +10,5 @@ export const createGeometryTrackerStub = (): GeometryTracker => ({
   setPushGeometryUpdates: jest.fn(),
   getViewportGeometry: jest.fn<ViewportGeometrySnapshot, []>(),
   reset: jest.fn(),
+  pause: jest.fn(),
 });
