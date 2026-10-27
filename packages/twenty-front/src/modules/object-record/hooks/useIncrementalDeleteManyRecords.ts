@@ -1,3 +1,7 @@
+import { useConfirmOrderMoneyBeforeCancel } from '@/claw-order-money/hooks/useConfirmOrderMoneyBeforeCancel';
+import { buildOrderCancelInput } from '@/claw-order-money/utils/orderMoney';
+import { useRefetchFindManyRecords } from '@/object-record/hooks/useRefetchFindManyRecords';
+import { useUpdateManyRecords } from '@/object-record/hooks/useUpdateManyRecords';
 import { triggerUpdateRecordOptimisticEffectByBatch } from '@/apollo/optimistic-effect/utils/triggerUpdateRecordOptimisticEffectByBatch';
 import { dispatchObjectRecordOperationBrowserEvent } from '@/browser-event/utils/dispatchObjectRecordOperationBrowserEvent';
 import { useRemoveNavigationMenuItemByTargetRecordId } from '@/navigation-menu-item/common/hooks/useRemoveNavigationMenuItemByTargetRecordId';
@@ -62,6 +66,11 @@ export const useIncrementalDeleteManyRecords = <T>({
   const { objectMetadataItems } = useObjectMetadataItems();
   const { objectPermissionsByObjectMetadataId } = useObjectPermissions();
   const { refetchAggregateQueries } = useRefetchAggregateQueries();
+  const { refetchFindManyRecords } = useRefetchFindManyRecords({
+    objectMetadataNamePlural: objectMetadataItem.namePlural,
+  });
+  const { updateManyRecords } = useUpdateManyRecords({ objectNameSingular });
+  const { confirmOrderMoneyBeforeCancel } = useConfirmOrderMoneyBeforeCancel();
   const { removeNavigationMenuItemsByTargetRecordIds } =
     useRemoveNavigationMenuItemByTargetRecordId();
 
@@ -221,6 +230,7 @@ export const useIncrementalDeleteManyRecords = <T>({
   };
 
   const incrementalDeleteManyRecords = async () => {
+    let hasKeptRecords = false;
     let totalDeletedCount = 0;
     const allDeletedRecordIds: string[] = [];
 
@@ -229,10 +239,42 @@ export const useIncrementalDeleteManyRecords = <T>({
     try {
       await incrementalFetchAndMutate(
         async ({ recordIds, totalCount, abortSignal }) => {
-          await deleteManyRecordsBatch(recordIds, abortSignal);
+          // An order the client paid for is cancelled, never deleted.
+          const { proceed, paidRecordIds, paidMoneyOnCancel } =
+            await confirmOrderMoneyBeforeCancel({
+              objectNameSingular,
+              recordIds,
+              action: 'delete',
+            });
 
-          allDeletedRecordIds.push(...recordIds);
-          totalDeletedCount += recordIds.length;
+          if (!proceed) {
+            hasKeptRecords = true;
+            return;
+          }
+
+          const recordIdsToDelete = recordIds.filter(
+            (recordId) => !paidRecordIds.includes(recordId),
+          );
+
+          if (isNonEmptyArray(paidRecordIds) && isDefined(paidMoneyOnCancel)) {
+            hasKeptRecords = true;
+
+            await updateManyRecords({
+              recordIdsToUpdate: paidRecordIds,
+              updateOneRecordInput: buildOrderCancelInput(
+                {},
+                paidMoneyOnCancel,
+              ),
+              abortSignal,
+            });
+          }
+
+          if (isNonEmptyArray(recordIdsToDelete)) {
+            await deleteManyRecordsBatch(recordIdsToDelete, abortSignal);
+          }
+
+          allDeletedRecordIds.push(...recordIdsToDelete);
+          totalDeletedCount += recordIdsToDelete.length;
 
           updateProgress(totalDeletedCount, totalCount);
         },
@@ -251,6 +293,11 @@ export const useIncrementalDeleteManyRecords = <T>({
           deletedRecordIds: allDeletedRecordIds,
         },
       });
+    }
+
+    // The views already dropped the selection; bring back what stayed.
+    if (hasKeptRecords) {
+      await refetchFindManyRecords();
     }
 
     await refetchAggregateQueries({

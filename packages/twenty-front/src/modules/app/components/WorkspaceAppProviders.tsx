@@ -12,6 +12,7 @@ import { AuthProvider } from '@/auth/components/AuthProvider';
 import { SignOutOnOtherTabSignOutEffect } from '@/auth/effect-components/SignOutOnOtherTabSignOutEffect';
 import { CaptchaProvider } from '@/captcha/components/CaptchaProvider';
 import { RequestFreshCaptchaTokenEffect } from '@/captcha/components/RequestFreshCaptchaTokenEffect';
+import { OrderMoneyQuestionModal } from '@/claw-order-money/components/OrderMoneyQuestionModal';
 import { CommandMenuConfirmationModalManager } from '@/command-menu-item/confirmation-modal/components/CommandMenuConfirmationModalManager';
 import { CommandRunner } from '@/command-menu-item/engine-command/components/CommandRunner';
 import { MAIN_CONTEXT_STORE_INSTANCE_ID } from '@/context-store/constants/MainContextStoreInstanceId';
@@ -80,6 +81,7 @@ export const WorkspaceAppProviders = () => {
                               <Outlet />
                               <GlobalFilePreviewModal />
                               <CommandMenuConfirmationModalManager />
+                              <OrderMoneyQuestionModal />
                               <CommandRunner />
                             </RecordCreationFormProvider>
                           </StrictMode>
