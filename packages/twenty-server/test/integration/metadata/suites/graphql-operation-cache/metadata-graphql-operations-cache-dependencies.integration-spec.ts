@@ -288,11 +288,11 @@ const FIND_ALL_RECORD_PAGE_LAYOUTS_QUERY = gql`
   }
 `;
 
+// Never reaches page layout code, so the check also covers what
+// getPageLayouts itself reads, not only its field resolvers
 const FIND_ALL_RECORD_PAGE_LAYOUTS_BASELINE_QUERY = gql`
   query FindAllRecordPageLayouts {
-    getPageLayouts(pageLayoutType: RECORD_PAGE) {
-      id
-    }
+    __typename
   }
 `;
 
