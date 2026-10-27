@@ -13,6 +13,7 @@ import {
   DISTRICT_OPTIONS,
   ORDER_MATERIAL_STATE_OPTIONS,
   ORDER_STATUS_OPTIONS,
+  PAID_MONEY_ON_CANCEL_OPTIONS,
   PRODUCTION_STAGE_OPTIONS,
   SOURCE_OPTIONS,
   CONTRACT_STATE_OPTIONS,
@@ -98,6 +99,15 @@ export default defineObject({
       icon: 'IconCircleX',
       isNullable: true,
       options: CANCEL_REASON_OPTIONS,
+    },
+    {
+      universalIdentifier: IDS.order.paidMoneyOnCancel,
+      type: FieldType.SELECT,
+      name: 'paidMoneyOnCancel',
+      label: 'Деньги при отмене',
+      icon: 'IconCash',
+      isNullable: true,
+      options: PAID_MONEY_ON_CANCEL_OPTIONS,
     },
     text(IDS.order.clientName, 'clientName', 'Имя одной строкой (старое)', 'IconUser'),
     {

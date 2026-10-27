@@ -238,27 +238,70 @@ const loadOrders = async (client: CoreApiClient): Promise<DashboardOrder[]> => {
   }));
 };
 
+// A refund leaves on its own day, as in «Деньги»: the payment it returns
+// stays on the day it came. A role that may not read «Деньги» sees the
+// payments alone.
+const loadRefunds = async (
+  client: CoreApiClient,
+): Promise<DashboardPayment[]> => {
+  try {
+    const nodes = await fetchAllPages(async (after) => {
+      const { moneyEntries } = await client.query({
+        moneyEntries: {
+          __args: {
+            filter: { kind: { eq: 'REFUND' } },
+            first: PAGE_SIZE,
+            after,
+          },
+          edges: { node: { date: true, amount: MONEY } },
+          pageInfo: PAGE_INFO,
+        },
+      });
+
+      return moneyEntries;
+    });
+
+    return nodes.flatMap((node) => {
+      const paidOn = toDay(node.date);
+      const amount = fromCurrency(node.amount);
+
+      return paidOn === null || amount === null
+        ? []
+        : [{ paidOn, amount: -amount }];
+    });
+  } catch (error) {
+    if (!isAccessError(error)) throw error;
+
+    return [];
+  }
+};
+
 const loadPayments = async (
   client: CoreApiClient,
 ): Promise<DashboardPayment[]> => {
-  const nodes = await fetchAllPages(async (after) => {
-    const { orderPayments } = await client.query({
-      orderPayments: {
-        __args: { first: PAGE_SIZE, after },
-        edges: { node: { paidOn: true, amount: MONEY } },
-        pageInfo: PAGE_INFO,
-      },
-    });
+  const [nodes, refunds] = await Promise.all([
+    fetchAllPages(async (after) => {
+      const { orderPayments } = await client.query({
+        orderPayments: {
+          __args: { first: PAGE_SIZE, after },
+          edges: { node: { paidOn: true, amount: MONEY } },
+          pageInfo: PAGE_INFO,
+        },
+      });
 
-    return orderPayments;
-  });
+      return orderPayments;
+    }),
+    loadRefunds(client),
+  ]);
 
-  return nodes.flatMap((node) => {
+  const received = nodes.flatMap((node) => {
     const paidOn = toDay(node.paidOn);
     const amount = fromCurrency(node.amount);
 
     return paidOn === null || amount === null ? [] : [{ paidOn, amount }];
   });
+
+  return [...received, ...refunds];
 };
 
 const loadItems = async (client: CoreApiClient): Promise<DashboardItem[]> => {

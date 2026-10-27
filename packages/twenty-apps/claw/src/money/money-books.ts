@@ -93,7 +93,7 @@ export type MoneyMove = {
   amount: number;
 };
 
-const PAYMENT_WALLET: Record<PaymentMethod, Wallet> = {
+export const PAYMENT_WALLET: Record<PaymentMethod, Wallet> = {
   CASH: 'CASH',
   CARD: 'CARD',
   TRANSFER: 'ACCOUNT',
@@ -150,6 +150,9 @@ const entryMove = (
       return out(entry.name ?? 'Взял себе', 'hand');
     case 'SUPPLIER_PAYMENT':
       return out(entry.name ?? 'Оплата поставщику', 'stock');
+    // Beside the order's payments, so the bridge to profit nets them out
+    case 'REFUND':
+      return out(entry.name ?? 'Возврат клиенту', 'order');
     case 'INCOME':
       return into(entry.name ?? 'Приход', 'hand');
     case 'OWNER_DEPOSIT':

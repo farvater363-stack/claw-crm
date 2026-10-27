@@ -5,6 +5,7 @@ import {
   type CANCEL_REASON_OPTIONS,
   DISTRICT_OPTIONS,
   type OrderStatus,
+  type PaidMoneyOnCancel,
   type PaymentMethod,
   type WorkerCategory,
 } from 'src/constants/select-options';
@@ -302,7 +303,13 @@ const updateOrderInStatus = async (
   client: CoreApiClient,
   orderId: string,
   shownStatus: OrderStatus | null,
-  data: StepWrite | { status: OrderStatus; cancelReason: CancelReason },
+  data:
+    | StepWrite
+    | {
+        status: OrderStatus;
+        cancelReason: CancelReason;
+        paidMoneyOnCancel?: PaidMoneyOnCancel;
+      },
 ): Promise<OrderWriteOutcome> => {
   const { updateOrders } = await client.mutation({
     updateOrders: {
@@ -333,10 +340,13 @@ export const cancelOrder = (
   orderId: string,
   shownStatus: OrderStatus | null,
   cancelReason: CancelReason,
+  // Asked only when the client has paid
+  paidMoneyOnCancel: PaidMoneyOnCancel | null,
 ): Promise<OrderWriteOutcome> =>
   updateOrderInStatus(client, orderId, shownStatus, {
     status: STEP_STATUS.cancelled,
     cancelReason,
+    ...(paidMoneyOnCancel === null ? {} : { paidMoneyOnCancel }),
   });
 
 // No name is sent: the payment's trigger writes it. The id belongs to one

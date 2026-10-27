@@ -173,7 +173,7 @@ describe('order fields', () => {
     ]);
   });
 
-  it('ends «Срок и люди» with the status and the cancel reason, for corrections', () => {
+  it('ends «Срок и люди» with the status, the cancel reason and what became of the money, for corrections', () => {
     expect(visibleIn(ids.groups.production)).toEqual([
       IDS.order.urgency,
       IDS.order.master,
@@ -189,6 +189,7 @@ describe('order fields', () => {
       IDS.order.finishedPhotos,
       IDS.order.status,
       IDS.order.cancelReason,
+      IDS.order.paidMoneyOnCancel,
     ]);
   });
 
