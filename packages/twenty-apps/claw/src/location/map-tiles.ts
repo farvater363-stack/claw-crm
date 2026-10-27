@@ -26,8 +26,7 @@ export const projectToWorldPx = (
   return {
     x: ((lng + 180) / 360) * worldSize,
     y:
-      (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) *
-      worldSize,
+      (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * worldSize,
   };
 };
 

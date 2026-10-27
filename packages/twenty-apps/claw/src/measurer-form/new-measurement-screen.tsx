@@ -169,6 +169,7 @@ import {
 } from 'src/ui/tokens';
 import { joinFullName, trimFullName } from 'src/utils/full-name';
 import { fetchFieldMetadataId } from 'src/utils/fetch-field-metadata-id';
+import { createThumbnailUrl } from 'src/utils/photo-thumbnail';
 import { randomUuid } from 'src/utils/random-uuid';
 
 type SavedItem = {
@@ -197,7 +198,6 @@ type SaveResult = {
 
 const ORDER_NAME_POLL_ATTEMPTS = 20;
 const ORDER_NAME_POLL_INTERVAL_MS = 750;
-const THUMBNAIL_MAX_SIDE_PX = 160;
 const USAGE_SAMPLE_SIZE = 500;
 // A list beside its pane from this page width (a tablet held upright)
 const TWO_PANE_MIN_WIDTH = 720;
@@ -431,42 +431,6 @@ const createSaveIds = () => ({
   order: randomUuid(),
   payment: randomUuid(),
 });
-
-const readAsDataUrl = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
-
-// A tablet photo is several MB; previewing it at full size would push every
-// one through the sandbox bridge as a data URL.
-const createThumbnailUrl = async (file: File): Promise<string | null> => {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(
-      1,
-      THUMBNAIL_MAX_SIDE_PX / Math.max(bitmap.width, bitmap.height),
-    );
-    const canvas = new OffscreenCanvas(
-      Math.max(1, Math.round(bitmap.width * scale)),
-      Math.max(1, Math.round(bitmap.height * scale)),
-    );
-
-    canvas
-      .getContext('2d')
-      ?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-
-    return await readAsDataUrl(
-      await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 }),
-    );
-  } catch {
-    return null;
-  }
-};
 
 const attachOpeningPhotos = async (
   item: SavedItem,
