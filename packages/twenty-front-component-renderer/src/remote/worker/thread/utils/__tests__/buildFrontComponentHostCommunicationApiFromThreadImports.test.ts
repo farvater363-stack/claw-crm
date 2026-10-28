@@ -13,6 +13,7 @@ const createHostThreadImportsStub = () =>
     closeSidePanel: jest.fn(),
     updateProgress: jest.fn(),
     copyToClipboard: jest.fn(),
+    getCurrentPosition: jest.fn(),
     uploadFile: jest.fn(),
     storageSet: jest.fn(),
     storageDelete: jest.fn(),
@@ -37,6 +38,7 @@ describe('buildFrontComponentHostCommunicationApiFromThreadImports', () => {
       'closeSidePanel',
       'copyToClipboard',
       'enqueueSnackbar',
+      'getCurrentPosition',
       'navigate',
       'openCommandConfirmationModal',
       'openSidePanelPage',
@@ -70,6 +72,9 @@ describe('buildFrontComponentHostCommunicationApiFromThreadImports', () => {
     );
     expect(hostCommunicationApi.copyToClipboard).toBe(
       hostThreadImports.copyToClipboard,
+    );
+    expect(hostCommunicationApi.getCurrentPosition).toBe(
+      hostThreadImports.getCurrentPosition,
     );
     expect(hostCommunicationApi.storageSet).toBe(hostThreadImports.storageSet);
     expect(hostCommunicationApi.storageDelete).toBe(

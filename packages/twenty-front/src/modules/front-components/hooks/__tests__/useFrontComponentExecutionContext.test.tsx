@@ -4,6 +4,7 @@ import { act, renderHook } from '@testing-library/react';
 import { getDefaultStore } from 'jotai';
 import { type AppLocale } from 'twenty-shared/translations';
 import { AppPath, SidePanelPages } from 'twenty-shared/types';
+import { isDefined } from 'twenty-shared/utils';
 
 import { MAIN_CONTEXT_STORE_INSTANCE_ID } from '@/context-store/constants/MainContextStoreInstanceId';
 import { contextStoreRecordShowParentViewComponentState } from '@/context-store/states/contextStoreRecordShowParentViewComponentState';
@@ -1333,6 +1334,83 @@ describe('useFrontComponentExecutionContext', () => {
       );
 
       dateNowSpy.mockRestore();
+    });
+  });
+
+  describe('getCurrentPosition', () => {
+    const originalGeolocation = Object.getOwnPropertyDescriptor(
+      navigator,
+      'geolocation',
+    );
+
+    const stubGeolocation = (geolocation: unknown) =>
+      Object.defineProperty(navigator, 'geolocation', {
+        value: geolocation,
+        configurable: true,
+      });
+
+    const getCurrentPositionThroughHost = async () => {
+      const { result } = renderUseFrontComponentExecutionContext({
+        frontComponentId: FRONT_COMPONENT_ID,
+      });
+
+      return result.current.frontComponentHostCommunicationApi.getCurrentPosition();
+    };
+
+    afterEach(() => {
+      if (isDefined(originalGeolocation)) {
+        Object.defineProperty(navigator, 'geolocation', originalGeolocation);
+      } else {
+        delete (navigator as { geolocation?: unknown }).geolocation;
+      }
+    });
+
+    it('should resolve the host position', async () => {
+      const getCurrentPosition = jest.fn((onSuccess: PositionCallback) =>
+        onSuccess({
+          coords: { latitude: 41.3, longitude: 69.2, accuracy: 25 },
+        } as GeolocationPosition),
+      );
+      stubGeolocation({ getCurrentPosition });
+
+      await expect(getCurrentPositionThroughHost()).resolves.toEqual({
+        status: 'located',
+        lat: 41.3,
+        lng: 69.2,
+        accuracyMeters: 25,
+      });
+      expect(getCurrentPosition).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.any(Function),
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+      );
+    });
+
+    it.each([
+      [1, 'denied'],
+      [2, 'unavailable'],
+      [3, 'timeout'],
+    ])('should map error code %s to %s', async (code, reason) => {
+      stubGeolocation({
+        getCurrentPosition: (
+          _onSuccess: PositionCallback,
+          onError: PositionErrorCallback,
+        ) => onError({ code } as GeolocationPositionError),
+      });
+
+      await expect(getCurrentPositionThroughHost()).resolves.toEqual({
+        status: 'failed',
+        reason,
+      });
+    });
+
+    it('should report unsupported when the browser has no geolocation', async () => {
+      stubGeolocation(undefined);
+
+      await expect(getCurrentPositionThroughHost()).resolves.toEqual({
+        status: 'failed',
+        reason: 'unsupported',
+      });
     });
   });
 

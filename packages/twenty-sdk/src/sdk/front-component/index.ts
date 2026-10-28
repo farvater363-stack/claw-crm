@@ -3,6 +3,7 @@ export type { TransProps } from './components/Trans';
 export { closeSidePanel } from './functions/closeSidePanel';
 export { copyToClipboard } from './functions/copyToClipboard';
 export { getApplicationVariable } from './functions/getApplicationVariable';
+export { getCurrentPosition } from './functions/getCurrentPosition';
 export { enqueueSnackbar } from './functions/enqueueSnackbar';
 export { navigate } from './functions/navigate';
 export { openCommandConfirmationModal } from './functions/openCommandConfirmationModal';
@@ -40,6 +41,9 @@ export type {
   CommandConfirmationModalResult,
   CopyToClipboardFunction,
   EnqueueSnackbarFunction,
+  GetCurrentPositionFailureReason,
+  GetCurrentPositionFunction,
+  GetCurrentPositionResult,
   NavigateFunction,
   OpenCommandConfirmationModalFunction,
   OpenCommandConfirmationModalHostFunction,

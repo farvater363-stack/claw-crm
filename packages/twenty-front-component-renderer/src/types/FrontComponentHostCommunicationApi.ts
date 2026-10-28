@@ -2,6 +2,7 @@ import {
   type CloseSidePanelFunction,
   type CopyToClipboardFunction,
   type EnqueueSnackbarFunction,
+  type GetCurrentPositionFunction,
   type NavigateFunction,
   type OpenCommandConfirmationModalHostFunction,
   type OpenSidePanelPageFunction,
@@ -24,6 +25,7 @@ export type FrontComponentHostCommunicationApi = {
   closeSidePanel: CloseSidePanelFunction;
   updateProgress: UpdateProgressFunction;
   copyToClipboard: CopyToClipboardFunction;
+  getCurrentPosition: GetCurrentPositionFunction;
   uploadFile: UploadFileFunction;
   storageSet: StorageSetFunction;
   storageDelete: StorageDeleteFunction;
