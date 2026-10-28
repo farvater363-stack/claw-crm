@@ -268,6 +268,78 @@ export const followPaymentsOfRefundedOrder = async (
   });
 };
 
+// The refund of the current cancel changed by hand in «Деньги» is the new
+// answer: otherwise the next payment change puts the answered sum back.
+export const followRefundEntry = async (
+  client: CoreApiClient,
+  entry: {
+    id: string;
+    orderId: string;
+    amount: number | null;
+    wallet: Wallet | null;
+  },
+): Promise<void> => {
+  const { orders, moneyEntries } = await client.query({
+    orders: {
+      __args: { filter: { id: { eq: entry.orderId } }, first: 1 },
+      edges: { node: REFUNDED_ORDER_FIELDS },
+    },
+    moneyEntries: {
+      __args: { filter: { id: { eq: entry.id } }, first: 1 },
+      edges: { node: { amount: MONEY, wallet: true } },
+    },
+  });
+  const order = orders?.edges[0]?.node;
+  const stored = moneyEntries?.edges[0]?.node;
+
+  if (
+    order?.paidMoneyOnCancel !== 'REFUNDED' ||
+    entry.amount === null ||
+    entry.wallet === null ||
+    refundEntryIdOf({
+      id: entry.orderId,
+      refundEntryId: order.refundEntryId ?? null,
+    }) !== entry.id ||
+    // A later change is on its way with its own event.
+    stored === undefined ||
+    fromCurrency(stored.amount ?? null) !== entry.amount ||
+    stored.wallet !== entry.wallet
+  ) {
+    return;
+  }
+
+  const money = await loadOrderMoney(client, entry.orderId);
+  const refundedBefore = money.refunds
+    .filter(({ id }) => id !== entry.id)
+    .reduce((sum, { amount }) => sum + amount, 0);
+  const answered = refundOf(money.payments, refundedBefore, {
+    amount: fromCurrency(order.refundAmount ?? null),
+    wallet: (order.refundWallet ?? null) as Wallet | null,
+  });
+
+  // What the answer already gives, the app's own write among it.
+  if (answered?.amount === entry.amount && answered.wallet === entry.wallet) {
+    return;
+  }
+
+  const paidLeft =
+    money.payments.reduce((sum, payment) => sum + payment.amount, 0) -
+    refundedBefore;
+  const amount = Math.min(entry.amount, paidLeft);
+
+  if (amount <= 0) return;
+
+  await client.mutation({
+    updateOrder: {
+      __args: {
+        id: entry.orderId,
+        data: { refundAmount: toCurrency(amount), refundWallet: entry.wallet },
+      },
+      id: true,
+    },
+  });
+};
+
 // An order removed together with its payments takes its refunds along, and
 // a restored one brings back those that left with it.
 export const deleteRefundsOfOrder = async (

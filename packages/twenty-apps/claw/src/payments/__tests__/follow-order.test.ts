@@ -26,7 +26,7 @@ describe('payments follow their order', () => {
     });
   });
 
-  it('restores the payments deleted with the order, not ones removed before it', async () => {
+  it('restores the payments deleted with the order, and the ones removed just before it', async () => {
     const { client, mutation } = fakeClient();
 
     await restorePaymentsOfOrder(client, 'order-1', '2026-10-05T16:12:00Z');
@@ -36,7 +36,7 @@ describe('payments follow their order', () => {
         __args: {
           filter: {
             orderId: { eq: 'order-1' },
-            deletedAt: { gte: '2026-10-05T16:12:00Z' },
+            deletedAt: { gte: '2026-10-05T16:11:00.000Z' },
           },
         },
         id: true,

@@ -142,6 +142,68 @@ describe('loadRecalcInput', () => {
       });
     });
 
+    it('takes an earlier refund off the prepayment it gave back', async () => {
+      const { client } = fakeClient(
+        [
+          { amount: uzs(500_000), paidOn: '2026-10-01' },
+          { amount: uzs(300_000), paidOn: '2026-10-10' },
+          { amount: uzs(200_000), paidOn: '2026-10-20' },
+        ],
+        {
+          order: {
+            id: 'order-1',
+            status: 'PRODUCTION',
+            refundEntryId: 'refund-2',
+            productionStartDate: '2026-10-15',
+          },
+          refunds: [
+            { id: 'order-1', amount: uzs(500_000), date: '2026-10-05' },
+            { id: 'refund-3', amount: uzs(100_000), date: '2026-10-25' },
+          ],
+        },
+      );
+      const input = await loadRecalcInput(client, 'order-1', NO_REFRESH);
+
+      expect(input?.prepaymentsTotal).toBe(300_000);
+      expect(input?.paymentsTotal).toBe(400_000);
+    });
+
+    it('leaves no more prepaid than paid after a refund past the workshop start', async () => {
+      const { client } = fakeClient(
+        [
+          { amount: uzs(100_000), paidOn: '2026-09-25' },
+          { amount: uzs(50_000), paidOn: '2026-10-06' },
+        ],
+        {
+          order: {
+            id: 'order-1',
+            status: 'PRODUCTION',
+            refundEntryId: 'refund-2',
+            productionStartDate: '2026-10-01',
+          },
+          refunds: [
+            { id: 'order-1', amount: uzs(100_000), date: '2026-10-05' },
+          ],
+        },
+      );
+      const input = await loadRecalcInput(client, 'order-1', NO_REFRESH);
+
+      expect(input?.paymentsTotal).toBe(50_000);
+      expect(input?.prepaymentsTotal).toBe(50_000);
+    });
+
+    it('keeps the refund of the current cancel in the prepayment', async () => {
+      const { client } = fakeClient([{ amount: uzs(500_000) }], {
+        order: { id: 'order-1', status: 'CANCELLED' },
+        refunds: [{ id: 'order-1', amount: uzs(500_000), date: '2026-10-05' }],
+      });
+
+      expect(
+        (await loadRecalcInput(client, 'order-1', NO_REFRESH))
+          ?.prepaymentsTotal,
+      ).toBe(500_000);
+    });
+
     it('never counts below nothing', async () => {
       expect(
         (

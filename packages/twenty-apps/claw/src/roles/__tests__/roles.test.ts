@@ -636,26 +636,14 @@ describe('file uploads', () => {
 describe('workshop rows', () => {
   const rules = workshopRole.config.rowLevelPermissionPredicates ?? [];
 
-  // It cannot read the money, so it cannot answer what became of it.
-  it('cannot cancel an order', () => {
-    expect(rules).toEqual([
-      expect.objectContaining({
-        objectUniversalIdentifier: IDS.order.object,
-        fieldUniversalIdentifier: IDS.order.status,
-        operand: RowLevelPermissionPredicateOperand.IS,
-        value: [
-          'NEW',
-          'MEASUREMENT_SCHEDULED',
-          'MEASURED',
-          'PRODUCTION',
-          'QUALITY_CHECK',
-          'INSTALLED',
-        ],
-      }),
-    ]);
-    expect(rules[0]?.universalIdentifier).not.toBe(
-      IDS.role.measurerMeasuringStatuses,
-    );
+  // The server refuses its cancel instead: a row rule would also hide the
+  // cancelled orders from it.
+  it('has no row rule, so it still sees cancelled orders', () => {
+    expect(rules).toEqual([]);
+  });
+
+  it('cannot read the payment, which is what blocks its cancel', () => {
+    expect(hiddenFieldIds(workshopRole)).toContain(IDS.order.paid);
   });
 
   it('cannot change the refund wallet', () => {

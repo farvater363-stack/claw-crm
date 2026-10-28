@@ -217,7 +217,7 @@ export const loadRecalcInput = async (
         filter: { orderId: { eq: orderId }, kind: { eq: 'REFUND' } },
         first: PAGE_SIZE,
       },
-      edges: { node: { id: true, amount: money } },
+      edges: { node: { id: true, amount: money, date: true } },
     },
   });
 
@@ -312,6 +312,24 @@ export const loadRecalcInput = async (
     paidOn: toDate(node.paidOn),
   }));
   const productionStartDate = toDate(order.productionStartDate);
+  // Until the order goes to the workshop, every payment so far is a prepayment.
+  const isPrepayment = (day: string | null) =>
+    productionStartDate === null ||
+    (day !== null && day <= productionStartDate);
+  const refunds = (refundEntries?.edges ?? []).map(({ node }) => ({
+    id: node.id,
+    amount: fromCurrency(node.amount) ?? 0,
+    date: toDate(node.date),
+  }));
+  const currentRefundId = refundEntryIdOf({
+    id: orderId,
+    refundEntryId: order.refundEntryId ?? null,
+  });
+  const paymentsTotal = netPaid(
+    payments.reduce((sum, { amount }) => sum + amount, 0),
+    refunds,
+    currentRefundId,
+  );
   const norms = (materialNorms?.edges ?? []).map(({ node }) => ({
     designId: node.designId ?? null,
     extraServiceId: node.extraServiceId ?? null,
@@ -392,25 +410,19 @@ export const loadRecalcInput = async (
             },
           }
         : null,
-    paymentsTotal: netPaid(
-      payments.reduce((sum, { amount }) => sum + amount, 0),
-      (refundEntries?.edges ?? []).map(({ node }) => ({
-        id: node.id,
-        amount: fromCurrency(node.amount) ?? 0,
-      })),
-      refundEntryIdOf({
-        id: orderId,
-        refundEntryId: order.refundEntryId ?? null,
-      }),
+    paymentsTotal,
+    // A refund of an earlier cancel takes back what was prepaid before it;
+    // one after the workshop start still leaves no more prepaid than paid.
+    prepaymentsTotal: Math.min(
+      paymentsTotal,
+      netPaid(
+        payments
+          .filter(({ paidOn }) => isPrepayment(paidOn))
+          .reduce((sum, { amount }) => sum + amount, 0),
+        refunds.filter(({ date }) => isPrepayment(date)),
+        currentRefundId,
+      ),
     ),
-    // Until the order goes to the workshop, every payment so far is a prepayment.
-    prepaymentsTotal: payments
-      .filter(
-        ({ paidOn }) =>
-          productionStartDate === null ||
-          (paidOn !== null && paidOn <= productionStartDate),
-      )
-      .reduce((sum, { amount }) => sum + amount, 0),
     payTotal: (payAccruals?.edges ?? []).reduce(
       (sum, { node }) => sum + (fromCurrency(node.amount) ?? 0),
       0,

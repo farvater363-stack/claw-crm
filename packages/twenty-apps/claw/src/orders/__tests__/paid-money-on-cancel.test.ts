@@ -5,6 +5,7 @@ import {
   cancelInsteadOfDelete,
   deleteRefundsOfOrder,
   followRefundAnswer,
+  followRefundEntry,
   netPaid,
   paidMoneyAnswerData,
   parseRefundAmount,
@@ -295,6 +296,133 @@ describe('followRefundAnswer', () => {
         id: true,
       },
     });
+  });
+});
+
+describe('followRefundEntry', () => {
+  const ENTRY = {
+    id: 'order-1',
+    orderId: 'order-1',
+    amount: 300_000,
+    wallet: 'CARD' as const,
+  };
+
+  const orderClient = (
+    order: Record<string, unknown>,
+    stored: { amount: number; wallet: string } = ENTRY,
+    paid = 800_000,
+  ) => {
+    const mutation = vi.fn().mockResolvedValue({});
+    const query = vi.fn().mockResolvedValue({
+      orders: {
+        edges: [
+          {
+            node: {
+              name: '№12',
+              status: 'CANCELLED',
+              paidMoneyOnCancel: 'REFUNDED',
+              refundAmount: uzs(500_000),
+              refundWallet: 'CASH',
+              refundEntryId: null,
+              ...order,
+            },
+          },
+        ],
+      },
+      moneyEntries: {
+        edges: [
+          {
+            node: {
+              id: 'order-1',
+              amount: uzs(stored.amount),
+              wallet: stored.wallet,
+            },
+          },
+        ],
+      },
+      orderPayments: {
+        edges: [{ node: { amount: uzs(paid), method: 'CASH' } }],
+      },
+    });
+
+    return {
+      client: { mutation, query } as unknown as CoreApiClient,
+      mutation,
+    };
+  };
+
+  const answeredWith = (mutation: ReturnType<typeof vi.fn>) =>
+    mutation.mock.calls[0]?.[0].updateOrder.__args.data;
+
+  it('carries a sum changed in «Деньги» into the answer of the current cancel', async () => {
+    const { client, mutation } = orderClient({});
+
+    await followRefundEntry(client, ENTRY);
+
+    expect(answeredWith(mutation)).toEqual({
+      refundAmount: { amountMicros: 300_000_000_000, currencyCode: 'UZS' },
+      refundWallet: 'CARD',
+    });
+  });
+
+  it('answers no more than the client paid', async () => {
+    const { client, mutation } = orderClient({}, ENTRY, 200_000);
+
+    await followRefundEntry(client, ENTRY);
+
+    expect(answeredWith(mutation).refundAmount.amountMicros).toBe(
+      200_000_000_000,
+    );
+  });
+
+  it('leaves the answer when the refund is what the answer gives', async () => {
+    const { client, mutation } = orderClient({
+      refundAmount: uzs(300_000),
+      refundWallet: 'CARD',
+    });
+
+    await followRefundEntry(client, ENTRY);
+
+    expect(mutation).not.toHaveBeenCalled();
+  });
+
+  it('keeps the answer when the app cut the refund to fewer payments', async () => {
+    const { client, mutation } = orderClient(
+      { refundAmount: uzs(500_000), refundWallet: 'CARD' },
+      ENTRY,
+      300_000,
+    );
+
+    await followRefundEntry(client, ENTRY);
+
+    expect(mutation).not.toHaveBeenCalled();
+  });
+
+  it('skips an event a later change has already overtaken', async () => {
+    const { client, mutation } = orderClient(
+      {},
+      { amount: 60_000, wallet: 'CARD' },
+    );
+
+    await followRefundEntry(client, ENTRY);
+
+    expect(mutation).not.toHaveBeenCalled();
+  });
+
+  it('leaves the answer alone for a refund of an earlier cancel', async () => {
+    const { client, mutation } = orderClient({ refundEntryId: 'refund-2' });
+
+    await followRefundEntry(client, ENTRY);
+
+    expect(mutation).not.toHaveBeenCalled();
+  });
+
+  it('leaves an order no longer answered «Вернули»', async () => {
+    const { client, mutation } = orderClient({ paidMoneyOnCancel: 'KEPT' });
+
+    await followRefundEntry(client, ENTRY);
+
+    expect(mutation).not.toHaveBeenCalled();
   });
 });
 

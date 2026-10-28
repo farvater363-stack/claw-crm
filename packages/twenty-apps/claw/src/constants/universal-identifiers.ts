@@ -390,7 +390,7 @@ export const IDS = {
     workshop: 'd15c1c8c-d736-4d80-82a4-f8dab38341c2',
     measurerOwnOrders: 'fc994d42-940b-4b76-bfce-c19499a9a383',
     measurerMeasuringStatuses: '84ace946-7c6f-46e6-be8c-67fffe7bc472',
-    workshopNotCancelled: 'd08958cf-b442-4198-b318-c47a651460e1',
+    workshopNotCancelled: 'd08958cf-b442-4198-b318-c47a651460e1', // Retired: the server refuses the cancel instead; ids are never reused.
   },
   view: {
     ordersKanban: 'dfcc304e-6ee3-49be-820a-abc525d06583',
@@ -658,6 +658,9 @@ export const IDS = {
     onOrderRestored: 'fbf16ef9-afc2-4599-9215-89024c77f0bb',
     onOrderDestroyed: '02d5bbe6-ec68-481b-a116-d4102e487c19',
     onOrderMoneyAnswered: '2f6981dd-e847-49b0-9569-540a33cecbf7',
+    onRefundUpdated: '455c10e0-9387-49ee-b627-aafed29dd1a4',
+    onRefundDeleted: 'e9113900-99dd-4797-8318-32e27aa52f47',
+    onRefundRestored: 'bf083b44-e9a0-4cc5-be4e-6224709e5a79',
     onClientCallCreated: '70aa6c43-63b0-4a95-a964-9e07d4d7804c',
     refreshClients: '632bf9fa-76a6-420f-9daa-d1503396fd4c',
     nextOrderNumber: '0cc3dd74-c80a-424d-93f5-adc4670d0524',
