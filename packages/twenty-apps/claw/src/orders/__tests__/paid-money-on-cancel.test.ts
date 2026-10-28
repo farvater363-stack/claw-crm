@@ -5,6 +5,7 @@ import {
   cancelInsteadOfDelete,
   deleteRefundsOfOrder,
   followRefundAnswer,
+  followRefundDeleted,
   followRefundEntry,
   netPaid,
   paidMoneyAnswerData,
@@ -423,6 +424,89 @@ describe('followRefundEntry', () => {
     await followRefundEntry(client, ENTRY);
 
     expect(mutation).not.toHaveBeenCalled();
+  });
+});
+
+describe('followRefundDeleted', () => {
+  const ENTRY = { id: 'order-1', orderId: 'order-1' };
+
+  const deletedClient = (
+    order: Record<string, unknown>,
+    { paid = 800_000, stillThere = false } = {},
+  ) => {
+    const mutation = vi.fn().mockResolvedValue({});
+    const query = vi.fn().mockResolvedValue({
+      orders: {
+        edges: [
+          {
+            node: {
+              name: '№12',
+              status: 'CANCELLED',
+              paidMoneyOnCancel: 'REFUNDED',
+              refundAmount: uzs(500_000),
+              refundWallet: 'CASH',
+              refundEntryId: null,
+              ...order,
+            },
+          },
+        ],
+      },
+      moneyEntries: {
+        edges: stillThere
+          ? [{ node: { id: 'order-1', amount: uzs(500_000) } }]
+          : [],
+      },
+      orderPayments: {
+        edges: [{ node: { amount: uzs(paid), method: 'CASH' } }],
+      },
+    });
+
+    return {
+      client: { mutation, query } as unknown as CoreApiClient,
+      mutation,
+    };
+  };
+
+  it('takes back the answer when the refund of the current cancel is removed by hand', async () => {
+    const { client, mutation } = deletedClient({});
+
+    await followRefundDeleted(client, ENTRY);
+
+    expect(mutation.mock.calls[0]?.[0].updateOrder.__args.data).toEqual({
+      paidMoneyOnCancel: null,
+      refundAmount: { amountMicros: null, currencyCode: 'UZS' },
+      refundWallet: null,
+    });
+  });
+
+  it('keeps the answer when the app removed the refund for want of payments', async () => {
+    const { client, mutation } = deletedClient({}, { paid: 0 });
+
+    await followRefundDeleted(client, ENTRY);
+
+    expect(mutation).not.toHaveBeenCalled();
+  });
+
+  it('keeps the answer when the refund is already back', async () => {
+    const { client, mutation } = deletedClient({}, { stillThere: true });
+
+    await followRefundDeleted(client, ENTRY);
+
+    expect(mutation).not.toHaveBeenCalled();
+  });
+
+  it('leaves a reopened order and a refund of an earlier cancel alone', async () => {
+    for (const order of [
+      { status: 'PRODUCTION' },
+      { refundEntryId: 'refund-2' },
+      { paidMoneyOnCancel: 'KEPT' },
+    ]) {
+      const { client, mutation } = deletedClient(order);
+
+      await followRefundDeleted(client, ENTRY);
+
+      expect(mutation).not.toHaveBeenCalled();
+    }
   });
 });
 

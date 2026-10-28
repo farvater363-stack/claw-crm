@@ -340,6 +340,67 @@ export const followRefundEntry = async (
   });
 };
 
+// The refund of the current cancel removed by hand in «Деньги» takes the
+// answer back, so «Сегодня» asks again; one the app removed itself, with
+// nothing left to give back, leaves it.
+export const followRefundDeleted = async (
+  client: CoreApiClient,
+  entry: { id: string; orderId: string },
+): Promise<void> => {
+  const { orders, moneyEntries } = await client.query({
+    orders: {
+      __args: { filter: { id: { eq: entry.orderId } }, first: 1 },
+      edges: { node: REFUNDED_ORDER_FIELDS },
+    },
+    moneyEntries: {
+      __args: { filter: { id: { eq: entry.id } }, first: 1 },
+      edges: { node: { id: true } },
+    },
+  });
+  const order = orders?.edges[0]?.node;
+
+  if (
+    order?.paidMoneyOnCancel !== 'REFUNDED' ||
+    !isCancelled(order.status ?? null) ||
+    refundEntryIdOf({
+      id: entry.orderId,
+      refundEntryId: order.refundEntryId ?? null,
+    }) !== entry.id ||
+    // Brought back since: the app answered it again.
+    (moneyEntries?.edges.length ?? 0) > 0
+  ) {
+    return;
+  }
+
+  const money = await loadOrderMoney(client, entry.orderId);
+  const answered = refundOf(
+    money.payments,
+    money.refunds
+      .filter(({ id }) => id !== entry.id)
+      .reduce((sum, { amount }) => sum + amount, 0),
+    {
+      amount: fromCurrency(order.refundAmount ?? null),
+      wallet: (order.refundWallet ?? null) as Wallet | null,
+    },
+  );
+
+  if (answered === null) return;
+
+  await client.mutation({
+    updateOrder: {
+      __args: {
+        id: entry.orderId,
+        data: {
+          paidMoneyOnCancel: null,
+          refundAmount: NO_MONEY,
+          refundWallet: null,
+        },
+      },
+      id: true,
+    },
+  });
+};
+
 // An order removed together with its payments takes its refunds along, and
 // a restored one brings back those that left with it.
 export const deleteRefundsOfOrder = async (
