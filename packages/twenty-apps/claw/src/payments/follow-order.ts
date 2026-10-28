@@ -13,6 +13,14 @@ export const deletePaymentsOfOrder = async (
   });
 };
 
+// «Удалить вместе с оплатами» removes the payments a moment before the order.
+// ponytail: a minute's window, so a payment removed by hand in that minute
+// comes back too; mark the payments with their order's delete if it matters.
+const DELETED_WITH_ORDER_MS = 60_000;
+
+export const deletedWithOrderSince = (orderDeletedAt: string): string =>
+  new Date(Date.parse(orderDeletedAt) - DELETED_WITH_ORDER_MS).toISOString();
+
 // Only the payments that left with the order come back: one removed by hand
 // before that stays removed.
 export const restorePaymentsOfOrder = async (
@@ -27,7 +35,7 @@ export const restorePaymentsOfOrder = async (
       __args: {
         filter: {
           orderId: { eq: orderId },
-          deletedAt: { gte: orderDeletedAt },
+          deletedAt: { gte: deletedWithOrderSince(orderDeletedAt) },
         },
       },
       id: true,
