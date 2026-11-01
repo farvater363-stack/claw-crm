@@ -1,7 +1,7 @@
 import { useAtomComponentStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateValue';
 import { ViewType } from '@/views/types/ViewType';
 import { useCreateViewFromCurrentState } from '@/views/view-picker/hooks/useCreateViewFromCurrentState';
-import { useDestroyViewFromCurrentState } from '@/views/view-picker/hooks/useDestroyViewFromCurrentState';
+import { useOpenViewPickerDestroyConfirmation } from '@/views/view-picker/hooks/useOpenViewPickerDestroyConfirmation';
 import { useGetAvailableFieldsForCalendar } from '@/views/view-picker/hooks/useGetAvailableFieldsForCalendar';
 import { useGetAvailableFieldsToGroupRecordsBy } from '@/views/view-picker/hooks/useGetAvailableFieldsToGroupRecordsBy';
 import { useViewPickerMode } from '@/views/view-picker/hooks/useViewPickerMode';
@@ -34,7 +34,8 @@ export const ViewPickerCreateButton = () => {
   );
 
   const { createViewFromCurrentState } = useCreateViewFromCurrentState();
-  const { destroyViewFromCurrentState } = useDestroyViewFromCurrentState();
+  const { openViewPickerDestroyConfirmation } =
+    useOpenViewPickerDestroyConfirmation();
 
   const handleCreateButtonClick = () => {
     createViewFromCurrentState();
@@ -43,7 +44,7 @@ export const ViewPickerCreateButton = () => {
   if (viewPickerMode === 'edit') {
     return (
       <Button
-        onClick={destroyViewFromCurrentState}
+        onClick={openViewPickerDestroyConfirmation}
         fullWidth
         size="sm"
         disabled={viewPickerIsPersisting}

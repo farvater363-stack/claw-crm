@@ -6,7 +6,7 @@ import { ViewType } from '@/views/types/ViewType';
 import { useGetCurrentViewOnly } from '@/views/hooks/useGetCurrentViewOnly';
 import { computeViewPickerVisibleViews } from '@/views/view-picker/utils/computeViewPickerVisibleViews';
 import { useCreateViewFromCurrentState } from '@/views/view-picker/hooks/useCreateViewFromCurrentState';
-import { useDestroyViewFromCurrentState } from '@/views/view-picker/hooks/useDestroyViewFromCurrentState';
+import { useOpenViewPickerDestroyConfirmation } from '@/views/view-picker/hooks/useOpenViewPickerDestroyConfirmation';
 import { useGetAvailableFieldsToGroupRecordsBy } from '@/views/view-picker/hooks/useGetAvailableFieldsToGroupRecordsBy';
 import { useViewPickerMode } from '@/views/view-picker/hooks/useViewPickerMode';
 import { viewPickerIsPersistingComponentState } from '@/views/view-picker/states/viewPickerIsPersistingComponentState';
@@ -54,12 +54,13 @@ export const ViewPickerEditButton = () => {
   );
 
   const { createViewFromCurrentState } = useCreateViewFromCurrentState();
-  const { destroyViewFromCurrentState } = useDestroyViewFromCurrentState();
+  const { openViewPickerDestroyConfirmation } =
+    useOpenViewPickerDestroyConfirmation();
 
   if (viewPickerMode === 'edit') {
     return (
       <Button
-        onClick={destroyViewFromCurrentState}
+        onClick={openViewPickerDestroyConfirmation}
         fullWidth
         size="sm"
         disabled={viewPickerIsPersisting || isLastView}

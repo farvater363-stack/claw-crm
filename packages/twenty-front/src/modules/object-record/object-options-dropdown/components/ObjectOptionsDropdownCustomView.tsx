@@ -25,7 +25,7 @@ import {
   getViewTypeLabel,
   viewTypeIconMapping,
 } from '@/views/types/ViewType';
-import { useDestroyViewFromCurrentState } from '@/views/view-picker/hooks/useDestroyViewFromCurrentState';
+import { useOpenViewPickerDestroyConfirmation } from '@/views/view-picker/hooks/useOpenViewPickerDestroyConfirmation';
 import { viewPickerReferenceViewIdComponentState } from '@/views/view-picker/states/viewPickerReferenceViewIdComponentState';
 import { useLingui } from '@lingui/react/macro';
 import { isDefined } from 'twenty-shared/utils';
@@ -99,7 +99,8 @@ export const ObjectOptionsDropdownCustomView = ({
 
   const visibleFieldsCount = visibleBoardFields.length;
 
-  const { destroyViewFromCurrentState } = useDestroyViewFromCurrentState();
+  const { openViewPickerDestroyConfirmation } =
+    useOpenViewPickerDestroyConfirmation();
   const setViewPickerReferenceViewId = useSetAtomComponentState(
     viewPickerReferenceViewIdComponentState,
     recordIndexId,
@@ -110,9 +111,9 @@ export const ObjectOptionsDropdownCustomView = ({
       return;
     }
     setViewPickerReferenceViewId(customViewData?.id);
-    destroyViewFromCurrentState();
     closeDropdown();
     onBackToDefault?.();
+    openViewPickerDestroyConfirmation();
   };
 
   const selectableItemIdArray = [
