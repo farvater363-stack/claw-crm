@@ -56,6 +56,10 @@ export const TextFieldInput = () => {
       <TextAreaInput
         instanceId={instanceId}
         placeholder={fieldDefinition.metadata.placeHolder}
+        // Claw keeps phones in plain text fields, so the name is the only hint
+        inputMode={
+          /phone$/i.test(fieldDefinition.metadata.fieldName) ? 'tel' : undefined
+        }
         autoFocus
         value={draftValue ?? ''}
         onClickOutside={handleClickOutside}

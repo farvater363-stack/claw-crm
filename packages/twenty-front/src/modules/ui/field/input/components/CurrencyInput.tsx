@@ -155,6 +155,7 @@ export const CurrencyInput = ({
           }
           inputRef={wrapperRef}
           autoComplete="off"
+          inputMode="decimal"
           placeholder={placeholder}
           autoFocus={autoFocus}
           value={value}

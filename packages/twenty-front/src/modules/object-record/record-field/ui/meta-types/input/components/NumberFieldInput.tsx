@@ -60,10 +60,15 @@ export const NumberFieldInput = () => {
     setDraftValue(newText);
   };
 
+  const hasFraction =
+    (fieldDefinition.metadata.settings?.decimals ?? 0) > 0 ||
+    fieldDefinition.metadata.settings?.type === 'percentage';
+
   return (
     <FieldInputContainer>
       <TextInput
         instanceId={instanceId}
+        inputMode={hasFraction ? 'decimal' : 'numeric'}
         placeholder={fieldDefinition.metadata.placeHolder}
         autoFocus
         value={draftValue?.toString() ?? ''}

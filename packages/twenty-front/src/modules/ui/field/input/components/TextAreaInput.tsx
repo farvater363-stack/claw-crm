@@ -23,6 +23,7 @@ export type TextAreaInputProps = {
   onChange?: (newText: string) => void;
   maxRows?: number;
   copyButton?: boolean;
+  inputMode?: 'tel';
 };
 
 const StyledTextAreaContainer = styled.div`
@@ -79,6 +80,7 @@ export const TextAreaInput = ({
   onChange,
   maxRows,
   copyButton = true,
+  inputMode,
 }: TextAreaInputProps) => {
   const [internalText, setInternalText] = useState(value);
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -125,6 +127,7 @@ export const TextAreaInput = ({
           autoFocus={autoFocus}
           value={internalText}
           maxRows={maxRows}
+          inputMode={inputMode}
         />
       </StyledTextAreaContainer>
       {copyButton && (
