@@ -8,6 +8,7 @@ import { useGetRecordIndexTotalCount } from '@/views/hooks/internal/useGetRecord
 import { useGetCurrentViewOnly } from '@/views/hooks/useGetCurrentViewOnly';
 import { ViewPickerContentCreateMode } from '@/views/view-picker/components/ViewPickerContentCreateMode';
 import { ViewPickerContentEditMode } from '@/views/view-picker/components/ViewPickerContentEditMode';
+import { ViewPickerDestroyConfirmationDialog } from '@/views/view-picker/components/ViewPickerDestroyConfirmationDialog';
 import { ViewPickerContentEffect } from '@/views/view-picker/components/ViewPickerContentEffect';
 import { ViewPickerListContent } from '@/views/view-picker/components/ViewPickerListContent';
 import { useUpdateViewFromCurrentState } from '@/views/view-picker/hooks/useUpdateViewFromCurrentState';
@@ -78,52 +79,55 @@ export const ViewPickerDropdown = () => {
   };
 
   return (
-    <Dropdown
-      dropdownId={dropdownId}
-      dropdownOffset={{ x: 0, y: 8 }}
-      dropdownPlacement="bottom-start"
-      onClickOutside={handleClickOutside}
-      clickableComponent={
-        <StyledDropdownButtonContainer isUnfolded={isDropdownOpen}>
-          <StyledIconContainer>
-            {isDefined(currentView) && isDefined(CurrentViewIcon) ? (
-              <CurrentViewIcon size={theme.icon.size.md} />
-            ) : (
-              <IconList size={theme.icon.size.md} />
-            )}
-          </StyledIconContainer>
-          <StyledViewName>
-            <OverflowingTextWithTooltip text={currentView?.name ?? t`All`} />
-          </StyledViewName>
-          <StyledDropdownLabelAdornments>
-            {isDefined(totalCount) && <>· {formatNumber(totalCount)} </>}
-            <IconChevronDown size={theme.icon.size.sm} />
-          </StyledDropdownLabelAdornments>
-        </StyledDropdownButtonContainer>
-      }
-      dropdownComponents={(() => {
-        switch (viewPickerMode) {
-          case 'list':
-            return <ViewPickerListContent />;
-          case 'create-empty':
-          case 'create-from-current':
-            return (
-              <>
-                <ViewPickerContentCreateMode />
-                <ViewPickerContentEffect />
-              </>
-            );
-          case 'edit':
-            return (
-              <>
-                <ViewPickerContentEditMode />
-                <ViewPickerContentEffect />
-              </>
-            );
-          default:
-            return null;
+    <>
+      <Dropdown
+        dropdownId={dropdownId}
+        dropdownOffset={{ x: 0, y: 8 }}
+        dropdownPlacement="bottom-start"
+        onClickOutside={handleClickOutside}
+        clickableComponent={
+          <StyledDropdownButtonContainer isUnfolded={isDropdownOpen}>
+            <StyledIconContainer>
+              {isDefined(currentView) && isDefined(CurrentViewIcon) ? (
+                <CurrentViewIcon size={theme.icon.size.md} />
+              ) : (
+                <IconList size={theme.icon.size.md} />
+              )}
+            </StyledIconContainer>
+            <StyledViewName>
+              <OverflowingTextWithTooltip text={currentView?.name ?? t`All`} />
+            </StyledViewName>
+            <StyledDropdownLabelAdornments>
+              {isDefined(totalCount) && <>· {formatNumber(totalCount)} </>}
+              <IconChevronDown size={theme.icon.size.sm} />
+            </StyledDropdownLabelAdornments>
+          </StyledDropdownButtonContainer>
         }
-      })()}
-    />
+        dropdownComponents={(() => {
+          switch (viewPickerMode) {
+            case 'list':
+              return <ViewPickerListContent />;
+            case 'create-empty':
+            case 'create-from-current':
+              return (
+                <>
+                  <ViewPickerContentCreateMode />
+                  <ViewPickerContentEffect />
+                </>
+              );
+            case 'edit':
+              return (
+                <>
+                  <ViewPickerContentEditMode />
+                  <ViewPickerContentEffect />
+                </>
+              );
+            default:
+              return null;
+          }
+        })()}
+      />
+      <ViewPickerDestroyConfirmationDialog />
+    </>
   );
 };

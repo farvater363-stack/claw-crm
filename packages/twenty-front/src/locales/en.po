@@ -25537,3 +25537,13 @@ msgstr "Zoom in"
 #: src/modules/settings/data-model/graph-overview/components/SettingsDataModelOverview.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
+
+#. js-lingui-id: CdAknJ
+#: src/modules/views/view-picker/components/ViewPickerDestroyConfirmationDialog.tsx
+msgid "Delete view \"{viewName}\"?"
+msgstr "Delete view \"{viewName}\"?"
+
+#. js-lingui-id: qgVAok
+#: src/modules/views/view-picker/components/ViewPickerDestroyConfirmationDialog.tsx
+msgid "It will disappear for everyone in the workspace, along with its menu item."
+msgstr "It will disappear for everyone in the workspace, along with its menu item."

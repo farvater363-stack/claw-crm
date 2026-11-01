@@ -9,7 +9,7 @@ import { useCloseDropdown } from '@/ui/layout/dropdown/hooks/useCloseDropdown';
 import { MenuItemWithOptionDropdown } from '@/ui/navigation/menu-item/components/MenuItemWithOptionDropdown';
 import { useSetAtomComponentState } from '@/ui/utilities/state/jotai/hooks/useSetAtomComponentState';
 import { type View } from '@/views/types/View';
-import { useDestroyViewFromCurrentState } from '@/views/view-picker/hooks/useDestroyViewFromCurrentState';
+import { useOpenViewPickerDestroyConfirmation } from '@/views/view-picker/hooks/useOpenViewPickerDestroyConfirmation';
 import { viewPickerReferenceViewIdComponentState } from '@/views/view-picker/states/viewPickerReferenceViewIdComponentState';
 import { useLingui } from '@lingui/react/macro';
 import { NavigationMenuItemType } from 'twenty-shared/types';
@@ -53,7 +53,8 @@ export const ViewPickerOptionDropdown = ({
   const { t } = useLingui();
   const { closeDropdown } = useCloseDropdown();
   const { getIcon } = useIcons();
-  const { destroyViewFromCurrentState } = useDestroyViewFromCurrentState();
+  const { openViewPickerDestroyConfirmation } =
+    useOpenViewPickerDestroyConfirmation();
   const setViewPickerReferenceViewId = useSetAtomComponentState(
     viewPickerReferenceViewIdComponentState,
   );
@@ -79,8 +80,8 @@ export const ViewPickerOptionDropdown = ({
 
   const handleDelete = () => {
     setViewPickerReferenceViewId(view.id);
-    destroyViewFromCurrentState();
     closeDropdown(dropdownId);
+    openViewPickerDestroyConfirmation();
   };
 
   const handleToggleFavorite = () => {
