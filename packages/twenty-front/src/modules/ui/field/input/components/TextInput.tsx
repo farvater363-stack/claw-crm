@@ -46,6 +46,7 @@ export type TextInputProps = {
   shouldTrim?: boolean;
   disabled?: boolean;
   className?: string;
+  inputMode?: 'numeric' | 'decimal';
 };
 
 const getValue = (value: string, shouldTrim: boolean) => {
@@ -72,6 +73,7 @@ export const TextInput = ({
   shouldTrim = true,
   disabled,
   className,
+  inputMode,
 }: TextInputProps) => {
   const [internalText, setInternalText] = useState(value);
 
@@ -113,6 +115,7 @@ export const TextInput = ({
         value={internalText}
         disabled={disabled}
         className={className}
+        inputMode={inputMode}
       />
       {copyButton && (
         <div ref={copyRef}>
