@@ -1,3 +1,4 @@
+import { renderSchemePdf } from 'src/order-sketch/scheme-pdf';
 import { createRecalcClient } from 'src/recalc/create-recalc-client';
 import { buildOrderCard } from 'src/telegram/order-card';
 import { loadOrderPost } from 'src/telegram/load-order-post';
@@ -81,7 +82,7 @@ export const createTelegramRouteDependencies =
         },
       },
       loadPost: async (orderId) => {
-        const { card, photoUrls, point } = await loadOrderPost(
+        const { card, photoUrls, point, scheme } = await loadOrderPost(
           client,
           orderId,
           workspaceUrl(),
@@ -98,7 +99,26 @@ export const createTelegramRouteDependencies =
           }),
         );
 
-        return { cardHtml: buildOrderCard(card), photos, point };
+        // Drawn anew, so it matches the order even if nobody printed it lately.
+        const document =
+          scheme === null
+            ? null
+            : {
+                fileName: scheme.fileName,
+                bytes: new Blob(
+                  [
+                    (await renderSchemePdf({
+                      title: scheme.title,
+                      subtitle: scheme.subtitle,
+                      openings: scheme.openings,
+                      printedAt: new Date(),
+                    })) as BlobPart,
+                  ],
+                  { type: 'application/pdf' },
+                ),
+              };
+
+        return { cardHtml: buildOrderCard(card), document, photos, point };
       },
     };
   };

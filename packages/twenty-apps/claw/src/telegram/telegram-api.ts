@@ -44,6 +44,8 @@ export const callTelegram = async (
 export type OrderPost = {
   chatId: string;
   cardHtml: string;
+  // The order's «Схема»: every проём drawn, for the installers on site
+  document: { fileName: string; bytes: Blob } | null;
   photos: { fileName: string; bytes: Blob }[];
   point: { lat: number; lng: number } | null;
 };
@@ -97,6 +99,14 @@ export const sendOrderPost = async (
     },
     fetchImpl,
   );
+
+  if (post.document !== null) {
+    const form = new FormData();
+
+    form.append('chat_id', post.chatId);
+    form.append('document', post.document.bytes, post.document.fileName);
+    await callTelegram(token, 'sendDocument', form, fetchImpl);
+  }
 
   if (post.photos.length > 0) {
     await sendPhotos(token, post.chatId, post.photos, fetchImpl);

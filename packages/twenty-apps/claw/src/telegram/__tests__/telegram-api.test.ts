@@ -28,6 +28,7 @@ const photo = (index: number) => ({
 const POST = {
   chatId: '-1001',
   cardHtml: '<b>Заказ №1</b>',
+  document: null,
   photos: [],
   point: { lat: 41.3111, lng: 69.2797 },
 };
@@ -57,6 +58,33 @@ describe('sending an order to Telegram', () => {
       'sendMessage',
       'sendPhoto',
     ]);
+  });
+
+  it('sends the scheme as a file right after the card', async () => {
+    const { calls, fetchImpl } = recordingFetch();
+
+    await sendOrderPost(
+      'token',
+      {
+        ...POST,
+        document: {
+          fileName: 'Схема 1043.pdf',
+          bytes: new Blob(['%PDF'], { type: 'application/pdf' }),
+        },
+        photos: [photo(1)],
+      },
+      fetchImpl,
+    );
+
+    expect(calls.map((call) => call.method)).toEqual([
+      'sendMessage',
+      'sendDocument',
+      'sendPhoto',
+      'sendLocation',
+    ]);
+    expect(((calls[1].body as FormData).get('document') as File).name).toBe(
+      'Схема 1043.pdf',
+    );
   });
 
   it('sends several photos as one album', async () => {
