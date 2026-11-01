@@ -20,16 +20,18 @@ jobs:
   trigger-build:
     # Same fork PRs from outside the org don't have `secrets.*` so the dispatch
     # call would fail anyway — skip explicitly to avoid noise.
-    if: |
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.action != 'closed' && (
-        (github.event.action == 'labeled' && github.event.label.name == 'preview-website') ||
-        (
+    if: >-
+      github.repository == 'twentyhq/twenty' && (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.action != 'closed' && (
+          (github.event.action == 'labeled' && github.event.label.name == 'preview-website') ||
           (
-            github.event.pull_request.author_association == 'MEMBER' ||
-            github.event.pull_request.author_association == 'OWNER' ||
-            github.event.pull_request.author_association == 'COLLABORATOR'
-          ) && contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)
+            (
+              github.event.pull_request.author_association == 'MEMBER' ||
+              github.event.pull_request.author_association == 'OWNER' ||
+              github.event.pull_request.author_association == 'COLLABORATOR'
+            ) && contains(fromJSON('["opened","synchronize","reopened"]'), github.event.action)
+          )
         )
       )
     runs-on: ubuntu-latest
@@ -63,9 +65,11 @@ jobs:
     # for both. PRs left open forever are covered by OpenNext's
     # `maxVersionAgeDays: 14` + `maxNumberOfVersions: 50` auto-pruning in
     # open-next.config.ts, so nothing leaks even if cleanup never runs.
-    if: |
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.action == 'closed'
+    if: >-
+      github.repository == 'twentyhq/twenty' && (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.action == 'closed'
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

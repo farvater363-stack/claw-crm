@@ -8,11 +8,13 @@ permissions: {}
 
 jobs:
   dispatch:
-    if: |
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.author_association != 'MEMBER' &&
-      github.event.pull_request.author_association != 'OWNER' &&
-      github.event.pull_request.author_association != 'COLLABORATOR'
+    if: >-
+      github.repository == 'twentyhq/twenty' && (
+        github.event.pull_request.draft == false &&
+        github.event.pull_request.author_association != 'MEMBER' &&
+        github.event.pull_request.author_association != 'OWNER' &&
+        github.event.pull_request.author_association != 'COLLABORATOR'
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

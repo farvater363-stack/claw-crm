@@ -51,6 +51,7 @@ jobs:
           retention-days: 7
 
   dispatch:
+    if: github.repository == 'twentyhq/twenty'
     needs: build
     permissions: {}
     runs-on: ubuntu-latest
