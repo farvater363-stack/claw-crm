@@ -50,6 +50,7 @@ const dependencies = (
     newLinkCode: () => 'NEXTCODE',
     loadPost: async () => ({
       cardHtml: '<b>Заказ №1</b>',
+      document: null,
       photos: [],
       point: null,
     }),
@@ -193,6 +194,7 @@ describe('telegram routes, after review', () => {
       failOn: 'sendPhoto',
       loadPost: async () => ({
         cardHtml: '<b>Заказ №1</b>',
+        document: null,
         photos: [{ fileName: 'a.jpg', bytes: new Blob(['x']) }],
         point: null,
       }),
