@@ -17,6 +17,7 @@ import {
   toSchemeOpenings,
 } from 'src/order-sketch/order-sketch';
 import { todayInTashkent } from 'src/pricing/dates';
+import { collectOrderMedia } from 'src/order-notes/order-notes';
 import { fetchAllPages, PAGE_INFO } from 'src/utils/fetch-all-pages';
 import { joinFullName } from 'src/utils/full-name';
 import { isAccessError } from 'src/utils/is-access-error';
@@ -143,6 +144,8 @@ export const loadWorkshopOrders = async (
             installationDeadline: true,
             areaSquareMeters: true,
             finishedPhotos: PHOTO,
+            locationPhotos: PHOTO,
+            schemePdf: { url: true, label: true },
             master: { fullName: NAME },
             installer: { fullName: NAME },
           },
@@ -159,99 +162,133 @@ export const loadWorkshopOrders = async (
   // One filter over every shown order: a workshop holds tens of orders, not
   // thousands. Split the ids into batches if that ever changes.
   const ofShownOrders = { orderId: { in: orderNodes.map((node) => node.id) } };
-  const [itemNodes, serviceNodes, materialNodes, measurerNames] = await Promise.all([
-    fetchAllPages(async (after) => {
-      const { orderItems } = await client.query({
-        orderItems: {
-          __args: {
-            first: PAGE_SIZE,
-            after,
-            filter: ofShownOrders,
-            orderBy: [{ createdAt: 'AscNullsLast' }],
-          },
-          edges: {
-            node: {
-              id: true,
-              orderId: true,
-              name: true,
-              product: true,
-              shape: true,
-              widthCm: true,
-              heightCm: true,
-              projectionCm: true,
-              projectionKind: true,
-              projectionSide: true,
-              openingNumber: true,
-              quantity: true,
-              areaSquareMeters: true,
-              notes: true,
-              photos: PHOTO,
-              designId: true,
-              design: { name: true, grilleKind: { name: true }, photos: PHOTO },
+  const [itemNodes, serviceNodes, materialNodes, measurerNames, noteNodes] =
+    await Promise.all([
+      fetchAllPages(async (after) => {
+        const { orderItems } = await client.query({
+          orderItems: {
+            __args: {
+              first: PAGE_SIZE,
+              after,
+              filter: ofShownOrders,
+              orderBy: [{ createdAt: 'AscNullsLast' }],
             },
-          },
-          pageInfo: PAGE_INFO,
-        },
-      });
-
-      return orderItems;
-    }),
-    fetchAllPages(async (after) => {
-      const { orderExtraServices } = await client.query({
-        orderExtraServices: {
-          __args: {
-            first: PAGE_SIZE,
-            after,
-            filter: ofShownOrders,
-            orderBy: [{ createdAt: 'AscNullsLast' }],
-          },
-          edges: {
-            node: {
-              id: true,
-              orderId: true,
-              orderItemId: true,
-              openingNumber: true,
-              name: true,
-              quantity: true,
+            edges: {
+              node: {
+                id: true,
+                orderId: true,
+                name: true,
+                product: true,
+                shape: true,
+                widthCm: true,
+                heightCm: true,
+                projectionCm: true,
+                projectionKind: true,
+                projectionSide: true,
+                openingNumber: true,
+                quantity: true,
+                areaSquareMeters: true,
+                notes: true,
+                photos: PHOTO,
+                designId: true,
+                design: {
+                  name: true,
+                  grilleKind: { name: true },
+                  photos: PHOTO,
+                },
+              },
             },
+            pageInfo: PAGE_INFO,
           },
-          pageInfo: PAGE_INFO,
-        },
-      });
+        });
 
-      return orderExtraServices;
-    }),
-    fetchAllPages(async (after) => {
-      const { orderMaterials } = await client.query({
-        orderMaterials: {
-          __args: {
-            first: PAGE_SIZE,
-            after,
-            filter: ofShownOrders,
-            orderBy: [{ name: 'AscNullsLast' }],
-          },
-          edges: {
-            node: {
-              id: true,
-              orderId: true,
-              name: true,
-              plannedQuantity: true,
-              material: { name: true, unit: true, onHand: true },
+        return orderItems;
+      }),
+      fetchAllPages(async (after) => {
+        const { orderExtraServices } = await client.query({
+          orderExtraServices: {
+            __args: {
+              first: PAGE_SIZE,
+              after,
+              filter: ofShownOrders,
+              orderBy: [{ createdAt: 'AscNullsLast' }],
             },
+            edges: {
+              node: {
+                id: true,
+                orderId: true,
+                orderItemId: true,
+                openingNumber: true,
+                name: true,
+                quantity: true,
+              },
+            },
+            pageInfo: PAGE_INFO,
           },
-          pageInfo: PAGE_INFO,
-        },
-      });
+        });
 
-      return orderMaterials;
-    }),
-    loadMeasurerNames(
-      client,
-      orderNodes.flatMap((node) =>
-        node.measurerId ? [node.measurerId] : [],
+        return orderExtraServices;
+      }),
+      fetchAllPages(async (after) => {
+        const { orderMaterials } = await client.query({
+          orderMaterials: {
+            __args: {
+              first: PAGE_SIZE,
+              after,
+              filter: ofShownOrders,
+              orderBy: [{ name: 'AscNullsLast' }],
+            },
+            edges: {
+              node: {
+                id: true,
+                orderId: true,
+                name: true,
+                plannedQuantity: true,
+                material: { name: true, unit: true, onHand: true },
+              },
+            },
+            pageInfo: PAGE_INFO,
+          },
+        });
+
+        return orderMaterials;
+      }),
+      loadMeasurerNames(
+        client,
+        orderNodes.flatMap((node) =>
+          node.measurerId ? [node.measurerId] : [],
+        ),
       ),
-    ),
-  ]);
+      // The board still shows the work if the notes cannot be read
+      fetchAllPages(async (after) => {
+        const { orderNotes } = await client.query({
+          orderNotes: {
+            __args: {
+              first: PAGE_SIZE,
+              after,
+              filter: ofShownOrders,
+              orderBy: [{ createdAt: 'DescNullsLast' }],
+            },
+            edges: {
+              node: {
+                id: true,
+                orderId: true,
+                text: true,
+                createdAt: true,
+                updatedAt: true,
+                createdBy: { name: true, workspaceMemberId: true },
+                orderItemId: true,
+                photos: PHOTO,
+                files: { url: true, label: true },
+              },
+            },
+            pageInfo: PAGE_INFO,
+          },
+        });
+
+        return orderNotes;
+      }).catch(() => []),
+    ]);
 
   const itemsOf = (orderId: string): WorkshopItem[] => {
     const nodes = itemNodes.filter((item) => item.orderId === orderId);
@@ -295,7 +332,6 @@ export const loadWorkshopOrders = async (
       ];
     });
   };
-
 
   const itemsByOrder = new Map(
     orderNodes.map((node) => [node.id, itemsOf(node.id)]),
@@ -353,7 +389,6 @@ export const loadWorkshopOrders = async (
         isShort: (line.material?.onHand ?? 0) < 0,
       }));
 
-
   return orderNodes.map((node) => ({
     id: node.id,
     name: node.name ?? '',
@@ -384,20 +419,50 @@ export const loadWorkshopOrders = async (
     services: servicesOf(node.id),
     materials: materialsOf(node.id),
     finishedPhotoUrls: urlsOf(node.finishedPhotos),
+    media: collectOrderMedia({
+      orderComment: textOrNull(node.comment),
+      finishedPhotos: node.finishedPhotos ?? null,
+      locationPhotos: node.locationPhotos ?? null,
+      // The workshop prints it; it is shown with the files
+      schemePdf: node.schemePdf ?? null,
+      items: itemNodes
+        .filter((item) => item.orderId === node.id)
+        .map((item) => ({
+          id: item.id,
+          openingNumber: item.openingNumber ?? null,
+          widthCm: item.widthCm ?? null,
+          heightCm: item.heightCm ?? null,
+          designName: textOrNull(item.design?.name),
+          notes: textOrNull(item.notes),
+          photos: item.photos ?? null,
+        })),
+      orderNotes: noteNodes
+        .filter((note) => note.orderId === node.id)
+        .map((note) => ({
+          id: note.id,
+          text: note.text ?? null,
+          createdAt: note.createdAt ?? null,
+          updatedAt: note.updatedAt ?? null,
+          authorName: note.createdBy?.name?.trim() || null,
+          authorMemberId: note.createdBy?.workspaceMemberId ?? null,
+          orderItemId: note.orderItemId ?? null,
+          photos: note.photos ?? null,
+          files: note.files ?? null,
+        })),
+      payments: [],
+      stockMovements: [],
+    }),
   }));
 };
 
-// The workshop role may write the status, the stage and the finished photos,
-// so nothing else is sent. The wall is up to a minute old: every update is
+// The workshop role may write the status and the stage here, so nothing else
+// is sent. The wall is up to a minute old: every update is
 // filtered on the order still being in production, so one a manager has
 // already moved on or cancelled is left where it is.
 const updateInProduction = async (
   client: CoreApiClient,
   orderId: string,
-  data:
-    | { status: OrderStatus }
-    | { productionStage: ProductionStage | null }
-    | { finishedPhotos: FinishedPhoto[] },
+  data: { status: OrderStatus } | { productionStage: ProductionStage | null },
 ): Promise<'saved' | 'moved'> => {
   const { updateOrders } = await client.mutation({
     updateOrders: {
@@ -432,50 +497,3 @@ export const setStage = (
   stage: ProductionStage | null,
 ): Promise<'saved' | 'moved'> =>
   updateInProduction(client, orderId, { productionStage: stage });
-
-export type FinishedPhoto = { fileId: string; label: string };
-
-// The field is written as a whole list, so the photos already on the order
-// are read just before the write: one a manager added since the last reload
-// is kept.
-export const addFinishedPhotos = async (
-  client: CoreApiClient,
-  orderId: string,
-  photos: FinishedPhoto[],
-): Promise<'saved' | 'moved'> => {
-  const { orders } = await client.query({
-    orders: {
-      __args: {
-        first: 1,
-        filter: {
-          id: { eq: orderId },
-          status: { eq: STEP_STATUS.production },
-        },
-      },
-      edges: { node: { finishedPhotos: { fileId: true, label: true } } },
-    },
-  });
-  const order = orders?.edges[0]?.node;
-
-  if (order === undefined) return 'moved';
-
-  const kept = (order.finishedPhotos ?? []).flatMap((photo) =>
-    typeof photo?.fileId === 'string'
-      ? [{ fileId: photo.fileId, label: photo.label ?? '' }]
-      : [],
-  );
-
-  return updateInProduction(client, orderId, {
-    finishedPhotos: [...kept, ...photos],
-  });
-};
-
-export const buildFinishedPhotoLabel = (
-  orderName: string,
-  photoNumber: number,
-  fileName: string,
-): string => {
-  const extension = /\.[a-z0-9]+$/i.exec(fileName)?.[0].toLowerCase() ?? '';
-
-  return `Готово ${orderName}, фото ${photoNumber}${extension}`;
-};

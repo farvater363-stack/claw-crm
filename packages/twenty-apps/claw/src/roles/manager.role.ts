@@ -53,6 +53,7 @@ export default defineRole({
     readWrite(IDS.orderItem.object),
     readWrite(IDS.orderExtraService.object),
     readWrite(IDS.orderPayment.object),
+    readWrite(IDS.orderNote.object),
     readWrite(IDS.design.object),
     readWrite(IDS.grilleKind.object),
     readWrite(IDS.extraService.object),

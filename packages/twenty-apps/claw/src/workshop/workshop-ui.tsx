@@ -71,7 +71,7 @@ export const Photo = ({
             fontSize: '12px',
           }}
         >
-          нет фото
+          {typeof size === 'number' && size < 48 ? null : 'нет фото'}
         </div>
       )}
       {caption ? (

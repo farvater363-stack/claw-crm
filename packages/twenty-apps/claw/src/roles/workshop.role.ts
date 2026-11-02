@@ -172,6 +172,11 @@ export default defineRole({
     readOnly(IDS.grilleKind.object),
     readOnly(IDS.material.object),
     readOnly(IDS.orderMaterial.object),
+    // Questions to the office and photos of the work, on the order itself
+    {
+      ...readUpdate(IDS.orderNote.object),
+      canSoftDeleteObjectRecords: true,
+    },
   ],
   fieldPermissions: [
     ...SHARED_FIELD_PERMISSIONS,
@@ -186,7 +191,7 @@ export default defineRole({
         })),
     ),
   ],
-  // The workshop photographs a finished order before it leaves; without it
-  // every upload is rejected.
+  // The workshop photographs a finished order and attaches photos to its
+  // notes; without it every upload is rejected.
   permissionFlagUniversalIdentifiers: [SystemPermissionFlag.UPLOAD_FILE],
 });

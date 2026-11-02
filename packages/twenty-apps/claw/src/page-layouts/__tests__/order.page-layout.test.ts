@@ -13,11 +13,10 @@ const widgetsOf = (tabId: string) =>
   tabs.find((tab) => tab.universalIdentifier === tabId)?.widgets ?? [];
 
 describe('order page', () => {
-  it('has the left column and three tabs', () => {
+  it('has the left column and two tabs', () => {
     expect(tabs.map((tab) => tab.title)).toEqual([
       'Заказ',
       'Работа',
-      'Фото и заметки',
       'История',
     ]);
   });
@@ -31,6 +30,7 @@ describe('order page', () => {
   it("reads «Работа» from the header down to the materials, then a «Другая» рисунок's", () => {
     expect(widgetsOf(ids.itemsTab).map((widget) => widget.title)).toEqual([
       'Что дальше',
+      'Фото и заметки',
       'Адрес и точка',
       'Схема',
       'Что делаем',
@@ -59,6 +59,7 @@ describe('order page', () => {
         ids.itemsTab,
         [
           IDS.orderHeader.orderPageWidget,
+          IDS.measurementNotes.workTabWidget,
           IDS.orderLocation.orderPageWidget,
           IDS.orderSketch.orderPageWidget,
           ids.itemsWidget,
@@ -68,14 +69,6 @@ describe('order page', () => {
           ids.paymentsWidget,
           ids.materialsWidget,
           ids.customMaterialsWidget,
-        ],
-      ],
-      [
-        ids.notesTab,
-        [
-          IDS.measurementNotes.orderPageWidget,
-          ids.notesFilesWidget,
-          ids.notesWidget,
         ],
       ],
       [ids.timelineTab, [ids.timelineWidget]],
@@ -93,33 +86,26 @@ describe('order page', () => {
     });
   });
 
-  // The server deletes a widget together with its tab, so the files widget
-  // of the removed tab «Файлы» cannot be carried over to another tab.
-  it('gives the files widget on «Фото и заметки» an identifier of its own', () => {
-    const files = widgetsOf(ids.notesTab).find(
-      (widget) => widget.type === 'FILES',
-    );
+  // Photos, notes and files have one place, the block on «Работа». Twenty's
+  // own notes and files widgets and the old tab are gone for good.
+  it('shows photos, notes and files only on «Работа»', () => {
+    const config = JSON.stringify(orderPage.config);
 
-    expect(files?.universalIdentifier).toBe(
-      'f47172b1-7b46-47b5-a866-724ba0f3503d',
-    );
-    expect(JSON.stringify(orderPage.config)).not.toContain(
+    for (const retired of [
+      ids.notesTab,
+      ids.notesWidget,
+      ids.notesFilesWidget,
+      ids.filesTab,
       'da9ecc50-b8f3-4756-8b58-d232172e2689',
-    );
-    expect(JSON.stringify(orderPage.config)).not.toContain(ids.filesTab);
-  });
-
-  it('keeps the one widget that fills the tab last', () => {
+      IDS.measurementNotes.orderPageWidget,
+    ]) {
+      expect(config).not.toContain(retired);
+    }
     expect(
-      widgetsOf(ids.notesTab).map((widget) => [
-        widget.type,
-        widget.heightBehavior,
-      ]),
-    ).toEqual([
-      ['FRONT_COMPONENT', undefined],
-      ['FILES', 'FIT_CONTENT'],
-      ['NOTES', undefined],
-    ]);
+      tabs
+        .flatMap((tab) => tab.widgets ?? [])
+        .filter((widget) => widget.type === 'NOTES' || widget.type === 'FILES'),
+    ).toEqual([]);
   });
 });
 

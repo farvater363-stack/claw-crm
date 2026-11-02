@@ -1,18 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CoreApiClient } from 'twenty-client-sdk/core';
-import { MetadataApiClient } from 'twenty-client-sdk/metadata';
-import { uploadFile } from 'twenty-sdk/front-component';
 
 import { isInProduction } from 'src/constants/order-status-sets';
-import { IDS } from 'src/constants/universal-identifiers';
 import { SketchDrawing } from 'src/measurer-form/measurer-form-ui';
+import {
+  CameraIcon,
+  NoteIcon,
+  OrderMediaBlock,
+  PaperclipIcon,
+} from 'src/order-notes/order-media-block';
+import { loadViewer } from 'src/order-notes/order-media-store';
+import {
+  formatNoteTime,
+  type MediaNote,
+  filesCountText,
+  type MediaSummary,
+  notesCountText,
+  summarizeOrderMedia,
+} from 'src/order-notes/order-notes';
+import { readSeenAt } from 'src/order-notes/seen-store';
 import { schemeSketchLayout } from 'src/order-sketch/order-sketch';
 import { printScheme } from 'src/order-sketch/print-scheme';
 import { todayInTashkent } from 'src/pricing/dates';
 import {
   Button,
   ErrorNote,
-  FilePicker,
   Hint,
   InlineConfirm,
   Screen,
@@ -23,9 +35,6 @@ import { RADIUS, SPACE, TABULAR_NUMBERS, TYPE } from 'src/ui/tokens';
 import { formatDayMonth, formatQuantity } from 'src/ui/format';
 import { isAccessError } from 'src/utils/is-access-error';
 import {
-  addFinishedPhotos,
-  buildFinishedPhotoLabel,
-  type FinishedPhoto,
   loadWorkshopOrders,
   markReady,
   setStage,
@@ -72,34 +81,6 @@ const LOAD_ERROR =
 const SAVE_ERROR =
   'Не удалось сохранить. Проверьте интернет и нажмите "Повторить"';
 const NO_RIGHTS = 'Нет прав на этот шаг';
-const SOME_PHOTOS_FAILED =
-  'Не все фото загрузились. Добавьте недостающие ещё раз.';
-
-const photosNotAttachedNote = (orderName: string) =>
-  `Заказ ${orderName} уже ушёл дальше, фото не прикреплены`;
-
-class SomePhotosFailedError extends Error {}
-
-// uploadFile needs this workspace's id for order.finishedPhotos, which
-// differs from the universalIdentifier the app declares.
-const fetchFinishedPhotosFieldMetadataId = async (): Promise<string> => {
-  const { objects } = await new MetadataApiClient().query({
-    objects: {
-      __args: {
-        paging: { first: 1 },
-        filter: { universalIdentifier: { eq: IDS.order.object } },
-      },
-      edges: { node: { fieldsList: { id: true, universalIdentifier: true } } },
-    },
-  });
-  const fieldMetadataId = objects.edges[0]?.node.fieldsList?.find(
-    (field) => field.universalIdentifier === IDS.order.finishedPhotos,
-  )?.id;
-
-  if (!fieldMetadataId) throw new Error('order.finishedPhotos field not found');
-
-  return fieldMetadataId;
-};
 
 type WriteError = { orderId: string; text: string; retry?: () => void };
 type Layout = 'stages' | 'masters';
@@ -109,40 +90,6 @@ const coverOf = (order: WorkshopOrder): string | null =>
   order.items.flatMap((item) => item.openingPhotoUrls)[0] ??
   order.finishedPhotoUrls[0] ??
   null;
-
-// `label` is the short name under its thumbnail, «Проём 2» or «Готово»
-type GalleryPhoto = { url: string; caption: string; label: string };
-
-const galleryOf = (order: WorkshopOrder): GalleryPhoto[] => {
-  const seen = new Set<string>();
-  const photos: GalleryPhoto[] = [];
-  const add = (url: string | null, caption: string, label: string) => {
-    if (url === null || seen.has(url)) return;
-
-    seen.add(url);
-    photos.push({ url, caption, label });
-  };
-
-  for (const item of order.items) {
-    const title = item.scheme.title;
-
-    for (const url of item.openingPhotoUrls) {
-      add(url, `${title} · фото с замера`, title);
-    }
-
-    add(
-      item.designPhotoUrl,
-      `${title} · рисунок «${item.designName ?? 'Решётка'}» из каталога`,
-      `${title} · рисунок`,
-    );
-  }
-
-  for (const url of order.finishedPhotoUrls) {
-    add(url, 'Фото готовой работы', 'Готово');
-  }
-
-  return photos;
-};
 
 const clientLine = (order: WorkshopOrder): string =>
   [
@@ -161,6 +108,103 @@ const serviceText = (service: WorkshopService) =>
     .filter((part) => part !== null)
     .join(' · ');
 
+const newNotesText = (count: number) => {
+  const lastTwo = count % 100;
+  const last = count % 10;
+
+  return `${count} ${
+    lastTwo >= 11 && lastTwo <= 14
+      ? 'новых'
+      : last === 1
+        ? 'новая'
+        : last >= 2 && last <= 4
+          ? 'новые'
+          : 'новых'
+  }`;
+};
+
+// How many photos and notes an order has; green while a note waits unread
+const MediaPills = ({ summary }: { summary: MediaSummary }) => {
+  const colors = usePalette();
+  const pill = (isHot: boolean) => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '3px 9px',
+    borderRadius: 999,
+    fontSize: '13px',
+    fontWeight: 600,
+    background: isHot ? colors.accent : colors.panel,
+    color: isHot ? colors.onAccent : colors.text,
+    ...TABULAR_NUMBERS,
+  });
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.xs + 2 }}>
+      {summary.photoCount > 0 ? (
+        <span style={pill(false)}>
+          <CameraIcon size={15} />
+          {summary.photoCount} фото
+        </span>
+      ) : null}
+      {summary.noteCount > 0 ? (
+        <span style={pill(summary.newNoteCount > 0)}>
+          <NoteIcon size={15} />
+          {notesCountText(summary.noteCount)}
+          {summary.newNoteCount > 0
+            ? ` · ${newNotesText(summary.newNoteCount)}`
+            : ''}
+        </span>
+      ) : null}
+      {summary.fileCount > 0 ? (
+        <span style={pill(false)}>
+          <PaperclipIcon size={15} />
+          {filesCountText(summary.fileCount)}
+        </span>
+      ) : null}
+    </div>
+  );
+};
+
+const NewNoteLine = ({ note }: { note: MediaNote }) => {
+  const colors = usePalette();
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gap: 2,
+        padding: `${SPACE.sm}px ${SPACE.md - 2}px`,
+        borderRadius: RADIUS.control,
+        background: colors.note,
+        fontSize: '14px',
+        lineHeight: '20px',
+      }}
+    >
+      <span style={{ fontSize: '12px', color: colors.muted }}>
+        {[
+          note.authorName,
+          note.createdAt === null ? null : formatNoteTime(note.createdAt),
+          note.tagLabel,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </span>
+      <span
+        style={{
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          overflowWrap: 'anywhere',
+        }}
+      >
+        {note.text}
+      </span>
+    </div>
+  );
+};
+
 const KanbanCard = ({
   card,
   isBusy,
@@ -173,8 +217,10 @@ const KanbanCard = ({
   onCancel,
   onDragStart,
   onDragEnd,
+  myMemberId,
 }: {
   card: WorkshopCard;
+  myMemberId: string | null;
   isBusy: boolean;
   isConfirming: boolean;
   error: WriteError | null;
@@ -196,7 +242,11 @@ const KanbanCard = ({
         : card.tone === 'success'
           ? colors.success
           : colors.border;
-  const photoCount = galleryOf(card).length;
+  const mediaSummary = summarizeOrderMedia(card.media, {
+    seenAt: readSeenAt(card.id),
+    myMemberId,
+    now: Date.now(),
+  });
   const shortMaterials = card.materials.filter((material) => material.isShort);
   const hiddenItems = card.items.length - CARD_ITEMS_SHOWN;
 
@@ -239,7 +289,6 @@ const KanbanCard = ({
             url={coverOf(card)}
             alt={card.items[0]?.designName ?? card.name}
             size={60}
-            caption={photoCount > 0 ? `${photoCount} фото` : undefined}
           />
           <div style={{ display: 'grid', gap: 2, minWidth: 0, flex: 1 }}>
             <div
@@ -276,44 +325,53 @@ const KanbanCard = ({
                 key={item.id}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '28px minmax(0, 1fr) auto',
-                  alignItems: 'center',
+                  gridTemplateColumns: '28px minmax(0, 1fr)',
+                  alignItems: 'start',
                   gap: SPACE.sm,
                   padding: `${SPACE.xs}px 0`,
                   borderTop:
                     index === 0 ? 'none' : `1px solid ${colors.border}`,
                 }}
               >
-                <Photo
-                  url={item.designPhotoUrl}
-                  alt=""
-                  size={28}
-                  radius={5}
-                />
-                <span style={{ ...ELLIPSIS, fontWeight: 600, fontSize: '14px' }}>
-                  {item.designName ?? 'Позиция'}
-                  {item.metalLabel ? (
-                    <span
-                      style={{
-                        marginLeft: SPACE.xs + 2,
-                        fontWeight: 400,
-                        fontSize: '12px',
-                        color: colors.muted,
-                      }}
-                    >
-                      {item.metalLabel}
+                <Photo url={item.designPhotoUrl} alt="" size={28} radius={5} />
+                {/* The size line carries the projection and the install side,
+                    so it gets its own wrapping line instead of squeezing the
+                    design name off a narrow column. */}
+                <span style={{ display: 'grid', minWidth: 0 }}>
+                  <span
+                    style={{
+                      fontWeight: 600,
+                      fontSize: '14px',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {item.designName ?? 'Позиция'}
+                    {item.metalLabel ? (
+                      <span
+                        style={{
+                          marginLeft: SPACE.xs + 2,
+                          fontWeight: 400,
+                          fontSize: '12px',
+                          color: colors.muted,
+                        }}
+                      >
+                        {item.metalLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span
+                    style={{
+                      ...TABULAR_NUMBERS,
+                      fontSize: '14px',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    <strong>{item.size}</strong>
+                    <span style={{ color: colors.muted }}>
+                      {' '}
+                      ×{item.quantity}
                     </span>
-                  ) : null}
-                </span>
-                <span
-                  style={{
-                    ...TABULAR_NUMBERS,
-                    fontSize: '14px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <strong>{item.size}</strong>
-                  <span style={{ color: colors.muted }}> ×{item.quantity}</span>
+                  </span>
                 </span>
               </div>
             ))}
@@ -344,7 +402,15 @@ const KanbanCard = ({
           </div>
         ) : null}
 
-        {card.comment !== null ? (
+        {mediaSummary.photoCount > 0 ||
+        mediaSummary.noteCount > 0 ||
+        mediaSummary.fileCount > 0 ? (
+          <MediaPills summary={mediaSummary} />
+        ) : null}
+
+        {mediaSummary.newestUnseenNote !== null ? (
+          <NewNoteLine note={mediaSummary.newestUnseenNote} />
+        ) : card.comment !== null ? (
           <CommentNote text={card.comment} lines={2} />
         ) : null}
       </div>
@@ -388,7 +454,9 @@ const KanbanCard = ({
           {inProduction ? (
             <SmallButton
               isBusy={isBusy}
-              variant={nextStageOf(card.stage) === 'READY' ? 'primary' : 'quiet'}
+              variant={
+                nextStageOf(card.stage) === 'READY' ? 'primary' : 'quiet'
+              }
               onClick={onNext}
             >
               {NEXT_STEP_LABEL[nextStageOf(card.stage)]}
@@ -531,7 +599,7 @@ const OrderView = ({
   onAskReady,
   onConfirm,
   onCancel,
-  onAddPhotos,
+  onMediaChanged,
 }: {
   order: WorkshopOrder;
   today: string;
@@ -543,12 +611,9 @@ const OrderView = ({
   onAskReady: () => void;
   onConfirm: () => void;
   onCancel: () => void;
-  onAddPhotos: (files: File[]) => void;
+  onMediaChanged: () => void;
 }) => {
   const colors = usePalette();
-  const [photoIndex, setPhotoIndex] = useState(0);
-  const photos = galleryOf(order);
-  const shown = photos[Math.min(photoIndex, photos.length - 1)] ?? null;
   const deadline = buildWorkshopBoard([order], today).columns.flatMap(
     (column) => column.cards,
   )[0];
@@ -593,86 +658,29 @@ const OrderView = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px, 100%), 1fr))',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(min(420px, 100%), 1fr))',
           gap: SPACE.lg,
           alignItems: 'start',
         }}
       >
         <div style={{ display: 'grid', gap: SPACE.lg, minWidth: 0 }}>
-          <SectionCard title="Фото">
-            {shown === null ? (
-              <Hint text="У заказа пока нет фото: ни проёмов с замера, ни решёток в «Ценах»." />
-            ) : (
-              <>
-                <img
-                  src={shown.url}
-                  alt={shown.caption}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    maxWidth: '100%',
-                    aspectRatio: '4 / 3',
-                    objectFit: 'contain',
-                    borderRadius: RADIUS.control,
-                    background: colors.panel,
-                  }}
-                />
-                <span style={{ ...TYPE.label, color: colors.muted }}>
-                  {shown.caption}
-                </span>
-                {photos.length > 1 ? (
-                  <div
-                    style={{ display: 'flex', gap: SPACE.sm, overflowX: 'auto' }}
-                  >
-                    {photos.map((photo, index) => (
-                      <button
-                        key={photo.url}
-                        type="button"
-                        aria-label={photo.caption}
-                        aria-pressed={photo.url === shown.url}
-                        onClick={() => setPhotoIndex(index)}
-                        style={{
-                          flex: 'none',
-                          display: 'grid',
-                          gap: 2,
-                          width: 68,
-                          padding: 0,
-                          borderRadius: RADIUS.control,
-                          border: `2px solid ${photo.url === shown.url ? colors.accent : 'transparent'}`,
-                          background: 'transparent',
-                          color: colors.muted,
-                          font: 'inherit',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Photo url={photo.url} alt="" size={64} />
-                        <span
-                          style={{
-                            ...TYPE.label,
-                            fontSize: '12px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {photo.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </>
-            )}
-            {inProduction ? (
-              <FilePicker
-                text="+ Фото готовой работы"
-                busyText="Загружаем…"
-                accept="image/*"
-                isBusy={isBusy}
-                onPick={onAddPhotos}
-              />
-            ) : null}
-          </SectionCard>
+          <section
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr)',
+              padding: SPACE.lg,
+              borderRadius: RADIUS.card,
+              background: colors.surface,
+              border: `1px solid ${colors.border}`,
+            }}
+          >
+            <OrderMediaBlock
+              orderId={order.id}
+              canFloat
+              onChanged={onMediaChanged}
+            />
+          </section>
 
           <SectionCard
             title={`Что делаем · ${formatQuantity(Math.round(totalArea * 10) / 10, 'м²')}`}
@@ -773,8 +781,21 @@ const OrderView = ({
                       </div>
                     ) : null}
                   </div>
-                  <div style={{ display: 'grid', justifyItems: 'end' }}>
-                    <strong style={{ ...TABULAR_NUMBERS, fontSize: '17px' }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      justifyItems: 'end',
+                      maxWidth: 200,
+                      textAlign: 'right',
+                    }}
+                  >
+                    <strong
+                      style={{
+                        ...TABULAR_NUMBERS,
+                        fontSize: '17px',
+                        overflowWrap: 'anywhere',
+                      }}
+                    >
                       {item.size}
                     </strong>
                     <span
@@ -890,7 +911,13 @@ const OrderView = ({
               ].map(([term, value]) => (
                 <div key={term} style={{ display: 'contents' }}>
                   <dt style={{ color: colors.muted }}>{term}</dt>
-                  <dd style={{ margin: 0, fontWeight: 600, overflowWrap: 'anywhere' }}>
+                  <dd
+                    style={{
+                      margin: 0,
+                      fontWeight: 600,
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
                     {value ?? '—'}
                   </dd>
                 </div>
@@ -935,7 +962,9 @@ const OrderView = ({
                       style={{
                         fontSize: '13px',
                         fontWeight: 600,
-                        color: material.isShort ? colors.danger : colors.success,
+                        color: material.isShort
+                          ? colors.danger
+                          : colors.success,
                       }}
                     >
                       {material.isShort ? 'нет на складе' : 'есть'}
@@ -990,8 +1019,7 @@ export const WorkshopBoard = () => {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<WriteError | null>(null);
-  // Board-wide: the order it is about has left the board by the time it is read.
-  const [photosNote, setPhotosNote] = useState<string | null>(null);
+  const [myMemberId, setMyMemberId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
   // The timer, a write and «Повторить» all read, and a slow answer may come
@@ -1039,6 +1067,10 @@ export const WorkshopBoard = () => {
   }, []);
 
   useEffect(() => {
+    void loadViewer().then((viewer) => setMyMemberId(viewer.memberId));
+  }, []);
+
+  useEffect(() => {
     void load();
 
     const timer = setInterval(() => void load(), RELOAD_MILLISECONDS);
@@ -1078,14 +1110,11 @@ export const WorkshopBoard = () => {
       setConfirmingId((current) => (current === orderId ? null : current));
     } catch (error) {
       const isDenied = isAccessError(error);
-      // «Повторить» would upload the photos that did arrive a second time.
-      const isPartial = error instanceof SomePhotosFailedError;
-
       setWriteError({
         orderId,
-        text: isDenied ? NO_RIGHTS : isPartial ? SOME_PHOTOS_FAILED : SAVE_ERROR,
+        text: isDenied ? NO_RIGHTS : SAVE_ERROR,
         // Trying again cannot help a login that may not make the change.
-        retry: isDenied || isPartial ? undefined : retry,
+        retry: isDenied ? undefined : retry,
       });
     }
 
@@ -1119,52 +1148,6 @@ export const WorkshopBoard = () => {
     const next = nextStageOf(order.stage);
 
     moveTo(order, next === 'READY' ? SENT_KEY : next);
-  };
-
-  const addPhotos = (order: WorkshopOrder, files: File[]) => {
-    if (files.length === 0) return;
-
-    setPhotosNote(null);
-    void write(order.id, async () => {
-      const fieldMetadataId = await fetchFinishedPhotosFieldMetadataId();
-      const uploaded: FinishedPhoto[] = [];
-
-      for (const file of files) {
-        const result = await uploadFile(file, {
-          fieldMetadataId,
-          fileName: file.name,
-        });
-
-        if (result.status === 'uploaded') {
-          uploaded.push({
-            fileId: result.file.fileId,
-            // A tablet camera names every shot image.jpg.
-            label: buildFinishedPhotoLabel(
-              order.name,
-              order.finishedPhotoUrls.length + uploaded.length + 1,
-              file.name,
-            ),
-          });
-        }
-      }
-
-      const saved =
-        uploaded.length > 0
-          ? await addFinishedPhotos(new CoreApiClient(), order.id, uploaded)
-          : 'saved';
-
-      // Nothing was attached, so a partial upload is beside the point; the
-      // reload that follows every write takes the order off the board.
-      if (saved === 'moved') {
-        setPhotosNote(photosNotAttachedNote(order.name));
-
-        return saved;
-      }
-
-      if (uploaded.length < files.length) throw new SomePhotosFailedError();
-
-      return saved;
-    });
   };
 
   const confirmReady = (orderId: string) =>
@@ -1201,6 +1184,7 @@ export const WorkshopBoard = () => {
         setConfirmingId(null);
         setWriteError(null);
       }}
+      myMemberId={myMemberId}
       onDragStart={() => setDraggingId(card.id)}
       onDragEnd={() => {
         setDraggingId(null);
@@ -1229,7 +1213,8 @@ export const WorkshopBoard = () => {
           if (accepts && overKey !== zoneKey) setOverKey(zoneKey);
         }}
         onDrop={() => {
-          if (accepts && draggingOrder !== null) moveTo(draggingOrder, column.key);
+          if (accepts && draggingOrder !== null)
+            moveTo(draggingOrder, column.key);
 
           setDraggingId(null);
           setOverKey(null);
@@ -1378,7 +1363,10 @@ export const WorkshopBoard = () => {
               value={masterKey}
               options={[
                 { value: ALL_MASTERS, label: 'Все' },
-                ...lanes.map((lane) => ({ value: lane.key, label: lane.title })),
+                ...lanes.map((lane) => ({
+                  value: lane.key,
+                  label: lane.title,
+                })),
               ]}
               onChange={setMasterKey}
             />
@@ -1408,7 +1396,6 @@ export const WorkshopBoard = () => {
         {loadError !== null ? (
           <ErrorNote text={loadError} onRetry={() => void load()} />
         ) : null}
-        {photosNote !== null ? <Hint tone="warning" text={photosNote} /> : null}
 
         {openOrder !== null ? (
           <OrderView
@@ -1426,7 +1413,7 @@ export const WorkshopBoard = () => {
               setConfirmingId(null);
               setWriteError(null);
             }}
-            onAddPhotos={(files) => addPhotos(openOrder, files)}
+            onMediaChanged={() => void load()}
           />
         ) : orders !== null ? (
           <>

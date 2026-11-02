@@ -68,11 +68,11 @@ export const VIEW_PART_IDS = {
     fieldsWidget: 'fd5b26b9-dbfc-4783-9534-862d36c319a4',
     timelineTab: '5cbfd025-783d-4bb8-8939-eee74dbc9d67',
     timelineWidget: 'c05473f0-8bc5-4f67-b376-fe2fe5fe5089',
-    notesTab: '380321ca-b431-49bf-af72-fe7358868abc',
-    notesWidget: '3d155d46-a564-4bbc-8f42-70be037b93e1',
+    notesTab: '380321ca-b431-49bf-af72-fe7358868abc', // Retired: photos, notes and files are one block on «Работа»; ids are never reused.
+    notesWidget: '3d155d46-a564-4bbc-8f42-70be037b93e1', // Retired: Twenty's own notes gave way to the order's «Фото и заметки» block; ids are never reused.
     filesTab: '528f1689-57f2-4173-ac15-89be8d272f2d', // Retired: files moved to «Фото и заметки»; ids are never reused.
     filesWidget: 'da9ecc50-b8f3-4756-8b58-d232172e2689', // Retired: sat on the removed tab «Файлы», and the server deletes a widget with its tab; ids are never reused.
-    notesFilesWidget: 'f47172b1-7b46-47b5-a866-724ba0f3503d',
+    notesFilesWidget: 'f47172b1-7b46-47b5-a866-724ba0f3503d', // Retired: Twenty's files widget gave way to the files in «Фото и заметки»; ids are never reused.
     fields: {
       name: 'cd944afe-fb6b-4e38-871e-040261845e7a', // Retired: the column left its view; ids are never reused.
       status: '7d28695b-ea00-4ce5-8d3c-6c15811843e7',

@@ -50,8 +50,8 @@ export default definePageLayout({
       ],
     },
     // On the full page the first tab is pinned to the left column, so this tab
-    // is what the main area opens on: the next step, the схема, then what is
-    // being made.
+    // is what the main area opens on: the next step, photos and notes, the
+    // схема, then what is being made.
     {
       universalIdentifier: ids.itemsTab,
       title: 'Работа',
@@ -66,6 +66,18 @@ export default definePageLayout({
           configuration: {
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier: IDS.orderHeader.frontComponent,
+          },
+        },
+        // Second, so what the measurer, the office and the workshop added is
+        // in view without scrolling
+        {
+          universalIdentifier: IDS.measurementNotes.workTabWidget,
+          title: 'Фото и заметки',
+          type: 'FRONT_COMPONENT',
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              IDS.measurementNotes.frontComponent,
           },
         },
         {
@@ -149,40 +161,6 @@ export default definePageLayout({
           conditionalDisplay: {
             '!!': [{ var: 'selectedRecords.0.contractState' }],
           },
-        },
-      ],
-    },
-    {
-      universalIdentifier: ids.notesTab,
-      title: 'Фото и заметки',
-      position: 20,
-      icon: 'IconNotes',
-      layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
-      widgets: [
-        {
-          universalIdentifier: IDS.measurementNotes.orderPageWidget,
-          title: 'Фото и комментарии',
-          type: 'FRONT_COMPONENT',
-          configuration: {
-            configurationType: 'FRONT_COMPONENT',
-            frontComponentUniversalIdentifier:
-              IDS.measurementNotes.frontComponent,
-          },
-        },
-        {
-          universalIdentifier: ids.notesFilesWidget,
-          title: 'Файлы',
-          type: 'FILES',
-          // Files fill a tab by default, and a tab may hold one such widget.
-          heightBehavior: 'FIT_CONTENT',
-          configuration: { configurationType: 'FILES' },
-        },
-        // The notes list fills the tab, so the SDK requires it to come last.
-        {
-          universalIdentifier: ids.notesWidget,
-          title: 'Заметки',
-          type: 'NOTES',
-          configuration: { configurationType: 'NOTES' },
         },
       ],
     },
