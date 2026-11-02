@@ -279,6 +279,7 @@ export const loadWorkshopOrders = async (
                 createdBy: { name: true, workspaceMemberId: true },
                 orderItemId: true,
                 photos: PHOTO,
+                files: { url: true, label: true },
               },
             },
             pageInfo: PAGE_INFO,
