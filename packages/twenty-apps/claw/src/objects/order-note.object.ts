@@ -11,10 +11,12 @@ import { readableThroughOrder } from 'src/objects/readable-through-order';
 const { orderNote } = IDS;
 
 export const MAX_ORDER_NOTE_PHOTOS = 10;
+export const MAX_ORDER_NOTE_FILES = 10;
 
 // One place for everything people write or photograph about an order, so the
 // order page and «В работе» read the same list. Who wrote it and when are the
-// record's own createdBy and createdAt. A photo with no text is a record too.
+// record's own createdBy and createdAt. A photo or a file with no text is a
+// record too.
 export default defineObject({
   universalIdentifier: orderNote.object,
   nameSingular: 'orderNote',
@@ -41,6 +43,16 @@ export default defineObject({
       icon: 'IconCamera',
       isNullable: true,
       universalSettings: { maxNumberOfValues: MAX_ORDER_NOTE_PHOTOS },
+    },
+    // Documents: PDF, смета, чертёж. The contract has its own screen.
+    {
+      universalIdentifier: orderNote.files,
+      type: FieldType.FILES,
+      name: 'files',
+      label: 'Файлы',
+      icon: 'IconPaperclip',
+      isNullable: true,
+      universalSettings: { maxNumberOfValues: MAX_ORDER_NOTE_FILES },
     },
     {
       universalIdentifier: orderNote.order,

@@ -13,6 +13,7 @@ const EMPTY: OrderMediaSources = {
   orderComment: null,
   finishedPhotos: null,
   locationPhotos: null,
+  schemePdf: null,
   items: [],
   orderNotes: [],
   payments: [],
@@ -51,6 +52,7 @@ const note = (
   authorMemberId: 'member-1',
   orderItemId: null,
   photos: null,
+  files: null,
   ...overrides,
 });
 
@@ -160,9 +162,51 @@ describe('collectOrderMedia', () => {
     expect(collectOrderMedia(EMPTY)).toEqual({
       photos: [],
       notes: [],
+      files: [],
       tags: [],
       openings: [],
     });
+  });
+});
+
+describe('order files', () => {
+  it('lists the documents people added and the printed схема, never the contract', () => {
+    const media = collectOrderMedia({
+      ...EMPTY,
+      items: ITEMS,
+      schemePdf: [{ url: 'https://files/scheme.pdf', label: 'scheme.pdf' }],
+      orderNotes: [
+        note({
+          id: 'with-words',
+          text: 'Смета от поставщика',
+          files: [{ url: 'https://files/smeta.pdf', label: 'Смета.pdf' }],
+        }),
+        note({
+          id: 'alone',
+          text: null,
+          orderItemId: 'item-1',
+          files: [
+            { url: 'https://files/plan.dwg', label: ' ' },
+            { url: '', label: 'broken.pdf' },
+          ],
+        }),
+      ],
+    });
+
+    expect(
+      media.files.map(({ name, tagLabel, noteId }) => [name, tagLabel, noteId]),
+    ).toEqual([
+      ['Смета.pdf', 'Весь заказ', 'with-words'],
+      ['Файл', 'Проём 1', 'alone'],
+      ['Схема для печати (PDF)', 'Весь заказ', null],
+    ]);
+    expect(media.notes.map(({ text, files }) => [text, files])).toEqual([
+      [
+        'Смета от поставщика',
+        [{ url: 'https://files/smeta.pdf', name: 'Смета.pdf' }],
+      ],
+      ['угловое', []],
+    ]);
   });
 });
 
@@ -240,6 +284,7 @@ describe('summarizeOrderMedia', () => {
     ).toEqual({
       photoCount: 1,
       noteCount: 3,
+      fileCount: 0,
       newNoteCount: 2,
       newestUnseenNote: expect.objectContaining({ text: 'Вторая' }),
     });

@@ -4,7 +4,10 @@ import { uploadFile } from 'twenty-sdk/front-component';
 
 import { IDS } from 'src/constants/universal-identifiers';
 import { MAX_LOCATION_PHOTOS } from 'src/location/location';
-import { MAX_ORDER_NOTE_PHOTOS } from 'src/objects/order-note.object';
+import {
+  MAX_ORDER_NOTE_FILES,
+  MAX_ORDER_NOTE_PHOTOS,
+} from 'src/objects/order-note.object';
 import {
   collectOrderMedia,
   type OrderMedia,
@@ -54,6 +57,7 @@ export const loadOrderMedia = async (
               comment: true,
               finishedPhotos: PHOTO,
               locationPhotos: PHOTO,
+              schemePdf: { url: true, label: true },
             },
           },
         },
@@ -82,6 +86,7 @@ export const loadOrderMedia = async (
               createdBy: { name: true, workspaceMemberId: true },
               orderItemId: true,
               photos: PHOTO,
+              files: { url: true, label: true },
             },
           },
         },
@@ -117,6 +122,7 @@ export const loadOrderMedia = async (
     orderComment: order?.comment ?? null,
     finishedPhotos: order?.finishedPhotos ?? null,
     locationPhotos: order?.locationPhotos ?? null,
+    schemePdf: order?.schemePdf ?? null,
     items: (orderItems?.edges ?? []).map(({ node }) => ({
       id: node.id,
       openingNumber: node.openingNumber ?? null,
@@ -135,6 +141,7 @@ export const loadOrderMedia = async (
       authorMemberId: node.createdBy?.workspaceMemberId ?? null,
       orderItemId: node.orderItemId ?? null,
       photos: node.photos ?? null,
+      files: node.files ?? null,
     })),
     payments: payments.map((payment) => ({
       id: payment.id,
@@ -217,22 +224,32 @@ export const saveNote = async ({
   orderItemId,
   text,
   files,
+  documents = [],
 }: {
   orderId: string;
   orderItemId: string | null;
   text: string;
   files: File[];
+  documents?: File[];
 }): Promise<number> => {
-  const kept = files.slice(0, MAX_ORDER_NOTE_PHOTOS);
   const uploaded = await uploadAll(
-    kept,
+    files.slice(0, MAX_ORDER_NOTE_PHOTOS),
     IDS.orderNote.object,
     IDS.orderNote.photos,
     (file, index) => `Фото ${index + 1}${extensionOf(file.name)}`,
   );
+  // A document keeps the name it was given: it is how people find it
+  const uploadedDocuments = await uploadAll(
+    documents.slice(0, MAX_ORDER_NOTE_FILES),
+    IDS.orderNote.object,
+    IDS.orderNote.files,
+    (file) => file.name,
+  );
   const trimmedText = text.trim();
+  const sentCount = files.length + documents.length;
+  const savedCount = uploaded.length + uploadedDocuments.length;
 
-  if (trimmedText === '' && uploaded.length === 0) return files.length;
+  if (trimmedText === '' && savedCount === 0) return sentCount;
 
   await new CoreApiClient().mutation({
     createOrderNote: {
@@ -243,13 +260,14 @@ export const saveNote = async ({
           orderId,
           orderItemId,
           photos: uploaded,
+          files: uploadedDocuments,
         },
       },
       id: true,
     },
   });
 
-  return files.length - uploaded.length;
+  return sentCount - savedCount;
 };
 
 export const updateNoteText = async (noteId: string, text: string) => {

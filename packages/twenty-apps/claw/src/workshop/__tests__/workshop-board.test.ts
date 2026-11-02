@@ -33,7 +33,7 @@ const order = (overrides: Partial<WorkshopOrder>): WorkshopOrder => ({
   services: [],
   materials: [],
   finishedPhotoUrls: [],
-  media: { photos: [], notes: [], tags: [], openings: [] },
+  media: { photos: [], notes: [], files: [], tags: [], openings: [] },
   ...overrides,
 });
 
@@ -211,9 +211,11 @@ describe('readDeadline', () => {
   ])(
     'reads the deadline %s as «%s», «%s»',
     (deadline, badge, daysLeftText, tone) => {
-      expect(readDeadline({ deadline, startDate: null }, TODAY)).toMatchObject(
-        { badge, daysLeftText, tone },
-      );
+      expect(readDeadline({ deadline, startDate: null }, TODAY)).toMatchObject({
+        badge,
+        daysLeftText,
+        tone,
+      });
     },
   );
 

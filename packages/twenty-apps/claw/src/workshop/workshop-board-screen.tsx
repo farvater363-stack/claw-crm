@@ -7,11 +7,13 @@ import {
   CameraIcon,
   NoteIcon,
   OrderMediaBlock,
+  PaperclipIcon,
 } from 'src/order-notes/order-media-block';
 import { loadViewer } from 'src/order-notes/order-media-store';
 import {
   formatNoteTime,
   type MediaNote,
+  filesCountText,
   type MediaSummary,
   notesCountText,
   summarizeOrderMedia,
@@ -152,6 +154,12 @@ const MediaPills = ({ summary }: { summary: MediaSummary }) => {
           {summary.newNoteCount > 0
             ? ` · ${newNotesText(summary.newNoteCount)}`
             : ''}
+        </span>
+      ) : null}
+      {summary.fileCount > 0 ? (
+        <span style={pill(false)}>
+          <PaperclipIcon size={15} />
+          {filesCountText(summary.fileCount)}
         </span>
       ) : null}
     </div>
@@ -394,7 +402,9 @@ const KanbanCard = ({
           </div>
         ) : null}
 
-        {mediaSummary.photoCount > 0 || mediaSummary.noteCount > 0 ? (
+        {mediaSummary.photoCount > 0 ||
+        mediaSummary.noteCount > 0 ||
+        mediaSummary.fileCount > 0 ? (
           <MediaPills summary={mediaSummary} />
         ) : null}
 

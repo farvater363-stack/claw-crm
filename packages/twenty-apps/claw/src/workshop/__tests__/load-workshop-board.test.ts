@@ -390,6 +390,7 @@ describe('loadWorkshopOrders', () => {
       areaSquareMeters: true,
       finishedPhotos: { url: true },
       locationPhotos: { url: true },
+      schemePdf: { url: true, label: true },
       master: { fullName: { firstName: true, lastName: true } },
       installer: { fullName: { firstName: true, lastName: true } },
     });

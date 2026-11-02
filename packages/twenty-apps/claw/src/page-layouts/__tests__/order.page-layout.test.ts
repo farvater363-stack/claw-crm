@@ -13,11 +13,10 @@ const widgetsOf = (tabId: string) =>
   tabs.find((tab) => tab.universalIdentifier === tabId)?.widgets ?? [];
 
 describe('order page', () => {
-  it('has the left column and three tabs', () => {
+  it('has the left column and two tabs', () => {
     expect(tabs.map((tab) => tab.title)).toEqual([
       'Заказ',
       'Работа',
-      'Файлы',
       'История',
     ]);
   });
@@ -72,7 +71,6 @@ describe('order page', () => {
           ids.customMaterialsWidget,
         ],
       ],
-      [ids.notesTab, [ids.notesFilesWidget]],
       [ids.timelineTab, [ids.timelineWidget]],
     ]);
   });
@@ -88,32 +86,26 @@ describe('order page', () => {
     });
   });
 
-  // The server deletes a widget together with its tab, so the files widget
-  // of the removed tab «Файлы» cannot be carried over to another tab.
-  it('gives the files widget on «Файлы» an identifier of its own', () => {
-    const files = widgetsOf(ids.notesTab).find(
-      (widget) => widget.type === 'FILES',
-    );
+  // Photos, notes and files have one place, the block on «Работа». Twenty's
+  // own notes and files widgets and the old tab are gone for good.
+  it('shows photos, notes and files only on «Работа»', () => {
+    const config = JSON.stringify(orderPage.config);
 
-    expect(files?.universalIdentifier).toBe(
-      'f47172b1-7b46-47b5-a866-724ba0f3503d',
-    );
-    expect(JSON.stringify(orderPage.config)).not.toContain(
+    for (const retired of [
+      ids.notesTab,
+      ids.notesWidget,
+      ids.notesFilesWidget,
+      ids.filesTab,
       'da9ecc50-b8f3-4756-8b58-d232172e2689',
-    );
-    expect(JSON.stringify(orderPage.config)).not.toContain(ids.filesTab);
-  });
-
-  // Photos and notes have one place, the block on «Работа»; Twenty's own
-  // notes widget and the block's old spot on the tab are gone for good.
-  it('shows photos and notes only on «Работа», and Twenty notes nowhere', () => {
-    expect(widgetsOf(ids.notesTab).map((widget) => widget.type)).toEqual([
-      'FILES',
-    ]);
-    expect(JSON.stringify(orderPage.config)).not.toContain(ids.notesWidget);
-    expect(JSON.stringify(orderPage.config)).not.toContain(
       IDS.measurementNotes.orderPageWidget,
-    );
+    ]) {
+      expect(config).not.toContain(retired);
+    }
+    expect(
+      tabs
+        .flatMap((tab) => tab.widgets ?? [])
+        .filter((widget) => widget.type === 'NOTES' || widget.type === 'FILES'),
+    ).toEqual([]);
   });
 });
 

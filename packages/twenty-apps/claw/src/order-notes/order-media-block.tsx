@@ -21,9 +21,12 @@ import {
   updateNoteText,
   type Viewer,
 } from 'src/order-notes/order-media-store';
+import { MAX_ORDER_NOTE_FILES } from 'src/objects/order-note.object';
 import {
+  filesCountText,
   formatNoteTime,
   isNewToMe,
+  type MediaFile,
   type MediaNote,
   type MediaPhoto,
   type MediaTagKey,
@@ -65,6 +68,7 @@ type Filter = 'all' | MediaTagKey;
 type Editor =
   | { mode: 'note'; tagKey: MediaTagKey }
   | { mode: 'photo'; tagKey: MediaTagKey }
+  | { mode: 'file'; tagKey: MediaTagKey }
   | { mode: 'edit'; note: MediaNote };
 
 type PickedPhoto = { key: string; file: File; thumbnailUrl: string | null };
@@ -110,6 +114,22 @@ export const NoteIcon = ({ size = 18 }: { size?: number }) => (
     aria-hidden
   >
     <path d="M8 9h8M8 13h6M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z" />
+  </svg>
+);
+
+export const PaperclipIcon = ({ size = 18 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3l6.5-6.5a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9l6.5-6.5" />
   </svg>
 );
 
@@ -523,6 +543,34 @@ const NoteRow = ({
             ))}
           </div>
         ) : null}
+        {note.files.length > 0 ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.xs + 2 }}>
+            {note.files.map((file) => (
+              <a
+                key={file.url}
+                href={file.url}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: SPACE.xs,
+                  maxWidth: '100%',
+                  padding: '2px 10px',
+                  borderRadius: 999,
+                  background: colors.panel,
+                  color: colors.accent,
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                <PaperclipIcon size={14} />
+                {file.name}
+              </a>
+            ))}
+          </div>
+        ) : null}
         {canEdit || canDelete ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.md }}>
             {canEdit ? (
@@ -538,6 +586,94 @@ const NoteRow = ({
               />
             ) : null}
           </div>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
+const FileRow = ({
+  file,
+  isFirst,
+  isNew,
+  canDelete,
+  onDelete,
+}: {
+  file: MediaFile;
+  isFirst: boolean;
+  isNew: boolean;
+  canDelete: boolean;
+  onDelete: () => void;
+}) => {
+  const colors = usePalette();
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '36px minmax(0, 1fr)',
+        gap: SPACE.md - 2,
+        alignItems: 'start',
+        padding: SPACE.md,
+        borderTop: isFirst ? 'none' : `1px solid ${colors.border}`,
+        background: isNew ? colors.note : 'transparent',
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: RADIUS.control,
+          display: 'grid',
+          placeItems: 'center',
+          background: colors.accentTint,
+          color: colors.accent,
+        }}
+      >
+        <PaperclipIcon />
+      </span>
+      <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
+        <a
+          href={file.url}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            ...TYPE.body,
+            color: colors.accent,
+            fontWeight: 600,
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {file.name}
+        </a>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'baseline',
+            gap: `2px ${SPACE.sm}px`,
+            fontSize: '13px',
+            color: colors.muted,
+          }}
+        >
+          {file.authorName !== null ? <span>{file.authorName}</span> : null}
+          {file.createdAt !== null ? (
+            <span>{formatNoteTime(file.createdAt)}</span>
+          ) : null}
+          <span style={tagPillStyle(colors)}>{file.tagLabel}</span>
+          {isNew ? (
+            <span style={{ color: colors.success, fontWeight: 700 }}>
+              новое
+            </span>
+          ) : null}
+        </div>
+        {canDelete ? (
+          <DeleteAction
+            text="Удалить"
+            question="Удалить файл?"
+            onConfirm={onDelete}
+          />
         ) : null}
       </div>
     </div>
@@ -581,10 +717,17 @@ const EditorForm = ({
   media: OrderMedia;
   isBusy: boolean;
   error: string | null;
-  onSave: (draft: { tagKey: MediaTagKey; text: string; files: File[] }) => void;
+  onSave: (draft: {
+    tagKey: MediaTagKey;
+    text: string;
+    files: File[];
+    documents: File[];
+  }) => void;
   onClose: () => void;
 }) => {
   const colors = usePalette();
+  const [documents, setDocuments] = useState<File[]>([]);
+  const isFileMode = editor.mode === 'file';
   const [tagKey, setTagKey] = useState<MediaTagKey>(
     editor.mode === 'edit' ? editor.note.tagKey : editor.tagKey,
   );
@@ -612,6 +755,24 @@ const EditorForm = ({
   };
 
   const save = () => {
+    if (isFileMode) {
+      if (documents.length === 0) {
+        setProblem('Выберите хотя бы один файл');
+
+        return;
+      }
+
+      if (documents.length > MAX_ORDER_NOTE_FILES) {
+        setProblem(`За раз можно добавить до ${MAX_ORDER_NOTE_FILES} файлов`);
+
+        return;
+      }
+
+      onSave({ tagKey, text, files: [], documents });
+
+      return;
+    }
+
     if (isPhotoMode && picked.length === 0) {
       setProblem('Выберите хотя бы одно фото');
 
@@ -634,7 +795,12 @@ const EditorForm = ({
       return;
     }
 
-    onSave({ tagKey, text, files: picked.map((photo) => photo.file) });
+    onSave({
+      tagKey,
+      text,
+      files: picked.map((photo) => photo.file),
+      documents: [],
+    });
   };
 
   return (
@@ -655,9 +821,59 @@ const EditorForm = ({
           />
         </div>
       ) : null}
+      {isFileMode ? (
+        <div style={{ display: 'grid', gap: SPACE.sm }}>
+          {documents.length > 0 ? (
+            <div style={{ display: 'grid', gap: SPACE.xs }}>
+              {documents.map((document, index) => (
+                <div
+                  key={`${document.name}-${index}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: SPACE.sm,
+                    minWidth: 0,
+                  }}
+                >
+                  <PaperclipIcon />
+                  <span
+                    style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}
+                  >
+                    {document.name}
+                  </span>
+                  <Button
+                    variant="link"
+                    onClick={() =>
+                      setDocuments((current) =>
+                        current.filter((_, position) => position !== index),
+                      )
+                    }
+                  >
+                    Убрать
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <FilePicker
+            text={documents.length > 0 ? 'Ещё файл' : 'Выбрать файл'}
+            accept="*/*"
+            onPick={(files) => {
+              setDocuments((current) => [...current, ...files]);
+              setProblem(null);
+            }}
+          />
+        </div>
+      ) : null}
       {!isPhotoMode ? (
         <TextArea
-          label={editor.mode === 'edit' ? 'Текст заметки' : 'Заметка'}
+          label={
+            editor.mode === 'edit'
+              ? 'Текст заметки'
+              : isFileMode
+                ? 'Что это за файл (по желанию)'
+                : 'Заметка'
+          }
           value={text}
           placeholder="Что важно знать по заказу"
           onChange={(value) => {
@@ -666,7 +882,7 @@ const EditorForm = ({
           }}
         />
       ) : null}
-      {editor.mode !== 'edit' ? (
+      {editor.mode !== 'edit' && !isFileMode ? (
         <div style={{ display: 'grid', gap: SPACE.sm }}>
           {!isPhotoMode ? (
             <span
@@ -724,7 +940,9 @@ const EditorForm = ({
             ? picked.length > 0
               ? `Загрузить ${picked.length} фото`
               : 'Загрузить'
-            : 'Сохранить'}
+            : isFileMode && documents.length > 0
+              ? `Загрузить: ${filesCountText(documents.length)}`
+              : 'Сохранить'}
         </Button>
         <Button
           onClick={() => {
@@ -741,9 +959,11 @@ const EditorForm = ({
 const editorTitle = (editor: Editor) =>
   editor.mode === 'photo'
     ? 'Добавить фото'
-    : editor.mode === 'edit'
-      ? 'Изменить заметку'
-      : 'Новая заметка';
+    : editor.mode === 'file'
+      ? 'Добавить файл'
+      : editor.mode === 'edit'
+        ? 'Изменить заметку'
+        : 'Новая заметка';
 
 // One block for everything written or photographed about an order, the same
 // on the order page and in «В работе». It reads the order again after every
@@ -843,6 +1063,10 @@ export const OrderMediaBlock = ({
     filter === 'all'
       ? media.notes
       : media.notes.filter((note) => note.tagKey === filter);
+  const shownFiles =
+    filter === 'all'
+      ? media.files
+      : media.files.filter((file) => file.tagKey === filter);
   const visiblePhotos =
     showAllPhotos || shownPhotos.length <= PHOTOS_SHOWN + 1
       ? shownPhotos
@@ -851,11 +1075,17 @@ export const OrderMediaBlock = ({
     ? shownNotes
     : shownNotes.slice(0, NOTES_SHOWN);
   const defaultTag: MediaTagKey = filter === 'all' ? 'order' : filter;
+  // Notes and files belong to the order or a проём, not to the entrance or the
+  // finished work
+  const defaultNoteTag: MediaTagKey =
+    defaultTag === 'address' || defaultTag === 'finished'
+      ? 'order'
+      : defaultTag;
 
   const afterWrite = async (failedCount: number) => {
     setNotice(
       failedCount > 0
-        ? `${failedCount} фото не загрузились. Добавьте их ещё раз.`
+        ? `${failedCount} шт. не загрузились. Добавьте их ещё раз.`
         : null,
     );
     setEditor(null);
@@ -867,6 +1097,7 @@ export const OrderMediaBlock = ({
     tagKey: MediaTagKey;
     text: string;
     files: File[];
+    documents: File[];
   }) => {
     if (editor === null) return;
 
@@ -893,6 +1124,7 @@ export const OrderMediaBlock = ({
             orderItemId: orderItemIdOf(draft.tagKey),
             text: draft.text,
             files: draft.files,
+            documents: draft.documents,
           }),
         );
       }
@@ -975,7 +1207,10 @@ export const OrderMediaBlock = ({
     );
   }
 
-  const isEmpty = media.photos.length === 0 && media.notes.length === 0;
+  const isEmpty =
+    media.photos.length === 0 &&
+    media.notes.length === 0 &&
+    media.files.length === 0;
 
   return (
     <div
@@ -1009,7 +1244,20 @@ export const OrderMediaBlock = ({
           count={media.notes.length}
           label={notesCountText(media.notes.length)}
         />
+        {media.files.length > 0 ? (
+          <CountPill
+            icon={<PaperclipIcon size={16} />}
+            count={media.files.length}
+            label={filesCountText(media.files.length)}
+          />
+        ) : null}
         <span style={{ flex: 1 }} />
+        <ActionButton
+          variant="quiet"
+          icon={<PaperclipIcon />}
+          text="Файл"
+          onClick={() => openEditor({ mode: 'file', tagKey: defaultNoteTag })}
+        />
         <ActionButton
           variant="quiet"
           icon={<CameraIcon />}
@@ -1020,7 +1268,7 @@ export const OrderMediaBlock = ({
           variant="primary"
           icon={<span aria-hidden>+</span>}
           text="Заметка"
-          onClick={() => openEditor({ mode: 'note', tagKey: defaultTag })}
+          onClick={() => openEditor({ mode: 'note', tagKey: defaultNoteTag })}
         />
       </div>
 
@@ -1034,7 +1282,7 @@ export const OrderMediaBlock = ({
       ) : null}
 
       {isEmpty ? (
-        <Hint text="Пока ни фото, ни заметок. Добавьте первое кнопками выше." />
+        <Hint text="Пока ни фото, ни заметок, ни файлов. Добавьте первое кнопками выше." />
       ) : null}
 
       {media.tags.length > 1 ? (
@@ -1149,6 +1397,42 @@ export const OrderMediaBlock = ({
           <Button variant="link" onClick={() => setShowAllNotes(true)}>
             Показать все {notesCountText(shownNotes.length)}
           </Button>
+        </div>
+      ) : null}
+
+      {shownFiles.length > 0 ? (
+        <div
+          style={{
+            display: 'grid',
+            border: `1px solid ${colors.border}`,
+            borderRadius: RADIUS.control + 2,
+            overflow: 'hidden',
+          }}
+        >
+          {shownFiles.map((file, index) => {
+            const isMine =
+              viewer.memberId !== null &&
+              file.authorMemberId === viewer.memberId;
+            // A file sent with words is taken back with its note
+            const isAlone = !media.notes.some(
+              (note) => note.noteId !== null && note.noteId === file.noteId,
+            );
+
+            return (
+              <FileRow
+                key={file.key}
+                file={file}
+                isFirst={index === 0}
+                isNew={isNewToMe(file, seen)}
+                canDelete={
+                  file.noteId !== null && isAlone && (isMine || viewer.isOwner)
+                }
+                onDelete={() => {
+                  if (file.noteId !== null) void remove(file.noteId);
+                }}
+              />
+            );
+          })}
         </div>
       ) : null}
 

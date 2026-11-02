@@ -3,6 +3,10 @@ import { todayInTashkent } from 'src/pricing/dates';
 import { formatClockTime, formatDayMonth } from 'src/ui/format';
 
 type StoredPhoto = { url?: string | null } | null | undefined;
+type StoredFile =
+  | { url?: string | null; label?: string | null }
+  | null
+  | undefined;
 
 // What a photo or a note is about. «Проём» carries the line's id.
 export type MediaTagKey =
@@ -36,6 +40,21 @@ export type MediaNote = {
   createdAt: string | null;
   isEdited: boolean;
   photoUrls: string[];
+  files: { url: string; name: string }[];
+};
+
+// A document (PDF, смета, чертёж) added to the order. The contract is never
+// one of them: it lives on its own screen.
+export type MediaFile = {
+  key: string;
+  url: string;
+  name: string;
+  tagKey: MediaTagKey;
+  tagLabel: string;
+  noteId: string | null;
+  authorName: string | null;
+  authorMemberId: string | null;
+  createdAt: string | null;
 };
 
 export type MediaOpening = { id: string; label: string };
@@ -43,6 +62,7 @@ export type MediaOpening = { id: string; label: string };
 export type OrderMedia = {
   photos: MediaPhoto[];
   notes: MediaNote[];
+  files: MediaFile[];
   tags: MediaTag[];
   openings: MediaOpening[];
 };
@@ -51,6 +71,8 @@ export type OrderMediaSources = {
   orderComment: string | null;
   finishedPhotos: StoredPhoto[] | null;
   locationPhotos: StoredPhoto[] | null;
+  // «Печать схемы» keeps the printed sheet on the order
+  schemePdf: StoredFile[] | null;
   // In the order the openings were entered; «Проём N» is the form's number
   items: {
     id: string;
@@ -70,6 +92,7 @@ export type OrderMediaSources = {
     authorMemberId: string | null;
     orderItemId: string | null;
     photos: StoredPhoto[] | null;
+    files: StoredFile[] | null;
   }[];
   payments: { id: string; paidOn: string | null; comment: string | null }[];
   stockMovements: { id: string; name: string | null; comment: string | null }[];
@@ -83,6 +106,16 @@ const NEW_WITHOUT_SEEN_MILLISECONDS = 2 * 86_400_000;
 const urlsOf = (photos: StoredPhoto[] | null): string[] =>
   (photos ?? []).flatMap((photo) =>
     typeof photo?.url === 'string' && photo.url !== '' ? [photo.url] : [],
+  );
+
+const filesOf = (
+  files: StoredFile[] | null,
+  fallbackName: string,
+): { url: string; name: string }[] =>
+  (files ?? []).flatMap((file) =>
+    typeof file?.url === 'string' && file.url !== ''
+      ? [{ url: file.url, name: file.label?.trim() || fallbackName }]
+      : [],
   );
 
 const trimmed = (text: string | null | undefined): string => text?.trim() ?? '';
@@ -204,6 +237,7 @@ export const collectOrderMedia = (sources: OrderMediaSources): OrderMedia => {
             createdAt: null,
             isEdited: false,
             photoUrls: [],
+            files: [],
           },
         ];
 
@@ -211,7 +245,7 @@ export const collectOrderMedia = (sources: OrderMediaSources): OrderMedia => {
     ...orderNotes.flatMap((note) => {
       const text = trimmed(note.text);
 
-      // A photo without words sits in the photos only
+      // A photo or a file without words sits in its own list only
       if (text === '') return [];
 
       const created =
@@ -230,6 +264,7 @@ export const collectOrderMedia = (sources: OrderMediaSources): OrderMedia => {
           createdAt: note.createdAt,
           isEdited: updated - created > EDITED_AFTER_MILLISECONDS,
           photoUrls: urlsOf(note.photos),
+          files: filesOf(note.files, 'Файл'),
         },
       ];
     }),
@@ -268,6 +303,30 @@ export const collectOrderMedia = (sources: OrderMediaSources): OrderMedia => {
     ),
   ];
 
+  const files: MediaFile[] = [
+    ...orderNotes.flatMap((note) =>
+      filesOf(note.files, 'Файл').map((file) => ({
+        key: `${note.id}:${file.url}`,
+        ...file,
+        ...tagOf(note.orderItemId),
+        noteId: note.id,
+        authorName: note.authorName,
+        authorMemberId: note.authorMemberId,
+        createdAt: note.createdAt,
+      })),
+    ),
+    ...filesOf(sources.schemePdf, 'Схема для печати').map((file) => ({
+      key: `scheme:${file.url}`,
+      url: file.url,
+      name: 'Схема для печати (PDF)',
+      ...tagOf(null),
+      noteId: null,
+      authorName: null,
+      authorMemberId: null,
+      createdAt: null,
+    })),
+  ];
+
   const countOf = (key: MediaTagKey) =>
     photos.filter((photo) => photo.tagKey === key).length;
   const tags: MediaTag[] = [
@@ -289,7 +348,7 @@ export const collectOrderMedia = (sources: OrderMediaSources): OrderMedia => {
     },
   ].filter((tag) => tag.count > 0);
 
-  return { photos, notes, tags, openings };
+  return { photos, notes, files, tags, openings };
 };
 
 // Something someone else added after this device last opened the order
@@ -314,6 +373,7 @@ export const isNewToMe = (
 export type MediaSummary = {
   photoCount: number;
   noteCount: number;
+  fileCount: number;
   newNoteCount: number;
   // The newest note nobody here has opened yet, for the board card
   newestUnseenNote: MediaNote | null;
@@ -328,6 +388,7 @@ export const summarizeOrderMedia = (
   return {
     photoCount: media.photos.length,
     noteCount: media.notes.length,
+    fileCount: media.files.length,
     newNoteCount: unseen.length,
     newestUnseenNote: unseen[0] ?? null,
   };
@@ -344,6 +405,21 @@ export const notesCountText = (count: number): string => {
         : last >= 2 && last <= 4
           ? 'заметки'
           : 'заметок';
+
+  return `${count} ${word}`;
+};
+
+export const filesCountText = (count: number): string => {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  const word =
+    lastTwo >= 11 && lastTwo <= 14
+      ? 'файлов'
+      : last === 1
+        ? 'файл'
+        : last >= 2 && last <= 4
+          ? 'файла'
+          : 'файлов';
 
   return `${count} ${word}`;
 };

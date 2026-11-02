@@ -164,23 +164,6 @@ export default definePageLayout({
         },
       ],
     },
-    // Documents only (PDF, договор): photos and notes live in their block on
-    // «Работа». The tab keeps its old identifier, so its files widget stays.
-    {
-      universalIdentifier: ids.notesTab,
-      title: 'Файлы',
-      position: 20,
-      icon: 'IconPaperclip',
-      layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
-      widgets: [
-        {
-          universalIdentifier: ids.notesFilesWidget,
-          title: 'Файлы',
-          type: 'FILES',
-          configuration: { configurationType: 'FILES' },
-        },
-      ],
-    },
     {
       universalIdentifier: ids.timelineTab,
       title: 'История',

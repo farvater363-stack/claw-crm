@@ -374,6 +374,7 @@ export const IDS = {
     order: '9fe2713c-bf09-43af-bac2-23759fe53318',
     orderItem: 'aae9f0df-f292-44b0-b6cc-4b08d247d83f',
     photos: 'ccedb668-1ea2-4aa3-8b55-85e837eb2840',
+    files: '2b8c5a5f-86bb-4b3a-9600-c9c905754708',
   },
   clientCall: {
     object: '3c1cd9de-f77a-43b4-9907-8ceb0cb7168a',

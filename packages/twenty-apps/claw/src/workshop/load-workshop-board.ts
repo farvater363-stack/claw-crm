@@ -145,6 +145,7 @@ export const loadWorkshopOrders = async (
             areaSquareMeters: true,
             finishedPhotos: PHOTO,
             locationPhotos: PHOTO,
+            schemePdf: { url: true, label: true },
             master: { fullName: NAME },
             installer: { fullName: NAME },
           },
@@ -421,6 +422,8 @@ export const loadWorkshopOrders = async (
       orderComment: textOrNull(node.comment),
       finishedPhotos: node.finishedPhotos ?? null,
       locationPhotos: node.locationPhotos ?? null,
+      // The workshop prints it; it is shown with the files
+      schemePdf: node.schemePdf ?? null,
       items: itemNodes
         .filter((item) => item.orderId === node.id)
         .map((item) => ({
@@ -443,6 +446,7 @@ export const loadWorkshopOrders = async (
           authorMemberId: note.createdBy?.workspaceMemberId ?? null,
           orderItemId: note.orderItemId ?? null,
           photos: note.photos ?? null,
+          files: note.files ?? null,
         })),
       payments: [],
       stockMovements: [],
