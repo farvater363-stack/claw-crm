@@ -392,7 +392,7 @@ const PhotoViewer = ({
           href={photo.url}
           target="_blank"
           rel="noreferrer"
-          style={{ color: colors.accent, fontWeight: 600, ...TYPE.label }}
+          style={{ ...TYPE.label, color: colors.accent, fontWeight: 600 }}
         >
           Открыть полностью
         </a>

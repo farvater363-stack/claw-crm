@@ -33,6 +33,7 @@ const order = (overrides: Partial<WorkshopOrder>): WorkshopOrder => ({
   services: [],
   materials: [],
   finishedPhotoUrls: [],
+  media: { photos: [], notes: [], tags: [], openings: [] },
   ...overrides,
 });
 
