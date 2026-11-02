@@ -487,6 +487,7 @@ describe('functions role', () => {
         IDS.masterPayment.object,
         IDS.orderPayment.object,
         IDS.order.object,
+        IDS.orderNote.object,
       ].sort(),
     );
     expect(
