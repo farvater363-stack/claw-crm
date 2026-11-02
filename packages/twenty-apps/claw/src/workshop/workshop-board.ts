@@ -6,6 +6,7 @@ import {
   PRODUCTION_STAGE_OPTIONS,
   type ProductionStage,
 } from 'src/constants/select-options';
+import { type OrderMedia } from 'src/order-notes/order-notes';
 import { type SchemeOpening } from 'src/order-sketch/order-sketch';
 
 export type WorkshopItem = {
@@ -71,6 +72,8 @@ export type WorkshopOrder = {
   services: WorkshopService[];
   materials: WorkshopMaterial[];
   finishedPhotoUrls: string[];
+  // Every photo and note of the order, as its «Фото и заметки» block shows them
+  media: OrderMedia;
 };
 
 export type Tone = 'danger' | 'warning' | 'success' | null;
@@ -106,7 +109,9 @@ export const COLUMNS: readonly { key: ColumnKey; title: string }[] = [
   { key: SENT_KEY, title: 'На установку' },
 ];
 
-export const STAGE_COLUMNS = COLUMNS.filter((column) => column.key !== SENT_KEY);
+export const STAGE_COLUMNS = COLUMNS.filter(
+  (column) => column.key !== SENT_KEY,
+);
 
 export type BoardColumn = {
   key: ColumnKey;
@@ -262,7 +267,9 @@ export const buildWorkshopBoard = (
       : onBoard.filter((order) => masterKeyOf(order) === masterKey);
   const cards = [...shown]
     .sort(byUrgencyThenDeadline)
-    .map((order): WorkshopCard => ({ ...order, ...readDeadline(order, today) }));
+    .map(
+      (order): WorkshopCard => ({ ...order, ...readDeadline(order, today) }),
+    );
   const inWork = cards.filter((card) => isInProduction(card.status));
 
   const laneByKey = new Map<string, MasterLane>();

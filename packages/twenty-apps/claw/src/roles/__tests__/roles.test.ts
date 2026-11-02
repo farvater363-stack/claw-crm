@@ -116,7 +116,7 @@ const updatableObjectIds = (role: RoleResult) =>
     .map((permission) => permission.objectUniversalIdentifier);
 
 describe('workshop', () => {
-  it('reads orders and workers, and updates orders only', () => {
+  it('reads orders and workers, and updates orders and their notes only', () => {
     expect(workshopRole.config.canReadAllObjectRecords).toBe(false);
     expect(workshopRole.config.canUpdateAllObjectRecords).toBe(false);
     expect(readableObjectIds(workshopRole)).toEqual(
@@ -128,7 +128,9 @@ describe('workshop', () => {
         IDS.design.object,
       ]),
     );
-    expect(updatableObjectIds(workshopRole)).toEqual([IDS.order.object]);
+    expect(updatableObjectIds(workshopRole).sort()).toEqual(
+      [IDS.order.object, IDS.orderNote.object].sort(),
+    );
   });
 
   // Walks every identifier of the order, so a field added later is read-only
@@ -156,6 +158,7 @@ describe('workshop', () => {
       'moneyEntries',
       'signedContracts',
       'customMaterials',
+      'orderNotes',
     ] as const;
     const retiredKeys = ['masterPayPaid', 'prepayment', 'isUrgent'] as const;
     // The object's own identifier, and the retired fields that are no longer defined.
@@ -261,16 +264,20 @@ describe('workshop', () => {
     }
   });
 
-  it('removes and destroys nothing, and reads no more than before', () => {
+  // A note is the only thing it may take back, and only into the bin
+  it('removes only its notes, destroys nothing, and reads no more than before', () => {
     const permissions = workshopRole.config.objectPermissions ?? [];
 
     expect(workshopRole.config.canSoftDeleteAllObjectRecords).toBe(false);
     expect(workshopRole.config.canDestroyAllObjectRecords).toBe(false);
     expect(
+      permissions
+        .filter((permission) => permission.canSoftDeleteObjectRecords !== false)
+        .map((permission) => permission.objectUniversalIdentifier),
+    ).toEqual([IDS.orderNote.object]);
+    expect(
       permissions.filter(
-        (permission) =>
-          permission.canSoftDeleteObjectRecords !== false ||
-          permission.canDestroyObjectRecords !== false,
+        (permission) => permission.canDestroyObjectRecords !== false,
       ),
     ).toEqual([]);
     expect(
@@ -288,6 +295,7 @@ describe('workshop', () => {
         IDS.grilleKind.object,
         IDS.material.object,
         IDS.orderMaterial.object,
+        IDS.orderNote.object,
       ].sort(),
     );
   });

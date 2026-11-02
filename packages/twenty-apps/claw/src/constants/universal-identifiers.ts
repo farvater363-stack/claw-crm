@@ -147,6 +147,7 @@ export const IDS = {
     updatedBy: '284e5262-be11-5752-8941-bad728697e1a',
     position: '316052eb-83a7-58b4-9e4b-3dffb6a83263',
     moneyEntries: '15523df6-5421-4f8b-a38e-6b93597bde74',
+    orderNotes: 'bb6069e3-c208-4b76-bbe8-d9b889420e32',
   },
   orderItem: {
     object: 'c54a858f-68e0-4901-b5ca-78baedeceb83',
@@ -172,6 +173,7 @@ export const IDS = {
     extraServices: '6eb798db-ed75-4f2e-bc96-79cc81be1ef6',
     product: 'c1df516e-34e6-439d-991e-2bd89295bb73',
     shape: 'a2129e8a-9230-4046-af70-ea699bef9d7e',
+    orderNotes: '6346f4a6-2f7a-411d-8af0-047a66d31b9c',
   },
   orderExtraService: {
     object: '035541ea-e6a3-4338-a841-67b201bdb3d0',
@@ -366,6 +368,13 @@ export const IDS = {
     referrals: '6d67cab3-1647-49b5-85d9-e43a4a0bb0a1',
     calls: '96b39293-bc51-459b-9b22-24a7faa2cf3a',
   },
+  orderNote: {
+    object: 'b8c6bea3-c7c5-433e-862e-0aacf7ace465',
+    text: '3b59b15c-ba23-43e3-a5c7-60da6f78b9f9',
+    order: '9fe2713c-bf09-43af-bac2-23759fe53318',
+    orderItem: 'aae9f0df-f292-44b0-b6cc-4b08d247d83f',
+    photos: 'ccedb668-1ea2-4aa3-8b55-85e837eb2840',
+  },
   clientCall: {
     object: '3c1cd9de-f77a-43b4-9907-8ceb0cb7168a',
     name: 'c24a9f0f-3670-4489-a4bb-6687e4ebe4b8',
@@ -559,7 +568,8 @@ export const IDS = {
   },
   measurementNotes: {
     frontComponent: '74aa9d07-1296-4578-a9e4-a623002c5b4b',
-    orderPageWidget: '4102beab-e8d1-4e1a-a324-982bf1a35ed3',
+    orderPageWidget: '4102beab-e8d1-4e1a-a324-982bf1a35ed3', // Retired: sat on the old «Фото и заметки» tab; the block moved to «Работа»; ids are never reused.
+    workTabWidget: '24b831b4-04bd-4e47-bf1e-dfbe9ddaf143',
   },
   workshopPay: {
     frontComponent: '009d5ad2-d1a0-4e10-bb06-6205bd20c859',

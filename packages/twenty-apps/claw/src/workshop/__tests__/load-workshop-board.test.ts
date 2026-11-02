@@ -2,8 +2,6 @@ import { type CoreApiClient } from 'twenty-client-sdk/core';
 import { describe, expect, it } from 'vitest';
 
 import {
-  addFinishedPhotos,
-  buildFinishedPhotoLabel,
   loadWorkshopOrders,
   markReady,
   setStage,
@@ -156,6 +154,19 @@ const MATERIALS = [
   },
 ];
 
+const NOTES = [
+  {
+    id: 'note-1',
+    orderId: 'order-1',
+    text: 'Высоту проверил, делайте 145',
+    createdAt: '2026-10-01T05:00:00Z',
+    updatedAt: '2026-10-01T05:00:00Z',
+    createdBy: { name: 'Мардон', workspaceMemberId: 'member-9' },
+    orderItemId: 'item-1',
+    photos: [{ url: 'https://files/note.jpg' }],
+  },
+];
+
 const fakeClient = (
   orders: Record<string, unknown>[] = ORDERS,
   // What the filtered update matched: nothing when the order has moved on
@@ -172,6 +183,7 @@ const fakeClient = (
         orderItems: page(ITEMS),
         orderExtraServices: page(SERVICES),
         orderMaterials: page(MATERIALS),
+        orderNotes: page(NOTES),
         workspaceMembers: page([
           { id: 'member-1', name: { firstName: 'Замерщик', lastName: '1' } },
         ]),
@@ -269,6 +281,22 @@ describe('loadWorkshopOrders', () => {
           },
         ],
         finishedPhotoUrls: ['https://files/done.jpg'],
+        media: expect.objectContaining({
+          photos: [
+            expect.objectContaining({ url: 'https://files/note.jpg' }),
+            expect.objectContaining({ url: 'https://files/done.jpg' }),
+            expect.objectContaining({ url: 'https://files/opening.jpg' }),
+          ],
+          notes: [
+            expect.objectContaining({
+              text: 'Высоту проверил, делайте 145',
+              tagLabel: 'Проём 1',
+              authorName: 'Мардон',
+            }),
+            expect.objectContaining({ key: 'order-comment' }),
+            expect.objectContaining({ key: 'item:item-1' }),
+          ],
+        }),
       },
       {
         id: 'order-2',
@@ -310,6 +338,7 @@ describe('loadWorkshopOrders', () => {
         services: [],
         materials: [],
         finishedPhotoUrls: [],
+        media: expect.objectContaining({ photos: [], notes: [] }),
       },
     ]);
     expect(
@@ -318,7 +347,12 @@ describe('loadWorkshopOrders', () => {
       filter: { status: { in: ['PRODUCTION', 'QUALITY_CHECK'] } },
     });
 
-    for (const key of ['orderItems', 'orderExtraServices', 'orderMaterials']) {
+    for (const key of [
+      'orderItems',
+      'orderExtraServices',
+      'orderMaterials',
+      'orderNotes',
+    ]) {
       expect(
         queries.find((request) => request[key])?.[key].__args,
       ).toMatchObject({ filter: { orderId: { in: ['order-1', 'order-2'] } } });
@@ -355,6 +389,7 @@ describe('loadWorkshopOrders', () => {
       installationDeadline: true,
       areaSquareMeters: true,
       finishedPhotos: { url: true },
+      locationPhotos: { url: true },
       master: { fullName: { firstName: true, lastName: true } },
       installer: { fullName: { firstName: true, lastName: true } },
     });
@@ -462,63 +497,5 @@ describe('setStage', () => {
     const { client } = fakeClient(ORDERS, []);
 
     expect(await setStage(client, 'order-1', 'PAINTING')).toBe('moved');
-  });
-});
-
-describe('addFinishedPhotos', () => {
-  const NEW_PHOTO = { fileId: 'file-new', label: 'Готово №1042, фото 2.jpg' };
-
-  it('keeps the photos already on the order and adds the new ones', async () => {
-    const { client, queries, mutations } = fakeClient([
-      {
-        finishedPhotos: [
-          { fileId: 'file-old', label: 'Старое.jpg' },
-          { fileId: null, label: 'broken' },
-        ],
-      },
-    ]);
-
-    expect(await addFinishedPhotos(client, 'order-1', [NEW_PHOTO])).toBe(
-      'saved',
-    );
-    expect(queries[0]?.orders.__args).toMatchObject({
-      filter: { id: { eq: 'order-1' }, status: { eq: 'PRODUCTION' } },
-    });
-    expect(mutations).toEqual([
-      {
-        updateOrders: {
-          __args: {
-            filter: { id: { eq: 'order-1' }, status: { eq: 'PRODUCTION' } },
-            data: {
-              finishedPhotos: [
-                { fileId: 'file-old', label: 'Старое.jpg' },
-                NEW_PHOTO,
-              ],
-            },
-          },
-          id: true,
-        },
-      },
-    ]);
-  });
-
-  it('writes nothing to an order that has left production', async () => {
-    const { client, mutations } = fakeClient([]);
-
-    expect(await addFinishedPhotos(client, 'order-1', [NEW_PHOTO])).toBe(
-      'moved',
-    );
-    expect(mutations).toEqual([]);
-  });
-});
-
-describe('buildFinishedPhotoLabel', () => {
-  it('names the photo after the order, keeping the file type', () => {
-    expect(buildFinishedPhotoLabel('№1042', 3, 'IMG_0042.JPG')).toBe(
-      'Готово №1042, фото 3.jpg',
-    );
-    expect(buildFinishedPhotoLabel('№1042', 1, 'image')).toBe(
-      'Готово №1042, фото 1',
-    );
   });
 });

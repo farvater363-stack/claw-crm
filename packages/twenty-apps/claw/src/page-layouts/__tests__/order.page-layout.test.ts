@@ -17,7 +17,7 @@ describe('order page', () => {
     expect(tabs.map((tab) => tab.title)).toEqual([
       'Заказ',
       'Работа',
-      'Фото и заметки',
+      'Файлы',
       'История',
     ]);
   });
@@ -31,6 +31,7 @@ describe('order page', () => {
   it("reads «Работа» from the header down to the materials, then a «Другая» рисунок's", () => {
     expect(widgetsOf(ids.itemsTab).map((widget) => widget.title)).toEqual([
       'Что дальше',
+      'Фото и заметки',
       'Адрес и точка',
       'Схема',
       'Что делаем',
@@ -59,6 +60,7 @@ describe('order page', () => {
         ids.itemsTab,
         [
           IDS.orderHeader.orderPageWidget,
+          IDS.measurementNotes.workTabWidget,
           IDS.orderLocation.orderPageWidget,
           IDS.orderSketch.orderPageWidget,
           ids.itemsWidget,
@@ -70,14 +72,7 @@ describe('order page', () => {
           ids.customMaterialsWidget,
         ],
       ],
-      [
-        ids.notesTab,
-        [
-          IDS.measurementNotes.orderPageWidget,
-          ids.notesFilesWidget,
-          ids.notesWidget,
-        ],
-      ],
+      [ids.notesTab, [ids.notesFilesWidget]],
       [ids.timelineTab, [ids.timelineWidget]],
     ]);
   });
@@ -95,7 +90,7 @@ describe('order page', () => {
 
   // The server deletes a widget together with its tab, so the files widget
   // of the removed tab «Файлы» cannot be carried over to another tab.
-  it('gives the files widget on «Фото и заметки» an identifier of its own', () => {
+  it('gives the files widget on «Файлы» an identifier of its own', () => {
     const files = widgetsOf(ids.notesTab).find(
       (widget) => widget.type === 'FILES',
     );
@@ -109,17 +104,16 @@ describe('order page', () => {
     expect(JSON.stringify(orderPage.config)).not.toContain(ids.filesTab);
   });
 
-  it('keeps the one widget that fills the tab last', () => {
-    expect(
-      widgetsOf(ids.notesTab).map((widget) => [
-        widget.type,
-        widget.heightBehavior,
-      ]),
-    ).toEqual([
-      ['FRONT_COMPONENT', undefined],
-      ['FILES', 'FIT_CONTENT'],
-      ['NOTES', undefined],
+  // Photos and notes have one place, the block on «Работа»; Twenty's own
+  // notes widget and the block's old spot on the tab are gone for good.
+  it('shows photos and notes only on «Работа», and Twenty notes nowhere', () => {
+    expect(widgetsOf(ids.notesTab).map((widget) => widget.type)).toEqual([
+      'FILES',
     ]);
+    expect(JSON.stringify(orderPage.config)).not.toContain(ids.notesWidget);
+    expect(JSON.stringify(orderPage.config)).not.toContain(
+      IDS.measurementNotes.orderPageWidget,
+    );
   });
 });
 

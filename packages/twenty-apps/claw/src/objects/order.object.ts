@@ -476,6 +476,16 @@ export default defineObject({
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
     {
+      universalIdentifier: IDS.order.orderNotes,
+      type: FieldType.RELATION,
+      name: 'orderNotes',
+      label: 'Заметки',
+      icon: 'IconMessage',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.orderNote.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.orderNote.order,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
+    {
       universalIdentifier: IDS.order.moneyEntries,
       type: FieldType.RELATION,
       name: 'moneyEntries',

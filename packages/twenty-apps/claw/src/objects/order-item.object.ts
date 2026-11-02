@@ -189,5 +189,15 @@ export default defineObject({
         IDS.orderExtraService.orderItem,
       universalSettings: { relationType: RelationType.ONE_TO_MANY },
     },
+    {
+      universalIdentifier: IDS.orderItem.orderNotes,
+      type: FieldType.RELATION,
+      name: 'orderNotes',
+      label: 'Заметки к проёму',
+      icon: 'IconMessage',
+      relationTargetObjectMetadataUniversalIdentifier: IDS.orderNote.object,
+      relationTargetFieldMetadataUniversalIdentifier: IDS.orderNote.orderItem,
+      universalSettings: { relationType: RelationType.ONE_TO_MANY },
+    },
   ]),
 });

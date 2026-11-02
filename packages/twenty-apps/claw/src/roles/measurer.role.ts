@@ -76,6 +76,11 @@ export default defineRole({
     // may take he may also change, and Новый замер's retry of a payment whose
     // answer was lost is an update of the same id.
     createAndEdit(IDS.orderPayment.object),
+    // A note's author may take it back; the order rules limit which.
+    {
+      ...createAndEdit(IDS.orderNote.object),
+      canSoftDeleteObjectRecords: true,
+    },
     // The client is made from the order by the app's own trigger; the
     // measurer only reads it.
     readOnly(STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier),
