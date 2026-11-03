@@ -35,6 +35,8 @@ export type WorkshopService = {
   orderItemId: string | null;
   // «Проём 2» for a козырёк over that проём, or one that is a проём alone
   openingTitle: string | null;
+  // The number of a проём that is a козырёк alone
+  openingNumber: number | null;
 };
 
 export type WorkshopMaterial = {
@@ -267,9 +269,10 @@ export const buildWorkshopBoard = (
       : onBoard.filter((order) => masterKeyOf(order) === masterKey);
   const cards = [...shown]
     .sort(byUrgencyThenDeadline)
-    .map(
-      (order): WorkshopCard => ({ ...order, ...readDeadline(order, today) }),
-    );
+    .map((order): WorkshopCard => ({
+      ...order,
+      ...readDeadline(order, today),
+    }));
   const inWork = cards.filter((card) => isInProduction(card.status));
 
   const laneByKey = new Map<string, MasterLane>();

@@ -2,7 +2,11 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { uploadFile } from 'twenty-sdk/front-component';
 
 import { IDS } from 'src/constants/universal-identifiers';
-import { type SchemeOpening } from 'src/order-sketch/order-sketch';
+import {
+  type SchemeOpening,
+  type SchemeVisorLine,
+  withSchemeVisors,
+} from 'src/order-sketch/order-sketch';
 import { renderSchemePdf } from 'src/order-sketch/scheme-pdf';
 import { fetchFieldMetadataId } from 'src/utils/fetch-field-metadata-id';
 
@@ -11,6 +15,7 @@ export type Scheme = {
   clientName: string | null;
   address: string;
   openings: SchemeOpening[];
+  visors: SchemeVisorLine[];
 };
 
 export const printScheme = async (
@@ -23,7 +28,7 @@ export const printScheme = async (
     subtitle: [scheme.clientName, scheme.address]
       .filter((part) => part !== null && part !== '')
       .join(' · '),
-    openings: scheme.openings,
+    openings: withSchemeVisors(scheme.openings, scheme.visors),
     printedAt: new Date(),
   });
   const fieldMetadataId = await fetchFieldMetadataId(

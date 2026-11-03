@@ -248,6 +248,7 @@ describe('loadWorkshopOrders', () => {
             quantity: 2,
             orderItemId: 'item-1',
             openingTitle: 'Проём 1',
+            openingNumber: null,
           },
           {
             id: 'line-3',
@@ -255,6 +256,7 @@ describe('loadWorkshopOrders', () => {
             quantity: 1.2,
             orderItemId: null,
             openingTitle: 'Проём 3',
+            openingNumber: 3,
           },
           {
             id: 'line-4',
@@ -262,6 +264,7 @@ describe('loadWorkshopOrders', () => {
             quantity: 1,
             orderItemId: null,
             openingTitle: null,
+            openingNumber: null,
           },
         ],
         materials: [

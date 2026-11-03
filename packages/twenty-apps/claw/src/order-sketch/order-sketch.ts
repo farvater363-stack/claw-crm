@@ -43,6 +43,7 @@ export type SchemeItemRow = {
 
 export type SchemeOpening = {
   id: string;
+  number: number;
   title: string;
   designName: string | null;
   // The measurer's note on the opening, for the workshop and the installers
@@ -63,7 +64,23 @@ export type SchemeOpening = {
     // «2,97 м²» for a grille, «4,5 п.м.» for a railing
     unitsText: string;
   } | null;
+  // «Козырёк пластик, 120 см» for each козырёк fitted with it
+  visors?: string[];
+  // A козырёк the measurer gave a проём number of its own, with no решётка
+  isVisorOnly?: boolean;
 };
+
+// An order's козырёк line: over a проём (its item) or a проём alone (its number)
+export type SchemeVisorLine = {
+  id: string;
+  name: string | null;
+  // Running metres for all pieces together
+  quantity: unknown;
+  orderItemId: string | null;
+  openingNumber?: unknown;
+};
+
+const CENTIMETERS_PER_METER = 100;
 
 const toProjectionKind = (value: string | null): ProjectionKind | null =>
   PROJECTION_KIND_OPTIONS.find((option) => option.value === value)?.value ??
@@ -121,6 +138,7 @@ export const toSchemeOpenings = (rows: SchemeItemRow[]): SchemeOpening[] => {
 
       return {
         id: row.id,
+        number,
         title: `Проём ${number}`,
         designName: row.designName,
         notes: row.notes?.trim() || null,
@@ -143,6 +161,64 @@ export const toSchemeOpenings = (rows: SchemeItemRow[]): SchemeOpening[] => {
     });
 };
 
+// The measurer gave one length; the line keeps it times the pieces.
+const describeVisor = (line: SchemeVisorLine, pieces: number): string => {
+  const name = line.name?.trim() || 'Козырёк';
+  const metres = toNumber(line.quantity ?? null);
+
+  return metres === null || pieces <= 0
+    ? name
+    : `${name}, ${Math.round((metres / pieces) * CENTIMETERS_PER_METER)} см`;
+};
+
+// The козырьки go on the Схема with their проём, and one that is a проём alone
+// takes its own place in the numbering, so no проём seems to be missing.
+// A line whose проём was deleted and that has no number of its own is left
+// out: the order page asks to choose its проём.
+export const withSchemeVisors = (
+  openings: SchemeOpening[],
+  lines: SchemeVisorLine[],
+): SchemeOpening[] => {
+  const openingIds = new Set(openings.map((opening) => opening.id));
+  const withVisors = openings.map((opening) => {
+    const visors = lines
+      .filter((line) => line.orderItemId === opening.id)
+      .map((line) => describeVisor(line, opening.quantity));
+
+    return visors.length === 0 ? opening : { ...opening, visors };
+  });
+  const visorsAlone = lines.flatMap((line): SchemeOpening[] => {
+    const number = toNumber(line.openingNumber ?? null);
+
+    if (
+      (line.orderItemId !== null && openingIds.has(line.orderItemId)) ||
+      !isOpeningNumber(number)
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: line.id,
+        number,
+        title: `Проём ${number}`,
+        designName: null,
+        notes: null,
+        quantity: 1,
+        isRailing: false,
+        shape: null,
+        sketch: null,
+        visors: [describeVisor(line, 1)],
+        isVisorOnly: true,
+      },
+    ];
+  });
+
+  return [...withVisors, ...visorsAlone].sort(
+    (left, right) => left.number - right.number,
+  );
+};
+
 export const schemeSketchLayout = (opening: SchemeOpening): SketchLayout =>
   opening.isRailing
     ? layoutRailingSketch({
@@ -158,6 +234,8 @@ export const schemeSketchLayout = (opening: SchemeOpening): SketchLayout =>
       });
 
 export const schemeProductName = (opening: SchemeOpening): string =>
-  opening.isRailing
-    ? railingName(opening.designName)
-    : (opening.designName ?? 'Решётка не выбрана');
+  opening.isVisorOnly === true
+    ? 'Только козырёк'
+    : opening.isRailing
+      ? railingName(opening.designName)
+      : (opening.designName ?? 'Решётка не выбрана');

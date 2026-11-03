@@ -16,6 +16,7 @@ import {
 } from 'src/opening-shape/opening-shape';
 import {
   type SchemeOpening,
+  type SchemeVisorLine,
   schemeProductName,
   schemeSketchLayout,
   toSchemeOpenings,
@@ -31,6 +32,51 @@ const PAGE_SIZE = 200;
 const CARD_MIN_WIDTH_PX = 220;
 // A single column on a phone would draw each проём a full screen tall.
 const SKETCH_MAX_WIDTH_PX = 280;
+
+// Only for the printed sheet; a role that may not read the order's services
+// still prints the проёмы.
+const loadSchemeVisors = async (
+  orderId: string,
+): Promise<SchemeVisorLine[]> => {
+  try {
+    const { orderExtraServices } = await new CoreApiClient().query({
+      orderExtraServices: {
+        __args: {
+          filter: { orderId: { eq: orderId } },
+          first: PAGE_SIZE,
+          orderBy: [{ createdAt: 'AscNullsLast' }],
+        },
+        edges: {
+          node: {
+            id: true,
+            name: true,
+            quantity: true,
+            orderItemId: true,
+            openingNumber: true,
+          },
+        },
+      },
+    });
+
+    return (orderExtraServices?.edges ?? []).flatMap(({ node }) =>
+      node.orderItemId || typeof node.openingNumber === 'number'
+        ? [
+            {
+              id: node.id,
+              name: node.name ?? null,
+              quantity: node.quantity,
+              orderItemId: node.orderItemId ?? null,
+              openingNumber: node.openingNumber ?? null,
+            },
+          ]
+        : [],
+    );
+  } catch (error) {
+    if (!isAccessError(error)) throw error;
+
+    return [];
+  }
+};
 
 const loadScheme = async (orderId: string): Promise<Scheme> => {
   const { orders, orderItems } = await new CoreApiClient().query({
@@ -71,6 +117,7 @@ const loadScheme = async (orderId: string): Promise<Scheme> => {
     },
   });
   const order = orders?.edges[0]?.node;
+  const visors = await loadSchemeVisors(orderId);
 
   return {
     orderName: order?.name ?? '',
@@ -96,6 +143,7 @@ const loadScheme = async (orderId: string): Promise<Scheme> => {
         openingNumber: node.openingNumber ?? null,
       })),
     ),
+    visors,
   };
 };
 

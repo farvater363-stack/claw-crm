@@ -551,6 +551,19 @@ const SchemePdf = ({ order }: { order: WorkshopOrder }) => {
         .filter(Boolean)
         .join(', '),
       openings: order.items.map((item) => item.scheme),
+      visors: order.services.flatMap((service) =>
+        service.orderItemId !== null || service.openingNumber !== null
+          ? [
+              {
+                id: service.id,
+                name: service.name,
+                quantity: service.quantity,
+                orderItemId: service.orderItemId,
+                openingNumber: service.openingNumber,
+              },
+            ]
+          : [],
+      ),
     })
       .then((madeUrl) => {
         setUrl(madeUrl);
