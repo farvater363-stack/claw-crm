@@ -136,13 +136,17 @@ export const renderSchemePdf = async ({
           { size: 11, isBold: true },
         );
 
+        const measureNote = (text: string) =>
+          regular.widthOfTextAtSize(clean(text), NOTE_SIZE);
+        const isVisorOnly = opening.isVisorOnly === true;
         const noteLines = [
           ...(opening.sketch?.sideText ? [opening.sketch.sideText] : []),
+          ...(isVisorOnly ? [] : (opening.visors ?? [])).map((visor) =>
+            ellipsize(`+ ${visor}`, inner - 18, measureNote),
+          ),
           ...(opening.notes === null
             ? []
-            : wrapNote(`Заметка: ${opening.notes}`, inner - 18, (text) =>
-                regular.widthOfTextAtSize(clean(text), NOTE_SIZE),
-              )),
+            : wrapNote(`Заметка: ${opening.notes}`, inner - 18, measureNote)),
         ];
         // The установка and the note go under the sizes and take their
         // height from the drawing
@@ -151,23 +155,30 @@ export const renderSchemePdf = async ({
         const bottom = top - cellHeight;
         const unit = fitSketch(inner - 20, cellHeight - 90 - lift);
 
-        drawSketchLayout(
-          { page, regular, bold, clean },
-          schemeSketchLayout(opening),
-          {
-            left: left + 5 + (inner - SKETCH_WIDTH * unit) / 2,
-            top: top - 30,
-            unit,
-          },
-        );
+        // A козырёк alone has no проём sizes to draw
+        if (!isVisorOnly) {
+          drawSketchLayout(
+            { page, regular, bold, clean },
+            schemeSketchLayout(opening),
+            {
+              left: left + 5 + (inner - SKETCH_WIDTH * unit) / 2,
+              top: top - 30,
+              unit,
+            },
+          );
+        }
         write(schemeProductName(opening), left + 14, bottom + 34 + lift, {
           size: 10,
           isBold: true,
         });
         write(
-          opening.sketch === null
-            ? 'Размеры не указаны'
-            : `${opening.sketch.sizeText} см · ${opening.sketch.unitsText}`,
+          isVisorOnly
+            ? ellipsize((opening.visors ?? []).join('; '), inner - 18, (text) =>
+                regular.widthOfTextAtSize(clean(text), 9),
+              )
+            : opening.sketch === null
+              ? 'Размеры не указаны'
+              : `${opening.sketch.sizeText} см · ${opening.sketch.unitsText}`,
           left + 14,
           bottom + 20 + lift,
           { size: 9, color: MUTED },

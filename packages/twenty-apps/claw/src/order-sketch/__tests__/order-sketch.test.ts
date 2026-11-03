@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { toSchemeOpenings } from 'src/order-sketch/order-sketch';
+import {
+  schemeProductName,
+  toSchemeOpenings,
+  withSchemeVisors,
+} from 'src/order-sketch/order-sketch';
 
 const row = {
   id: 'item-1',
@@ -18,6 +22,7 @@ describe('toSchemeOpenings', () => {
 
     expect(opening).toEqual({
       id: 'item-1',
+      number: 1,
       title: 'Проём 1',
       designName: 'Ромб',
       notes: null,
@@ -110,5 +115,46 @@ describe('toSchemeOpenings', () => {
       { id: 'third', title: 'Проём 3' },
       { id: 'added-later', title: 'Проём 4' },
     ]);
+  });
+});
+
+describe('withSchemeVisors', () => {
+  it('puts each козырёк with its проём and a козырёк alone in its own place', () => {
+    const openings = withSchemeVisors(
+      toSchemeOpenings([
+        { ...row, id: 'first', openingNumber: 1 },
+        { ...row, id: 'third', openingNumber: 3 },
+      ]),
+      [
+        {
+          id: 'over-first',
+          name: 'Козырёк пластик',
+          quantity: 2.4,
+          orderItemId: 'first',
+        },
+        {
+          id: 'alone',
+          name: 'Козырёк металл',
+          quantity: 1.5,
+          orderItemId: null,
+          openingNumber: 2,
+        },
+        {
+          id: 'lost',
+          name: 'Козырёк старый',
+          quantity: 1,
+          orderItemId: 'deleted-item',
+        },
+      ],
+    );
+
+    expect(
+      openings.map((opening) => [opening.title, opening.visors ?? []]),
+    ).toEqual([
+      ['Проём 1', ['Козырёк пластик, 120 см']],
+      ['Проём 2', ['Козырёк металл, 150 см']],
+      ['Проём 3', []],
+    ]);
+    expect(schemeProductName(openings[1])).toBe('Только козырёк');
   });
 });

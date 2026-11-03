@@ -1,7 +1,10 @@
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 
-import { toSchemeOpenings } from 'src/order-sketch/order-sketch';
+import {
+  toSchemeOpenings,
+  withSchemeVisors,
+} from 'src/order-sketch/order-sketch';
 import { renderSchemePdf, wrapNote } from 'src/order-sketch/scheme-pdf';
 
 const row = {
@@ -51,6 +54,36 @@ describe('renderSchemePdf', () => {
     });
 
     expect((await PDFDocument.load(bytes)).getPageCount()).toBe(2);
+  });
+
+  it('prints a козырёк under its проём and a козырёк alone in its own cell', async () => {
+    const openings = withSchemeVisors(
+      toSchemeOpenings([{ ...row, openingNumber: 1 }]),
+      [
+        {
+          id: 'over',
+          name: 'Козырёк пластик',
+          quantity: 1.2,
+          orderItemId: 'item',
+        },
+        {
+          id: 'alone',
+          name: 'Козырёк металл',
+          quantity: 1.5,
+          orderItemId: null,
+          openingNumber: 2,
+        },
+      ],
+    );
+    const bytes = await renderSchemePdf({
+      title: 'Схема №1013',
+      subtitle: 'Азиз Рахимов',
+      openings,
+      printedAt: new Date('2026-10-12T10:00:00Z'),
+    });
+
+    expect(openings).toHaveLength(2);
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
   });
 
   it('wraps a note to the width and ends what does not fit with «…»', () => {

@@ -7,6 +7,7 @@ import {
   type SchemeOpening,
   schemeProductName,
   toSchemeOpenings,
+  withSchemeVisors,
 } from 'src/order-sketch/order-sketch';
 import { fromCurrency } from 'src/recalc/money';
 import { toNumber } from 'src/recalc/load-recalc-input';
@@ -135,9 +136,11 @@ export const loadOrderPost = async (
       },
       edges: {
         node: {
+          id: true,
           name: true,
           quantity: true,
           orderItemId: true,
+          openingNumber: true,
           extraService: { name: true, unit: true },
         },
       },
@@ -190,6 +193,22 @@ export const loadOrderPost = async (
   const isOnOpening = (line: ServiceLine) =>
     line.orderItemId !== null &&
     items.some((item) => item.id === line.orderItemId);
+  const schemeOpenings = withSchemeVisors(
+    openings,
+    (orderExtraServices?.edges ?? []).flatMap(({ node }) =>
+      node.orderItemId || typeof node.openingNumber === 'number'
+        ? [
+            {
+              id: node.id,
+              name: node.extraService?.name ?? node.name ?? null,
+              quantity: node.quantity,
+              orderItemId: node.orderItemId ?? null,
+              openingNumber: node.openingNumber ?? null,
+            },
+          ]
+        : [],
+    ),
+  );
   const total = fromCurrency(order.total);
   const paid = fromCurrency(order.paid) ?? 0;
   const clientName = joinFullName(order.clientFullName);
@@ -259,7 +278,7 @@ export const loadOrderPost = async (
     })),
     point,
     scheme:
-      openings.length === 0
+      schemeOpenings.length === 0
         ? null
         : {
             fileName: `Схема ${orderName}.pdf`.replace(/\s+/g, ' '),
@@ -274,7 +293,7 @@ export const loadOrderPost = async (
             ]
               .filter((part) => part !== null && part !== '')
               .join(' · '),
-            openings,
+            openings: schemeOpenings,
           },
   };
 };

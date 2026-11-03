@@ -374,6 +374,10 @@ export const loadWorkshopOrders = async (
                 quantity: line.quantity ?? 1,
                 orderItemId: shownItemIdOf(line),
                 openingTitle: openingTitleOf(line),
+                openingNumber:
+                  typeof line.openingNumber === 'number'
+                    ? line.openingNumber
+                    : null,
               },
             ];
       });
